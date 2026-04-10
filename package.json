@@ -1,0 +1,14 @@
+{
+  "name": "tk-ops-assistant-v3",
+  "private": true,
+  "version": "0.1.1",
+  "packageManager": "npm@11.6.2",
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "scripts": {
+    "desktop:dev": "npm --prefix apps/desktop run dev",
+    "desktop:build": "npm --prefix apps/desktop run build",
+    "desktop:tauri": "npm --prefix apps/desktop run tauri"
+  }
+}

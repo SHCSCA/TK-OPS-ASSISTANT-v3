@@ -1,0 +1,32 @@
+# Node / Web
+node_modules/
+dist/
+.vite/
+
+# Tauri / Rust
+target/
+src-tauri/target/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environments
+.venv/
+env/
+ENV/
+venv/
+
+# Logs / OS
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+
