@@ -2,14 +2,14 @@
 
 | 字段 | 内容 |
 | --- | --- |
-| 文档版本 | 0.1.1 |
-| 当前工程版本 | 0.1.1 |
+| 文档版本 | 跟随工程主版本（真源：`package.json#version`） |
+| 当前工程版本 | 见根 `package.json#version` |
 
 ## 1. 文档定位与优先级
 
 ### 1.1 文档定位
 
-本文档是 TK-OPS 当前阶段的实现骨架真源，用于补齐 [docs/PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/docs/PRD.md) 与 [docs/UI-DESIGN-PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/docs/UI-DESIGN-PRD.md) 之间尚未固定的目录树、路由清单、模块边界和模型落点。
+本文档是 TK-OPS 当前阶段的实现骨架真源，用于补齐 [docs/PRD.md](./PRD.md) 与 [docs/UI-DESIGN-PRD.md](./UI-DESIGN-PRD.md) 之间尚未固定的目录树、路由清单、模块边界和模型落点。
 
 本文档不负责重新定义产品范围，也不负责替代 UI 视觉规范。它只回答四类问题：
 
@@ -22,22 +22,22 @@
 
 当文档之间出现冲突时，按以下顺序处理：
 
-1. 产品范围、页面目标、能力边界以 [docs/PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/docs/PRD.md) 为准。
-2. 视觉语言、壳层结构、页面布局、设计令牌以 [docs/UI-DESIGN-PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/docs/UI-DESIGN-PRD.md) 为准。
+1. 产品范围、页面目标、能力边界以 [docs/PRD.md](./PRD.md) 为准。
+2. 视觉语言、壳层结构、页面布局、设计令牌以 [docs/UI-DESIGN-PRD.md](./UI-DESIGN-PRD.md) 为准。
 3. 目录树、路由归属、模块责任、模型落点以本文档为准。
-4. 协作流程、工程硬约束、交付规则以 [AGENTS.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/AGENTS.md) 为准。
+4. 协作流程、工程硬约束、交付规则以 [AGENTS.md](../AGENTS.md) 为准。
 
 ### 1.3 文档边界
 
 - 本轮只定义稳定命名、落点和边界，不定义数据库字段级 schema。
 - 本轮只定义资源归属和路由分组，不扩展具体 endpoint 粒度。
-- 本轮只定义目标目录骨架，不代表这些目录已经在仓库中落地。
+- 本轮定义目标目录骨架与边界；当前仓库已创建目录骨架，但业务实现尚未落地。
 
 ## 2. 当前仓库现状与目标状态
 
 ### 2.1 当前仓库现状
 
-当前仓库仍以文档、插件和本地虚拟环境为主，已经存在产品真源、UI 真源和协作手册，但尚未落地以下实现目录：
+当前仓库仍以文档与实现骨架为主，产品真源、UI 真源和协作手册已存在，且以下实现目录骨架已创建：
 
 - `apps/desktop`
 - `apps/py-runtime`
@@ -51,9 +51,9 @@
 
 重要说明：
 
-- 下述目录树是未来目标结构，不代表当前仓库已经存在对应实现。
-- 如果某条路径尚未创建，应在后续获批实现任务中按本文档创建。
-- 不得因为目标目录尚未存在，就把新实现塞回旧目录、单文件脚本或历史壳层目录。
+- 下述目录树已在仓库中创建骨架，当前不代表业务实现已经完整落地。
+- 若后续新增路径尚未创建，应在获批实现任务中按本文档创建。
+- 不得因为业务文件尚未落地，就把新实现塞回旧目录、单文件脚本或历史壳层目录。
 
 ## 3. 目标目录树
 
@@ -177,7 +177,7 @@ type RouteManifestItem = {
 
 ### 4.3 16 个正式路由清单
 
-导航分组必须与 [docs/UI-DESIGN-PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/docs/UI-DESIGN-PRD.md) 当前口径保持一致：
+导航分组必须与 [docs/UI-DESIGN-PRD.md](./UI-DESIGN-PRD.md) 当前口径保持一致：
 
 - 启动与总览
 - 创作前置
@@ -216,7 +216,7 @@ type RouteManifestItem = {
 
 ### 5.1 统一协议约束
 
-Runtime 返回协议继续沿用 [docs/PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/docs/PRD.md) 已确定的统一 JSON 信封：
+Runtime 返回协议继续沿用 [docs/PRD.md](./PRD.md) 已确定的统一 JSON 信封：
 
 - 成功：`{ "ok": true, "data": ... }`
 - 失败：`{ "ok": false, "error": "..." }`
@@ -335,8 +335,8 @@ Runtime 返回协议继续沿用 [docs/PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSIS
 
 1. `docs/ARCHITECTURE-BOOTSTRAP.md` 是否作为实现骨架真源被引用。
 2. 正式路由数量是否仍为 16。
-3. 路由 ID 是否与 [docs/PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/docs/PRD.md) 完全一致。
-4. 导航分组是否与 [docs/UI-DESIGN-PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/docs/UI-DESIGN-PRD.md) 当前分组一致。
+3. 路由 ID 是否与 [docs/PRD.md](./PRD.md) 完全一致。
+4. 导航分组是否与 [docs/UI-DESIGN-PRD.md](./UI-DESIGN-PRD.md) 当前分组一致。
 5. 文档是否明确说明“目标目录树是未来结构，不代表当前仓库已落地”。
-6. 是否坚持沿用 [docs/PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/docs/PRD.md) 中既有 JSON 信封，而没有发明第二套返回协议。
+6. 是否坚持沿用 [docs/PRD.md](./PRD.md) 中既有 JSON 信封，而没有发明第二套返回协议。
 7. 每个核心模型是否都能在本文档里找到明确归属目录和主要消费者。

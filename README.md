@@ -2,9 +2,16 @@
 
 TK-OPS 当前处于工程骨架阶段，产品与设计真源位于 `docs/`，实现入口统一收敛到根级工作区。
 
-## 当前版本
+## 版本真源
 
-- 工程版本：`0.1.1`
+- TK-OPS 主版本唯一可编辑真源：根 `package.json` 的 `version`。
+- 必需镜像版本字段（自动同步，不手工多点维护）：
+  - `apps/desktop/src-tauri/Cargo.toml`
+  - `apps/py-runtime/pyproject.toml`
+  - `apps/desktop/src-tauri/tauri.conf.json`
+- 常用命令：
+  - `npm run version:sync`
+  - `npm run version:check`
 
 ## 仓库结构
 

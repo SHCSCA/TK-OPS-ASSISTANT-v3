@@ -9,6 +9,8 @@
   "scripts": {
     "desktop:dev": "npm --prefix apps/desktop run dev",
     "desktop:build": "npm --prefix apps/desktop run build",
-    "desktop:tauri": "npm --prefix apps/desktop run tauri"
+    "desktop:tauri": "npm --prefix apps/desktop run tauri",
+    "version:sync": "node scripts/version-sync.mjs",
+    "version:check": "node scripts/version-check.mjs"
   }
 }

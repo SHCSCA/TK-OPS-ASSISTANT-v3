@@ -5,7 +5,7 @@
 | 字段 | 内容 |
 | --- | --- |
 | 文档名称 | TK-OPS 统一 UI 设计 PRD |
-| 文档版本 | 0.1.1 |
+| 文档版本 | 跟随工程主版本（真源：`package.json#version`） |
 | 文档路径 | `docs/UI-DESIGN-PRD.md` |
 | 文档语言 | 中文 |
 | 对应产品文档 | `docs/PRD.md` |
@@ -587,7 +587,7 @@ Sidebar
 3. 所有页面必须围绕真实 Runtime 数据、真实任务状态和真实日志设计。
 4. AI 功能必须与当前页面上下文绑定，不做无来源的孤立弹窗能力。
 5. 账号、设备、自动化、发布、渲染和复盘页面都必须与项目上下文可跳转。
-6. 视觉语言要与 [docs/PRD.md](/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/docs/PRD.md) 保持一致，不回到旧企业后台口径。
+6. 视觉语言要与 [docs/PRD.md](./PRD.md) 保持一致，不回到旧企业后台口径。
 
 ## 15. 结论
 
