@@ -24,4 +24,18 @@ def initialize_schema(database_path: Path) -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS license_grant (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                active INTEGER NOT NULL,
+                restricted_mode INTEGER NOT NULL,
+                machine_id TEXT NOT NULL,
+                machine_bound INTEGER NOT NULL,
+                activation_mode TEXT NOT NULL,
+                masked_code TEXT NOT NULL,
+                activated_at TEXT
+            )
+            """
+        )
         connection.commit()

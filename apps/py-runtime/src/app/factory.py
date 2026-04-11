@@ -9,24 +9,33 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from api.routes import settings_router
+from api.routes import license_router, settings_router
 from app.config import load_runtime_config
 from app.logging import configure_logging, log_event, pop_request_id, push_request_id
 from app.secret_store import NoopSecretStore
+from repositories.license_repository import LicenseRepository
 from repositories.system_config_repository import SystemConfigRepository
 from schemas.envelope import error_response
+from services.license_activation import PlaceholderLicenseActivationAdapter
+from services.license_service import LicenseService
 from services.settings_service import SettingsService
 
 
 def create_app() -> FastAPI:
     runtime_config = load_runtime_config()
     settings_repository = SystemConfigRepository(runtime_config.database_path)
+    license_repository = LicenseRepository(runtime_config.database_path)
     settings_service = SettingsService(
         runtime_config=runtime_config,
         repository=settings_repository,
         on_settings_updated=lambda settings: configure_logging(
             Path(settings.paths.logDir), settings.logging.level
         ),
+    )
+    license_service = LicenseService(
+        runtime_config=runtime_config,
+        repository=license_repository,
+        activation_adapter=PlaceholderLicenseActivationAdapter(),
     )
     current_settings = settings_service.get_settings()
     configure_logging(Path(current_settings.paths.logDir), current_settings.logging.level)
@@ -38,6 +47,7 @@ def create_app() -> FastAPI:
     )
     app.state.runtime_config = runtime_config
     app.state.secret_store = NoopSecretStore()
+    app.state.license_service = license_service
     app.state.settings_service = settings_service
 
     @app.middleware("http")
@@ -120,6 +130,7 @@ def create_app() -> FastAPI:
             content=error_response("Internal server error", request_id=request_id),
         )
 
+    app.include_router(license_router)
     app.include_router(settings_router)
     log_event(
         "system",

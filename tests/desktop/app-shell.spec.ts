@@ -18,7 +18,7 @@ function okJsonResponse(data: unknown) {
 
 function mountApp(path: string) {
   const pinia = createPinia();
-  const router = createAppRouter(createMemoryHistory());
+  const router = createAppRouter(pinia, createMemoryHistory());
   router.push(path);
 
   return router.isReady().then(() =>
@@ -41,6 +41,17 @@ describe("App shell", () => {
       "fetch",
       vi
         .fn()
+        .mockResolvedValueOnce(
+          okJsonResponse({
+            active: true,
+            restrictedMode: false,
+            machineId: "machine-001",
+            machineBound: true,
+            activationMode: "placeholder",
+            maskedCode: "TK-O****************0001",
+            activatedAt: "2026-04-11T00:00:00Z"
+          })
+        )
         .mockResolvedValueOnce(
           okJsonResponse({
             service: "online",
@@ -89,5 +100,6 @@ describe("App shell", () => {
     expect(wrapper.findAll("[data-route-id]")).toHaveLength(16);
     expect(wrapper.text()).toContain("Runtime online");
     expect(wrapper.text()).toContain("Config ready");
+    expect(wrapper.text()).toContain("License active");
   });
 });

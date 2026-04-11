@@ -1,6 +1,8 @@
-import type {
+﻿import type {
   AppSettings,
   AppSettingsUpdateInput,
+  LicenseActivationInput,
+  LicenseStatus,
   RuntimeDiagnostics,
   RuntimeEnvelope,
   RuntimeRequestErrorShape,
@@ -46,6 +48,17 @@ export async function updateRuntimeConfig(
 
 export async function fetchRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
   return requestRuntime<RuntimeDiagnostics>("/api/settings/diagnostics");
+}
+
+export async function fetchLicenseStatus(): Promise<LicenseStatus> {
+  return requestRuntime<LicenseStatus>("/api/license/status");
+}
+
+export async function activateLicense(input: LicenseActivationInput): Promise<LicenseStatus> {
+  return requestRuntime<LicenseStatus>("/api/license/activate", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
 }
 
 async function requestRuntime<T>(path: string, init: RequestInit = {}): Promise<T> {

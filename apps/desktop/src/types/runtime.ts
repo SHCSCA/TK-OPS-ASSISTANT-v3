@@ -1,8 +1,22 @@
-export type RuntimeHealthSnapshot = {
+﻿export type RuntimeHealthSnapshot = {
   service: string;
   version: string;
   now: string;
   mode: string;
+};
+
+export type LicenseStatus = {
+  active: boolean;
+  restrictedMode: boolean;
+  machineId: string;
+  machineBound: boolean;
+  activationMode: string;
+  maskedCode: string;
+  activatedAt: string | null;
+};
+
+export type LicenseActivationInput = {
+  activationCode: string;
 };
 
 export type AppSettings = {

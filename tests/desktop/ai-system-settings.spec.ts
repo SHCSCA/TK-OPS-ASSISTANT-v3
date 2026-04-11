@@ -30,7 +30,7 @@ function errorJsonResponse(status: number, error: string, requestId = "req-offli
 
 async function mountApp(path: string) {
   const pinia = createPinia();
-  const router = createAppRouter(createMemoryHistory());
+  const router = createAppRouter(pinia, createMemoryHistory());
   router.push(path);
   await router.isReady();
 
@@ -53,6 +53,17 @@ describe("AI system settings", () => {
 
     const fetchMock = vi
       .fn()
+      .mockResolvedValueOnce(
+        okJsonResponse({
+          active: true,
+          restrictedMode: false,
+          machineId: "machine-001",
+          machineBound: true,
+          activationMode: "placeholder",
+          maskedCode: "TK-O****************0001",
+          activatedAt: "2026-04-11T08:00:00Z"
+        })
+      )
       .mockResolvedValueOnce(
         okJsonResponse({
           service: "online",
@@ -142,6 +153,7 @@ describe("AI system settings", () => {
     expect(
       (wrapper.get('[data-field="ai.model"]').element as HTMLInputElement).value
     ).toBe("gpt-5.4");
+    expect(wrapper.text()).toContain("TK-O****************0001");
 
     vi.setSystemTime(new Date("2026-04-11T08:05:00.000Z"));
     await wrapper.get('[data-field="runtime.mode"]').setValue("production");
@@ -178,7 +190,20 @@ describe("AI system settings", () => {
   it("shows runtime offline state and error summary when runtime requests fail", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(errorJsonResponse(503, "Runtime unavailable", "req-503"))
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          okJsonResponse({
+            active: false,
+            restrictedMode: true,
+            machineId: "machine-001",
+            machineBound: false,
+            activationMode: "placeholder",
+            maskedCode: "",
+            activatedAt: null
+          })
+        )
+        .mockResolvedValue(errorJsonResponse(503, "Runtime unavailable", "req-503"))
     );
 
     const wrapper = await mountApp("/settings/ai-system");
