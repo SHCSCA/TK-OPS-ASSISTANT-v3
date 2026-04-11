@@ -9,6 +9,10 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url))
     }
   },
+  test: {
+    environment: "jsdom",
+    include: ["../../tests/desktop/**/*.spec.ts"]
+  },
   server: {
     host: "127.0.0.1",
     port: 1420,

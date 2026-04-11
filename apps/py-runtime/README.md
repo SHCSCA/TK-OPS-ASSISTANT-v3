@@ -1,18 +1,26 @@
-# Python Runtime Skeleton
+# Python Runtime M0
 
 `apps/py-runtime` 是 TK-OPS 的本地 Python Runtime 入口，技术主线固定为 `Python + FastAPI + SQLAlchemy + Alembic`。
 
 ## 当前职责
 
-- 预留 Runtime 路由、服务、模型、任务、媒体流水线和 AI Provider 适配层。
+- 提供最小 FastAPI 应用、基础配置与日志初始化。
+- 提供 `/api/settings/health` 健康检查接口，并遵守统一 JSON 信封协议。
 - 固定 `src/` 下的模块边界，为后续真实接口和模型实现提供稳定落点。
-- 为下一轮“最小可启动 Runtime”保留 `pyproject.toml` 和源码目录结构。
+- 为下一轮真实服务、任务和模型实现提供入口结构。
 
 ## 本轮未做
 
-- 未实现 FastAPI 应用。
-- 未定义任何 `/api/*` 真实路由。
-- 未创建数据库模型、Pydantic schema 或任务执行逻辑。
+- 未实现除健康检查以外的业务接口。
+- 未创建数据库模型、仓储和任务执行逻辑。
+- 未接入 WebSocket、持久化和媒体流水线。
+
+## 本地运行
+
+- 安装依赖：`python -m pip install -e "./apps/py-runtime[dev]"`
+- 启动 Runtime：`python -m uvicorn main:app --app-dir apps/py-runtime/src --host 127.0.0.1 --port 8000 --reload`
+- 运行 Runtime 测试：`python -m pytest tests/runtime -q`
+- 运行契约测试：`python -m pytest tests/contracts -q`
 
 ## 目录说明
 

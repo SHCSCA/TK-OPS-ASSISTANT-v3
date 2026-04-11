@@ -16,5 +16,14 @@ dependencies = [
   "pydantic>=2.11,<3.0"
 ]
 
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<1.0",
+  "pytest>=8.3,<9.0"
+]
+
 [tool.setuptools]
 package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
