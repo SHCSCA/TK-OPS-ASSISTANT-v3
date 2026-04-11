@@ -1,0 +1,46 @@
+﻿from __future__ import annotations
+
+from pydantic import BaseModel, Field
+
+from schemas.tasks import TaskStatus
+
+
+class AIJobRecordDto(BaseModel):
+    id: str
+    capabilityId: str
+    provider: str
+    model: str
+    status: TaskStatus
+    error: str | None
+    durationMs: int | None
+    createdAt: str
+    completedAt: str | None
+
+
+class ScriptSaveInput(BaseModel):
+    content: str = Field(min_length=1)
+
+
+class ScriptGenerateInput(BaseModel):
+    topic: str = Field(min_length=1)
+
+
+class ScriptRewriteInput(BaseModel):
+    instructions: str = Field(min_length=1)
+
+
+class ScriptVersionDto(BaseModel):
+    revision: int
+    source: str
+    content: str
+    provider: str | None = None
+    model: str | None = None
+    aiJobId: str | None = None
+    createdAt: str
+
+
+class ScriptDocumentDto(BaseModel):
+    projectId: str
+    currentVersion: ScriptVersionDto | None
+    versions: list[ScriptVersionDto]
+    recentJobs: list[AIJobRecordDto]

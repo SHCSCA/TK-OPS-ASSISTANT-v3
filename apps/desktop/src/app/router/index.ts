@@ -9,6 +9,7 @@
 import type { Pinia } from "pinia";
 
 import { useLicenseStore } from "@/stores/license";
+import { useProjectStore } from "@/stores/project";
 
 import { routeIds } from "./route-ids";
 import { routeManifest } from "./route-manifest";
@@ -57,6 +58,7 @@ export function createAppRouter(
 
   router.beforeEach(async (to) => {
     const licenseStore = useLicenseStore(pinia);
+    const projectStore = useProjectStore(pinia);
     const target = findRouteItem(to);
     if (!target) {
       return true;
@@ -77,6 +79,22 @@ export function createAppRouter(
           redirect: to.fullPath
         }
       };
+    }
+
+    if (target.requiresProjectContext) {
+      if (projectStore.status === "idle") {
+        await projectStore.load();
+      }
+
+      if (!projectStore.currentProject) {
+        return {
+          path: "/dashboard",
+          query: {
+            redirect: to.fullPath,
+            reason: "missing-project"
+          }
+        };
+      }
     }
 
     return true;

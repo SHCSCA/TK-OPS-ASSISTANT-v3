@@ -14,6 +14,9 @@
     <p v-if="store.error" class="settings-page__error">
       {{ errorSummary }}
     </p>
+    <p v-if="capabilityStore.error" class="settings-page__error">
+      {{ capabilityErrorSummary }}
+    </p>
 
     <form class="settings-page__grid" @submit.prevent="handleSave">
       <section class="placeholder-card settings-card">
@@ -100,22 +103,135 @@
           Save settings
         </button>
       </div>
+
+      <section class="placeholder-card settings-card settings-card--wide">
+        <div class="editor-card__header">
+          <div>
+            <h2>AI Capability Center</h2>
+            <p class="workspace-page__summary">
+              能力级配置是页面调用 AI 的唯一入口，页面只选能力，不再自己拼 provider 和 model。
+            </p>
+          </div>
+          <button
+            class="dashboard-list__action"
+            type="button"
+            data-action="save-capabilities"
+            :disabled="isCapabilityDisabled"
+            @click="handleSaveCapabilities"
+          >
+            Save capabilities
+          </button>
+        </div>
+
+        <div v-if="capabilityForms.length === 0" class="empty-state">
+          AI capabilities have not loaded yet.
+        </div>
+        <div v-else class="capability-grid">
+          <article
+            v-for="capability in capabilityForms"
+            :key="capability.capabilityId"
+            class="capability-card"
+          >
+            <div class="capability-card__header">
+              <h3>{{ capability.capabilityId }}</h3>
+              <label class="capability-card__toggle">
+                <input
+                  v-model="capability.enabled"
+                  :data-field="`capability.${capability.capabilityId}.enabled`"
+                  type="checkbox"
+                  :disabled="isCapabilityDisabled"
+                />
+                enabled
+              </label>
+            </div>
+            <label class="settings-field">
+              <span>Provider</span>
+              <input
+                v-model="capability.provider"
+                :data-field="`capability.${capability.capabilityId}.provider`"
+                :disabled="isCapabilityDisabled"
+              />
+            </label>
+            <label class="settings-field">
+              <span>Model</span>
+              <input
+                v-model="capability.model"
+                :data-field="`capability.${capability.capabilityId}.model`"
+                :disabled="isCapabilityDisabled"
+              />
+            </label>
+            <label class="settings-field">
+              <span>Agent Role</span>
+              <input
+                v-model="capability.agentRole"
+                :data-field="`capability.${capability.capabilityId}.agentRole`"
+                :disabled="isCapabilityDisabled"
+              />
+            </label>
+            <label class="settings-field">
+              <span>System Prompt</span>
+              <textarea
+                v-model="capability.systemPrompt"
+                class="editor-textarea editor-textarea--compact"
+                :data-field="`capability.${capability.capabilityId}.systemPrompt`"
+                :disabled="isCapabilityDisabled"
+              />
+            </label>
+            <label class="settings-field">
+              <span>User Prompt Template</span>
+              <textarea
+                v-model="capability.userPromptTemplate"
+                class="editor-textarea editor-textarea--compact"
+                :data-field="`capability.${capability.capabilityId}.userPromptTemplate`"
+                :disabled="isCapabilityDisabled"
+              />
+            </label>
+          </article>
+        </div>
+      </section>
+
+      <section class="placeholder-card settings-card settings-card--wide">
+        <h2>Provider Status</h2>
+        <div class="provider-grid">
+          <article
+            v-for="provider in capabilityStore.settings?.providers ?? []"
+            :key="provider.provider"
+            class="provider-card"
+            :data-provider-id="provider.provider"
+          >
+            <h3>{{ provider.label }}</h3>
+            <p>{{ provider.provider }}</p>
+            <p>{{ provider.configured ? provider.maskedSecret : "Not configured" }}</p>
+            <p>{{ provider.supportsTextGeneration ? "Text generation ready" : "Registered only" }}</p>
+          </article>
+        </div>
+      </section>
     </form>
   </section>
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, reactive, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 
+import { useAICapabilityStore } from "@/stores/ai-capability";
 import { useConfigBusStore } from "@/stores/config-bus";
-import type { AppSettings, AppSettingsUpdateInput } from "@/types/runtime";
+import type {
+  AICapabilityConfig,
+  AppSettings,
+  AppSettingsUpdateInput
+} from "@/types/runtime";
 
 const store = useConfigBusStore();
+const capabilityStore = useAICapabilityStore();
 const { settings } = storeToRefs(store);
 const form = reactive<AppSettingsUpdateInput>(createEmptySettingsInput());
+const capabilityForms = ref<AICapabilityConfig[]>([]);
 
 const isDisabled = computed(() => store.status === "saving" || settings.value === null);
+const isCapabilityDisabled = computed(
+  () => capabilityStore.status === "loading" || capabilityStore.status === "saving"
+);
 const errorSummary = computed(() => {
   if (!store.error) {
     return "";
@@ -124,6 +240,15 @@ const errorSummary = computed(() => {
   return store.error.requestId
     ? `${store.error.message} (${store.error.requestId})`
     : store.error.message;
+});
+const capabilityErrorSummary = computed(() => {
+  if (!capabilityStore.error) {
+    return "";
+  }
+
+  return capabilityStore.error.requestId
+    ? `${capabilityStore.error.message} (${capabilityStore.error.requestId})`
+    : capabilityStore.error.message;
 });
 
 watch(
@@ -137,9 +262,28 @@ watch(
   },
   { immediate: true }
 );
+watch(
+  () => capabilityStore.settings,
+  (value) => {
+    capabilityForms.value = (value?.capabilities ?? []).map((item) => ({ ...item }));
+  },
+  { immediate: true }
+);
+
+onMounted(() => {
+  if (capabilityStore.status === "idle") {
+    void capabilityStore.load();
+  }
+});
 
 async function handleSave(): Promise<void> {
   await store.save(cloneSettingsInput(form));
+}
+
+async function handleSaveCapabilities(): Promise<void> {
+  await capabilityStore.saveCapabilities(
+    capabilityForms.value.map((item) => ({ ...item }))
+  );
 }
 
 function createEmptySettingsInput(): AppSettingsUpdateInput {

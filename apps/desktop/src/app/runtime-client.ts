@@ -1,12 +1,21 @@
-﻿import type {
+import type {
+  AICapabilitySettings,
+  AIProviderHealth,
+  AIProviderSecretInput,
   AppSettings,
   AppSettingsUpdateInput,
+  CreateProjectInput,
+  CurrentProjectContext,
+  DashboardSummary,
   LicenseActivationInput,
   LicenseStatus,
   RuntimeDiagnostics,
   RuntimeEnvelope,
   RuntimeRequestErrorShape,
-  RuntimeHealthSnapshot
+  RuntimeHealthSnapshot,
+  ScriptDocument,
+  StoryboardDocument,
+  StoryboardScene
 } from "@/types/runtime";
 
 const DEFAULT_RUNTIME_BASE_URL = "http://127.0.0.1:8000";
@@ -50,6 +59,32 @@ export async function fetchRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
   return requestRuntime<RuntimeDiagnostics>("/api/settings/diagnostics");
 }
 
+export async function fetchDashboardSummary(): Promise<DashboardSummary> {
+  return requestRuntime<DashboardSummary>("/api/dashboard/summary");
+}
+
+export async function createDashboardProject(
+  input: CreateProjectInput
+): Promise<DashboardSummary["recentProjects"][number]> {
+  return requestRuntime<DashboardSummary["recentProjects"][number]>("/api/dashboard/projects", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function fetchCurrentProjectContext(): Promise<CurrentProjectContext | null> {
+  return requestRuntime<CurrentProjectContext | null>("/api/dashboard/context");
+}
+
+export async function updateCurrentProjectContext(
+  projectId: string
+): Promise<CurrentProjectContext> {
+  return requestRuntime<CurrentProjectContext>("/api/dashboard/context", {
+    body: JSON.stringify({ projectId }),
+    method: "PUT"
+  });
+}
+
 export async function fetchLicenseStatus(): Promise<LicenseStatus> {
   return requestRuntime<LicenseStatus>("/api/license/status");
 }
@@ -57,6 +92,93 @@ export async function fetchLicenseStatus(): Promise<LicenseStatus> {
 export async function activateLicense(input: LicenseActivationInput): Promise<LicenseStatus> {
   return requestRuntime<LicenseStatus>("/api/license/activate", {
     body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function fetchAICapabilitySettings(): Promise<AICapabilitySettings> {
+  return requestRuntime<AICapabilitySettings>("/api/settings/ai-capabilities");
+}
+
+export async function updateAICapabilitySettings(
+  capabilities: AICapabilitySettings["capabilities"]
+): Promise<AICapabilitySettings> {
+  return requestRuntime<AICapabilitySettings>("/api/settings/ai-capabilities", {
+    body: JSON.stringify({ capabilities }),
+    method: "PUT"
+  });
+}
+
+export async function updateAIProviderSecret(
+  providerId: string,
+  input: AIProviderSecretInput
+) {
+  return requestRuntime(`/api/settings/ai-capabilities/providers/${providerId}/secret`, {
+    body: JSON.stringify(input),
+    method: "PUT"
+  });
+}
+
+export async function checkAIProviderHealth(providerId: string): Promise<AIProviderHealth> {
+  return requestRuntime<AIProviderHealth>(
+    `/api/settings/ai-capabilities/providers/${providerId}/health-check`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function fetchScriptDocument(projectId: string): Promise<ScriptDocument> {
+  return requestRuntime<ScriptDocument>(`/api/scripts/projects/${projectId}/document`);
+}
+
+export async function saveScriptDocument(
+  projectId: string,
+  content: string
+): Promise<ScriptDocument> {
+  return requestRuntime<ScriptDocument>(`/api/scripts/projects/${projectId}/document`, {
+    body: JSON.stringify({ content }),
+    method: "PUT"
+  });
+}
+
+export async function generateScriptDocument(
+  projectId: string,
+  topic: string
+): Promise<ScriptDocument> {
+  return requestRuntime<ScriptDocument>(`/api/scripts/projects/${projectId}/generate`, {
+    body: JSON.stringify({ topic }),
+    method: "POST"
+  });
+}
+
+export async function rewriteScriptDocument(
+  projectId: string,
+  instructions: string
+): Promise<ScriptDocument> {
+  return requestRuntime<ScriptDocument>(`/api/scripts/projects/${projectId}/rewrite`, {
+    body: JSON.stringify({ instructions }),
+    method: "POST"
+  });
+}
+
+export async function fetchStoryboardDocument(projectId: string): Promise<StoryboardDocument> {
+  return requestRuntime<StoryboardDocument>(`/api/storyboards/projects/${projectId}/document`);
+}
+
+export async function saveStoryboardDocument(
+  projectId: string,
+  basedOnScriptRevision: number,
+  scenes: StoryboardScene[]
+): Promise<StoryboardDocument> {
+  return requestRuntime<StoryboardDocument>(`/api/storyboards/projects/${projectId}/document`, {
+    body: JSON.stringify({ basedOnScriptRevision, scenes }),
+    method: "PUT"
+  });
+}
+
+export async function generateStoryboardDocument(projectId: string): Promise<StoryboardDocument> {
+  return requestRuntime<StoryboardDocument>(`/api/storyboards/projects/${projectId}/generate`, {
     method: "POST"
   });
 }

@@ -3,7 +3,7 @@
     title="渲染与导出中心"
     route-id="render_export_center"
     page-type="queue"
-    description="这里会承接后续渲染队列与导出配置。当前仅提供正式壳层占位与导航入口。"
+    description="渲染任务、导出队列、失败重试和输出路径追踪会在这里实现。当前阶段先保留媒体主链出口。"
   />
 </template>
 

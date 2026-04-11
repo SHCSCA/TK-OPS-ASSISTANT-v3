@@ -5,6 +5,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "@/App.vue";
 import { createAppRouter } from "@/app/router";
+import {
+  createRouteAwareFetch,
+  runtimeFixtures
+} from "./runtime-helpers";
 
 function okJsonResponse(data: unknown) {
   return {
@@ -51,99 +55,47 @@ describe("AI system settings", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-11T08:00:00.000Z"));
 
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        okJsonResponse({
-          active: true,
-          restrictedMode: false,
-          machineId: "machine-001",
-          machineBound: true,
-          activationMode: "placeholder",
-          maskedCode: "TK-O****************0001",
+    let configResponse = {
+      ...runtimeFixtures.config
+    };
+
+    const fetchMock = createRouteAwareFetch((path, method, init) => {
+      if (path === "/api/license/status") {
+        return okJsonResponse({
+          ...runtimeFixtures.activeLicense,
           activatedAt: "2026-04-11T08:00:00Z"
-        })
-      )
-      .mockResolvedValueOnce(
-        okJsonResponse({
-          service: "online",
-          version: "0.1.1",
-          now: "2026-04-11T08:00:00Z",
-          mode: "development"
-        })
-      )
-      .mockResolvedValueOnce(
-        okJsonResponse({
-          revision: 1,
-          runtime: {
-            mode: "development",
-            workspaceRoot: "G:/AI/TK-OPS-ASSISTANT-V3"
-          },
-          paths: {
-            cacheDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/cache",
-            exportDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/exports",
-            logDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/logs"
-          },
-          logging: {
-            level: "INFO"
-          },
-          ai: {
-            provider: "openai",
-            model: "gpt-5.4",
-            voice: "alloy",
-            subtitleMode: "balanced"
-          }
-        })
-      )
-      .mockResolvedValueOnce(
-        okJsonResponse({
-          databasePath: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/runtime.db",
-          logDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/logs",
-          revision: 1,
-          mode: "development",
-          healthStatus: "online"
-        })
-      )
-      .mockResolvedValueOnce(
-        okJsonResponse({
+        });
+      }
+      if (path === "/api/settings/health") {
+        return okJsonResponse({
+          ...runtimeFixtures.health,
+          now: configResponse.revision === 1 ? "2026-04-11T08:00:00Z" : "2026-04-11T08:05:00Z",
+          mode: configResponse.runtime.mode
+        });
+      }
+      if (path === "/api/settings/config" && method === "GET") {
+        return okJsonResponse(configResponse);
+      }
+      if (path === "/api/settings/config" && method === "PUT") {
+        configResponse = {
           revision: 2,
-          runtime: {
-            mode: "production",
-            workspaceRoot: "G:/AI/TK-OPS-ASSISTANT-V3"
-          },
-          paths: {
-            cacheDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/cache",
-            exportDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/exports",
-            logDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/logs"
-          },
-          logging: {
-            level: "DEBUG"
-          },
-          ai: {
-            provider: "openai",
-            model: "gpt-5.4-mini",
-            voice: "nova",
-            subtitleMode: "precise"
-          }
-        })
-      )
-      .mockResolvedValueOnce(
-        okJsonResponse({
-          service: "online",
-          version: "0.1.1",
-          now: "2026-04-11T08:05:00Z",
-          mode: "production"
-        })
-      )
-      .mockResolvedValueOnce(
-        okJsonResponse({
-          databasePath: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/runtime.db",
-          logDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/logs",
-          revision: 2,
-          mode: "production",
-          healthStatus: "online"
-        })
-      );
+          ...JSON.parse(String(init?.body ?? "{}"))
+        };
+        return okJsonResponse(configResponse);
+      }
+      if (path === "/api/settings/diagnostics") {
+        return okJsonResponse({
+          ...runtimeFixtures.diagnostics,
+          revision: configResponse.revision,
+          mode: configResponse.runtime.mode
+        });
+      }
+      if (path === "/api/settings/ai-capabilities") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    });
 
     vi.stubGlobal("fetch", fetchMock);
 
@@ -190,20 +142,15 @@ describe("AI system settings", () => {
   it("shows runtime offline state and error summary when runtime requests fail", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(
-          okJsonResponse({
-            active: false,
-            restrictedMode: true,
-            machineId: "machine-001",
-            machineBound: false,
-            activationMode: "placeholder",
-            maskedCode: "",
-            activatedAt: null
-          })
-        )
-        .mockResolvedValue(errorJsonResponse(503, "Runtime unavailable", "req-503"))
+      createRouteAwareFetch((path) => {
+        if (path === "/api/license/status") {
+          return okJsonResponse(runtimeFixtures.restrictedLicense);
+        }
+        if (path === "/api/settings/ai-capabilities") {
+          return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+        }
+        return errorJsonResponse(503, "Runtime unavailable", "req-503");
+      })
     );
 
     const wrapper = await mountApp("/settings/ai-system");
@@ -212,5 +159,61 @@ describe("AI system settings", () => {
     expect(wrapper.text()).toContain("Runtime offline");
     expect(wrapper.text()).toContain("Runtime unavailable");
     expect(wrapper.text()).toContain("req-503");
+  });
+
+  it("loads centralized AI capability settings and saves capability updates through the capability store", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input));
+        const path = url.pathname;
+        const method = (init?.method ?? "GET").toUpperCase();
+
+        if (path === "/api/license/status") {
+          return okJsonResponse(runtimeFixtures.activeLicense);
+        }
+        if (path === "/api/settings/health") {
+          return okJsonResponse(runtimeFixtures.health);
+        }
+        if (path === "/api/settings/config") {
+          return okJsonResponse(runtimeFixtures.config);
+        }
+        if (path === "/api/settings/diagnostics") {
+          return okJsonResponse(runtimeFixtures.diagnostics);
+        }
+        if (path === "/api/settings/ai-capabilities" && method === "GET") {
+          return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+        }
+        if (path === "/api/settings/ai-capabilities" && method === "PUT") {
+          return okJsonResponse(JSON.parse(String(init?.body)));
+        }
+
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const wrapper = await mountApp("/settings/ai-system");
+    await flushPromises();
+
+    expect(
+      (wrapper.get('[data-field="capability.script_generation.model"]').element as HTMLInputElement)
+        .value
+    ).toBe("gpt-5");
+
+    await wrapper.get('[data-field="capability.script_generation.model"]').setValue("gpt-5.4");
+    await wrapper.get('[data-action="save-capabilities"]').trigger("click");
+    await flushPromises();
+
+    const saveCall = fetchMock.mock.calls.find(
+      ([url, options]) =>
+        String(url).includes("/api/settings/ai-capabilities") && options?.method === "PUT"
+    );
+
+    expect(saveCall).toBeTruthy();
+    const payload = JSON.parse(String(saveCall?.[1]?.body)) as {
+      capabilities: Array<{ capabilityId: string; model: string }>;
+    };
+    expect(payload.capabilities).toHaveLength(7);
+    expect(payload.capabilities.find((item) => item.capabilityId === "script_generation")?.model).toBe(
+      "gpt-5.4"
+    );
   });
 });

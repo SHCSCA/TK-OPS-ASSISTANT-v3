@@ -18,6 +18,9 @@
         <span class="status-pill" :class="`status-pill--${licenseStatusTone}`">
           {{ licenseStatusLabel }}
         </span>
+        <span v-if="projectLabel" class="status-pill status-pill--idle" data-current-project>
+          {{ projectLabel }}
+        </span>
         <span class="title-bar__meta">{{ currentPage.navGroup }}</span>
       </div>
     </header>
@@ -51,6 +54,16 @@
           <p class="detail-panel__label">Current Page</p>
           <h2>{{ currentPage.title }}</h2>
           <p>{{ currentPage.componentImport }}</p>
+        </div>
+
+        <div class="detail-panel__section">
+          <p class="detail-panel__label">Project Context</p>
+          <template v-if="projectStore.currentProject">
+            <p>Name: {{ projectStore.currentProject.projectName }}</p>
+            <p>ID: {{ projectStore.currentProject.projectId }}</p>
+            <p>Status: {{ projectStore.currentProject.status }}</p>
+          </template>
+          <p v-else>No current project selected.</p>
         </div>
 
         <div class="detail-panel__section">
@@ -103,12 +116,14 @@ import { computed, onMounted, watchEffect } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 
 import { routeIds, routeManifest } from "@/app/router";
+import { useProjectStore } from "@/stores/project";
 import { useConfigBusStore } from "@/stores/config-bus";
 import { useLicenseStore } from "@/stores/license";
 
 const route = useRoute();
 const configBusStore = useConfigBusStore();
 const licenseStore = useLicenseStore();
+const projectStore = useProjectStore();
 const { diagnostics, error, health } = storeToRefs(configBusStore);
 
 const navGroups = computed(() => {
@@ -124,6 +139,9 @@ const currentPage = computed(() => {
 });
 const isWizardPage = computed(() => currentPage.value.pageType === "wizard");
 const showWorkspaceChrome = computed(() => !isWizardPage.value);
+const projectLabel = computed(() =>
+  projectStore.currentProject ? `项目 ${projectStore.currentProject.projectName}` : ""
+);
 
 const runtimeStatusLabel = computed(() => {
   switch (configBusStore.runtimeStatus) {

@@ -3,7 +3,7 @@
     title="视频拆解中心"
     route-id="video_deconstruction_center"
     page-type="workspace"
-    description="后续会在这里接入导入、转写、切段和拆解回流链路，当前保留真实空态。"
+    description="导入视频、结构拆解、转写和回流脚本/分镜的流程会在这里实现。当前阶段先保留正式入口。"
   />
 </template>
 

@@ -3,7 +3,7 @@
     title="发布中心"
     route-id="publishing_center"
     page-type="queue"
-    description="发布计划、预检和结果回执将在后续迭代接入。M0 先打通桌面壳与 Runtime 基线。"
+    description="项目版本、目标账号、设备工作区和发布预检将在这里汇总。当前阶段先保留发布主入口。"
   />
 </template>
 

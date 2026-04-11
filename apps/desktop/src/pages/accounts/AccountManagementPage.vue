@@ -3,7 +3,7 @@
     title="账号管理"
     route-id="account_management"
     page-type="settings"
-    description="当前先保留执行域入口，后续再接账号资料、绑定关系和状态视图。"
+    description="账号对象、分组、发布目标和执行绑定将在这里落地。当前阶段先保留正式入口，等待执行主链实现。"
   />
 </template>
 
