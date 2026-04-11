@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from main import app
-
-
-def test_health_contract_uses_settings_prefix_and_json_envelope() -> None:
-    client = TestClient(app)
+def test_health_contract_uses_settings_prefix_and_json_envelope(
+    runtime_client: TestClient,
+) -> None:
+    client = runtime_client
 
     response = client.get("/api/settings/health")
 

@@ -2,11 +2,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from main import app
-
-
-def test_settings_health_returns_runtime_snapshot() -> None:
-    client = TestClient(app)
+def test_settings_health_returns_runtime_snapshot(runtime_client: TestClient) -> None:
+    client = runtime_client
 
     response = client.get("/api/settings/health")
 
@@ -16,4 +13,4 @@ def test_settings_health_returns_runtime_snapshot() -> None:
     assert payload["data"]["service"] == "online"
     assert payload["data"]["version"]
     assert payload["data"]["now"]
-    assert payload["data"]["mode"] == "development"
+    assert payload["data"]["mode"] == "test"

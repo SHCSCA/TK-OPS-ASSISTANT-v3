@@ -9,8 +9,11 @@
         </div>
       </div>
       <div class="title-bar__status">
-        <span class="status-pill" :class="`status-pill--${runtimeHealthStore.status}`">
+        <span class="status-pill" :class="`status-pill--${configBusStore.runtimeStatus}`">
           {{ runtimeStatusLabel }}
+        </span>
+        <span class="status-pill" :class="`status-pill--${configStatusTone}`">
+          {{ configStatusLabel }}
         </span>
         <span class="title-bar__meta">{{ currentPage.navGroup }}</span>
       </div>
@@ -42,26 +45,43 @@
 
       <aside class="detail-panel">
         <div class="detail-panel__section">
-          <p class="detail-panel__label">当前页面</p>
+          <p class="detail-panel__label">Current Page</p>
           <h2>{{ currentPage.title }}</h2>
           <p>{{ currentPage.componentImport }}</p>
         </div>
 
         <div class="detail-panel__section">
           <p class="detail-panel__label">Runtime</p>
-          <template v-if="runtimeHealthStore.snapshot">
-            <p>服务状态：{{ runtimeHealthStore.snapshot.service }}</p>
-            <p>运行模式：{{ runtimeHealthStore.snapshot.mode }}</p>
-            <p>版本：{{ runtimeHealthStore.snapshot.version }}</p>
+          <template v-if="health">
+            <p>Service: {{ health.service }}</p>
+            <p>Mode: {{ health.mode }}</p>
+            <p>Version: {{ health.version }}</p>
           </template>
-          <p v-else>{{ runtimeHealthDetail }}</p>
+          <p v-else>{{ runtimeDetail }}</p>
+        </div>
+
+        <div v-if="showSettingsDiagnostics" class="detail-panel__section">
+          <p class="detail-panel__label">Diagnostics</p>
+          <template v-if="diagnostics">
+            <p>Database: {{ diagnostics.databasePath }}</p>
+            <p>Log dir: {{ diagnostics.logDir }}</p>
+            <p>Revision: {{ diagnostics.revision }}</p>
+            <p>Health: {{ diagnostics.healthStatus }}</p>
+          </template>
+          <p v-else>No diagnostics loaded.</p>
+        </div>
+
+        <div v-if="showSettingsDiagnostics" class="detail-panel__section">
+          <p class="detail-panel__label">Last Error</p>
+          <p>{{ lastErrorSummary }}</p>
         </div>
       </aside>
     </div>
 
     <footer class="status-bar">
       <span>{{ runtimeStatusLabel }}</span>
-      <span>{{ runtimeHealthDetail }}</span>
+      <span>{{ configStatusLabel }}</span>
+      <span>{{ lastSyncLabel }}</span>
     </footer>
   </div>
 </template>
@@ -71,12 +91,12 @@ import { storeToRefs } from "pinia";
 import { computed, onMounted, watchEffect } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 
-import { routeManifest } from "@/app/router";
-import { useRuntimeHealthStore } from "@/stores/runtime-health";
+import { routeIds, routeManifest } from "@/app/router";
+import { useConfigBusStore } from "@/stores/config-bus";
 
 const route = useRoute();
-const runtimeHealthStore = useRuntimeHealthStore();
-const { snapshot } = storeToRefs(runtimeHealthStore);
+const configBusStore = useConfigBusStore();
+const { diagnostics, error, health } = storeToRefs(configBusStore);
 
 const navGroups = computed(() => {
   const labels = [...new Set(routeManifest.map((item) => item.navGroup))];
@@ -91,35 +111,84 @@ const currentPage = computed(() => {
 });
 
 const runtimeStatusLabel = computed(() => {
-  switch (runtimeHealthStore.status) {
+  switch (configBusStore.runtimeStatus) {
     case "loading":
-      return "Runtime 检查中";
+      return "Runtime checking";
     case "online":
-      return "Runtime 在线";
+      return "Runtime online";
     case "offline":
-      return "Runtime 离线";
+      return "Runtime offline";
     default:
-      return "Runtime 未检查";
+      return "Runtime idle";
   }
 });
 
-const runtimeHealthDetail = computed(() => {
-  if (runtimeHealthStore.status === "online" && snapshot.value) {
-    return `版本 ${snapshot.value.version} · ${snapshot.value.mode} · ${snapshot.value.now}`;
+const configStatusLabel = computed(() => {
+  switch (configBusStore.status) {
+    case "loading":
+      return "Config loading";
+    case "saving":
+      return "Config saving";
+    case "ready":
+      return "Config ready";
+    case "error":
+      return "Config error";
+    default:
+      return "Config idle";
+  }
+});
+
+const configStatusTone = computed(() => {
+  switch (configBusStore.status) {
+    case "ready":
+      return "online";
+    case "error":
+      return "offline";
+    case "loading":
+    case "saving":
+      return "loading";
+    default:
+      return "idle";
+  }
+});
+
+const runtimeDetail = computed(() => {
+  if (configBusStore.runtimeStatus === "online" && health.value) {
+    return `${health.value.version} �� ${health.value.mode} �� ${health.value.now}`;
   }
 
-  if (runtimeHealthStore.error) {
-    return runtimeHealthStore.error;
+  if (error.value) {
+    return lastErrorSummary.value;
   }
 
-  return "尚未获得 Runtime 健康状态。";
+  return "No runtime snapshot yet.";
+});
+
+const lastSyncLabel = computed(() => {
+  return configBusStore.lastSyncedAt
+    ? `Last sync ${configBusStore.lastSyncedAt}`
+    : "Last sync pending";
+});
+
+const showSettingsDiagnostics = computed(() => currentPage.value.id === routeIds.aiSystemSettings);
+
+const lastErrorSummary = computed(() => {
+  if (!error.value) {
+    return "No recent runtime errors.";
+  }
+
+  return error.value.requestId
+    ? `${error.value.message} (${error.value.requestId})`
+    : error.value.message;
 });
 
 watchEffect(() => {
-  document.title = `TK-OPS · ${currentPage.value.title}`;
+  document.title = `TK-OPS | ${currentPage.value.title}`;
 });
 
 onMounted(() => {
-  void runtimeHealthStore.refresh();
+  if (configBusStore.status === "idle") {
+    void configBusStore.load();
+  }
 });
 </script>

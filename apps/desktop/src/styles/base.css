@@ -166,16 +166,19 @@ a {
   border-top: 1px solid var(--border-default);
   display: flex;
   font-size: 13px;
+  gap: var(--space-4);
   justify-content: space-between;
   padding: 10px var(--space-6);
 }
 
-.placeholder-page {
+.placeholder-page,
+.settings-page {
   display: grid;
   gap: var(--space-4);
 }
 
-.placeholder-page__body {
+.placeholder-page__body,
+.settings-page__grid {
   display: grid;
   gap: var(--space-4);
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -224,6 +227,64 @@ a {
   color: var(--status-info);
 }
 
+.settings-page__header,
+.settings-page__actions {
+  align-items: center;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+}
+
+.settings-card {
+  display: grid;
+  gap: var(--space-4);
+  min-height: auto;
+}
+
+.settings-field {
+  color: var(--text-secondary);
+  display: grid;
+  font-size: 13px;
+  gap: var(--space-2);
+}
+
+.settings-field input,
+.settings-field select {
+  background: var(--surface-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.settings-page__error {
+  background: color-mix(in srgb, var(--status-error) 12%, var(--surface-secondary));
+  border: 1px solid color-mix(in srgb, var(--status-error) 40%, var(--border-default));
+  border-radius: var(--radius-md);
+  color: var(--status-error);
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.settings-page__button {
+  background: linear-gradient(135deg, var(--brand-primary), #7ce8c6);
+  border: 0;
+  border-radius: 999px;
+  color: #042a2a;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 12px 18px;
+}
+
+.settings-page__button:disabled,
+.settings-field input:disabled,
+.settings-field select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 @media (max-width: 1365px) {
   .app-shell__body {
     grid-template-columns: 240px 1fr;
@@ -236,12 +297,15 @@ a {
 
 @media (max-width: 959px) {
   .app-shell__body,
-  .placeholder-page__body {
+  .placeholder-page__body,
+  .settings-page__grid {
     grid-template-columns: 1fr;
   }
 
   .title-bar,
-  .status-bar {
+  .status-bar,
+  .settings-page__header,
+  .settings-page__actions {
     align-items: flex-start;
     flex-direction: column;
     gap: var(--space-3);
