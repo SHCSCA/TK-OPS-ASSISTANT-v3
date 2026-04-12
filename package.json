@@ -1,15 +1,15 @@
 {
   "name": "tk-ops-assistant-v3",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "packageManager": "npm@11.6.2",
-  "workspaces": [
-    "apps/desktop"
-  ],
   "scripts": {
     "desktop:dev": "npm --prefix apps/desktop run dev",
     "desktop:build": "npm --prefix apps/desktop run build",
     "desktop:tauri": "npm --prefix apps/desktop run tauri",
+    "runtime:dev": "node scripts/run-runtime-dev.mjs",
+    "desktop:tauri:dev": "npm --prefix apps/desktop exec tauri dev",
+    "app:dev": "node scripts/run-desktop-app.mjs",
     "version:sync": "node scripts/version-sync.mjs",
     "version:check": "node scripts/version-check.mjs"
   }

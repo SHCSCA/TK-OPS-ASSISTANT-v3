@@ -127,7 +127,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`version-check: 通过（主版本 ${rootVersion}）`);
+  console.log(`version-check: 通过（主版本 ${rootVersion}）。`);
 }
 
 main().catch((error) => {

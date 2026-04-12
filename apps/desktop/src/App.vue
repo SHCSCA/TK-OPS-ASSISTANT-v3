@@ -1,7 +1,7 @@
 <template>
-  <AppShell />
+  <BootstrapGate />
 </template>
 
 <script setup lang="ts">
-import AppShell from "@/layouts/AppShell.vue";
+import BootstrapGate from "@/bootstrap/BootstrapGate.vue";
 </script>

@@ -8,9 +8,9 @@ export type RuntimeHealthSnapshot = {
 export type LicenseStatus = {
   active: boolean;
   restrictedMode: boolean;
-  machineId: string;
+  machineCode: string;
   machineBound: boolean;
-  activationMode: string;
+  licenseType: string;
   maskedCode: string;
   activatedAt: string | null;
 };

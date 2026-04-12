@@ -1,13 +1,16 @@
 <template>
   <section class="settings-page">
-    <header class="settings-page__header">
+    <header class="settings-page__header settings-page__header--hero">
       <div>
-        <p class="placeholder-page__eyebrow">Foundation Config Bus</p>
-        <h1>AI & System Settings</h1>
+        <p class="placeholder-page__eyebrow">AI 与系统设置</p>
+        <h1>统一配置总线</h1>
+        <p class="workspace-page__summary">
+          Runtime、目录、日志和 AI 能力配置都从这里统一维护，页面只消费配置总线。
+        </p>
       </div>
       <div class="placeholder-page__meta">
-        <span class="page-chip">revision {{ settings?.revision ?? "-" }}</span>
-        <span class="page-chip page-chip--muted">{{ store.status }}</span>
+        <span class="page-chip">修订号 {{ settings?.revision ?? "-" }}</span>
+        <span class="page-chip page-chip--muted">{{ statusLabel }}</span>
       </div>
     </header>
 
@@ -19,14 +22,14 @@
     </p>
 
     <form class="settings-page__grid" @submit.prevent="handleSave">
-      <section class="placeholder-card settings-card">
+      <section class="command-panel settings-card">
         <h2>Runtime</h2>
         <label class="settings-field">
-          <span>Mode</span>
+          <span>运行模式</span>
           <input v-model="form.runtime.mode" data-field="runtime.mode" :disabled="isDisabled" />
         </label>
         <label class="settings-field">
-          <span>Workspace Root</span>
+          <span>工作区目录</span>
           <input
             v-model="form.runtime.workspaceRoot"
             data-field="runtime.workspaceRoot"
@@ -35,14 +38,14 @@
         </label>
       </section>
 
-      <section class="placeholder-card settings-card">
-        <h2>Paths</h2>
+      <section class="command-panel settings-card">
+        <h2>路径配置</h2>
         <label class="settings-field">
-          <span>Cache Dir</span>
+          <span>缓存目录</span>
           <input v-model="form.paths.cacheDir" data-field="paths.cacheDir" :disabled="isDisabled" />
         </label>
         <label class="settings-field">
-          <span>Export Dir</span>
+          <span>导出目录</span>
           <input
             v-model="form.paths.exportDir"
             data-field="paths.exportDir"
@@ -50,15 +53,15 @@
           />
         </label>
         <label class="settings-field">
-          <span>Log Dir</span>
+          <span>日志目录</span>
           <input v-model="form.paths.logDir" data-field="paths.logDir" :disabled="isDisabled" />
         </label>
       </section>
 
-      <section class="placeholder-card settings-card">
-        <h2>Logging</h2>
+      <section class="command-panel settings-card">
+        <h2>日志</h2>
         <label class="settings-field">
-          <span>Level</span>
+          <span>日志级别</span>
           <select v-model="form.logging.level" data-field="logging.level" :disabled="isDisabled">
             <option value="DEBUG">DEBUG</option>
             <option value="INFO">INFO</option>
@@ -68,22 +71,22 @@
         </label>
       </section>
 
-      <section class="placeholder-card settings-card">
-        <h2>AI</h2>
+      <section class="command-panel settings-card">
+        <h2>AI 默认项</h2>
         <label class="settings-field">
-          <span>Provider</span>
+          <span>默认 Provider</span>
           <input v-model="form.ai.provider" data-field="ai.provider" :disabled="isDisabled" />
         </label>
         <label class="settings-field">
-          <span>Model</span>
+          <span>默认模型</span>
           <input v-model="form.ai.model" data-field="ai.model" :disabled="isDisabled" />
         </label>
         <label class="settings-field">
-          <span>Voice</span>
+          <span>默认音色</span>
           <input v-model="form.ai.voice" data-field="ai.voice" :disabled="isDisabled" />
         </label>
         <label class="settings-field">
-          <span>Subtitle Mode</span>
+          <span>字幕模式</span>
           <input
             v-model="form.ai.subtitleMode"
             data-field="ai.subtitleMode"
@@ -100,16 +103,17 @@
           :disabled="isDisabled"
           @click="handleSave"
         >
-          Save settings
+          保存系统配置
         </button>
       </div>
 
-      <section class="placeholder-card settings-card settings-card--wide">
+      <section class="command-panel settings-card settings-card--wide">
         <div class="editor-card__header">
           <div>
-            <h2>AI Capability Center</h2>
+            <p class="detail-panel__label">AI 能力中心</p>
+            <h2>按能力管理 Provider、模型和提示词</h2>
             <p class="workspace-page__summary">
-              能力级配置是页面调用 AI 的唯一入口，页面只选能力，不再自己拼 provider 和 model。
+              能力级配置是页面调用 AI 的唯一入口。页面只选择能力，不直接拼接 Provider、模型或提示词。
             </p>
           </div>
           <button
@@ -119,12 +123,12 @@
             :disabled="isCapabilityDisabled"
             @click="handleSaveCapabilities"
           >
-            Save capabilities
+            保存能力配置
           </button>
         </div>
 
         <div v-if="capabilityForms.length === 0" class="empty-state">
-          AI capabilities have not loaded yet.
+          AI 能力配置尚未加载。
         </div>
         <div v-else class="capability-grid">
           <article
@@ -133,7 +137,10 @@
             class="capability-card"
           >
             <div class="capability-card__header">
-              <h3>{{ capability.capabilityId }}</h3>
+              <div>
+                <h3>{{ capabilityLabel(capability.capabilityId) }}</h3>
+                <p>{{ capability.capabilityId }}</p>
+              </div>
               <label class="capability-card__toggle">
                 <input
                   v-model="capability.enabled"
@@ -141,7 +148,7 @@
                   type="checkbox"
                   :disabled="isCapabilityDisabled"
                 />
-                enabled
+                已启用
               </label>
             </div>
             <label class="settings-field">
@@ -153,7 +160,7 @@
               />
             </label>
             <label class="settings-field">
-              <span>Model</span>
+              <span>模型</span>
               <input
                 v-model="capability.model"
                 :data-field="`capability.${capability.capabilityId}.model`"
@@ -161,7 +168,7 @@
               />
             </label>
             <label class="settings-field">
-              <span>Agent Role</span>
+              <span>Agent 角色</span>
               <input
                 v-model="capability.agentRole"
                 :data-field="`capability.${capability.capabilityId}.agentRole`"
@@ -169,7 +176,7 @@
               />
             </label>
             <label class="settings-field">
-              <span>System Prompt</span>
+              <span>系统提示词</span>
               <textarea
                 v-model="capability.systemPrompt"
                 class="editor-textarea editor-textarea--compact"
@@ -178,7 +185,7 @@
               />
             </label>
             <label class="settings-field">
-              <span>User Prompt Template</span>
+              <span>用户提示词模板</span>
               <textarea
                 v-model="capability.userPromptTemplate"
                 class="editor-textarea editor-textarea--compact"
@@ -190,8 +197,9 @@
         </div>
       </section>
 
-      <section class="placeholder-card settings-card settings-card--wide">
-        <h2>Provider Status</h2>
+      <section class="command-panel settings-card settings-card--wide">
+        <p class="detail-panel__label">Provider 状态</p>
+        <h2>凭据与能力摘要</h2>
         <div class="provider-grid">
           <article
             v-for="provider in capabilityStore.settings?.providers ?? []"
@@ -201,8 +209,8 @@
           >
             <h3>{{ provider.label }}</h3>
             <p>{{ provider.provider }}</p>
-            <p>{{ provider.configured ? provider.maskedSecret : "Not configured" }}</p>
-            <p>{{ provider.supportsTextGeneration ? "Text generation ready" : "Registered only" }}</p>
+            <p>{{ provider.configured ? provider.maskedSecret : "尚未配置凭据" }}</p>
+            <p>{{ provider.supportsTextGeneration ? "文本生成可用" : "仅完成注册" }}</p>
           </article>
         </div>
       </section>
@@ -228,17 +236,41 @@ const { settings } = storeToRefs(store);
 const form = reactive<AppSettingsUpdateInput>(createEmptySettingsInput());
 const capabilityForms = ref<AICapabilityConfig[]>([]);
 
+const capabilityLabels: Record<string, string> = {
+  script_generation: "脚本生成",
+  script_rewrite: "脚本改写",
+  storyboard_generation: "分镜生成",
+  tts_generation: "配音生成",
+  subtitle_alignment: "字幕对齐",
+  video_generation: "视频生成",
+  asset_analysis: "资产分析"
+};
+
 const isDisabled = computed(() => store.status === "saving" || settings.value === null);
 const isCapabilityDisabled = computed(
   () => capabilityStore.status === "loading" || capabilityStore.status === "saving"
 );
+const statusLabel = computed(() => {
+  switch (store.status) {
+    case "loading":
+      return "读取中";
+    case "saving":
+      return "保存中";
+    case "ready":
+      return "已就绪";
+    case "error":
+      return "异常";
+    default:
+      return "待加载";
+  }
+});
 const errorSummary = computed(() => {
   if (!store.error) {
     return "";
   }
 
   return store.error.requestId
-    ? `${store.error.message} (${store.error.requestId})`
+    ? `${store.error.message}（${store.error.requestId}）`
     : store.error.message;
 });
 const capabilityErrorSummary = computed(() => {
@@ -247,7 +279,7 @@ const capabilityErrorSummary = computed(() => {
   }
 
   return capabilityStore.error.requestId
-    ? `${capabilityStore.error.message} (${capabilityStore.error.requestId})`
+    ? `${capabilityStore.error.message}（${capabilityStore.error.requestId}）`
     : capabilityStore.error.message;
 });
 
@@ -284,6 +316,10 @@ async function handleSaveCapabilities(): Promise<void> {
   await capabilityStore.saveCapabilities(
     capabilityForms.value.map((item) => ({ ...item }))
   );
+}
+
+function capabilityLabel(capabilityId: string): string {
+  return capabilityLabels[capabilityId] ?? capabilityId;
 }
 
 function createEmptySettingsInput(): AppSettingsUpdateInput {

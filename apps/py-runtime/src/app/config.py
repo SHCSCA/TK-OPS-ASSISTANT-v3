@@ -13,6 +13,7 @@ class RuntimeConfig:
     repo_root: Path
     data_dir: Path
     database_path: Path
+    license_public_key_path: Path
 
 
 def load_runtime_config() -> RuntimeConfig:
@@ -23,6 +24,12 @@ def load_runtime_config() -> RuntimeConfig:
     database_path = Path(
         os.getenv("TK_OPS_RUNTIME_DB_PATH", str(data_dir / "runtime.db"))
     ).expanduser()
+    license_public_key_path = Path(
+        os.getenv(
+            "TK_OPS_LICENSE_PUBLIC_KEY_PATH",
+            str(data_dir / "licenses" / "license-public.pem"),
+        )
+    ).expanduser()
 
     return RuntimeConfig(
         version=_load_runtime_version(),
@@ -30,6 +37,7 @@ def load_runtime_config() -> RuntimeConfig:
         repo_root=repo_root,
         data_dir=data_dir.resolve(),
         database_path=database_path.resolve(),
+        license_public_key_path=license_public_key_path.resolve(),
     )
 
 

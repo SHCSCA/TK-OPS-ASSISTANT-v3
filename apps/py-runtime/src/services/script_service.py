@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi import HTTPException
 
@@ -113,7 +113,7 @@ class ScriptService:
         project = self._dashboard_service.require_project(project_id)
         versions = self._repository.list_versions(project.id)
         if not versions:
-            raise HTTPException(status_code=400, detail='Cannot rewrite a script before one exists.')
+            raise HTTPException(status_code=400, detail='请先创建脚本版本，再执行改写。')
 
         result = ai_text_generation_service.generate_text(
             'script_rewrite',

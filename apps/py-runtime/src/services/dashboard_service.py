@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi import HTTPException
 
@@ -38,7 +38,7 @@ class DashboardService:
     def set_current_project(self, project_id: str) -> CurrentProjectContextDto:
         project = self._repository.get_project(project_id)
         if project is None:
-            raise HTTPException(status_code=404, detail='Project not found.')
+            raise HTTPException(status_code=404, detail='未找到项目。')
 
         self._repository.set_current_project(project_id)
         refreshed = self._repository.get_project(project_id)
@@ -67,7 +67,7 @@ class DashboardService:
     def require_project(self, project_id: str) -> ProjectSummaryDto:
         project = self._repository.get_project(project_id)
         if project is None:
-            raise HTTPException(status_code=404, detail='Project not found.')
+            raise HTTPException(status_code=404, detail='未找到项目。')
 
         return self._to_summary(project)
 
@@ -85,7 +85,7 @@ class DashboardService:
                 current_storyboard_version=current_storyboard_version,
             )
         except KeyError as exc:
-            raise HTTPException(status_code=404, detail='Project not found.') from exc
+            raise HTTPException(status_code=404, detail='未找到项目。') from exc
 
         return self._to_summary(updated)
 

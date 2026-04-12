@@ -5,7 +5,7 @@
         <p class="placeholder-page__eyebrow">创作主链 / 分镜</p>
         <h1>分镜规划中心</h1>
         <p class="workspace-page__summary">
-          分镜版本固定挂在当前项目下，并且显式标注所依据的脚本版本。
+          分镜版本固定挂在当前项目下，并显式标注所依据的脚本版本。
         </p>
       </div>
       <div class="placeholder-page__meta">
@@ -21,7 +21,7 @@
     <p v-if="storyboardStore.error" class="settings-page__error">{{ errorSummary }}</p>
 
     <div class="workspace-grid">
-      <section class="placeholder-card editor-card editor-card--wide">
+      <section class="command-panel editor-card editor-card--wide">
         <div class="editor-card__header">
           <h2>分镜卡片</h2>
           <div class="editor-card__actions">
@@ -68,22 +68,22 @@
         </div>
       </section>
 
-      <section class="placeholder-card dashboard-card">
+      <section class="command-panel dashboard-card">
         <h2>当前版本</h2>
         <div v-if="storyboardStore.document?.currentVersion">
           <p>
-            Revision {{ storyboardStore.document.currentVersion.revision }} ·
+            修订 {{ storyboardStore.document.currentVersion.revision }} ·
             {{ storyboardStore.document.currentVersion.source }}
           </p>
           <p>
-            {{ storyboardStore.document.currentVersion.provider ?? "manual" }} ·
+            {{ storyboardStore.document.currentVersion.provider ?? "手动" }} ·
             {{ storyboardStore.document.currentVersion.model ?? "-" }}
           </p>
         </div>
         <p v-else>还没有分镜版本。</p>
       </section>
 
-      <section class="placeholder-card dashboard-card">
+      <section class="command-panel dashboard-card">
         <h2>最近 AI 作业</h2>
         <div v-if="recentJobs.length === 0" class="empty-state">还没有 AI 作业记录。</div>
         <div v-else class="dashboard-list">
@@ -125,7 +125,7 @@ const errorSummary = computed(() => {
   }
 
   return storyboardStore.error.requestId
-    ? `${storyboardStore.error.message} (${storyboardStore.error.requestId})`
+    ? `${storyboardStore.error.message}（${storyboardStore.error.requestId}）`
     : storyboardStore.error.message;
 });
 

@@ -13,9 +13,10 @@ LICENSE_ROW_ID: Final[int] = 1
 class StoredLicenseGrant:
     active: bool
     restricted_mode: bool
-    machine_id: str
+    machine_code: str
     machine_bound: bool
-    activation_mode: str
+    license_type: str
+    signed_payload: str
     masked_code: str
     activated_at: str | None
 
@@ -32,9 +33,10 @@ class LicenseRepository:
                 SELECT
                     active,
                     restricted_mode,
-                    machine_id,
+                    machine_code,
                     machine_bound,
-                    activation_mode,
+                    license_type,
+                    signed_payload,
                     masked_code,
                     activated_at
                 FROM license_grant
@@ -49,9 +51,10 @@ class LicenseRepository:
         return StoredLicenseGrant(
             active=bool(row["active"]),
             restricted_mode=bool(row["restricted_mode"]),
-            machine_id=str(row["machine_id"]),
+            machine_code=str(row["machine_code"] or row["machine_id"]),
             machine_bound=bool(row["machine_bound"]),
-            activation_mode=str(row["activation_mode"]),
+            license_type=str(row["license_type"] or "perpetual"),
+            signed_payload=str(row["signed_payload"]),
             masked_code=str(row["masked_code"]),
             activated_at=str(row["activated_at"]) if row["activated_at"] else None,
         )
@@ -65,18 +68,24 @@ class LicenseRepository:
                     active,
                     restricted_mode,
                     machine_id,
+                    machine_code,
                     machine_bound,
                     activation_mode,
+                    license_type,
+                    signed_payload,
                     masked_code,
                     activated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     active = excluded.active,
                     restricted_mode = excluded.restricted_mode,
                     machine_id = excluded.machine_id,
+                    machine_code = excluded.machine_code,
                     machine_bound = excluded.machine_bound,
                     activation_mode = excluded.activation_mode,
+                    license_type = excluded.license_type,
+                    signed_payload = excluded.signed_payload,
                     masked_code = excluded.masked_code,
                     activated_at = excluded.activated_at
                 """,
@@ -84,9 +93,12 @@ class LicenseRepository:
                     LICENSE_ROW_ID,
                     int(grant.active),
                     int(grant.restricted_mode),
-                    grant.machine_id,
+                    grant.machine_code,
+                    grant.machine_code,
                     int(grant.machine_bound),
-                    grant.activation_mode,
+                    "offline_signed",
+                    grant.license_type,
+                    grant.signed_payload,
                     grant.masked_code,
                     grant.activated_at,
                 ),

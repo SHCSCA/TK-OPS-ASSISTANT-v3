@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from dataclasses import dataclass
@@ -52,7 +52,7 @@ class AICapabilityService:
     ) -> AICapabilitySettingsDto:
         provided_ids = {item.capabilityId for item in items}
         if provided_ids != set(CAPABILITY_IDS):
-            raise HTTPException(status_code=400, detail='Capability config set is incomplete.')
+            raise HTTPException(status_code=400, detail='AI 能力配置不完整。')
 
         stored = [
             StoredAICapabilityConfig(
@@ -109,31 +109,31 @@ class AICapabilityService:
             return AIProviderHealthDto(
                 provider=provider_id,
                 status='unsupported',
-                message='This provider is registered but not wired for text generation in this milestone.',
+                message='当前 Provider 已注册，但本阶段尚未接入文本生成。',
             )
         if not status.configured:
             return AIProviderHealthDto(
                 provider=provider_id,
                 status='missing_secret',
-                message='API key is not configured.',
+                message='Provider API Key 尚未配置。',
             )
         if provider_id == 'openai_compatible' and status.baseUrl.strip() == '':
             return AIProviderHealthDto(
                 provider=provider_id,
                 status='misconfigured',
-                message='Base URL is required for OpenAI-compatible providers.',
+                message='OpenAI-compatible Provider 必须配置 Base URL。',
             )
         return AIProviderHealthDto(
             provider=provider_id,
             status='ready',
-            message='Provider is configured for text generation.',
+            message='Provider 已可用于文本生成。',
         )
 
     def get_capability(self, capability_id: str) -> AICapabilityConfigDto:
         capabilities = {item.capabilityId: item for item in self.get_settings().capabilities}
         capability = capabilities.get(capability_id)
         if capability is None:
-            raise HTTPException(status_code=404, detail='AI capability not found.')
+            raise HTTPException(status_code=404, detail='未找到 AI 能力配置。')
         return capability
 
     def get_provider_runtime_config(self, provider_id: str) -> ProviderRuntimeConfig:

@@ -1,94 +1,67 @@
 # TK-OPS
 
-TK-OPS 当前处于“创作主链基线已打通”的阶段。产品和设计真源在 `docs/`，代码已经具备桌面壳、Runtime 配置底座、统一错误信封、本地许可证首启闭环、项目上下文总线、AI 能力中心，以及 Dashboard / Script / Storyboard 的最小真实联通链路。
+TK-OPS 当前处于“创作主链基线已打通”阶段，代码具备：桌面壳、Runtime 配置总线、真实离线授权首启链路、项目上下文总线，以及 Dashboard / Script / Storyboard 最小联通链路。
 
 ## 版本真源
 
-- 主版本唯一可编辑真源：根 `package.json` 的 `version`
-- 镜像版本字段由脚本同步，不手工维护：
+- 唯一可编辑版本：根 `package.json` 的 `version`
+- 镜像版本由脚本维护：
   - `apps/desktop/src-tauri/Cargo.toml`
   - `apps/desktop/src-tauri/tauri.conf.json`
   - `apps/py-runtime/pyproject.toml`
-- 常用命令：
+- 命令：
   - `npm run version:sync`
   - `npm run version:check`
+- 发布记录：`CHANGELOG.md`
 
-## 当前能力
+## 开发环境初始化（Windows）
 
-- `apps/desktop/`
-  - Tauri 2 + Vue 3 + Vite 桌面壳
-  - 16 个正式路由与导航分组
-  - `setup_license_wizard` 已升级为真实首启向导
-  - `creator_dashboard` 已升级为真实项目入口
-  - `ai_system_settings` 已升级为真实设置页与 AI 能力中心
-  - `script_topic_center` 已升级为真实脚本页
-  - `storyboard_planning_center` 已升级为真实分镜页
-  - 统一 `ConfigBusStore` 管理 Runtime 健康、配置、诊断和保存状态
-  - 独立 `LicenseStore` 管理许可证状态、激活和路由门禁
-  - 新增 `ProjectStore`、`AICapabilityStore`、`ScriptStudioStore`、`StoryboardStore`
-- `apps/py-runtime/`
-  - FastAPI Runtime 入口
-  - SQLite 持久化 `system_config`
-  - SQLite 持久化 `license_grant` 和本地 `machineId`
-  - SQLite 持久化 `projects`、`session_context`
-  - SQLite 持久化 `ai_capability_configs`、`ai_provider_settings`
-  - SQLite 持久化 `ai_job_records`、`script_versions`、`storyboard_versions`
-  - 结构化日志文件输出
-  - 统一错误信封与 `requestId`
-  - 已落地接口：
-    - `GET /api/dashboard/summary`
-    - `POST /api/dashboard/projects`
-    - `GET /api/dashboard/context`
-    - `PUT /api/dashboard/context`
-    - `GET /api/settings/health`
-    - `GET /api/settings/config`
-    - `PUT /api/settings/config`
-    - `GET /api/settings/diagnostics`
-    - `GET /api/settings/ai-capabilities`
-    - `PUT /api/settings/ai-capabilities`
-    - `PUT /api/settings/ai-capabilities/providers/{provider}/secret`
-    - `POST /api/settings/ai-capabilities/providers/{provider}/health-check`
-    - `GET /api/license/status`
-    - `POST /api/license/activate`
-    - `GET /api/scripts/projects/{projectId}/document`
-    - `PUT /api/scripts/projects/{projectId}/document`
-    - `POST /api/scripts/projects/{projectId}/generate`
-    - `POST /api/scripts/projects/{projectId}/rewrite`
-    - `GET /api/storyboards/projects/{projectId}/document`
-    - `PUT /api/storyboards/projects/{projectId}/document`
-    - `POST /api/storyboards/projects/{projectId}/generate`
-- `tests/`
-  - Desktop 壳层、项目守卫、Dashboard、设置页、脚本页和分镜页测试
-  - Runtime 行为测试
-  - API 契约测试
+1. 安装 Node.js、Rust（含 `cargo`）、Python
+2. 安装前端依赖：`npm --prefix apps/desktop install`
+3. 创建虚拟环境：`python -m venv venv`
+4. 安装 Runtime 依赖：`venv\\Scripts\\python.exe -m pip install -e "./apps/py-runtime[dev]"`
 
-## 本地运行
+## 开发态一键启动桌面应用
 
-1. 安装前端依赖：`npm install`
-2. 安装 Runtime 与测试依赖：`python -m pip install -e "./apps/py-runtime[dev]"`
-3. 启动 Runtime：`python -m uvicorn main:app --app-dir apps/py-runtime/src --host 127.0.0.1 --port 8000 --reload`
-4. 启动桌面开发服务器：`npm --prefix apps/desktop run dev`
-5. 首次进入受保护页面时会自动跳转到 `/setup/license`，完成许可证激活和初始配置后再进入工作台
-6. Dashboard 负责创建/选择项目；未建立项目上下文时，脚本、分镜、发布等项目页会被守卫重定向回 Dashboard
-7. `AI 与系统设置` 中已经包含能力级 AI 配置中心；脚本和分镜页会消费当前项目上下文和 Runtime 真数据
-8. 运行校验：
-   - `npm run version:check`
-   - `npm --prefix apps/desktop run test`
-   - `npm --prefix apps/desktop run build`
-   - `python -m pytest tests/runtime -q`
-   - `python -m pytest tests/contracts -q`
+- 主入口：`npm run app:dev`
+- Windows 双击入口：`start-desktop-dev.cmd`
 
-## Runtime 数据目录
+启动器行为：
+- 优先使用 `venv\\Scripts\\python.exe`（不存在时回退系统 `python`）
+- 启动 Runtime 并轮询 `GET /api/settings/health`
+- Runtime 就绪后启动 `tauri dev`
+- 关闭桌面应用后回收 Runtime 子进程
 
-- 默认写入仓库根目录下的 `.runtime-data/`
-- 可通过 `TK_OPS_RUNTIME_DATA_DIR` 覆盖数据目录
-- SQLite 文件默认位于 `<data-dir>/runtime.db`
-- 日志文件默认位于 `<logDir>/runtime.jsonl`
+## 常用命令
+
+- 仅启动 Runtime：`npm run runtime:dev`
+- 仅启动 Tauri 开发态：`npm run desktop:tauri:dev`
+- Desktop 测试：`npm --prefix apps/desktop run test`
+- Desktop 构建：`npm --prefix apps/desktop run build`
+- Runtime 测试：`venv\\Scripts\\python.exe -m pytest tests/runtime -q`
+- Contract 测试：`venv\\Scripts\\python.exe -m pytest tests/contracts -q`
+
+## 离线授权工具
+
+- 客户机启动后会显示启动加载层和首启授权向导
+- 向导会展示本机机器码，用户可复制后发给授权人员
+- 授权机工具目录：`apps/py-runtime/tools/license-issuer`
+- 生成密钥对：
+  - `venv\\Scripts\\python.exe apps/py-runtime/tools/license-issuer/generate_keypair.py --output-dir .runtime-data/licenses`
+- 签发授权码：
+  - `venv\\Scripts\\python.exe apps/py-runtime/tools/license-issuer/issue_license.py --machine-code <机器码>`
+- Windows 授权机也可直接双击：
+  - `apps\\py-runtime\\tools\\license-issuer\\issue-license.bat`
+
+## Stitch CLI 设计流程
+
+- UI 设计输入默认使用 Stitch CLI，不依赖当前会话内的 Stitch MCP 握手。
+- 固定流程见：`docs/STITCH-CLI-UI-WORKFLOW.md`
+- 设计稿与参考物料目录：`design-drafts/`
+- Stitch 输出只作为设计参考，最终实现仍落回 Vue、Pinia、Runtime client 与 CSS token 架构。
 
 ## 当前边界
 
-- 已落地本地许可证首启闭环，但当前仍是本地占位适配器，尚未接远端授权服务
-- 真实创作链已覆盖“创建项目 -> 脚本保存/生成/改写 -> 分镜生成/保存”的最小闭环
-- 时间线、配音、字幕、渲染、发布等其余 P0/P1 业务能力仍未落地
-- 本轮不包含 API Key 编辑、许可证撤销、多设备迁移和具体安全存储接入
-- 配置广播目前只做到桌面端进程内状态同步，尚未引入 WebSocket 推送
+- 许可证激活已改为本地离线签名校验，不接入远端授权服务
+- Provider Secret UI 与真实 OpenAI 链路仍待下一步实现
+- 时间线、配音、字幕、渲染、发布等能力尚未落地

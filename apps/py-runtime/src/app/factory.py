@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -31,8 +32,9 @@ from schemas.envelope import error_response
 from services.ai_capability_service import AICapabilityService
 from services.ai_text_generation_service import AITextGenerationService
 from services.dashboard_service import DashboardService
-from services.license_activation import PlaceholderLicenseActivationAdapter
+from services.license_activation import OfflineLicenseActivationAdapter
 from services.license_service import LicenseService
+from services.machine_code import MachineCodeService
 from services.script_service import ScriptService
 from services.settings_service import SettingsService
 from services.storyboard_service import StoryboardService
@@ -76,10 +78,14 @@ def create_app() -> FastAPI:
         ai_text_generation_service,
         script_service,
     )
+    machine_code_service = MachineCodeService()
     license_service = LicenseService(
         runtime_config=runtime_config,
         repository=license_repository,
-        activation_adapter=PlaceholderLicenseActivationAdapter(),
+        activation_adapter=OfflineLicenseActivationAdapter(
+            runtime_config.license_public_key_path
+        ),
+        machine_code_service=machine_code_service,
     )
     current_settings = settings_service.get_settings()
     configure_logging(Path(current_settings.paths.logDir), current_settings.logging.level)
@@ -88,6 +94,17 @@ def create_app() -> FastAPI:
         title='TK-OPS Runtime',
         summary='TK-OPS creative chain foundation runtime',
         version=runtime_config.version,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://127.0.0.1:1420",
+            "http://localhost:1420",
+            "tauri://localhost",
+            "http://tauri.localhost",
+        ],
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
     app.state.runtime_config = runtime_config
     app.state.secret_store = secret_store

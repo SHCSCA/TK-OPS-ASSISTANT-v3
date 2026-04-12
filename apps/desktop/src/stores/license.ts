@@ -21,12 +21,12 @@ type LicenseState = LicenseStatus & {
 function createDefaultLicenseState(): LicenseState {
   return {
     activatedAt: null,
-    activationMode: "placeholder",
     active: false,
     error: null,
     machineBound: false,
-    machineId: "",
+    machineCode: "",
     maskedCode: "",
+    licenseType: "perpetual",
     restrictedMode: true,
     status: "idle"
   };
@@ -59,10 +59,10 @@ export const useLicenseStore = defineStore("license", {
     },
     applyLicenseStatus(status: LicenseStatus): void {
       this.activatedAt = status.activatedAt;
-      this.activationMode = status.activationMode;
       this.active = status.active;
       this.machineBound = status.machineBound;
-      this.machineId = status.machineId;
+      this.machineCode = status.machineCode;
+      this.licenseType = status.licenseType;
       this.maskedCode = status.maskedCode;
       this.restrictedMode = status.restrictedMode;
     },
@@ -70,7 +70,7 @@ export const useLicenseStore = defineStore("license", {
       const runtimeError =
         error instanceof RuntimeRequestError
           ? error
-          : new RuntimeRequestError("License request failed.");
+          : new RuntimeRequestError("授权请求失败。");
 
       this.status = "error";
       this.error = {

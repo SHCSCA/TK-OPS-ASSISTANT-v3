@@ -4,7 +4,7 @@ import sqlite3
 from typing import Callable
 
 Migration = Callable[[sqlite3.Connection], None]
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def apply_migrations(connection: sqlite3.Connection) -> None:
@@ -41,7 +41,7 @@ def _get_current_version(connection: sqlite3.Connection) -> int:
 
 
 def _migrations() -> list[Migration]:
-    return [_migration_1, _migration_2]
+    return [_migration_1, _migration_2, _migration_3]
 
 
 def _migration_1(connection: sqlite3.Connection) -> None:
@@ -172,3 +172,37 @@ def _migration_2(connection: sqlite3.Connection) -> None:
         )
         '''
     )
+
+
+def _migration_3(connection: sqlite3.Connection) -> None:
+    _add_column_if_missing(connection, "license_grant", "machine_code", "TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(connection, "license_grant", "license_type", "TEXT NOT NULL DEFAULT 'perpetual'")
+    _add_column_if_missing(connection, "license_grant", "signed_payload", "TEXT NOT NULL DEFAULT ''")
+    connection.execute(
+        """
+        UPDATE license_grant
+        SET machine_code = machine_id
+        WHERE machine_code = ''
+        """
+    )
+    connection.execute(
+        """
+        UPDATE license_grant
+        SET license_type = 'perpetual'
+        WHERE license_type = ''
+        """
+    )
+
+
+def _add_column_if_missing(
+    connection: sqlite3.Connection,
+    table_name: str,
+    column_name: str,
+    column_sql: str,
+) -> None:
+    rows = connection.execute(f"PRAGMA table_info({table_name})").fetchall()
+    existing_columns = {str(row["name"]) for row in rows}
+    if column_name in existing_columns:
+        return
+
+    connection.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_sql}")

@@ -5,7 +5,7 @@
         <p class="placeholder-page__eyebrow">创作主链 / 脚本</p>
         <h1>脚本与选题中心</h1>
         <p class="workspace-page__summary">
-          当前项目下的脚本文档、生成、改写和版本记录都从这里走统一链路。
+          当前项目下的脚本文档、AI 生成、改写和版本记录都从这里进入同一条创作链路。
         </p>
       </div>
       <div class="placeholder-page__meta">
@@ -21,7 +21,7 @@
     <p v-if="scriptStore.error" class="settings-page__error">{{ errorSummary }}</p>
 
     <div class="workspace-grid">
-      <section class="placeholder-card editor-card editor-card--wide">
+      <section class="command-panel editor-card editor-card--wide">
         <div class="editor-card__header">
           <h2>脚本正文</h2>
           <button
@@ -42,7 +42,7 @@
         />
       </section>
 
-      <section class="placeholder-card dashboard-card">
+      <section class="command-panel dashboard-card">
         <h2>AI 生成</h2>
         <label class="settings-field">
           <span>主题</span>
@@ -78,21 +78,21 @@
         </button>
       </section>
 
-      <section class="placeholder-card dashboard-card">
+      <section class="command-panel dashboard-card">
         <h2>版本记录</h2>
         <div v-if="versions.length === 0" class="empty-state">当前项目还没有脚本版本。</div>
         <div v-else class="dashboard-list">
           <article v-for="version in versions" :key="version.revision" class="dashboard-list__item">
             <div>
-              <h3>Revision {{ version.revision }}</h3>
-              <p>{{ version.source }} · {{ version.model ?? "manual" }}</p>
+              <h3>修订 {{ version.revision }}</h3>
+              <p>{{ version.source }} · {{ version.model ?? "手动" }}</p>
               <p class="dashboard-list__meta">{{ version.createdAt }}</p>
             </div>
           </article>
         </div>
       </section>
 
-      <section class="placeholder-card dashboard-card">
+      <section class="command-panel dashboard-card">
         <h2>最近 AI 作业</h2>
         <div v-if="recentJobs.length === 0" class="empty-state">还没有 AI 作业记录。</div>
         <div v-else class="dashboard-list">
@@ -128,7 +128,7 @@ const isDisabled = computed(
   () => scriptStore.status === "loading" || scriptStore.status === "saving" || scriptStore.status === "generating"
 );
 const revisionLabel = computed(() =>
-  document.value?.currentVersion ? `Revision ${document.value.currentVersion.revision}` : "Revision -"
+  document.value?.currentVersion ? `修订 ${document.value.currentVersion.revision}` : "修订 -"
 );
 const versions = computed(() => document.value?.versions ?? []);
 const recentJobs = computed(() => document.value?.recentJobs ?? []);
@@ -138,7 +138,7 @@ const errorSummary = computed(() => {
   }
 
   return scriptStore.error.requestId
-    ? `${scriptStore.error.message} (${scriptStore.error.requestId})`
+    ? `${scriptStore.error.message}（${scriptStore.error.requestId}）`
     : scriptStore.error.message;
 });
 

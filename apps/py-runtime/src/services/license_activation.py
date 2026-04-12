@@ -2,32 +2,59 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Protocol
+
+from services.license_crypto import (
+    LicensePayloadError,
+    load_public_key,
+    mask_activation_code,
+    verify_activation_code,
+)
 
 
 @dataclass(frozen=True, slots=True)
 class ActivationResult:
-    activation_mode: str
+    license_type: str
     activated_at: str
     masked_code: str
+    signed_payload: str
 
 
 class LicenseActivationAdapter(Protocol):
-    def activate(self, activation_code: str) -> ActivationResult: ...
+    def activate(self, activation_code: str, *, machine_code: str) -> ActivationResult: ...
 
 
-class PlaceholderLicenseActivationAdapter:
-    def activate(self, activation_code: str) -> ActivationResult:
-        normalized_code = activation_code.strip()
+class LicenseActivationError(RuntimeError):
+    pass
+
+
+class OfflineLicenseActivationAdapter:
+    def __init__(self, public_key_path: Path) -> None:
+        self._public_key_path = public_key_path
+
+    def activate(self, activation_code: str, *, machine_code: str) -> ActivationResult:
+        try:
+            payload, signed_payload = verify_activation_code(
+                activation_code,
+                load_public_key(self._public_key_path),
+            )
+        except LicensePayloadError as exc:
+            raise LicenseActivationError(str(exc)) from exc
+
+        if normalize_machine_code(payload.machine_code) != normalize_machine_code(machine_code):
+            raise LicenseActivationError("机器码不匹配")
+
+        if payload.license_type != "perpetual":
+            raise LicenseActivationError("当前授权类型不受支持")
+
         return ActivationResult(
-            activation_mode="placeholder",
+            license_type=payload.license_type,
             activated_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-            masked_code=_mask_activation_code(normalized_code),
+            masked_code=mask_activation_code(activation_code),
+            signed_payload=signed_payload,
         )
 
 
-def _mask_activation_code(activation_code: str) -> str:
-    if len(activation_code) <= 8:
-        return "*" * len(activation_code)
-
-    return f"{activation_code[:4]}{'*' * 16}{activation_code[-4:]}"
+def normalize_machine_code(machine_code: str) -> str:
+    return "".join(machine_code.strip().upper().split())

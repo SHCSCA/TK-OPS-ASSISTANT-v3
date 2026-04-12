@@ -11,7 +11,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    include: ["../../tests/desktop/**/*.spec.ts"]
+    include: ["./tests/**/*.spec.ts"]
   },
   server: {
     host: "127.0.0.1",

@@ -41,7 +41,7 @@
 
 - `apps/desktop`
 - `apps/py-runtime`
-- `tests/desktop`
+- `apps/desktop/tests`
 - `tests/runtime`
 - `tests/contracts`
 
@@ -125,7 +125,7 @@ tests/
 
 | 目录 | 责任 |
 | --- | --- |
-| `tests/desktop/` | 路由、页面装配、状态管理、交互契约和前端关键链路测试。 |
+| `apps/desktop/tests/` | 路由、页面装配、状态管理、交互契约和前端关键链路测试。 |
 | `tests/runtime/` | Runtime 路由、服务、模型、任务和媒体链路测试。 |
 | `tests/contracts/` | 前后端协议契约测试，覆盖 JSON 信封、路由映射、资源前缀和关键 DTO 对齐。 |
 

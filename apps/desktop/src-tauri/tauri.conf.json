@@ -1,10 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "TK-OPS",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "identifier": "com.tkops.desktop",
   "build": {
-    "beforeDevCommand": "",
+    "beforeDevCommand": "npm --prefix apps/desktop run dev",
     "beforeBuildCommand": "",
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:1420"
@@ -23,7 +23,7 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "../../tkops.ico"
+      "../../../tkops.ico"
     ]
   }
 }

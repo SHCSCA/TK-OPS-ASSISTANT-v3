@@ -8,9 +8,9 @@ from pydantic import BaseModel, Field
 class LicenseStatusDto(BaseModel):
     active: bool
     restrictedMode: bool
-    machineId: str
+    machineCode: str
     machineBound: bool
-    activationMode: str
+    licenseType: str
     maskedCode: str
     activatedAt: str | None
 

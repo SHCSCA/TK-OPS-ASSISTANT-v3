@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from uuid import uuid4
@@ -84,7 +84,7 @@ class StoryboardService:
         project = self._dashboard_service.require_project(project_id)
         script_document = self._script_service.get_document(project.id)
         if script_document.currentVersion is None:
-            raise HTTPException(status_code=400, detail='Cannot generate a storyboard without a script.')
+            raise HTTPException(status_code=400, detail='请先创建脚本版本，再生成分镜。')
 
         result = ai_text_generation_service.generate_text(
             'storyboard_generation',
@@ -143,10 +143,10 @@ def _parse_scenes(raw_text: str) -> list[dict[str, str]]:
     try:
         payload = json.loads(normalized)
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=502, detail='Storyboard provider returned invalid JSON.') from exc
+        raise HTTPException(status_code=502, detail='分镜 Provider 返回了无效 JSON。') from exc
 
     if not isinstance(payload, list) or not payload:
-        raise HTTPException(status_code=502, detail='Storyboard provider returned no scenes.')
+        raise HTTPException(status_code=502, detail='分镜 Provider 未返回镜头。')
 
     scenes: list[dict[str, str]] = []
     for item in payload:
@@ -162,5 +162,5 @@ def _parse_scenes(raw_text: str) -> list[dict[str, str]]:
         )
 
     if not scenes:
-        raise HTTPException(status_code=502, detail='Storyboard provider returned empty scenes.')
+        raise HTTPException(status_code=502, detail='分镜 Provider 返回了空镜头。')
     return scenes

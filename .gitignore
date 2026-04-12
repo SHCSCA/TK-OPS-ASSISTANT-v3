@@ -32,3 +32,8 @@ Thumbs.db
 # IDE
 .idea/
 
+
+# Local agent state
+.claude/
+.codex/
+apps/desktop/src-tauri/gen/

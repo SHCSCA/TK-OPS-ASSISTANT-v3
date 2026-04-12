@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import time
@@ -39,18 +39,18 @@ class AITextGenerationService:
     ) -> GeneratedTextResult:
         capability = self._capability_service.get_capability(capability_id)
         if not capability.enabled:
-            raise HTTPException(status_code=400, detail='Selected AI capability is disabled.')
+            raise HTTPException(status_code=400, detail='当前 AI 能力已停用。')
 
         provider_runtime = self._capability_service.get_provider_runtime_config(capability.provider)
         if not provider_runtime.supports_text_generation:
             raise HTTPException(
                 status_code=400,
-                detail='Selected provider is registered but not wired for text generation in this milestone.',
+                detail='当前 Provider 已注册，但本阶段尚未接入文本生成。',
             )
         if not provider_runtime.api_key:
-            raise HTTPException(status_code=400, detail='Provider API key is not configured.')
+            raise HTTPException(status_code=400, detail='Provider API Key 尚未配置。')
         if provider_runtime.provider == 'openai_compatible' and provider_runtime.base_url.strip() == '':
-            raise HTTPException(status_code=400, detail='Base URL is required for OpenAI-compatible providers.')
+            raise HTTPException(status_code=400, detail='OpenAI-compatible Provider 必须配置 Base URL。')
 
         prompt = _render_template(capability.userPromptTemplate, variables)
         instructions = '\n\n'.join(
@@ -84,7 +84,7 @@ class AITextGenerationService:
                     request_id=request_id,
                 )
             else:
-                raise HTTPException(status_code=400, detail='Provider is not available for text generation.')
+                raise HTTPException(status_code=400, detail='当前 Provider 不可用于文本生成。')
         except HTTPException as exc:
             self._ai_job_repository.mark_failed(
                 job.id,
@@ -98,7 +98,7 @@ class AITextGenerationService:
                 error=str(exc),
                 duration_ms=int((time.perf_counter() - started_at) * 1000),
             )
-            raise HTTPException(status_code=502, detail='AI provider request failed.') from exc
+            raise HTTPException(status_code=502, detail='AI Provider 请求失败。') from exc
 
         self._ai_job_repository.mark_succeeded(
             job.id,
@@ -149,7 +149,7 @@ def _call_openai_responses(
                 texts.append(str(content['text']))
     text = '\n'.join(part.strip() for part in texts if part and part.strip()).strip()
     if not text:
-        raise HTTPException(status_code=502, detail='OpenAI returned an empty text response.')
+        raise HTTPException(status_code=502, detail='OpenAI 返回了空文本。')
     return text
 
 
@@ -176,14 +176,14 @@ def _call_openai_compatible_chat(
     )
     choices = payload.get('choices', [])
     if not choices:
-        raise HTTPException(status_code=502, detail='OpenAI-compatible provider returned no choices.')
+        raise HTTPException(status_code=502, detail='OpenAI-compatible Provider 未返回候选结果。')
     content = choices[0].get('message', {}).get('content', '')
     if isinstance(content, list):
         text = '\n'.join(str(item.get('text', '')).strip() for item in content if item.get('text'))
     else:
         text = str(content).strip()
     if not text:
-        raise HTTPException(status_code=502, detail='OpenAI-compatible provider returned empty content.')
+        raise HTTPException(status_code=502, detail='OpenAI-compatible Provider 返回了空内容。')
     return text
 
 
@@ -213,6 +213,6 @@ def _post_json(
             message = payload.get('error', {}).get('message') or payload.get('message')
         except Exception:  # pragma: no cover - defensive fallback
             message = None
-        raise HTTPException(status_code=502, detail=message or 'AI provider returned an HTTP error.') from exc
+        raise HTTPException(status_code=502, detail=message or 'AI Provider 返回 HTTP 错误。') from exc
     except urllib.error.URLError as exc:
-        raise HTTPException(status_code=502, detail='Unable to reach the AI provider.') from exc
+        raise HTTPException(status_code=502, detail='无法连接 AI Provider。') from exc

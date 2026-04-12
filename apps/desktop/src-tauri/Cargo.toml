@@ -1,13 +1,13 @@
 [package]
 name = "tk-ops-desktop"
-version = "0.1.1"
+version = "0.2.0"
 description = "TK-OPS desktop shell"
 authors = ["TK-OPS"]
 edition = "2021"
+build = "build.rs"
 
 [build-dependencies]
-tauri-build = { version = "2.0.0" }
+tauri-build = { version = "2.0.0", features = [] }
 
 [dependencies]
 tauri = { version = "2.0.0", features = [] }
-
