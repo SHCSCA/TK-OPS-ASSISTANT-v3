@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                        "slate-custom": "#101818",
+                        "slate-muted": "#5e8d8b",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans SC", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Spline Sans', sans-serif; }
+        .material-symbols-outlined { font-size: 20px; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-custom dark:text-slate-100 font-display min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-primary/10 bg-white dark:bg-background-dark px-6 md:px-10 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-4 text-slate-custom dark:text-slate-100">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center text-background-dark">
+<span class="material-symbols-outlined">video_library</span>
+</div>
+<h2 class="text-lg font-bold leading-tight tracking-[-0.015em]">视频创作中心</h2>
+</div>
+<div class="flex flex-1 justify-end gap-6 items-center">
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-slate-custom dark:text-slate-100 text-sm font-medium hover:text-primary transition-colors" href="#">内容管理</a>
+<a class="text-slate-custom dark:text-slate-100 text-sm font-medium hover:text-primary transition-colors" href="#">数据分析</a>
+<a class="text-primary text-sm font-bold border-b-2 border-primary pb-1" href="#">定时发布</a>
+</nav>
+<div class="flex gap-2">
+<button class="flex size-10 cursor-pointer items-center justify-center rounded-lg bg-primary/10 text-slate-custom dark:text-slate-100 hover:bg-primary/20">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="flex size-10 cursor-pointer items-center justify-center rounded-lg bg-primary/10 text-slate-custom dark:text-slate-100 hover:bg-primary/20">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary" data-alt="User profile avatar portrait" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAljho_1T5l4IY5KiemHPUE16_cT2SHM-zKCt-r2o6WR4e99lZ2g8cbE6gQhZySesrjhGRKG7FCMnPQs5s1LmPjnbmdCJwO0BOHrhtyed6ODSuvsrl8tyB-ZsWfSxO4hW83jn5ZqfONVOCJgkCnGdHpTBH_0NCz164mC1-xhjTrw0bobSq6fw_Jg6-EPPtv40g7KjdDC4JR-B8MWVS7rAnakxncRMfnlbyMDOOA0I6HJCuhbaq84u3tuBAVEGzCzYUA2d6pSicXjt0G");'></div>
+</div>
+</header>
+<main class="flex flex-1 flex-col lg:flex-row p-4 md:p-8 gap-6 max-w-[1440px] mx-auto w-full">
+<!-- Left Section: Calendar and Schedule Overview -->
+<div class="flex-1 flex flex-col gap-6 order-2 lg:order-1">
+<div class="bg-white dark:bg-background-dark/50 rounded-xl p-6 shadow-sm border border-primary/10">
+<div class="flex items-center justify-between mb-6">
+<div>
+<h1 class="text-3xl font-black tracking-tight">定时发布</h1>
+<p class="text-slate-muted text-sm mt-1">在这里管理您的内容排期和自动化发布流</p>
+</div>
+<div class="flex items-center gap-2 bg-background-light dark:bg-slate-800 p-1 rounded-lg">
+<button class="px-4 py-2 text-sm font-bold bg-white dark:bg-slate-700 shadow-sm rounded-md">月视图</button>
+<button class="px-4 py-2 text-sm font-medium text-slate-muted hover:text-slate-custom dark:hover:text-slate-100">周视图</button>
+</div>
+</div>
+<!-- Calendar Grid -->
+<div class="flex flex-col gap-0.5">
+<div class="flex items-center justify-between mb-4 px-2">
+<button class="size-8 flex items-center justify-center hover:bg-primary/10 rounded-full">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<p class="text-base font-bold">2023年10月</p>
+<button class="size-8 flex items-center justify-center hover:bg-primary/10 rounded-full">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<div class="grid grid-cols-7 border-t border-l border-primary/5">
+<!-- Weekdays -->
+<div class="p-3 text-center text-xs font-bold uppercase tracking-widest text-slate-muted border-r border-b border-primary/5">周日</div>
+<div class="p-3 text-center text-xs font-bold uppercase tracking-widest text-slate-muted border-r border-b border-primary/5">周一</div>
+<div class="p-3 text-center text-xs font-bold uppercase tracking-widest text-slate-muted border-r border-b border-primary/5">周二</div>
+<div class="p-3 text-center text-xs font-bold uppercase tracking-widest text-slate-muted border-r border-b border-primary/5">周三</div>
+<div class="p-3 text-center text-xs font-bold uppercase tracking-widest text-slate-muted border-r border-b border-primary/5">周四</div>
+<div class="p-3 text-center text-xs font-bold uppercase tracking-widest text-slate-muted border-r border-b border-primary/5">周五</div>
+<div class="p-3 text-center text-xs font-bold uppercase tracking-widest text-slate-muted border-r border-b border-primary/5">周六</div>
+<!-- Days (Sample starting from Wed) -->
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 bg-slate-50/50 dark:bg-transparent opacity-30"></div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 bg-slate-50/50 dark:bg-transparent opacity-30"></div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 bg-slate-50/50 dark:bg-transparent opacity-30"></div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group">
+<span class="text-sm font-medium">1</span>
+</div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group">
+<span class="text-sm font-medium">2</span>
+</div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group">
+<span class="text-sm font-medium">3</span>
+</div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group">
+<span class="text-sm font-medium">4</span>
+</div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 bg-primary/10 relative">
+<span class="text-sm font-bold text-primary">5</span>
+<div class="mt-2 p-1.5 bg-primary rounded text-[10px] font-bold text-background-dark truncate shadow-sm">
+                                        Vlog: 春季旅行...
+                                    </div>
+</div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group">
+<span class="text-sm font-medium">6</span>
+</div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group">
+<span class="text-sm font-medium">7</span>
+</div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group">
+<span class="text-sm font-medium">8</span>
+</div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group">
+<span class="text-sm font-medium">9</span>
+</div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group">
+<span class="text-sm font-medium text-slate-muted">10</span>
+<div class="mt-2 p-1.5 bg-slate-200 dark:bg-slate-700 rounded text-[10px] font-medium truncate">
+                                        产品测评 01...
+                                    </div>
+</div>
+<!-- More cells... truncated for design -->
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group"><span class="text-sm font-medium">11</span></div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group"><span class="text-sm font-medium">12</span></div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group"><span class="text-sm font-medium">13</span></div>
+<div class="min-h-[100px] p-2 border-r border-b border-primary/5 hover:bg-primary/5 transition-colors group"><span class="text-sm font-medium">14</span></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Section: New Post Configuration -->
+<aside class="w-full lg:w-[400px] flex flex-col gap-6 order-1 lg:order-2">
+<div class="bg-white dark:bg-background-dark/50 rounded-xl p-6 shadow-lg border-t-4 border-primary">
+<h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">add_circle</span>
+                            新建定时任务
+                        </h2>
+<form class="flex flex-col gap-5">
+<!-- File Upload Area -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-slate-muted">上传视频</label>
+<div class="border-2 border-dashed border-primary/30 rounded-xl p-8 flex flex-col items-center justify-center gap-3 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer group">
+<div class="size-12 rounded-full bg-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined !text-3xl">cloud_upload</span>
+</div>
+<div class="text-center">
+<p class="text-sm font-bold">点击或拖拽上传</p>
+<p class="text-xs text-slate-muted mt-1">支持 MP4, MOV, 最大 2GB</p>
+</div>
+</div>
+</div>
+<!-- Title/Caption -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-slate-muted">视频标题 &amp; 简介</label>
+<input class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-primary focus:border-primary text-sm p-3" placeholder="输入视频标题" type="text"/>
+<textarea class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-primary focus:border-primary text-sm p-3" placeholder="写点什么来介绍你的视频吧..." rows="4"></textarea>
+</div>
+<!-- Scheduled Time -->
+<div class="grid grid-cols-2 gap-3">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-slate-muted">发布日期</label>
+<div class="relative">
+<input class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-primary focus:border-primary text-sm p-3" type="date" value="2023-10-05"/>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-slate-muted">发布时间</label>
+<div class="relative">
+<input class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-primary focus:border-primary text-sm p-3" type="time" value="18:00"/>
+</div>
+</div>
+</div>
+<!-- Category / Tags -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-bold text-slate-muted">选择分区</label>
+<select class="w-full rounded-lg border-primary/20 bg-background-light dark:bg-slate-800 focus:ring-primary focus:border-primary text-sm p-3">
+<option>生活娱乐</option>
+<option>科技数码</option>
+<option>知识分享</option>
+<option>美食制作</option>
+</select>
+</div>
+<!-- Action Buttons -->
+<div class="flex gap-3 mt-4">
+<button class="flex-1 py-3 px-4 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-custom dark:text-slate-100 font-bold text-sm hover:opacity-80 transition-opacity" type="button">
+                                    保存草稿
+                                </button>
+<button class="flex-1 py-3 px-4 rounded-lg bg-primary text-background-dark font-bold text-sm shadow-md shadow-primary/20 hover:brightness-105 transition-all" type="submit">
+                                    确认发布
+                                </button>
+</div>
+</form>
+</div>
+<!-- Quick Stats Component -->
+<div class="bg-background-dark text-white rounded-xl p-6 shadow-sm overflow-hidden relative">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined !text-6xl">timer</span>
+</div>
+<h3 class="text-sm font-medium text-primary/80 mb-4">本月发布概况</h3>
+<div class="flex items-end gap-2">
+<span class="text-4xl font-black">12</span>
+<span class="text-sm mb-1 text-slate-muted">个已预定视频</span>
+</div>
+<div class="mt-4 w-full bg-white/10 rounded-full h-2">
+<div class="bg-primary h-full rounded-full" style="width: 65%;"></div>
+</div>
+<p class="text-[10px] mt-2 text-slate-muted">已完成本月计划的 65%</p>
+</div>
+</aside>
+</main>
+</div>
+</div>
+</body></html>

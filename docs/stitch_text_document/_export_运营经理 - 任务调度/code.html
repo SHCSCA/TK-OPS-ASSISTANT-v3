@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Spline Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="flex flex-col h-screen">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between px-8 py-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shrink-0">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<div class="p-2 bg-primary/20 rounded-lg">
+<span class="material-symbols-outlined text-primary">schedule</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight">TK-OPS 任务调度</h1>
+</div>
+<nav class="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+<button class="px-4 py-1.5 text-sm font-medium rounded-md bg-white dark:bg-slate-700 shadow-sm">全部任务</button>
+<button class="px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">数据采集</button>
+<button class="px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">内容发布</button>
+<button class="px-4 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">运维监控</button>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm w-64 focus:ring-2 focus:ring-primary" placeholder="搜索任务..." type="text"/>
+</div>
+<button class="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-slate-900 font-bold rounded-lg transition-colors">
+<span class="material-symbols-outlined text-[20px]">add_box</span>
+<span>创建任务</span>
+</button>
+<div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden border-2 border-primary/30" data-alt="User avatar profile picture">
+<img alt="Profile" data-alt="Headshot of a system administrator" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB-QEECcLl9IP0VBqCrsLfZwrKpVpPqSK9dKLes1DOj3lnk_So41UAIVhtGoal5XMXjIWNElYMwHjEGb_uyfJiXqEX9XOnVCetElZ4lT1FYma6Np2z1uweKLZUEJUh_nP13jrVsvnBZpV4saBjqms4gZfgKkZrHlSUE-5b0fnlXqOCI2uEvY77ZZ_bZuEuMhRel2nPJSU9gJAniv9dJZ6S9BMbxXK73ygPQgD03A52P6J-3-iffEiNzIwNh7mO_dHyw76QRIJD5chTt"/>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<div class="flex flex-1 overflow-hidden">
+<!-- Sidebar Navigation (Left) - Compact -->
+<aside class="w-16 flex flex-col items-center py-6 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 gap-8">
+<button class="text-primary"><span class="material-symbols-outlined text-[28px]">calendar_view_week</span></button>
+<button class="text-slate-400 hover:text-primary"><span class="material-symbols-outlined text-[28px]">list_alt</span></button>
+<button class="text-slate-400 hover:text-primary"><span class="material-symbols-outlined text-[28px]">analytics</span></button>
+<button class="text-slate-400 hover:text-primary mt-auto"><span class="material-symbols-outlined text-[28px]">settings</span></button>
+</aside>
+<!-- Calendar Container -->
+<main class="flex-1 flex flex-col bg-slate-50 dark:bg-background-dark overflow-y-auto">
+<!-- Calendar Header -->
+<div class="p-6 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<h2 class="text-lg font-bold">2023年11月</h2>
+<div class="flex border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+<button class="p-1 px-3 hover:bg-slate-200 dark:hover:bg-slate-700 border-r border-slate-200 dark:border-slate-700"><span class="material-symbols-outlined text-[20px] leading-none">chevron_left</span></button>
+<button class="p-1 px-3 hover:bg-slate-200 dark:hover:bg-slate-700"><span class="material-symbols-outlined text-[20px] leading-none">chevron_right</span></button>
+</div>
+<button class="text-sm font-medium text-slate-500 hover:text-primary">回到今天</button>
+</div>
+<div class="flex bg-slate-200/50 dark:bg-slate-800 p-1 rounded-lg">
+<button class="px-4 py-1 text-xs font-bold rounded-md bg-white dark:bg-slate-700 shadow-sm">周视图</button>
+<button class="px-4 py-1 text-xs font-bold text-slate-500">月视图</button>
+</div>
+</div>
+<!-- Weekly Grid -->
+<div class="px-6 pb-6 flex-1">
+<div class="grid grid-cols-7 bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden h-full">
+<!-- Days of week -->
+<div class="col-span-7 grid grid-cols-7 border-b border-slate-200 dark:border-slate-800">
+<div class="py-3 text-center border-r border-slate-100 dark:border-slate-800 text-xs font-bold uppercase tracking-wider text-slate-400">周一 (11.13)</div>
+<div class="py-3 text-center border-r border-slate-100 dark:border-slate-800 text-xs font-bold uppercase tracking-wider text-slate-400">周二 (11.14)</div>
+<div class="py-3 text-center border-r border-slate-100 dark:border-slate-800 text-xs font-bold uppercase tracking-wider text-slate-400">周三 (11.15)</div>
+<div class="py-3 text-center border-r border-slate-100 dark:border-slate-800 text-xs font-bold uppercase tracking-wider text-primary">周四 (11.16)</div>
+<div class="py-3 text-center border-r border-slate-100 dark:border-slate-800 text-xs font-bold uppercase tracking-wider text-slate-400">周五 (11.17)</div>
+<div class="py-3 text-center border-r border-slate-100 dark:border-slate-800 text-xs font-bold uppercase tracking-wider text-slate-400">周六 (11.18)</div>
+<div class="py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-400">周日 (11.19)</div>
+</div>
+<!-- Calendar Content Rows -->
+<div class="col-span-7 grid grid-cols-7 divide-x divide-slate-100 dark:divide-slate-800 min-h-[600px]">
+<!-- Day Column: Mon -->
+<div class="p-2 space-y-2">
+<div class="p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded-lg">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">数据采集</span>
+<span class="material-symbols-outlined text-[14px] text-green-500">check_circle</span>
+</div>
+<p class="text-xs font-bold truncate">API 增量同步</p>
+<p class="text-[10px] text-slate-500 mt-1">09:00 AM</p>
+</div>
+</div>
+<!-- Day Column: Tue -->
+<div class="p-2 space-y-2">
+<div class="p-3 bg-orange-50 dark:bg-orange-900/20 border-l-4 border-orange-500 rounded-lg">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase">运维监控</span>
+<span class="material-symbols-outlined text-[14px] text-orange-500">sync</span>
+</div>
+<p class="text-xs font-bold truncate">服务器心跳监测</p>
+<p class="text-[10px] text-slate-500 mt-1">10:30 AM</p>
+</div>
+</div>
+<!-- Day Column: Wed -->
+<div class="p-2 space-y-2">
+<div class="p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded-lg">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase">内容发布</span>
+<span class="material-symbols-outlined text-[14px] text-slate-400">pending</span>
+</div>
+<p class="text-xs font-bold truncate">自动博文发布</p>
+<p class="text-[10px] text-slate-500 mt-1">14:00 PM</p>
+</div>
+</div>
+<!-- Day Column: Thu (Current) -->
+<div class="p-2 space-y-2 bg-primary/5">
+<div class="p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded-lg ring-2 ring-primary ring-inset">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase">数据采集</span>
+<span class="material-symbols-outlined text-[14px] text-blue-500 animate-pulse">play_circle</span>
+</div>
+<p class="text-xs font-bold truncate">网页爬虫任务 #07</p>
+<p class="text-[10px] text-slate-500 mt-1">15:30 PM (运行中)</p>
+</div>
+<div class="p-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded-lg">
+<div class="flex justify-between items-start mb-1">
+<span class="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase">运维监控</span>
+<span class="material-symbols-outlined text-[14px] text-red-500">error</span>
+</div>
+<p class="text-xs font-bold truncate">数据库备份</p>
+<p class="text-[10px] text-slate-500 mt-1">16:45 PM</p>
+</div>
+</div>
+<!-- Day Column: Fri -->
+<div class="p-2 space-y-2"></div>
+<!-- Day Column: Sat -->
+<div class="p-2 space-y-2 bg-slate-50/50 dark:bg-slate-800/20"></div>
+<!-- Day Column: Sun -->
+<div class="p-2 space-y-2 bg-slate-50/50 dark:bg-slate-800/20"></div>
+</div>
+</div>
+</div>
+</main>
+<!-- Task Detail Sidebar (Right) -->
+<aside class="w-80 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col shrink-0 overflow-y-auto">
+<div class="p-6 border-b border-slate-100 dark:border-slate-800">
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-base font-bold">任务详情</h3>
+<span class="px-2 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 text-[10px] font-bold rounded">运行中</span>
+</div>
+<div class="flex items-center gap-2 mb-1">
+<h4 class="text-lg font-bold">网页爬虫任务 #07</h4>
+</div>
+<p class="text-xs text-slate-500 font-medium">TASK-ID: TKO-7721-X9</p>
+</div>
+<div class="p-6 space-y-6">
+<!-- Countdown Section -->
+<div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
+<p class="text-[10px] text-slate-500 uppercase font-bold mb-2">距离下次运行</p>
+<div class="flex items-baseline gap-1 text-primary">
+<span class="text-2xl font-bold">01:24:45</span>
+</div>
+</div>
+<!-- Config Form Tabs -->
+<div class="space-y-4">
+<div class="flex border-b border-slate-100 dark:border-slate-800">
+<button class="pb-2 px-1 text-sm font-bold border-b-2 border-primary">基础配置</button>
+<button class="pb-2 px-4 text-sm font-medium text-slate-400">调度规则</button>
+<button class="pb-2 px-4 text-sm font-medium text-slate-400">日志</button>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-slate-500 mb-1">目标 URL</label>
+<div class="px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm truncate">https://api.tkops.com/v1/scraper/node-01</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-xs font-bold text-slate-500 mb-1">并发数量</label>
+<div class="px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">16 Threads</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 mb-1">重试次数</label>
+<div class="px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">3 Times</div>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-500 mb-1">运行日志 (最近)</label>
+<div class="space-y-2 mt-2">
+<div class="flex items-center gap-3 text-[11px]">
+<div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+<span class="text-slate-400 w-16">15:30:01</span>
+<span class="font-medium">任务实例化成功</span>
+</div>
+<div class="flex items-center gap-3 text-[11px]">
+<div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+<span class="text-slate-400 w-16">15:31:45</span>
+<span class="font-medium">开始解析 2,401 个节点</span>
+</div>
+<div class="flex items-center gap-3 text-[11px]">
+<div class="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+<span class="text-slate-400 w-16">15:35:12</span>
+<span class="font-medium">正在导出数据...</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-auto p-6 flex gap-3 border-t border-slate-100 dark:border-slate-800">
+<button class="flex-1 px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-sm font-bold transition-colors">暂停</button>
+<button class="flex-1 px-4 py-2 bg-primary text-slate-900 rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors">立即运行</button>
+</div>
+</aside>
+</div>
+</div>
+</body></html>

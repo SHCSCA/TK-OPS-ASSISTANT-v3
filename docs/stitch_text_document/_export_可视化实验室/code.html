@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>可视化实验室 - Visual Lab</title>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark px-6 py-3 shrink-0">
+<div class="flex items-center gap-4">
+<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-background-dark">
+<span class="material-symbols-outlined text-2xl font-bold">query_stats</span>
+</div>
+<h2 class="text-xl font-bold tracking-tight">可视化实验室</h2>
+<div class="ml-6 flex items-center gap-2 rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1">
+<span class="text-xs font-medium text-slate-500">项目:</span>
+<span class="text-sm font-semibold">未命名实验室-01</span>
+<span class="material-symbols-outlined text-sm cursor-pointer">edit</span>
+</div>
+</div>
+<div class="flex flex-1 justify-end gap-6 items-center">
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">数据源</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">图表库</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">我的项目</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">文档</a>
+</nav>
+<div class="h-6 w-px bg-slate-200 dark:bg-slate-800"></div>
+<div class="flex gap-3">
+<button class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined text-xl">notifications</span>
+</button>
+<button class="flex items-center justify-center gap-2 rounded-lg bg-primary px-5 h-10 text-background-dark text-sm font-bold hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-lg">rocket_launch</span>
+<span>发布</span>
+</button>
+<div class="h-10 w-10 overflow-hidden rounded-full border-2 border-primary/20">
+<img alt="User Profile" data-alt="Abstract colorful avatar circle profile icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPI5oTASDv-NwWMCymI_jM3R3jFI7epMr1oLiWhxvogv2UTwZiXvczUZOO5vwTWidRW95sZ-BLRsMiw48Sdh1U-mzRI5sOpAi1CShrdFov2BbfMKe608sQgKY7bCxO4nIGkcgPN-mnY-P6nmQpxiwpbxYEVg9cdCugVQV3P58xjHE1ooqiZIzMkyC-I5N4skts_TwEi3SWlVeNl8CZGhphA8cdSGOGGk20DIBnzs7uYQfEBK4jia9e5ydHjdOYZ5v4qTSz-nZK4Het"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Layout -->
+<main class="flex flex-1 overflow-hidden">
+<!-- Left Sidebar: Assets & Selection -->
+<aside class="w-72 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex flex-col shrink-0">
+<div class="p-5 flex flex-col gap-6 overflow-y-auto">
+<div>
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">数据源选择</h3>
+<div class="space-y-2">
+<button class="flex w-full items-center gap-3 rounded-lg border border-primary bg-primary/5 px-4 py-3 text-left">
+<span class="material-symbols-outlined text-primary">database</span>
+<div class="flex-1 overflow-hidden">
+<p class="text-sm font-bold truncate">Realtime_Production_DB</p>
+<p class="text-[10px] text-slate-500">PostgreSQL • 2 mins ago</p>
+</div>
+<span class="material-symbols-outlined text-sm">check_circle</span>
+</button>
+<button class="flex w-full items-center gap-3 rounded-lg border border-slate-200 dark:border-slate-800 px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-slate-400">cloud_queue</span>
+<div class="flex-1 overflow-hidden">
+<p class="text-sm font-bold truncate">Cloud_Logs_S3</p>
+<p class="text-[10px] text-slate-500">AWS S3 • 1 hour ago</p>
+</div>
+</button>
+<button class="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 py-2 text-xs font-medium text-slate-500">
+<span class="material-symbols-outlined text-sm">add</span> 添加新数据源
+                            </button>
+</div>
+</div>
+<div>
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">图表类型</h3>
+<div class="grid grid-cols-2 gap-2">
+<button class="flex flex-col items-center gap-2 rounded-lg bg-primary px-3 py-4 text-background-dark shadow-sm">
+<span class="material-symbols-outlined text-2xl">show_chart</span>
+<span class="text-xs font-bold">折线图</span>
+</button>
+<button class="flex flex-col items-center gap-2 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-4 hover:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined text-2xl">bar_chart</span>
+<span class="text-xs font-medium">柱状图</span>
+</button>
+<button class="flex flex-col items-center gap-2 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-4 hover:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined text-2xl">pie_chart</span>
+<span class="text-xs font-medium">饼图</span>
+</button>
+<button class="flex flex-col items-center gap-2 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-4 hover:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined text-2xl">bubble_chart</span>
+<span class="text-xs font-medium">散点图</span>
+</button>
+<button class="flex flex-col items-center gap-2 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-4 hover:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined text-2xl">area_chart</span>
+<span class="text-xs font-medium">面积图</span>
+</button>
+<button class="flex flex-col items-center gap-2 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-4 hover:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined text-2xl">radar</span>
+<span class="text-xs font-medium">雷达图</span>
+</button>
+</div>
+</div>
+</div>
+<div class="mt-auto border-t border-slate-200 dark:border-slate-800 p-4">
+<div class="flex items-center gap-3 rounded-lg bg-slate-50 dark:bg-slate-900 p-3">
+<span class="material-symbols-outlined text-primary">info</span>
+<p class="text-xs leading-relaxed text-slate-500">提示: 拖拽维度到右侧配置栏以调整坐标轴。</p>
+</div>
+</div>
+</aside>
+<!-- Center Content: Real-time Preview -->
+<section class="flex-1 bg-background-light dark:bg-background-dark p-6 flex flex-col gap-6 overflow-y-auto">
+<div class="flex items-end justify-between">
+<div>
+<h1 class="text-2xl font-bold">实时数据预览</h1>
+<p class="text-slate-500 text-sm">每 5 秒自动更新一次</p>
+</div>
+<div class="flex items-center gap-4 bg-white dark:bg-background-dark p-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+<button class="rounded-md px-3 py-1 text-xs font-bold bg-slate-100 dark:bg-slate-800">1H</button>
+<button class="rounded-md px-3 py-1 text-xs font-medium text-slate-500 hover:text-slate-900">1D</button>
+<button class="rounded-md px-3 py-1 text-xs font-medium text-slate-500 hover:text-slate-900">1W</button>
+<button class="rounded-md px-3 py-1 text-xs font-medium text-slate-500 hover:text-slate-900">1M</button>
+</div>
+</div>
+<!-- Main Chart Canvas -->
+<div class="flex-1 min-h-[400px] rounded-2xl bg-white dark:bg-background-dark border border-slate-200 dark:border-slate-800 shadow-xl flex flex-col p-8">
+<div class="mb-8 flex items-center justify-between">
+<div>
+<p class="text-xs font-bold text-primary uppercase tracking-widest">活跃指标</p>
+<p class="text-4xl font-black mt-1">2,482,109 <span class="text-sm font-medium text-emerald-500 ml-2">↑ 14.2%</span></p>
+</div>
+<div class="flex -space-x-2">
+<div class="h-8 w-8 rounded-full border-2 border-white bg-slate-200"></div>
+<div class="h-8 w-8 rounded-full border-2 border-white bg-slate-300"></div>
+<div class="h-8 w-8 rounded-full border-2 border-white bg-slate-400"></div>
+<div class="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-primary text-[10px] font-bold text-background-dark">+5</div>
+</div>
+</div>
+<div class="flex-1 relative">
+<svg class="h-full w-full" preserveaspectratio="none" viewbox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
+<!-- Grid Lines -->
+<line class="stroke-slate-100 dark:stroke-slate-800" stroke-width="1" x1="0" x2="800" y1="50" y2="50"></line>
+<line class="stroke-slate-100 dark:stroke-slate-800" stroke-width="1" x1="0" x2="800" y1="125" y2="125"></line>
+<line class="stroke-slate-100 dark:stroke-slate-800" stroke-width="1" x1="0" x2="800" y1="200" y2="200"></line>
+<line class="stroke-slate-100 dark:stroke-slate-800" stroke-width="1" x1="0" x2="800" y1="275" y2="275"></line>
+<!-- Gradient Fill -->
+<defs>
+<lineargradient id="chartGradient" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" style="stop-color:#00f0e8;stop-opacity:0.4"></stop>
+<stop offset="100%" style="stop-color:#00f0e8;stop-opacity:0"></stop>
+</lineargradient>
+</defs>
+<path d="M0,250 C100,230 150,50 200,80 C250,110 300,220 400,180 C500,140 600,20 700,50 C750,65 800,100 800,100 L800,300 L0,300 Z" fill="url(#chartGradient)"></path>
+<!-- Line -->
+<path class="stroke-primary" d="M0,250 C100,230 150,50 200,80 C250,110 300,220 400,180 C500,140 600,20 700,50 C750,65 800,100" fill="none" stroke-linecap="round" stroke-width="4"></path>
+<!-- Tooltip Node -->
+<circle class="fill-primary" cx="400" cy="180" r="6"></circle>
+<circle class="fill-primary/20" cx="400" cy="180" r="12"></circle>
+</svg>
+</div>
+<div class="mt-6 flex justify-between text-[11px] font-bold text-slate-400 uppercase tracking-tighter">
+<span>周一 00:00</span>
+<span>周二 06:00</span>
+<span>周三 12:00</span>
+<span>周四 18:00</span>
+<span>周五 00:00</span>
+<span>周六 06:00</span>
+<span>周日 23:59</span>
+</div>
+</div>
+<!-- Bottom Stats -->
+<div class="grid grid-cols-3 gap-6">
+<div class="rounded-xl bg-white dark:bg-background-dark p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+<p class="text-xs font-medium text-slate-500">平均转换率</p>
+<p class="text-xl font-bold mt-1">3.48%</p>
+</div>
+<div class="rounded-xl bg-white dark:bg-background-dark p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+<p class="text-xs font-medium text-slate-500">跳出率</p>
+<p class="text-xl font-bold mt-1">21.5%</p>
+</div>
+<div class="rounded-xl bg-white dark:bg-background-dark p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
+<p class="text-xs font-medium text-slate-500">会话时长</p>
+<p class="text-xl font-bold mt-1">04m 12s</p>
+</div>
+</div>
+</section>
+<!-- Right Sidebar: Style Settings -->
+<aside class="w-80 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark flex flex-col shrink-0 overflow-y-auto">
+<div class="p-5 flex flex-col gap-8">
+<div>
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-400">轴标签设置</h3>
+<button class="text-xs font-bold text-primary">重置</button>
+</div>
+<div class="space-y-4">
+<div>
+<label class="text-xs font-bold text-slate-600 dark:text-slate-300 block mb-1.5">X轴标题</label>
+<input class="w-full rounded-lg border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-sm focus:ring-primary focus:border-primary" type="text" value="时间周期"/>
+</div>
+<div>
+<label class="text-xs font-bold text-slate-600 dark:text-slate-300 block mb-1.5">Y轴标题</label>
+<input class="w-full rounded-lg border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-sm focus:ring-primary focus:border-primary" type="text" value="活跃用户数量 (k)"/>
+</div>
+<div class="flex items-center justify-between">
+<span class="text-sm">显示网格线</span>
+<div class="relative inline-flex h-6 w-11 items-center rounded-full bg-primary cursor-pointer">
+<span class="inline-block h-4 w-4 translate-x-6 transform rounded-full bg-background-dark transition"></span>
+</div>
+</div>
+</div>
+</div>
+<div>
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">配色方案</h3>
+<div class="space-y-3">
+<div class="flex items-center gap-3">
+<div class="h-6 w-6 rounded-full bg-primary shadow-sm ring-2 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-background-dark cursor-pointer"></div>
+<div class="h-6 w-6 rounded-full bg-[#f00078] opacity-60 hover:opacity-100 cursor-pointer"></div>
+<div class="h-6 w-6 rounded-full bg-[#7800f0] opacity-60 hover:opacity-100 cursor-pointer"></div>
+<div class="h-6 w-6 rounded-full bg-[#0078f0] opacity-60 hover:opacity-100 cursor-pointer"></div>
+<div class="h-6 w-6 rounded-full bg-[#f0b400] opacity-60 hover:opacity-100 cursor-pointer"></div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-xs font-bold text-slate-600 dark:text-slate-300 block mt-2">背景透明度</label>
+<input class="w-full accent-primary h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer" type="range"/>
+</div>
+</div>
+</div>
+<div>
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">交互配置</h3>
+<div class="space-y-3">
+<label class="flex items-center gap-3 group cursor-pointer">
+<input checked="" class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm">启用数据提示 (Tooltip)</span>
+</label>
+<label class="flex items-center gap-3 group cursor-pointer">
+<input checked="" class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm">启用缩放滚动 (Zoom)</span>
+</label>
+<label class="flex items-center gap-3 group cursor-pointer">
+<input class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary" type="checkbox"/>
+<span class="text-sm">显示实时数据点</span>
+</label>
+</div>
+</div>
+</div>
+<div class="mt-auto p-5 border-t border-slate-200 dark:border-slate-800">
+<button class="w-full flex items-center justify-center gap-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3 font-bold text-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-lg">save</span>
+                        保存样式模版
+                    </button>
+</div>
+</aside>
+</main>
+</div>
+</body></html>

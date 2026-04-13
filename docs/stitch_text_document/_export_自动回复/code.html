@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "secondary": "#F38181",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans SC", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>自动回复控制台</title>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 shrink-0">
+<div class="flex items-center gap-4">
+<div class="size-8 bg-secondary rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined">robot_2</span>
+</div>
+<h2 class="text-xl font-bold tracking-tight">自动回复</h2>
+</div>
+<div class="flex items-center gap-6">
+<!-- Status Badge -->
+<div class="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="text-xs font-medium">系统运行中</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-400">notifications</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-slate-200" data-alt="User profile avatar circle"></div>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col p-4 gap-2">
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-sm font-medium">主页控制台</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-secondary/10 text-secondary">
+<span class="material-symbols-outlined">auto_fix_off</span>
+<span class="text-sm font-medium">自动回复规则</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="text-sm font-medium">数据统计</span>
+</div>
+<div class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">全局设置</span>
+</div>
+<div class="mt-auto border-t border-slate-100 dark:border-slate-800 pt-4 px-3">
+<p class="text-xs text-slate-400 uppercase tracking-wider font-bold mb-4">当前模式</p>
+<div class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800">
+<span class="material-symbols-outlined text-primary text-sm">bolt</span>
+<span class="text-xs font-semibold">企业高级版</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col bg-background-light dark:bg-background-dark overflow-hidden">
+<!-- Top Enable Switch Section -->
+<div class="p-6 shrink-0">
+<div class="flex items-center justify-between rounded-xl border border-primary/30 bg-white dark:bg-slate-900 p-6 shadow-sm">
+<div class="flex items-center gap-4">
+<div class="size-12 rounded-full bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-2xl">power_settings_new</span>
+</div>
+<div>
+<h3 class="text-lg font-bold">启用智能自动回复</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm">开启后，系统将根据下方预设的规则与逻辑自动响应客户消息</p>
+</div>
+</div>
+<label class="relative flex h-[38px] w-[64px] cursor-pointer items-center rounded-full border-none bg-slate-200 dark:bg-slate-700 p-1 transition-colors has-[:checked]:bg-primary">
+<div class="h-full w-[30px] rounded-full bg-white shadow-md transition-all"></div>
+<input checked="" class="invisible absolute peer" type="checkbox"/>
+</label>
+</div>
+</div>
+<!-- Three Column Layout -->
+<div class="flex flex-1 px-6 pb-6 gap-6 overflow-hidden">
+<!-- Column 1: Rules List -->
+<div class="w-1/4 flex flex-col bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+<div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+<h4 class="font-bold text-sm">回复规则列表</h4>
+<button class="text-primary hover:bg-primary/10 p-1 rounded-md transition-colors">
+<span class="material-symbols-outlined text-xl">add_box</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto p-2 space-y-1">
+<div class="p-3 bg-primary/5 border-l-4 border-primary rounded-r-lg cursor-pointer">
+<div class="flex justify-between items-start mb-1">
+<span class="text-sm font-bold">关键词：价格/收费</span>
+<span class="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 rounded">开启</span>
+</div>
+<p class="text-xs text-slate-500 truncate">匹配到关键词后回复价目表...</p>
+</div>
+<div class="p-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors border-l-4 border-transparent">
+<div class="flex justify-between items-start mb-1">
+<span class="text-sm font-bold">欢迎语 (首句)</span>
+<span class="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 rounded">开启</span>
+</div>
+<p class="text-xs text-slate-500 truncate">您好！很高兴为您服务...</p>
+</div>
+<div class="p-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors border-l-4 border-transparent">
+<div class="flex justify-between items-start mb-1">
+<span class="text-sm font-bold">离线回复</span>
+<span class="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 rounded">关闭</span>
+</div>
+<p class="text-xs text-slate-500 truncate">当前不在线，请稍后再试...</p>
+</div>
+<div class="p-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer transition-colors border-l-4 border-transparent">
+<div class="flex justify-between items-start mb-1">
+<span class="text-sm font-bold">关键词：人工服务</span>
+<span class="text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 rounded">开启</span>
+</div>
+<p class="text-xs text-slate-500 truncate">正在为您转接人工客服...</p>
+</div>
+</div>
+</div>
+<!-- Column 2: Rule Editor -->
+<div class="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+<div class="p-4 border-b border-slate-100 dark:border-slate-800">
+<h4 class="font-bold text-sm">规则编辑器</h4>
+</div>
+<div class="flex-1 overflow-y-auto p-6 space-y-6">
+<!-- Keyword Input -->
+<div class="space-y-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">匹配关键词</label>
+<div class="flex flex-wrap gap-2 p-3 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950">
+<div class="flex items-center gap-1 bg-primary/20 text-slate-800 dark:text-slate-200 px-2 py-1 rounded text-xs">
+                                        价格 <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</div>
+<div class="flex items-center gap-1 bg-primary/20 text-slate-800 dark:text-slate-200 px-2 py-1 rounded text-xs">
+                                        收费 <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</div>
+<div class="flex items-center gap-1 bg-primary/20 text-slate-800 dark:text-slate-200 px-2 py-1 rounded text-xs">
+                                        多少钱 <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</div>
+<input class="bg-transparent border-none focus:ring-0 text-xs flex-1 min-w-[120px]" placeholder="输入关键词回车确认" type="text"/>
+</div>
+</div>
+<!-- Response Template -->
+<div class="space-y-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">回复模版内容</label>
+<textarea class="w-full p-4 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-950 text-sm focus:ring-primary focus:border-primary" placeholder="请输入回复内容..." rows="6">您好！关于我们的服务收费标准如下：
+1. 基础版：99元/月
+2. 专业版：199元/月
+3. 企业版：定制化服务
+
+如果您有更多疑问，可以直接输入“人工”转接客服为您详细解答。</textarea>
+<div class="flex gap-2">
+<button class="text-xs px-2 py-1 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">image</span> 插入图片
+                                    </button>
+<button class="text-xs px-2 py-1 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">alternate_email</span> 插入变量
+                                    </button>
+</div>
+</div>
+<!-- Delay Slider -->
+<div class="space-y-4">
+<div class="flex justify-between">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300">延迟回复 (秒)</label>
+<span class="text-primary font-bold">2.5s</span>
+</div>
+<input class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary" max="10" min="0" step="0.5" type="range" value="2.5"/>
+<p class="text-[10px] text-slate-400">设置延迟可以让自动回复看起来更像真人操作</p>
+</div>
+</div>
+<div class="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+<button class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors">重置修改</button>
+<button class="px-6 py-2 bg-primary text-slate-900 text-sm font-bold rounded-lg hover:shadow-lg transition-all">保存规则</button>
+</div>
+</div>
+<!-- Column 3: Real-time Logs -->
+<div class="w-1/4 flex flex-col bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+<div class="p-4 border-b border-slate-100 dark:border-slate-800">
+<h4 class="font-bold text-sm">实时处理日志</h4>
+</div>
+<div class="flex-1 overflow-y-auto p-4 space-y-4 text-xs font-mono">
+<!-- Log Item -->
+<div class="space-y-1 pb-3 border-b border-slate-50 dark:border-slate-800">
+<div class="flex justify-between text-slate-400">
+<span>14:20:45</span>
+<span class="text-emerald-500">发送成功</span>
+</div>
+<p><span class="text-slate-500">用户ID:</span> user_9281</p>
+<p><span class="text-slate-500">匹配:</span> "价格"</p>
+<p class="bg-slate-50 dark:bg-slate-950 p-2 rounded mt-1 italic">"您好！关于我们的服务收费标准如下..."</p>
+</div>
+<!-- Log Item -->
+<div class="space-y-1 pb-3 border-b border-slate-50 dark:border-slate-800">
+<div class="flex justify-between text-slate-400">
+<span>14:19:12</span>
+<span class="text-emerald-500">发送成功</span>
+</div>
+<p><span class="text-slate-500">用户ID:</span> user_1024</p>
+<p><span class="text-slate-500">匹配:</span> "欢迎语"</p>
+</div>
+<!-- Log Item -->
+<div class="space-y-1 pb-3 border-b border-slate-50 dark:border-slate-800">
+<div class="flex justify-between text-slate-400">
+<span>14:15:30</span>
+<span class="text-amber-500">已忽略</span>
+</div>
+<p><span class="text-slate-500">用户ID:</span> user_7741</p>
+<p><span class="text-slate-500">状态:</span> 命中黑名单关键词</p>
+</div>
+<!-- Log Item -->
+<div class="space-y-1 pb-3 border-b border-slate-50 dark:border-slate-800 opacity-60">
+<div class="flex justify-between text-slate-400">
+<span>14:12:01</span>
+<span class="text-emerald-500">发送成功</span>
+</div>
+<p><span class="text-slate-500">用户ID:</span> user_8892</p>
+</div>
+</div>
+<div class="p-3 bg-slate-50 dark:bg-slate-950 flex justify-center border-t border-slate-100 dark:border-slate-800">
+<button class="text-[10px] text-primary font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">history</span> 查看更多历史
+                            </button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

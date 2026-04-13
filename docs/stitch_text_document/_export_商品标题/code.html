@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "system-ui", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Spline Sans', "Microsoft YaHei", sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex min-h-screen w-full flex-col">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between border-b border-primary/10 bg-white dark:bg-background-dark/50 px-6 py-3 lg:px-20 backdrop-blur-md sticky top-0 z-50">
+<div class="flex items-center gap-4">
+<div class="flex items-center justify-center size-10 rounded-lg bg-primary/20 text-primary">
+<span class="material-symbols-outlined text-2xl">auto_fix_high</span>
+</div>
+<h2 class="text-xl font-bold tracking-tight">商品标题大师</h2>
+</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-sm font-semibold hover:text-primary transition-colors border-b-2 border-primary pb-1" href="#">标题优化</a>
+<a class="text-sm font-medium hover:text-primary transition-colors text-slate-500" href="#">关键词分析</a>
+<a class="text-sm font-medium hover:text-primary transition-colors text-slate-500" href="#">行业模板</a>
+<a class="text-sm font-medium hover:text-primary transition-colors text-slate-500" href="#">竞品监控</a>
+</nav>
+<div class="flex items-center gap-3">
+<button class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-primary/10 hover:text-primary transition-all">
+<span class="material-symbols-outlined">analytics</span>
+</button>
+<button class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-primary/10 hover:text-primary transition-all">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="bg-primary hover:bg-primary/80 text-background-dark px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-lg shadow-primary/20">
+                升级专业版
+            </button>
+</div>
+</header>
+<main class="flex-1 flex flex-col lg:flex-row max-w-7xl mx-auto w-full p-4 lg:p-8 gap-8">
+<!-- Sidebar Navigation -->
+<aside class="w-full lg:w-64 flex flex-col gap-6">
+<div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-primary/5 shadow-sm">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">主菜单</p>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary font-bold" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>控制台</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">data_exploration</span>
+<span>SEO 分析</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">style</span>
+<span>分类模板</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-symbols-outlined">history</span>
+<span>历史生成</span>
+</a>
+</div>
+</div>
+<div class="bg-gradient-to-br from-primary/20 to-transparent p-5 rounded-xl border border-primary/20">
+<p class="text-sm font-bold mb-2">已节省时间</p>
+<p class="text-3xl font-black text-primary">124 <span class="text-sm font-normal text-slate-500">小时</span></p>
+<p class="text-xs text-slate-500 mt-2">通过AI生成优化，您的效率提升了85%</p>
+</div>
+</aside>
+<!-- Main Content Area -->
+<section class="flex-1 flex flex-col gap-6">
+<!-- Header Title -->
+<div class="flex flex-col gap-2">
+<h1 class="text-4xl font-black tracking-tight text-slate-900 dark:text-white">商品标题优化助手</h1>
+<p class="text-slate-500 text-lg">基于SEO关键词密度、分类模板与竞品数据，为您生成爆款标题。</p>
+</div>
+<!-- Input Section -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-primary/10 shadow-xl shadow-slate-200/50 dark:shadow-none">
+<div class="flex flex-col gap-4">
+<label class="block">
+<span class="text-slate-700 dark:text-slate-300 font-bold mb-2 block">输入原始商品名称</span>
+<div class="relative group">
+<input class="w-full h-14 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl px-4 focus:ring-4 focus:ring-primary/20 focus:border-primary outline-none transition-all text-lg" placeholder="例如：夏季新款纯棉短袖T恤男装韩版潮牌" type="text"/>
+<button class="absolute right-2 top-2 h-10 px-6 bg-primary text-background-dark font-bold rounded-lg hover:shadow-lg hover:shadow-primary/30 transition-all">
+                                立即优化
+                            </button>
+</div>
+</label>
+<div class="flex flex-wrap gap-4 mt-2">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-medium text-slate-600">
+<span class="material-symbols-outlined text-sm">bolt</span>
+                            快速生成
+                        </div>
+<div class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-medium text-slate-600">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+                            高点击率
+                        </div>
+<div class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-medium text-slate-600">
+<span class="material-symbols-outlined text-sm">shield</span>
+                            合规检测
+                        </div>
+</div>
+</div>
+</div>
+<!-- Tabs and Data Section -->
+<div class="flex flex-col gap-4">
+<div class="flex border-b border-slate-200 dark:border-slate-800 overflow-x-auto no-scrollbar">
+<button class="px-6 py-3 border-b-2 border-primary text-primary font-bold whitespace-nowrap">关键词密度</button>
+<button class="px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-primary transition-all whitespace-nowrap">分类模板</button>
+<button class="px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-primary transition-all whitespace-nowrap">竞品对比</button>
+<button class="px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-primary transition-all whitespace-nowrap">敏感词过滤</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Keyword Density Card -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
+<div class="flex items-center justify-between mb-6">
+<h3 class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">analytics</span>
+                                关键词密度建议
+                            </h3>
+<span class="text-xs text-slate-400">更新于 2分钟前</span>
+</div>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span class="font-medium text-slate-700">核心词: 纯棉T恤</span>
+<span class="text-primary font-bold">2.4% (推荐)</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[45%]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span class="font-medium text-slate-700">属性词: 夏季新款</span>
+<span class="text-slate-500 font-bold">1.8%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary/60 h-full w-[30%]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-sm mb-1">
+<span class="font-medium text-slate-700">修饰词: 韩版潮流</span>
+<span class="text-amber-500 font-bold">0.5% (偏低)</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-amber-400 h-full w-[10%]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Competitor Comparison -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800">
+<div class="flex items-center justify-between mb-6">
+<h3 class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">compare_arrows</span>
+                                竞品TOP标题参考
+                            </h3>
+<button class="text-xs text-primary hover:underline">查看更多</button>
+</div>
+<div class="space-y-3">
+<div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-sm border-l-4 border-primary/40">
+<p class="text-slate-500 text-xs mb-1">竞品A · 月销 10k+</p>
+<p class="line-clamp-2">2024夏季新款国潮重磅纯棉短袖T恤男宽松百搭体恤...</p>
+</div>
+<div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-sm border-l-4 border-slate-300">
+<p class="text-slate-500 text-xs mb-1">竞品B · 月销 8.5k</p>
+<p class="line-clamp-2">简约基础款圆领纯棉短袖T恤大码男装内搭上衣男...</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Template Selection Section -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 mt-2">
+<h3 class="font-bold text-slate-800 dark:text-slate-200 mb-4">行业专属模板</h3>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+<button class="p-4 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 text-center transition-all group">
+<span class="material-symbols-outlined text-primary mb-2 block text-3xl group-hover:scale-110 transition-transform">checkroom</span>
+<p class="font-bold text-sm">服饰内衣</p>
+</button>
+<button class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-primary/50 text-center transition-all group">
+<span class="material-symbols-outlined text-slate-400 mb-2 block text-3xl group-hover:text-primary transition-all">smartphone</span>
+<p class="font-bold text-sm">数码家电</p>
+</button>
+<button class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-primary/50 text-center transition-all group">
+<span class="material-symbols-outlined text-slate-400 mb-2 block text-3xl group-hover:text-primary transition-all">face_6</span>
+<p class="font-bold text-sm">美妆护肤</p>
+</button>
+<button class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-primary/50 text-center transition-all group">
+<span class="material-symbols-outlined text-slate-400 mb-2 block text-3xl group-hover:text-primary transition-all">restaurant</span>
+<p class="font-bold text-sm">食品饮料</p>
+</button>
+</div>
+</div>
+</div>
+<!-- Final Result Suggestions -->
+<div class="bg-background-dark dark:bg-slate-950 p-8 rounded-3xl text-white shadow-2xl overflow-hidden relative">
+<!-- Abstract Glow -->
+<div class="absolute -top-20 -right-20 w-64 h-64 bg-primary/20 blur-[100px]"></div>
+<h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">magic_button</span>
+                    AI 生成标题方案
+                </h2>
+<div class="space-y-4 relative z-10">
+<div class="bg-white/5 border border-white/10 p-5 rounded-2xl group hover:border-primary/50 transition-all flex flex-col md:flex-row justify-between items-center gap-4">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<span class="bg-primary/20 text-primary px-2 py-0.5 rounded text-[10px] font-black uppercase">方案一 · 高转化型</span>
+<span class="text-slate-400 text-xs font-medium">适合详情页广告投放</span>
+</div>
+<p class="text-lg font-medium leading-relaxed tracking-wide">夏季新款【100%纯棉】重磅男士短袖T恤 2024潮牌宽松韩版百搭上衣</p>
+</div>
+<button class="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-primary hover:text-background-dark rounded-xl transition-all font-bold text-sm">
+<span class="material-symbols-outlined text-sm">content_copy</span>
+                            复制
+                        </button>
+</div>
+<div class="bg-white/5 border border-white/10 p-5 rounded-2xl group hover:border-primary/50 transition-all flex flex-col md:flex-row justify-between items-center gap-4 opacity-80">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<span class="bg-slate-700 text-slate-300 px-2 py-0.5 rounded text-[10px] font-black uppercase">方案二 · SEO加强型</span>
+<span class="text-slate-400 text-xs font-medium">搜索权重优先建议</span>
+</div>
+<p class="text-lg font-medium leading-relaxed tracking-wide">【纯棉短袖T恤男】2024夏季新款男装韩版潮流 休闲宽松透气体恤衫</p>
+</div>
+<button class="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-primary hover:text-background-dark rounded-xl transition-all font-bold text-sm">
+<span class="material-symbols-outlined text-sm">content_copy</span>
+                            复制
+                        </button>
+</div>
+</div>
+<div class="mt-8 flex justify-center">
+<button class="text-slate-400 text-sm hover:text-primary flex items-center gap-2 transition-all">
+<span class="material-symbols-outlined">refresh</span>
+                        重新生成一批
+                    </button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer Stats -->
+<footer class="mt-12 border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-background-dark py-10 px-6 lg:px-20">
+<div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
+<div class="flex flex-col gap-1">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-widest">关键词覆盖</p>
+<p class="text-2xl font-black text-slate-800 dark:text-slate-200">2,480+</p>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-widest">模板总数</p>
+<p class="text-2xl font-black text-slate-800 dark:text-slate-200">150+</p>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-widest">日均分析量</p>
+<p class="text-2xl font-black text-slate-800 dark:text-slate-200">8.9万</p>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-xs font-bold text-slate-400 uppercase tracking-widest">平均点击提升</p>
+<p class="text-2xl font-black text-primary">+34.2%</p>
+</div>
+</div>
+<div class="max-w-7xl mx-auto mt-12 pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-400">
+<p>© 2024 商品标题大师 · SEO优化专家版</p>
+<div class="flex gap-6">
+<a class="hover:text-primary" href="#">服务条款</a>
+<a class="hover:text-primary" href="#">隐私政策</a>
+<a class="hover:text-primary" href="#">联系我们</a>
+</div>
+</div>
+</footer>
+</div>
+</body></html>

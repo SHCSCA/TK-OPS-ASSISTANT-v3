@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>蓝海分析 - 市场机会洞察</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Spline Sans', sans-serif; }
+        .matrix-grid {
+            background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-4">
+<div class="flex items-center justify-center size-10 rounded-lg bg-primary/20 text-primary">
+<span class="material-symbols-outlined text-3xl">explore</span>
+</div>
+<h2 class="text-slate-900 dark:text-slate-100 text-xl font-bold leading-tight tracking-tight">蓝海分析</h2>
+</div>
+<div class="flex items-center gap-6">
+<nav class="hidden md:flex gap-6">
+<a class="text-sm font-semibold text-primary" href="#">机会矩阵</a>
+<a class="text-sm font-medium text-slate-500 hover:text-primary transition-colors" href="#">竞品监控</a>
+<a class="text-sm font-medium text-slate-500 hover:text-primary transition-colors" href="#">趋势发现</a>
+</nav>
+<div class="flex gap-2">
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-primary/20 hover:text-primary transition-all">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-primary/20 hover:text-primary transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-10 w-10 rounded-full bg-slate-200 border-2 border-primary" data-alt="User profile avatar circle"></div>
+</div>
+</div>
+</header>
+<main class="flex-1 flex flex-col md:flex-row p-4 md:p-8 gap-6">
+<!-- Left Side: 2x2 Opportunity Matrix -->
+<div class="flex-[2] flex flex-col gap-6">
+<div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col h-full min-h-[600px]">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h3 class="text-lg font-bold">机会分布矩阵</h3>
+<p class="text-sm text-slate-500">横轴：市场规模 | 纵轴：竞争强度</p>
+</div>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="size-3 rounded-full bg-primary"></span>
+<span class="text-xs font-medium">高潜力 (蓝海)</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="size-3 rounded-full bg-slate-300"></span>
+<span class="text-xs font-medium">成熟市场</span>
+</div>
+</div>
+</div>
+<!-- Matrix Area -->
+<div class="relative flex-1 matrix-grid border-l-2 border-b-2 border-slate-300 dark:border-slate-700 ml-8 mb-8">
+<!-- Y-Axis Labels -->
+<div class="absolute -left-10 top-0 h-full flex flex-col justify-between text-xs text-slate-400 font-bold py-2">
+<span>高竞争</span>
+<span>中竞争</span>
+<span>低竞争</span>
+</div>
+<!-- X-Axis Labels -->
+<div class="absolute -bottom-10 left-0 w-full flex justify-between text-xs text-slate-400 font-bold px-2">
+<span>小规模</span>
+<span>中等规模</span>
+<span>大规模市场</span>
+</div>
+<!-- Quad Labels -->
+<div class="absolute top-4 right-4 text-slate-300 font-bold text-xl uppercase opacity-20 pointer-events-none">Red Ocean</div>
+<div class="absolute bottom-4 right-4 text-primary font-bold text-xl uppercase opacity-40 pointer-events-none tracking-widest">Blue Ocean</div>
+<!-- Bubbles (Manual Mockup for High Opportunity Area) -->
+<!-- High Opportunity Bubbles (Bottom Right - Low Competition, High Size) -->
+<div class="absolute bottom-[15%] right-[20%] group">
+<div class="size-16 bg-primary/40 border-2 border-primary rounded-full animate-pulse cursor-pointer flex items-center justify-center text-[10px] font-bold text-slate-900">
+                                智能穿戴
+                            </div>
+<div class="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded hidden group-hover:block whitespace-nowrap">潜力指数: 9.4</div>
+</div>
+<div class="absolute bottom-[25%] right-[10%] group">
+<div class="size-12 bg-primary/40 border-2 border-primary rounded-full cursor-pointer flex items-center justify-center text-[10px] font-bold text-slate-900">
+                                便携储能
+                            </div>
+</div>
+<div class="absolute bottom-[10%] right-[35%] group">
+<div class="size-20 bg-primary/30 border-2 border-primary/60 rounded-full cursor-pointer flex items-center justify-center text-[10px] font-bold text-slate-900">
+                                宠物烘干机
+                            </div>
+</div>
+<!-- Other Markets -->
+<div class="absolute top-[20%] left-[20%] group">
+<div class="size-10 bg-slate-200 border-2 border-slate-300 rounded-full cursor-pointer flex items-center justify-center text-[10px] font-bold text-slate-400">
+                                手机壳
+                            </div>
+</div>
+<div class="absolute top-[40%] right-[40%] group">
+<div class="size-14 bg-slate-200 border-2 border-slate-300 rounded-full cursor-pointer flex items-center justify-center text-[10px] font-bold text-slate-400">
+                                蓝牙耳机
+                            </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Side: Product Details -->
+<div class="flex-1 flex flex-col gap-6">
+<!-- Selected Product Detail -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3 mb-6">
+<span class="material-symbols-outlined text-primary">analytics</span>
+<h3 class="text-lg font-bold">选中项详情</h3>
+</div>
+<div class="space-y-6">
+<div class="flex items-center justify-between p-4 bg-background-light dark:bg-slate-800 rounded-lg">
+<div>
+<p class="text-sm text-slate-500">当前分类</p>
+<p class="text-xl font-bold text-primary">智能穿戴设备</p>
+</div>
+<div class="size-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">watch</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="p-4 border border-slate-100 dark:border-slate-700 rounded-lg">
+<p class="text-xs text-slate-500 mb-1">竞争对手数量</p>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-bold">12</span>
+<span class="text-xs text-green-500 font-medium">↓ 15%</span>
+</div>
+</div>
+<div class="p-4 border border-slate-100 dark:border-slate-700 rounded-lg">
+<p class="text-xs text-slate-500 mb-1">预估利润率</p>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-bold">42.8%</span>
+<span class="text-xs text-green-500 font-medium">高优</span>
+</div>
+</div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between text-sm">
+<span class="text-slate-500">市场饱和度</span>
+<span class="font-medium">18%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 18%"></div>
+</div>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between text-sm">
+<span class="text-slate-500">平均客单价 (AOV)</span>
+<span class="font-medium">¥1,299</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 65%"></div>
+</div>
+</div>
+<button class="w-full py-3 bg-primary text-slate-900 font-bold rounded-lg hover:brightness-110 transition-all flex items-center justify-center gap-2 mt-4">
+<span class="material-symbols-outlined">rocket_launch</span>
+                            生成调研报告
+                        </button>
+</div>
+</div>
+<!-- Suggested Actions -->
+<div class="bg-primary/10 rounded-xl p-6 border border-primary/20">
+<h4 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">lightbulb</span>
+                        AI 策略建议
+                    </h4>
+<ul class="space-y-3">
+<li class="text-xs flex gap-2">
+<span class="text-primary font-bold">•</span>
+<p>该细分领域在北美市场呈现强劲增长趋势，建议优先布局。</p>
+</li>
+<li class="text-xs flex gap-2">
+<span class="text-primary font-bold">•</span>
+<p>核心竞争点在于“续航能力”，已有竞品在此方面表现平庸。</p>
+</li>
+<li class="text-xs flex gap-2">
+<span class="text-primary font-bold">•</span>
+<p>建议利润控制在 35%-45% 之间以确保快速抢占份额。</p>
+</li>
+</ul>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="px-8 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center text-xs text-slate-500">
+<p>© 2024 蓝海分析 - 全球电商机会洞察平台</p>
+<div class="flex gap-4">
+<a class="hover:text-primary" href="#">服务条款</a>
+<a class="hover:text-primary" href="#">隐私政策</a>
+<a class="hover:text-primary" href="#">联系我们</a>
+</div>
+</footer>
+</div>
+</div>
+</body></html>

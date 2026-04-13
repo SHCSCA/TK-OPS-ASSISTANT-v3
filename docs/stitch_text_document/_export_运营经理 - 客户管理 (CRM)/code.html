@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TK-OPS CRM - 客户关系管理</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex h-full w-full flex-col">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="bg-primary p-1.5 rounded-lg">
+<span class="material-symbols-outlined text-slate-900">hub</span>
+</div>
+<h2 class="text-slate-900 dark:text-white text-xl font-bold tracking-tight">TK-OPS CRM</h2>
+</div>
+<div class="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-1.5 w-80">
+<span class="material-symbols-outlined text-slate-400 text-xl">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-slate-400" placeholder="搜索客户名称、ID或备注..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400 transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-slate-200 dark:border-slate-800 mx-2"></div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-semibold">管理员</p>
+<p class="text-xs text-slate-500">在线</p>
+</div>
+<div class="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/50 overflow-hidden" data-alt="User avatar profile picture">
+<img alt="Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxpIIYRhzuxJ7BX0qtqVJn9C8dp08XZkicktKLd0ypwchdhBE9qbVnoKjqyOBusutDpWCrRA7Wok5c8QsLbkRjY3txpbX81G8C5DaYYxEwOexhaHy45MhFxXDJDUfqvsX2QXadodPWquHBa5wT6291qJKXI58cJeaPuZYHm3RHCqavtBlSkh5y1q-0Ug1vrL7pRrc4eN8KTXoEBUcT64gWoB-hXxiIhrwltFLDXn4iX17_i2FbjZAqcylkb-C-GlE1VlyWg1ul2uwp"/>
+</div>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col overflow-y-auto p-6 gap-6">
+<!-- Filters Section -->
+<div class="flex items-center justify-between">
+<div class="flex gap-2">
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-slate-900 rounded-lg font-medium text-sm transition-all shadow-sm shadow-primary/20">
+<span class="material-symbols-outlined text-lg">group</span>
+                            全部客户
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-medium text-sm hover:border-primary transition-all">
+<span class="material-symbols-outlined text-lg text-amber-500">star</span>
+                            VIP客户
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-medium text-sm hover:border-primary transition-all">
+<span class="material-symbols-outlined text-lg text-emerald-500">bolt</span>
+                            活跃用户
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-medium text-sm hover:border-primary transition-all">
+<span class="material-symbols-outlined text-lg text-slate-400">timer_off</span>
+                            非活跃
+                        </button>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-1 text-sm font-medium text-slate-600 dark:text-slate-400 px-3 py-2">
+<span class="material-symbols-outlined text-lg">filter_list</span>
+                            筛选
+                        </button>
+<button class="flex items-center gap-1 text-sm font-medium text-slate-600 dark:text-slate-400 px-3 py-2">
+<span class="material-symbols-outlined text-lg">sort</span>
+                            排序
+                        </button>
+</div>
+</div>
+<!-- CRM Table -->
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">客户信息</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">互动次数</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">最后联系时间</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">标签状态</th>
+<th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<!-- Row 1 (Expanded) -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors bg-primary/5">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-slate-200 overflow-hidden" data-alt="Customer avatar profile image">
+<img alt="Customer" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMA9Wumd7uo7FPfE3KpuSC0SIefp3hISLXFgb6v5v_uxa_Ic4UyVZmmwIunUzg1w69wlWJzOOE2nJnlQ3b-w0f1h6lq3j2mk84zGip8ID8ZVfWm2EiPorMf8562FaiiCwGzFRiCmpJcnpjBwN4xs2UBdMY42fhvxSgvDCCTn2kxqPaZ9pMI5HrOygH5bdX1JAgdlvhUm7_7PttOlduiA8D0Rlz_qVvBca61WchqW6pKEVdWurVZrrkU_WTX5o6xx9-WQW2Ly7m16j-"/>
+</div>
+<div>
+<p class="font-semibold text-sm">张伟 (Zhang Wei)</p>
+<p class="text-xs text-slate-500">ID: TK-98210</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium">1,284</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">10分钟前</td>
+<td class="px-6 py-4">
+<div class="flex gap-1">
+<span class="px-2 py-0.5 rounded bg-primary/20 text-slate-900 dark:text-primary text-[10px] font-bold">VIP</span>
+<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[10px] font-bold">高意向</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:underline text-sm font-semibold">详情</button>
+</td>
+</tr>
+<!-- Interaction Timeline (Expanded View) -->
+<tr class="bg-slate-50 dark:bg-slate-800/20">
+<td class="px-6 py-4" colspan="5">
+<div class="pl-12 border-l-2 border-primary/30 py-2 space-y-4">
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-slate-400">shopping_cart</span>
+<div>
+<p class="text-sm font-medium">购买产品: <span class="text-primary font-bold">TK-Premium 会员 (1年)</span></p>
+<p class="text-xs text-slate-500">2023-11-20 14:30</p>
+</div>
+</div>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-slate-400">chat_bubble</span>
+<div class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 max-w-lg">
+<p class="text-sm">"您好，请问这个功能的具体操作流程有文档吗？"</p>
+<p class="text-xs text-slate-500 mt-1">私信 - 2023-11-20 10:15</p>
+</div>
+</div>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-slate-400">rate_review</span>
+<div>
+<p class="text-sm">在视频 <span class="text-blue-500 underline">#运营干货</span> 下留言: "非常有帮助！"</p>
+<p class="text-xs text-slate-500">2023-11-19 18:45</p>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-slate-200 overflow-hidden" data-alt="Customer avatar profile image">
+<img alt="Customer" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDk2UmU3sNugm2NdVOaBcLO58SMwqLvpomlQp12UUOxAFI4Tg_PX0-hpyCkUQ6Gt23uuX-HUA5bon1TQ1yiYfbUU1j0uaaiDwZsv7k5HRF1kJ6n0EZRa2eH6gpaHmViOHiASY77YMRXHPeWEnxbU9ZKRuUbqH5TOvf9ZHAidOPN6FRovQ7_9s_btp2OAiztab37fYt1btRjcTpa-Or5rLzqxyY_uZVhtXlOkUxR1iNId6ez-2-d28yarFU_erMEuO4TZHbtWTIuTfMD"/>
+</div>
+<div>
+<p class="font-semibold text-sm">李芳 (Li Fang)</p>
+<p class="text-xs text-slate-500">ID: TK-98211</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium">542</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">昨天 22:40</td>
+<td class="px-6 py-4">
+<div class="flex gap-1">
+<span class="px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-[10px] font-bold">老客户</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:underline text-sm font-semibold">详情</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-slate-200 overflow-hidden" data-alt="Customer avatar profile image">
+<img alt="Customer" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDauGYESPrnWSMCxLxBijpnoEuCNxlSqYFHTJII5ht0GoLvQYZWZ5--kRtyD5VQ1dkc-La9YqRuFj-X71e1bov8QGIQ7fTKS47UFfwGqcgZZTM5xhiWKP8dy1C-2NnlmnKPdMjL3het8x38G_Fg4Peup1AR3WkoVwVxqhRwfya2Rbwea2UE1LV-Py8uED92um0qdeqXmqjt4UUzujRwf5xmLm5RdxZsM-bxKkH-hI6jXYPcMa7rTe18w6vaKO3MFg6u67A1azlsK8N2"/>
+</div>
+<div>
+<p class="font-semibold text-sm">王强 (Wang Qiang)</p>
+<p class="text-xs text-slate-500">ID: TK-98215</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium">12</td>
+<td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">2023-11-15</td>
+<td class="px-6 py-4">
+<div class="flex gap-1">
+<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 text-[10px] font-bold">待跟进</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:underline text-sm font-semibold">详情</button>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="px-6 py-4 flex items-center justify-between border-t border-slate-200 dark:border-slate-800">
+<p class="text-sm text-slate-500">显示 1-10 共 1,240 名客户</p>
+<div class="flex gap-2">
+<button class="p-2 border border-slate-200 dark:border-slate-800 rounded hover:bg-slate-50 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<button class="p-2 border border-slate-200 dark:border-slate-800 rounded hover:bg-slate-50 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Right Sidebar: Quick Actions -->
+<aside class="w-80 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-y-auto hidden lg:flex flex-col">
+<div class="p-6 border-b border-slate-200 dark:border-slate-800">
+<h3 class="text-lg font-bold mb-4">快速操作</h3>
+<div class="flex flex-col gap-3">
+<div class="flex flex-col">
+<label class="text-xs font-bold text-slate-400 uppercase mb-2">当前选中客户</label>
+<div class="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+<div class="h-8 w-8 rounded-full bg-slate-200 overflow-hidden" data-alt="Customer avatar profile small">
+<img alt="Selected Customer" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCC4vW39fsjT2p4wS-vWyXAloY8zhlGaSlAmFNFu2kongsn_JmnFk5boRwJz9g7gTmBRYehRwsgoqOUyNsBqlBoCcDxy5LsWtQhHifbqnYN2d9or2tCXXOFejQOfZRTU6ngVk4tYhwPGnjBpH2uqF37xd_mUxQGpNlCdF3w132VXhnro13gjuvJ0GqfBvFhiYHOaiZR3yQqx7uQQQk0pQnGAJIPQt_CnboJn-XdNlBnSxzLMaSBBSM_Pt9LxzJ3EfJxmKo4lvnXmtM5"/>
+</div>
+<span class="text-sm font-semibold">张伟</span>
+<span class="ml-auto material-symbols-outlined text-slate-400 text-sm">verified</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2 mt-2">
+<button class="flex flex-col items-center justify-center p-4 bg-primary/10 border border-primary/20 rounded-xl hover:bg-primary/20 transition-all text-slate-900 dark:text-primary">
+<span class="material-symbols-outlined mb-1">send</span>
+<span class="text-xs font-bold">发送私信</span>
+</button>
+<button class="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-primary transition-all">
+<span class="material-symbols-outlined mb-1">note_add</span>
+<span class="text-xs font-bold">添加备注</span>
+</button>
+<button class="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-primary transition-all">
+<span class="material-symbols-outlined mb-1">sell</span>
+<span class="text-xs font-bold">标签管理</span>
+</button>
+<button class="flex flex-col items-center justify-center p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-primary transition-all">
+<span class="material-symbols-outlined mb-1">person_search</span>
+<span class="text-xs font-bold">个人摘要</span>
+</button>
+</div>
+</div>
+</div>
+<div class="p-6">
+<h3 class="text-sm font-bold text-slate-400 uppercase mb-4">客户统计数据</h3>
+<div class="space-y-4">
+<div class="p-4 bg-gradient-to-br from-primary/10 to-transparent rounded-xl border border-primary/10">
+<p class="text-xs text-slate-500 mb-1">本月消费总额</p>
+<p class="text-2xl font-bold">¥12,840.00</p>
+<div class="mt-2 flex items-center text-[10px] text-emerald-500 font-bold">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>较上月增长 12.5%</span>
+</div>
+</div>
+<div class="p-4 bg-slate-50 dark:bg-slate-800 rounded-xl">
+<p class="text-xs text-slate-500 mb-1">最近互动频率</p>
+<div class="flex items-end gap-1 h-12 mt-2">
+<div class="w-full bg-primary/30 h-[20%] rounded-t-sm"></div>
+<div class="w-full bg-primary/40 h-[45%] rounded-t-sm"></div>
+<div class="w-full bg-primary/60 h-[30%] rounded-t-sm"></div>
+<div class="w-full bg-primary/80 h-[65%] rounded-t-sm"></div>
+<div class="w-full bg-primary h-[90%] rounded-t-sm"></div>
+<div class="w-full bg-primary/50 h-[40%] rounded-t-sm"></div>
+<div class="w-full bg-primary/70 h-[75%] rounded-t-sm"></div>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-3 bg-slate-900 dark:bg-slate-100 dark:text-slate-900 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">save</span>
+                        保存所有更改
+                    </button>
+</div>
+</aside>
+</div>
+</div>
+</body></html>

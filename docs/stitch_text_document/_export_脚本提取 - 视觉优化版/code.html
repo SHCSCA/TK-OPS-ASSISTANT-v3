@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "system-ui", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: "Spline Sans", "Noto Sans SC", sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #00f0e833; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #00f0e866; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen font-display">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 h-16 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="bg-primary p-1.5 rounded-lg">
+<span class="material-symbols-outlined text-slate-900 text-2xl">movie_edit</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight">脚本提取工具 <span class="text-xs font-normal text-slate-500 ml-2">v2.4.0</span></h1>
+</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-primary font-medium border-b-2 border-primary py-5 px-1" href="#">提取任务</a>
+<a class="text-slate-500 hover:text-primary transition-colors py-5 px-1" href="#">历史记录</a>
+<a class="text-slate-500 hover:text-primary transition-colors py-5 px-1" href="#">模型库</a>
+</nav>
+<div class="flex items-center gap-3">
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden ml-2">
+<img class="w-full h-full object-cover" data-alt="User profile avatar icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkLo6IUxQ_hw4Y36Vq3RP8a2aMEZ2XIV74u8WDT4CFy4jmwiFq3n3tEuyG7Su-GhiRv_VbDO8hgbT-pTZgywx75OhwNj3f_Mey6fTbf1mo_JTFmQQ1LQmTWJRVIgkMl_1_93KvWYOnHy6DwZxMpO2YpwyKidxk-vohBgGVKAXSChsralR_iWAYLx8J41oxlhN4Yjcltpj1CmnsazPGOiMc3iImib6TKlVOrSLh0Jc-n2daNyridSSVpzDpHh4JzoSyNvykn9KVzVbZ"/>
+</div>
+</div>
+</header>
+<main class="p-6 max-w-[1600px] mx-auto grid grid-cols-12 gap-6">
+<!-- Tool Header / Config Section -->
+<section class="col-span-12 bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex flex-wrap gap-6 items-end">
+<!-- Video Link Input -->
+<div class="flex-1 min-w-[300px]">
+<label class="block text-sm font-semibold mb-2">视频源地址 (URL / 本地)</label>
+<div class="flex gap-2">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">link</span>
+<input class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all" placeholder="粘贴视频链接 (Bilibili, TikTok, Youtube...)" type="text"/>
+</div>
+<button class="px-4 py-2.5 border border-primary text-primary hover:bg-primary/10 rounded-lg font-medium flex items-center gap-2 transition-all">
+<span class="material-symbols-outlined text-xl">upload_file</span>
+                            本地文件
+                        </button>
+</div>
+</div>
+<!-- Analysis Settings -->
+<div class="flex gap-4">
+<div class="w-40">
+<label class="block text-sm font-semibold mb-2">分析模式</label>
+<select class="w-full py-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-primary/50">
+<option>混合模式 (ASR+视觉)</option>
+<option>ASR 语音转文字</option>
+<option>OCR 视觉识别</option>
+</select>
+</div>
+<div class="w-32">
+<label class="block text-sm font-semibold mb-2">关键帧间隔</label>
+<select class="w-full py-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-primary/50">
+<option>自动抽帧</option>
+<option>1秒/帧</option>
+<option>3秒/帧</option>
+<option>5秒/帧</option>
+</select>
+</div>
+<div class="w-40">
+<label class="block text-sm font-semibold mb-2">AI 模型选择</label>
+<select class="w-full py-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-none focus:ring-2 focus:ring-primary/50 font-medium">
+<option>GPT-4o (推荐)</option>
+<option>DeepSeek-V3</option>
+<option>Claude 3.5</option>
+<option>Gemini Pro</option>
+</select>
+</div>
+</div>
+<button class="bg-primary text-slate-900 px-8 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:brightness-105 active:scale-95 transition-all shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined">rocket_launch</span>
+                    开始提取
+                </button>
+</div>
+</section>
+<!-- Preview Column -->
+<aside class="col-span-12 lg:col-span-4 space-y-6">
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+<div class="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+<h3 class="font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">play_circle</span>
+                        视频预览
+                    </h3>
+<span class="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">1080P / 24fps</span>
+</div>
+<div class="aspect-video bg-black relative group">
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-6xl text-white/20 group-hover:text-primary transition-colors cursor-pointer">play_arrow</span>
+</div>
+<div class="absolute bottom-0 left-0 right-0 h-1 bg-slate-700">
+<div class="h-full bg-primary" style="width: 45%;"></div>
+</div>
+</div>
+<div class="p-4">
+<div class="flex justify-between text-xs text-slate-500 mb-2">
+<span>正在处理第 124/300 帧</span>
+<span>45%</span>
+</div>
+<div class="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-primary shadow-[0_0_10px_#00f0e8]" style="width: 45%;"></div>
+</div>
+<div class="mt-4 grid grid-cols-2 gap-3">
+<div class="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+<p class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">预计剩余</p>
+<p class="font-bold">02:45</p>
+</div>
+<div class="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+<p class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">已用时长</p>
+<p class="font-bold">01:12</p>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-primary/5 border border-primary/20 p-4 rounded-xl">
+<h4 class="text-sm font-bold mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">auto_awesome</span>
+                    AI 实时摘要
+                </h4>
+<p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                    该视频主要讲述了如何在短时间内进行高效的时间管理。目前分析到视频的第3阶段：通过番茄钟工具提高专注力...
+                </p>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="col-span-12 lg:col-span-8 flex flex-col gap-6">
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col flex-1 min-h-[600px]">
+<!-- Tabs Header -->
+<div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 pt-2">
+<div class="flex gap-8">
+<button class="border-b-2 border-primary py-4 px-1 text-primary font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-xl">description</span>
+                            脚本文案
+                        </button>
+<button class="border-b-2 border-transparent py-4 px-1 text-slate-500 hover:text-slate-700 font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-xl">grid_view</span>
+                            视频关键帧
+                        </button>
+<button class="border-b-2 border-transparent py-4 px-1 text-slate-500 hover:text-slate-700 font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-xl">analytics</span>
+                            视觉分析
+                        </button>
+</div>
+<div class="flex gap-2 pb-2">
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500" title="搜索">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500" title="全屏">
+<span class="material-symbols-outlined">fullscreen</span>
+</button>
+</div>
+</div>
+<!-- Table Content -->
+<div class="flex-1 overflow-auto custom-scrollbar">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-slate-50 dark:bg-slate-800/50 backdrop-blur-md z-10 text-xs font-bold text-slate-500 uppercase">
+<tr>
+<th class="py-3 px-6 w-24">时间戳</th>
+<th class="py-3 px-6">提取内容 (文本/场景)</th>
+<th class="py-3 px-6 w-32">置信度</th>
+<th class="py-3 px-6 w-20 text-center">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="py-4 px-6 font-mono text-primary text-sm font-bold">00:00:12</td>
+<td class="py-4 px-6 text-sm leading-relaxed">
+<span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] mr-2">[视觉描述]</span>
+                                    主讲人出现在镜头中央，背景为简约办公室风格，正在向观众挥手致意。
+                                </td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-2">
+<div class="w-12 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-green-400" style="width: 98%;"></div>
+</div>
+<span class="text-[10px] text-green-500">98%</span>
+</div>
+</td>
+<td class="py-4 px-6 text-center">
+<button class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded shadow-sm transition-all">
+<span class="material-symbols-outlined text-lg text-slate-400">edit</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="py-4 px-6 font-mono text-primary text-sm font-bold">00:00:15</td>
+<td class="py-4 px-6 text-sm leading-relaxed">
+<span class="bg-orange-500/10 text-orange-500 px-1.5 py-0.5 rounded text-[10px] mr-2">[ASR]</span>
+                                    大家好，欢迎来到本期高效生产力指南。今天我们要聊聊如何掌控你的时间。
+                                </td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-2">
+<div class="w-12 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-green-400" style="width: 92%;"></div>
+</div>
+<span class="text-[10px] text-green-500">92%</span>
+</div>
+</td>
+<td class="py-4 px-6 text-center">
+<button class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded shadow-sm transition-all">
+<span class="material-symbols-outlined text-lg text-slate-400">edit</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="py-4 px-6 font-mono text-primary text-sm font-bold">00:00:28</td>
+<td class="py-4 px-6 text-sm leading-relaxed">
+<span class="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] mr-2">[视觉描述]</span>
+                                    画面切换至近景，展示手机屏幕上的番茄钟应用界面，正在倒计时。
+                                </td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-2">
+<div class="w-12 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-green-400" style="width: 95%;"></div>
+</div>
+<span class="text-[10px] text-green-500">95%</span>
+</div>
+</td>
+<td class="py-4 px-6 text-center">
+<button class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded shadow-sm transition-all">
+<span class="material-symbols-outlined text-lg text-slate-400">edit</span>
+</button>
+</td>
+</tr>
+<tr class="hover:bg-primary/5 transition-colors group">
+<td class="py-4 px-6 font-mono text-primary text-sm font-bold">00:00:35</td>
+<td class="py-4 px-6 text-sm leading-relaxed">
+<span class="bg-orange-500/10 text-orange-500 px-1.5 py-0.5 rounded text-[10px] mr-2">[ASR]</span>
+                                    所谓番茄工作法，就是在25分钟的高强度工作后，给自己5分钟的休息时间。
+                                </td>
+<td class="py-4 px-6">
+<div class="flex items-center gap-2">
+<div class="w-12 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div class="h-full bg-green-400" style="width: 89%;"></div>
+</div>
+<span class="text-[10px] text-green-500">89%</span>
+</div>
+</td>
+<td class="py-4 px-6 text-center">
+<button class="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded shadow-sm transition-all">
+<span class="material-symbols-outlined text-lg text-slate-400">edit</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Action Footer -->
+<div class="p-6 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 flex items-center justify-between rounded-b-xl">
+<div class="flex gap-4">
+<button class="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 text-sm font-medium transition-all">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+                            复制全文
+                        </button>
+<button class="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 text-sm font-medium transition-all">
+<span class="material-symbols-outlined text-lg">download</span>
+                            导出 JSON
+                        </button>
+</div>
+<button class="flex items-center gap-2 px-6 py-2.5 bg-slate-900 dark:bg-primary text-white dark:text-slate-900 rounded-lg font-bold hover:brightness-110 transition-all shadow-md">
+<span class="material-symbols-outlined text-xl">auto_fix_high</span>
+                        AI 智能改写
+                    </button>
+</div>
+</div>
+</main>
+<!-- Model Features Section (Bottom) -->
+<section class="col-span-12 grid grid-cols-1 md:grid-cols-4 gap-6 pb-12">
+<div class="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-start gap-4">
+<div class="bg-blue-500/10 p-2 rounded-lg text-blue-500">
+<span class="material-symbols-outlined">mic</span>
+</div>
+<div>
+<h5 class="font-bold text-sm">ASR 语音增强</h5>
+<p class="text-xs text-slate-500 mt-1">自动过滤背景噪音，精准识别各地方言与专业术语。</p>
+</div>
+</div>
+<div class="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-start gap-4">
+<div class="bg-primary/10 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined">visibility</span>
+</div>
+<div>
+<h5 class="font-bold text-sm">视觉场景语义</h5>
+<p class="text-xs text-slate-500 mt-1">多模态大模型理解画面，自动生成专业级分镜描述。</p>
+</div>
+</div>
+<div class="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-start gap-4">
+<div class="bg-purple-500/10 p-2 rounded-lg text-purple-500">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div>
+<h5 class="font-bold text-sm">OCR 智能补全</h5>
+<p class="text-xs text-slate-500 mt-1">毫秒级捕捉视频内文本、PPT及水印关键信息。</p>
+</div>
+</div>
+<div class="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-start gap-4">
+<div class="bg-orange-500/10 p-2 rounded-lg text-orange-500">
+<span class="material-symbols-outlined">bolt</span>
+</div>
+<div>
+<h5 class="font-bold text-sm">急速任务调度</h5>
+<p class="text-xs text-slate-500 mt-1">分布式计算引擎，10分钟视频仅需30秒提取完成。</p>
+</div>
+</div>
+</section>
+</main>
+</body></html>
