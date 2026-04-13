@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
-from persistence import connect_sqlite, initialize_schema
+from sqlalchemy.orm import Session, sessionmaker
+
+from domain.models import LicenseGrant
 
 
 LICENSE_ROW_ID: Final[int] = 1
@@ -22,87 +24,44 @@ class StoredLicenseGrant:
 
 
 class LicenseRepository:
-    def __init__(self, database_path) -> None:
-        self._database_path = database_path
-        initialize_schema(database_path)
+    def __init__(self, *, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
 
     def load(self) -> StoredLicenseGrant | None:
-        with connect_sqlite(self._database_path) as connection:
-            row = connection.execute(
-                """
-                SELECT
-                    active,
-                    restricted_mode,
-                    machine_code,
-                    machine_bound,
-                    license_type,
-                    signed_payload,
-                    masked_code,
-                    activated_at
-                FROM license_grant
-                WHERE id = ?
-                """,
-                (LICENSE_ROW_ID,),
-            ).fetchone()
+        with self._session_factory() as session:
+            row = session.get(LicenseGrant, LICENSE_ROW_ID)
 
         if row is None:
             return None
 
         return StoredLicenseGrant(
-            active=bool(row["active"]),
-            restricted_mode=bool(row["restricted_mode"]),
-            machine_code=str(row["machine_code"] or row["machine_id"]),
-            machine_bound=bool(row["machine_bound"]),
-            license_type=str(row["license_type"] or "perpetual"),
-            signed_payload=str(row["signed_payload"]),
-            masked_code=str(row["masked_code"]),
-            activated_at=str(row["activated_at"]) if row["activated_at"] else None,
+            active=bool(row.active),
+            restricted_mode=bool(row.restricted_mode),
+            machine_code=row.machine_code or row.machine_id,
+            machine_bound=bool(row.machine_bound),
+            license_type=row.license_type or "perpetual",
+            signed_payload=row.signed_payload,
+            masked_code=row.masked_code,
+            activated_at=row.activated_at,
         )
 
     def save(self, grant: StoredLicenseGrant) -> StoredLicenseGrant:
-        with connect_sqlite(self._database_path) as connection:
-            connection.execute(
-                """
-                INSERT INTO license_grant (
-                    id,
-                    active,
-                    restricted_mode,
-                    machine_id,
-                    machine_code,
-                    machine_bound,
-                    activation_mode,
-                    license_type,
-                    signed_payload,
-                    masked_code,
-                    activated_at
+        with self._session_factory() as session:
+            session.merge(
+                LicenseGrant(
+                    id=LICENSE_ROW_ID,
+                    active=int(grant.active),
+                    restricted_mode=int(grant.restricted_mode),
+                    machine_id=grant.machine_code,
+                    machine_code=grant.machine_code,
+                    machine_bound=int(grant.machine_bound),
+                    activation_mode="offline_signed",
+                    license_type=grant.license_type,
+                    signed_payload=grant.signed_payload,
+                    masked_code=grant.masked_code,
+                    activated_at=grant.activated_at,
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    active = excluded.active,
-                    restricted_mode = excluded.restricted_mode,
-                    machine_id = excluded.machine_id,
-                    machine_code = excluded.machine_code,
-                    machine_bound = excluded.machine_bound,
-                    activation_mode = excluded.activation_mode,
-                    license_type = excluded.license_type,
-                    signed_payload = excluded.signed_payload,
-                    masked_code = excluded.masked_code,
-                    activated_at = excluded.activated_at
-                """,
-                (
-                    LICENSE_ROW_ID,
-                    int(grant.active),
-                    int(grant.restricted_mode),
-                    grant.machine_code,
-                    grant.machine_code,
-                    int(grant.machine_bound),
-                    "offline_signed",
-                    grant.license_type,
-                    grant.signed_payload,
-                    grant.masked_code,
-                    grant.activated_at,
-                ),
             )
-            connection.commit()
+            session.commit()
 
         return grant

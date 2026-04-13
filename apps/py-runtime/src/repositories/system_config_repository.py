@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
-from persistence import connect_sqlite, initialize_schema
+from sqlalchemy.orm import Session, sessionmaker
+
+from domain.models import SystemConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,23 +18,20 @@ class StoredSystemConfig:
 
 
 class SystemConfigRepository:
-    def __init__(self, database_path: Path) -> None:
-        self._database_path = database_path
-        initialize_schema(database_path)
+    def __init__(self, *, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
 
     def load(self) -> StoredSystemConfig | None:
-        with connect_sqlite(self._database_path) as connection:
-            row = connection.execute(
-                "SELECT revision, document, updated_at FROM system_config WHERE id = 1"
-            ).fetchone()
+        with self._session_factory() as session:
+            row = session.get(SystemConfig, 1)
 
         if row is None:
             return None
 
         return StoredSystemConfig(
-            revision=int(row["revision"]),
-            document=json.loads(str(row["document"])),
-            updated_at=str(row["updated_at"]),
+            revision=row.revision,
+            document=json.loads(row.document),
+            updated_at=row.updated_at,
         )
 
     def save(self, document: dict[str, Any]) -> StoredSystemConfig:
@@ -41,19 +39,16 @@ class SystemConfigRepository:
         revision = 1 if current is None else current.revision + 1
         updated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
-        with connect_sqlite(self._database_path) as connection:
-            connection.execute(
-                """
-                INSERT INTO system_config (id, document, revision, updated_at)
-                VALUES (1, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    document = excluded.document,
-                    revision = excluded.revision,
-                    updated_at = excluded.updated_at
-                """,
-                (json.dumps(document), revision, updated_at),
+        with self._session_factory() as session:
+            session.merge(
+                SystemConfig(
+                    id=1,
+                    document=json.dumps(document),
+                    revision=revision,
+                    updated_at=updated_at,
+                )
             )
-            connection.commit()
+            session.commit()
 
         return StoredSystemConfig(
             revision=revision,

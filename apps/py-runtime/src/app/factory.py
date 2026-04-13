@@ -21,6 +21,7 @@ from api.routes import (
 from app.config import load_runtime_config
 from app.logging import configure_logging, log_event, pop_request_id, push_request_id
 from app.secret_store import build_secret_store
+from persistence.engine import create_runtime_engine, create_session_factory, initialize_domain_schema
 from repositories.ai_capability_repository import AICapabilityRepository
 from repositories.ai_job_repository import AIJobRepository
 from repositories.dashboard_repository import DashboardRepository
@@ -43,14 +44,17 @@ from services.storyboard_service import StoryboardService
 def create_app() -> FastAPI:
     runtime_config = load_runtime_config()
     secret_store = build_secret_store(runtime_config)
+    engine = create_runtime_engine(runtime_config.database_path)
+    initialize_domain_schema(engine)
+    session_factory = create_session_factory(engine)
 
-    settings_repository = SystemConfigRepository(runtime_config.database_path)
-    license_repository = LicenseRepository(runtime_config.database_path)
-    dashboard_repository = DashboardRepository(runtime_config.database_path)
-    ai_capability_repository = AICapabilityRepository(runtime_config.database_path)
-    ai_job_repository = AIJobRepository(runtime_config.database_path)
-    script_repository = ScriptRepository(runtime_config.database_path)
-    storyboard_repository = StoryboardRepository(runtime_config.database_path)
+    settings_repository = SystemConfigRepository(session_factory=session_factory)
+    license_repository = LicenseRepository(session_factory=session_factory)
+    dashboard_repository = DashboardRepository(session_factory=session_factory)
+    ai_capability_repository = AICapabilityRepository(session_factory=session_factory)
+    ai_job_repository = AIJobRepository(session_factory=session_factory)
+    script_repository = ScriptRepository(session_factory=session_factory)
+    storyboard_repository = StoryboardRepository(session_factory=session_factory)
 
     settings_service = SettingsService(
         runtime_config=runtime_config,
@@ -108,6 +112,15 @@ def create_app() -> FastAPI:
     )
     app.state.runtime_config = runtime_config
     app.state.secret_store = secret_store
+    app.state.runtime_engine = engine
+    app.state.session_factory = session_factory
+    app.state.settings_repository = settings_repository
+    app.state.license_repository = license_repository
+    app.state.dashboard_repository = dashboard_repository
+    app.state.ai_capability_repository = ai_capability_repository
+    app.state.ai_job_repository = ai_job_repository
+    app.state.script_repository = script_repository
+    app.state.storyboard_repository = storyboard_repository
     app.state.license_service = license_service
     app.state.settings_service = settings_service
     app.state.dashboard_service = dashboard_service

@@ -1,7 +1,6 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -18,9 +17,9 @@ class FakeGenerationResult:
 
 
 class FakeAITextGenerationService:
-    def __init__(self, database_path: Path) -> None:
+    def __init__(self, jobs: AIJobRepository) -> None:
         self.calls: list[tuple[str, str]] = []
-        self._jobs = AIJobRepository(database_path)
+        self._jobs = jobs
 
     def generate_text(self, capability_id: str, prompt: str, **kwargs: object) -> FakeGenerationResult:
         self.calls.append((capability_id, prompt))
@@ -83,7 +82,7 @@ def test_script_document_supports_manual_save_and_version_history(runtime_app) -
 
 
 def test_script_generation_and_rewrite_record_ai_jobs(runtime_app) -> None:
-    fake_service = FakeAITextGenerationService(runtime_app.state.runtime_config.database_path)
+    fake_service = FakeAITextGenerationService(runtime_app.state.ai_job_repository)
     runtime_app.state.ai_text_generation_service = fake_service
     client = TestClient(runtime_app)
 

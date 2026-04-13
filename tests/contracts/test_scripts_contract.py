@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -17,8 +16,8 @@ class FakeGenerationResult:
 
 
 class FakeAITextGenerationService:
-    def __init__(self, database_path: Path) -> None:
-        self._jobs = AIJobRepository(database_path)
+    def __init__(self, jobs: AIJobRepository) -> None:
+        self._jobs = jobs
 
     def generate_text(self, capability_id: str, _: dict[str, str], **kwargs: object) -> FakeGenerationResult:
         job = self._jobs.create_running(
@@ -40,7 +39,7 @@ class FakeAITextGenerationService:
 
 def test_script_document_contracts_use_scripts_prefix_and_expected_shape(runtime_app) -> None:
     runtime_app.state.ai_text_generation_service = FakeAITextGenerationService(
-        runtime_app.state.runtime_config.database_path
+        runtime_app.state.ai_job_repository
     )
     client = TestClient(runtime_app)
 
@@ -103,7 +102,7 @@ def test_script_document_contracts_use_scripts_prefix_and_expected_shape(runtime
 
 def test_script_rewrite_contract_keeps_json_envelope(runtime_app) -> None:
     runtime_app.state.ai_text_generation_service = FakeAITextGenerationService(
-        runtime_app.state.runtime_config.database_path
+        runtime_app.state.ai_job_repository
     )
     client = TestClient(runtime_app)
 

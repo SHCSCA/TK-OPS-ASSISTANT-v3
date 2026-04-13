@@ -1,11 +1,13 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 
-from persistence import connect_sqlite, initialize_schema
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, sessionmaker
+
+from domain.models import StoryboardVersion
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,24 +24,18 @@ class StoredStoryboardVersion:
 
 
 class StoryboardRepository:
-    def __init__(self, database_path: Path) -> None:
-        self._database_path = database_path
-        initialize_schema(database_path)
+    def __init__(self, *, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
 
     def list_versions(self, project_id: str) -> list[StoredStoryboardVersion]:
-        with connect_sqlite(self._database_path) as connection:
-            rows = connection.execute(
-                '''
-                SELECT project_id, revision, based_on_script_revision, source,
-                       scenes_json, provider, model, ai_job_id, created_at
-                FROM storyboard_versions
-                WHERE project_id = ?
-                ORDER BY revision DESC
-                ''',
-                (project_id,),
-            ).fetchall()
+        with self._session_factory() as session:
+            versions = session.scalars(
+                select(StoryboardVersion)
+                .where(StoryboardVersion.project_id == project_id)
+                .order_by(StoryboardVersion.revision.desc())
+            ).all()
 
-        return [self._to_version(row) for row in rows]
+        return [self._to_version(item) for item in versions]
 
     def save_version(
         self,
@@ -52,65 +48,45 @@ class StoryboardRepository:
         model: str | None = None,
         ai_job_id: str | None = None,
     ) -> StoredStoryboardVersion:
-        revision = self._next_revision(project_id)
-        stored = StoredStoryboardVersion(
-            project_id=project_id,
-            revision=revision,
-            based_on_script_revision=based_on_script_revision,
-            source=source,
-            scenes=scenes,
-            provider=provider,
-            model=model,
-            ai_job_id=ai_job_id,
-            created_at=_utc_now(),
-        )
-        with connect_sqlite(self._database_path) as connection:
-            connection.execute(
-                '''
-                INSERT INTO storyboard_versions (
-                    project_id, revision, based_on_script_revision, source,
-                    scenes_json, provider, model, ai_job_id, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
-                (
-                    stored.project_id,
-                    stored.revision,
-                    stored.based_on_script_revision,
-                    stored.source,
-                    json.dumps(stored.scenes, ensure_ascii=False),
-                    stored.provider,
-                    stored.model,
-                    stored.ai_job_id,
-                    stored.created_at,
-                ),
+        with self._session_factory() as session:
+            revision = self._next_revision(session, project_id)
+            version = StoryboardVersion(
+                project_id=project_id,
+                revision=revision,
+                based_on_script_revision=based_on_script_revision,
+                source=source,
+                scenes_json=json.dumps(scenes, ensure_ascii=False),
+                provider=provider,
+                model=model,
+                ai_job_id=ai_job_id,
+                created_at=_utc_now(),
             )
-            connection.commit()
+            session.add(version)
+            session.commit()
 
-        return stored
+        return self._to_version(version)
 
-    def _next_revision(self, project_id: str) -> int:
-        with connect_sqlite(self._database_path) as connection:
-            row = connection.execute(
-                'SELECT COALESCE(MAX(revision), 0) AS revision FROM storyboard_versions WHERE project_id = ?',
-                (project_id,),
-            ).fetchone()
+    def _next_revision(self, session: Session, project_id: str) -> int:
+        current = session.scalar(
+            select(func.coalesce(func.max(StoryboardVersion.revision), 0)).where(
+                StoryboardVersion.project_id == project_id
+            )
+        )
+        return int(current or 0) + 1
 
-        assert row is not None
-        return int(row['revision']) + 1
-
-    def _to_version(self, row) -> StoredStoryboardVersion:
+    def _to_version(self, version: StoryboardVersion) -> StoredStoryboardVersion:
         return StoredStoryboardVersion(
-            project_id=str(row['project_id']),
-            revision=int(row['revision']),
-            based_on_script_revision=int(row['based_on_script_revision']),
-            source=str(row['source']),
-            scenes=json.loads(str(row['scenes_json'])),
-            provider=str(row['provider']) if row['provider'] else None,
-            model=str(row['model']) if row['model'] else None,
-            ai_job_id=str(row['ai_job_id']) if row['ai_job_id'] else None,
-            created_at=str(row['created_at']),
+            project_id=version.project_id,
+            revision=version.revision,
+            based_on_script_revision=version.based_on_script_revision,
+            source=version.source,
+            scenes=json.loads(version.scenes_json),
+            provider=version.provider,
+            model=version.model,
+            ai_job_id=version.ai_job_id,
+            created_at=version.created_at,
         )
 
 
 def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")

@@ -1,10 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 
-from persistence import connect_sqlite, initialize_schema
+from sqlalchemy import select
+from sqlalchemy.orm import Session, sessionmaker
+
+from domain.models import AICapabilityConfig, AIProviderSetting
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,63 +29,46 @@ class StoredAIProviderSetting:
 
 
 class AICapabilityRepository:
-    def __init__(self, database_path: Path) -> None:
-        self._database_path = database_path
-        initialize_schema(database_path)
+    def __init__(self, *, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
 
     def load_capabilities(self) -> list[StoredAICapabilityConfig]:
-        with connect_sqlite(self._database_path) as connection:
-            rows = connection.execute(
-                'SELECT * FROM ai_capability_configs ORDER BY capability_id ASC'
-            ).fetchall()
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(AICapabilityConfig).order_by(AICapabilityConfig.capability_id.asc())
+            ).all()
 
-        return [self._to_capability(row) for row in rows]
+        return [self._to_capability(item) for item in rows]
 
     def save_capabilities(
         self,
         capabilities: list[StoredAICapabilityConfig],
     ) -> list[StoredAICapabilityConfig]:
-        with connect_sqlite(self._database_path) as connection:
-            connection.executemany(
-                '''
-                INSERT INTO ai_capability_configs (
-                    capability_id, enabled, provider, model,
-                    agent_role, system_prompt, user_prompt_template, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(capability_id) DO UPDATE SET
-                    enabled = excluded.enabled,
-                    provider = excluded.provider,
-                    model = excluded.model,
-                    agent_role = excluded.agent_role,
-                    system_prompt = excluded.system_prompt,
-                    user_prompt_template = excluded.user_prompt_template,
-                    updated_at = excluded.updated_at
-                ''',
-                [
-                    (
-                        item.capability_id,
-                        int(item.enabled),
-                        item.provider,
-                        item.model,
-                        item.agent_role,
-                        item.system_prompt,
-                        item.user_prompt_template,
-                        item.updated_at,
+        with self._session_factory() as session:
+            for item in capabilities:
+                session.merge(
+                    AICapabilityConfig(
+                        capability_id=item.capability_id,
+                        enabled=int(item.enabled),
+                        provider=item.provider,
+                        model=item.model,
+                        agent_role=item.agent_role,
+                        system_prompt=item.system_prompt,
+                        user_prompt_template=item.user_prompt_template,
+                        updated_at=item.updated_at,
                     )
-                    for item in capabilities
-                ],
-            )
-            connection.commit()
+                )
+            session.commit()
 
         return capabilities
 
     def load_provider_settings(self) -> list[StoredAIProviderSetting]:
-        with connect_sqlite(self._database_path) as connection:
-            rows = connection.execute(
-                'SELECT * FROM ai_provider_settings ORDER BY provider_id ASC'
-            ).fetchall()
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(AIProviderSetting).order_by(AIProviderSetting.provider_id.asc())
+            ).all()
 
-        return [self._to_provider(row) for row in rows]
+        return [self._to_provider(item) for item in rows]
 
     def save_provider_setting(self, provider_id: str, base_url: str) -> StoredAIProviderSetting:
         stored = StoredAIProviderSetting(
@@ -91,40 +76,37 @@ class AICapabilityRepository:
             base_url=base_url,
             updated_at=_utc_now(),
         )
-        with connect_sqlite(self._database_path) as connection:
-            connection.execute(
-                '''
-                INSERT INTO ai_provider_settings (provider_id, base_url, updated_at)
-                VALUES (?, ?, ?)
-                ON CONFLICT(provider_id) DO UPDATE SET
-                    base_url = excluded.base_url,
-                    updated_at = excluded.updated_at
-                ''',
-                (stored.provider_id, stored.base_url, stored.updated_at),
+        with self._session_factory() as session:
+            session.merge(
+                AIProviderSetting(
+                    provider_id=stored.provider_id,
+                    base_url=stored.base_url,
+                    updated_at=stored.updated_at,
+                )
             )
-            connection.commit()
+            session.commit()
 
         return stored
 
-    def _to_capability(self, row) -> StoredAICapabilityConfig:
+    def _to_capability(self, row: AICapabilityConfig) -> StoredAICapabilityConfig:
         return StoredAICapabilityConfig(
-            capability_id=str(row['capability_id']),
-            enabled=bool(row['enabled']),
-            provider=str(row['provider']),
-            model=str(row['model']),
-            agent_role=str(row['agent_role']),
-            system_prompt=str(row['system_prompt']),
-            user_prompt_template=str(row['user_prompt_template']),
-            updated_at=str(row['updated_at']),
+            capability_id=row.capability_id,
+            enabled=bool(row.enabled),
+            provider=row.provider,
+            model=row.model,
+            agent_role=row.agent_role,
+            system_prompt=row.system_prompt,
+            user_prompt_template=row.user_prompt_template,
+            updated_at=row.updated_at,
         )
 
-    def _to_provider(self, row) -> StoredAIProviderSetting:
+    def _to_provider(self, row: AIProviderSetting) -> StoredAIProviderSetting:
         return StoredAIProviderSetting(
-            provider_id=str(row['provider_id']),
-            base_url=str(row['base_url']),
-            updated_at=str(row['updated_at']),
+            provider_id=row.provider_id,
+            base_url=row.base_url,
+            updated_at=row.updated_at,
         )
 
 
 def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")

@@ -1,10 +1,12 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 
-from persistence import connect_sqlite, initialize_schema
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, sessionmaker
+
+from domain.models import ScriptVersion
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,23 +22,18 @@ class StoredScriptVersion:
 
 
 class ScriptRepository:
-    def __init__(self, database_path: Path) -> None:
-        self._database_path = database_path
-        initialize_schema(database_path)
+    def __init__(self, *, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
 
     def list_versions(self, project_id: str) -> list[StoredScriptVersion]:
-        with connect_sqlite(self._database_path) as connection:
-            rows = connection.execute(
-                '''
-                SELECT project_id, revision, source, content, provider, model, ai_job_id, created_at
-                FROM script_versions
-                WHERE project_id = ?
-                ORDER BY revision DESC
-                ''',
-                (project_id,),
-            ).fetchall()
+        with self._session_factory() as session:
+            versions = session.scalars(
+                select(ScriptVersion)
+                .where(ScriptVersion.project_id == project_id)
+                .order_by(ScriptVersion.revision.desc())
+            ).all()
 
-        return [self._to_version(row) for row in rows]
+        return [self._to_version(item) for item in versions]
 
     def save_version(
         self,
@@ -48,61 +45,43 @@ class ScriptRepository:
         model: str | None = None,
         ai_job_id: str | None = None,
     ) -> StoredScriptVersion:
-        revision = self._next_revision(project_id)
-        stored = StoredScriptVersion(
-            project_id=project_id,
-            revision=revision,
-            source=source,
-            content=content,
-            provider=provider,
-            model=model,
-            ai_job_id=ai_job_id,
-            created_at=_utc_now(),
-        )
-        with connect_sqlite(self._database_path) as connection:
-            connection.execute(
-                '''
-                INSERT INTO script_versions (
-                    project_id, revision, source, content, provider, model, ai_job_id, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
-                (
-                    stored.project_id,
-                    stored.revision,
-                    stored.source,
-                    stored.content,
-                    stored.provider,
-                    stored.model,
-                    stored.ai_job_id,
-                    stored.created_at,
-                ),
+        with self._session_factory() as session:
+            revision = self._next_revision(session, project_id)
+            version = ScriptVersion(
+                project_id=project_id,
+                revision=revision,
+                source=source,
+                content=content,
+                provider=provider,
+                model=model,
+                ai_job_id=ai_job_id,
+                created_at=_utc_now(),
             )
-            connection.commit()
+            session.add(version)
+            session.commit()
 
-        return stored
+        return self._to_version(version)
 
-    def _next_revision(self, project_id: str) -> int:
-        with connect_sqlite(self._database_path) as connection:
-            row = connection.execute(
-                'SELECT COALESCE(MAX(revision), 0) AS revision FROM script_versions WHERE project_id = ?',
-                (project_id,),
-            ).fetchone()
+    def _next_revision(self, session: Session, project_id: str) -> int:
+        current = session.scalar(
+            select(func.coalesce(func.max(ScriptVersion.revision), 0)).where(
+                ScriptVersion.project_id == project_id
+            )
+        )
+        return int(current or 0) + 1
 
-        assert row is not None
-        return int(row['revision']) + 1
-
-    def _to_version(self, row) -> StoredScriptVersion:
+    def _to_version(self, version: ScriptVersion) -> StoredScriptVersion:
         return StoredScriptVersion(
-            project_id=str(row['project_id']),
-            revision=int(row['revision']),
-            source=str(row['source']),
-            content=str(row['content']),
-            provider=str(row['provider']) if row['provider'] else None,
-            model=str(row['model']) if row['model'] else None,
-            ai_job_id=str(row['ai_job_id']) if row['ai_job_id'] else None,
-            created_at=str(row['created_at']),
+            project_id=version.project_id,
+            revision=version.revision,
+            source=version.source,
+            content=version.content,
+            provider=version.provider,
+            model=version.model,
+            ai_job_id=version.ai_job_id,
+            created_at=version.created_at,
         )
 
 
 def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")

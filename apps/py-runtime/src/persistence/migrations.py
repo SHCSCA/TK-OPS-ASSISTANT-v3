@@ -3,6 +3,8 @@
 import sqlite3
 from typing import Callable
 
+# Historical reference for the pre-SQLAlchemy bootstrap path. New schema work
+# should use the Alembic migrations under apps/py-runtime/alembic/.
 Migration = Callable[[sqlite3.Connection], None]
 SCHEMA_VERSION = 3
 
