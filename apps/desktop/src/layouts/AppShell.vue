@@ -1,133 +1,63 @@
 <template>
   <div class="app-shell command-shell">
-    <header class="title-bar command-title-bar">
-      <div class="title-bar__brand command-brand">
-        <div class="brand-mark command-brand__mark">TK</div>
-        <div>
-          <p class="brand-label">TK-OPS 本地 AI 视频创作中枢</p>
-          <h1>{{ currentPage.title }}</h1>
-          <p class="title-bar__meta">{{ pageContextSummary }}</p>
-        </div>
-      </div>
-
-      <div class="title-bar__status command-title-bar__status">
-        <span class="status-pill" :class="`status-pill--${configBusStore.runtimeStatus}`">
-          {{ runtimeStatusLabel }}
-        </span>
-        <span class="status-pill" :class="`status-pill--${configStatusTone}`">
-          {{ configStatusLabel }}
-        </span>
-        <span class="status-pill" :class="`status-pill--${licenseStatusTone}`">
-          {{ licenseStatusLabel }}
-        </span>
-        <span class="status-pill status-pill--idle" data-current-project>
-          {{ projectLabel || "当前未选择项目" }}
-        </span>
-      </div>
-    </header>
+    <ShellTitleBar
+      :config-label="configStatusLabel"
+      :config-tone="configStatusTone"
+      :license-label="licenseStatusLabel"
+      :license-tone="licenseStatusTone"
+      :project-label="projectLabel || '当前未选择项目'"
+      :runtime-label="runtimeStatusLabel"
+      :runtime-tone="runtimeStatusTone"
+      :summary="pageContextSummary"
+      :title="currentPage.title"
+    />
 
     <div class="app-shell__body command-shell__body" :class="{ 'app-shell__body--wizard': isWizardPage }">
-      <aside v-if="showWorkspaceChrome" class="sidebar command-sidebar">
-        <div class="sidebar__intro command-sidebar__intro">
-          <p>工作台导航</p>
-          <strong>创作、媒体与发布链路</strong>
-        </div>
-        <nav aria-label="TK-OPS 页面导航">
-          <section v-for="group in navGroups" :key="group.label" class="nav-group">
-            <p class="nav-group__title">{{ group.label }}</p>
-            <RouterLink
-              v-for="item in group.items"
-              :key="item.id"
-              :to="item.path"
-              class="nav-link command-nav-link"
-              active-class="nav-link--active"
-              :data-route-id="item.id"
-            >
-              <span class="nav-link__icon">{{ item.icon }}</span>
-              <span>{{ item.title }}</span>
-            </RouterLink>
-          </section>
-        </nav>
-      </aside>
+      <ShellSidebar v-if="showWorkspaceChrome" :nav-groups="navGroups" />
 
       <main class="content-host command-content-host">
         <RouterView />
       </main>
 
-      <aside v-if="showWorkspaceChrome" class="detail-panel command-detail-panel">
-        <section class="detail-panel__hero command-detail-panel__hero">
-          <p class="detail-panel__label">当前页面</p>
-          <h2>{{ currentPage.title }}</h2>
-          <p>{{ pageContextSummary }}</p>
-        </section>
-
-        <section class="detail-panel__section">
-          <p class="detail-panel__label">项目上下文</p>
-          <template v-if="projectStore.currentProject">
-            <strong>{{ projectStore.currentProject.projectName }}</strong>
-            <p>项目 ID：{{ projectStore.currentProject.projectId }}</p>
-            <p>状态：{{ projectStore.currentProject.status }}</p>
-          </template>
-          <p v-else>尚未选择项目。需要项目上下文的页面会先回到创作总览。</p>
-        </section>
-
-        <section class="detail-panel__section">
-          <p class="detail-panel__label">运行状态</p>
-          <div class="detail-panel__metric">
-            <span>Runtime</span>
-            <strong>{{ runtimeStatusLabel }}</strong>
-          </div>
-          <div class="detail-panel__metric">
-            <span>模式</span>
-            <strong>{{ health?.mode ?? "待同步" }}</strong>
-          </div>
-          <div class="detail-panel__metric">
-            <span>版本</span>
-            <strong>{{ health?.version ?? "待同步" }}</strong>
-          </div>
-        </section>
-
-        <section v-if="showSettingsDiagnostics" class="detail-panel__section">
-          <p class="detail-panel__label">诊断信息</p>
-          <template v-if="diagnostics">
-            <p>数据库：{{ diagnostics.databasePath }}</p>
-            <p>日志目录：{{ diagnostics.logDir }}</p>
-            <p>修订号：{{ diagnostics.revision }}</p>
-            <p>健康状态：{{ diagnostics.healthStatus }}</p>
-          </template>
-          <p v-else>暂无诊断信息。</p>
-        </section>
-
-        <section class="detail-panel__section">
-          <p class="detail-panel__label">授权摘要</p>
-          <p>状态：{{ licenseStatusLabel }}</p>
-          <p>机器码：{{ licenseStore.machineCode || "待生成" }}</p>
-          <p>绑定：{{ licenseStore.machineBound ? "已绑定" : "未绑定" }}</p>
-          <p>授权码：{{ licenseStore.maskedCode || "尚未激活" }}</p>
-        </section>
-
-        <section class="detail-panel__section detail-panel__section--error">
-          <p class="detail-panel__label">最近错误</p>
-          <p>{{ lastErrorSummary }}</p>
-        </section>
-      </aside>
+      <ShellDetailPanel
+        v-if="showWorkspaceChrome"
+        :diagnostics="diagnostics"
+        :last-error-summary="lastErrorSummary"
+        :license-label="licenseStatusLabel"
+        :machine-bound="licenseStore.machineBound"
+        :machine-code="licenseStore.machineCode || '待生成'"
+        :masked-code="licenseStore.maskedCode || '尚未激活'"
+        :page-summary="pageContextSummary"
+        :page-title="currentPage.title"
+        :project-id="projectStore.currentProject?.projectId ?? ''"
+        :project-name="projectStore.currentProject?.projectName ?? ''"
+        :project-status="projectStore.currentProject?.status ?? ''"
+        :runtime-label="runtimeStatusLabel"
+        :runtime-mode="health?.mode ?? '待同步'"
+        :runtime-version="health?.version ?? '待同步'"
+        :show-diagnostics="showSettingsDiagnostics"
+      />
     </div>
 
-    <footer class="status-bar command-status-bar">
-      <span>{{ runtimeStatusLabel }}</span>
-      <span>{{ isWizardPage ? licenseStatusLabel : configStatusLabel }}</span>
-      <span>{{ projectLabel || "当前未选择项目" }}</span>
-      <span>{{ isWizardPage ? wizardStatusLabel : lastSyncLabel }}</span>
-    </footer>
+    <ShellStatusBar
+      :project-label="projectLabel || '当前未选择项目'"
+      :runtime-label="runtimeStatusLabel"
+      :secondary-label="isWizardPage ? licenseStatusLabel : configStatusLabel"
+      :sync-label="isWizardPage ? wizardStatusLabel : lastSyncLabel"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, watchEffect } from "vue";
-import { RouterLink, RouterView, useRoute } from "vue-router";
+import { RouterView, useRoute } from "vue-router";
 
 import { routeIds, routeManifest } from "@/app/router";
+import ShellDetailPanel from "@/layouts/shell/ShellDetailPanel.vue";
+import ShellSidebar from "@/layouts/shell/ShellSidebar.vue";
+import ShellStatusBar from "@/layouts/shell/ShellStatusBar.vue";
+import ShellTitleBar from "@/layouts/shell/ShellTitleBar.vue";
 import { useConfigBusStore } from "@/stores/config-bus";
 import { useLicenseStore } from "@/stores/license";
 import { useProjectStore } from "@/stores/project";
@@ -165,6 +95,19 @@ const runtimeStatusLabel = computed(() => {
       return "Runtime 离线";
     default:
       return "Runtime 待连接";
+  }
+});
+
+const runtimeStatusTone = computed(() => {
+  switch (configBusStore.runtimeStatus) {
+    case "online":
+      return "online";
+    case "offline":
+      return "offline";
+    case "loading":
+      return "loading";
+    default:
+      return "idle";
   }
 });
 
@@ -228,16 +171,14 @@ const lastSyncLabel = computed(() => {
 });
 
 const wizardStatusLabel = computed(() => {
-  return licenseStore.machineCode
-    ? `机器码 ${licenseStore.machineCode}`
-    : "机器码待生成";
+  return licenseStore.machineCode ? `机器码 ${licenseStore.machineCode}` : "机器码待生成";
 });
 
 const showSettingsDiagnostics = computed(() => currentPage.value.id === routeIds.aiSystemSettings);
 
 const pageContextSummary = computed(() => {
   if (currentPage.value.requiresProjectContext) {
-    return "此页面会读取当前项目上下文，并把结果回流到同一创作链路。";
+    return "此页面会读取当前项目上下文，并把结果回流到同一条创作链路。";
   }
 
   if (currentPage.value.id === routeIds.creatorDashboard) {
