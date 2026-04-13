@@ -188,6 +188,8 @@ export type StoryboardDocument = {
   recentJobs: AIJobRecord[];
 };
 
+export type { ImportedVideo, ImportedVideoStatus } from "./video";
+
 export type RuntimeSuccessEnvelope<T> = {
   ok: true;
   data: T;

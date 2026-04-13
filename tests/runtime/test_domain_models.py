@@ -11,6 +11,7 @@ from domain.models import (
     AIProviderSetting,
     Base,
     LicenseGrant,
+    ImportedVideo,
     Project,
     ScriptVersion,
     SessionContext,
@@ -42,6 +43,7 @@ def test_domain_models_match_existing_table_names() -> None:
     assert AICapabilityConfig.__tablename__ == "ai_capability_configs"
     assert AIProviderSetting.__tablename__ == "ai_provider_settings"
     assert LicenseGrant.__tablename__ == "license_grant"
+    assert ImportedVideo.__tablename__ == "imported_videos"
     assert SystemConfig.__tablename__ == "system_config"
     assert SessionContext.__tablename__ == "session_context"
 
@@ -96,6 +98,30 @@ def test_license_grant_columns_match_existing_schema(tmp_path: Path) -> None:
         "machine_code",
         "license_type",
         "signed_payload",
+    }
+
+
+def test_imported_video_columns_match_target_schema(tmp_path: Path) -> None:
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+    Base.metadata.create_all(engine)
+
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("imported_videos")}
+
+    assert columns == {
+        "id",
+        "project_id",
+        "file_path",
+        "file_name",
+        "file_size_bytes",
+        "duration_seconds",
+        "width",
+        "height",
+        "frame_rate",
+        "codec",
+        "status",
+        "error_message",
+        "created_at",
     }
 
 

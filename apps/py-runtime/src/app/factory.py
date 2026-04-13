@@ -17,6 +17,7 @@ from api.routes import (
     scripts_router,
     settings_router,
     storyboards_router,
+    video_deconstruction_router,
 )
 from app.config import load_runtime_config
 from app.logging import configure_logging, log_event, pop_request_id, push_request_id
@@ -26,6 +27,7 @@ from repositories.ai_capability_repository import AICapabilityRepository
 from repositories.ai_job_repository import AIJobRepository
 from repositories.dashboard_repository import DashboardRepository
 from repositories.license_repository import LicenseRepository
+from repositories.imported_video_repository import ImportedVideoRepository
 from repositories.script_repository import ScriptRepository
 from repositories.storyboard_repository import StoryboardRepository
 from repositories.system_config_repository import SystemConfigRepository
@@ -39,6 +41,7 @@ from services.machine_code import MachineCodeService
 from services.script_service import ScriptService
 from services.settings_service import SettingsService
 from services.storyboard_service import StoryboardService
+from services.video_import_service import VideoImportService
 
 
 def create_app() -> FastAPI:
@@ -50,6 +53,7 @@ def create_app() -> FastAPI:
 
     settings_repository = SystemConfigRepository(session_factory=session_factory)
     license_repository = LicenseRepository(session_factory=session_factory)
+    imported_video_repository = ImportedVideoRepository(session_factory=session_factory)
     dashboard_repository = DashboardRepository(session_factory=session_factory)
     ai_capability_repository = AICapabilityRepository(session_factory=session_factory)
     ai_job_repository = AIJobRepository(session_factory=session_factory)
@@ -82,6 +86,7 @@ def create_app() -> FastAPI:
         ai_text_generation_service,
         script_service,
     )
+    video_import_service = VideoImportService(repository=imported_video_repository)
     machine_code_service = MachineCodeService()
     license_service = LicenseService(
         runtime_config=runtime_config,
@@ -116,6 +121,7 @@ def create_app() -> FastAPI:
     app.state.session_factory = session_factory
     app.state.settings_repository = settings_repository
     app.state.license_repository = license_repository
+    app.state.imported_video_repository = imported_video_repository
     app.state.dashboard_repository = dashboard_repository
     app.state.ai_capability_repository = ai_capability_repository
     app.state.ai_job_repository = ai_job_repository
@@ -128,6 +134,7 @@ def create_app() -> FastAPI:
     app.state.ai_text_generation_service = ai_text_generation_service
     app.state.script_service = script_service
     app.state.storyboard_service = storyboard_service
+    app.state.video_import_service = video_import_service
 
     @app.middleware('http')
     async def request_context_middleware(request, call_next):  # type: ignore[no-untyped-def]
@@ -215,6 +222,7 @@ def create_app() -> FastAPI:
     app.include_router(scripts_router)
     app.include_router(settings_router)
     app.include_router(storyboards_router)
+    app.include_router(video_deconstruction_router)
     log_event(
         'system',
         'runtime.started',

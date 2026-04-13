@@ -3,6 +3,7 @@ from __future__ import annotations
 from domain.models.ai_capability import AICapabilityConfig, AIProviderSetting
 from domain.models.ai_job import AIJobRecord
 from domain.models.base import Base, generate_uuid
+from domain.models.imported_video import ImportedVideo
 from domain.models.license import LicenseGrant
 from domain.models.project import Project
 from domain.models.script import ScriptVersion
@@ -14,6 +15,7 @@ __all__ = [
     "AIJobRecord",
     "AIProviderSetting",
     "Base",
+    "ImportedVideo",
     "LicenseGrant",
     "Project",
     "ScriptVersion",
