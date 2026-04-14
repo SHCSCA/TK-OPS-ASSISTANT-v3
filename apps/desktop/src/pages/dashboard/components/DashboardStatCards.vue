@@ -1,25 +1,38 @@
 <template>
-  <section class="command-panel system-card" data-dashboard-section="ai-defaults">
-    <p class="detail-panel__label">AI 默认项</p>
-    <div class="dashboard-metric">
-      <span>Provider</span>
-      <strong>{{ provider }}</strong>
+  <div class="stat-cards">
+    <div class="stat-card">
+      <p class="stat-card__label">总项目数</p>
+      <h3 class="stat-card__value">{{ projectCount }}</h3>
+      <div class="stat-card__trend stat-card__trend--neutral">
+        <span>真实数据</span>
+      </div>
     </div>
-    <div class="dashboard-metric">
-      <span>模型</span>
-      <strong>{{ model }}</strong>
+    <div class="stat-card">
+      <p class="stat-card__label">今日 AI 任务</p>
+      <h3 class="stat-card__value stat-card__value--muted">&mdash;</h3>
+      <div class="stat-card__trend stat-card__trend--neutral">
+        <span>待接入</span>
+      </div>
     </div>
-    <div class="dashboard-metric">
-      <span>工作目录</span>
-      <strong>{{ workspaceRoot }}</strong>
+    <div class="stat-card">
+      <p class="stat-card__label">视频处理量</p>
+      <h3 class="stat-card__value stat-card__value--muted">&mdash;</h3>
+      <div class="stat-card__trend stat-card__trend--neutral">
+        <span>待接入</span>
+      </div>
     </div>
-  </section>
+    <div class="stat-card">
+      <p class="stat-card__label">系统健康度</p>
+      <h3 class="stat-card__value stat-card__value--muted">&mdash;</h3>
+      <div class="stat-card__trend stat-card__trend--neutral">
+        <span>待接入</span>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 defineProps<{
-  model: string;
-  provider: string;
-  workspaceRoot: string;
+  projectCount: number;
 }>();
 </script>

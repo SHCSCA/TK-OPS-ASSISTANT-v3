@@ -24,6 +24,31 @@ export const useVideoImportStore = defineStore("video-import", {
     videos: []
   }),
   actions: {
+    initializeWebSocket(): void {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = "127.0.0.1:8000"; // Runtime 默认地址
+      const socket = new WebSocket(`${protocol}//${host}/api/ws`);
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.event === "video_status_changed") {
+            const videoIndex = this.videos.findIndex((v) => v.id === data.video_id);
+            if (videoIndex !== -1) {
+              // 触发列表刷新或局部更新
+              void this.loadVideos(this.videos[videoIndex].projectId);
+            }
+          }
+        } catch (e) {
+          console.error("解析 WebSocket 消息失败:", e);
+        }
+      };
+
+      socket.onclose = () => {
+        console.warn("WebSocket 已断开，3秒后重连...");
+        setTimeout(() => this.initializeWebSocket(), 3000);
+      };
+    },
     async loadVideos(projectId: string): Promise<void> {
       this.status = "loading";
       this.error = null;

@@ -1,38 +1,52 @@
 <template>
-  <section class="command-panel recent-project-card" data-dashboard-section="recent-projects">
-    <div class="command-panel__title-row">
-      <div>
-        <p class="detail-panel__label">最近项目</p>
-        <h2>继续已有创作</h2>
-      </div>
-      <span class="page-chip page-chip--muted">{{ label }}</span>
+  <section class="recent-projects-panel" data-dashboard-section="recent-projects">
+    <div class="recent-projects-panel__header">
+      <h4 class="recent-projects-panel__title">最近项目活动</h4>
+      <button
+        v-if="projects.length > 0"
+        class="recent-projects-panel__action"
+        type="button"
+        :disabled="isBusy"
+      >
+        查看全部
+      </button>
     </div>
 
-    <div v-if="projects.length === 0" class="empty-state empty-state--guide">
+    <div v-if="projects.length === 0" class="recent-projects-empty">
       <strong>还没有项目。</strong>
       <p>创建第一个项目后，脚本、分镜和媒体链路会按项目上下文解锁。</p>
     </div>
-    <div v-else class="dashboard-list">
-      <article
-        v-for="project in projects"
-        :key="project.id"
-        class="dashboard-list__item"
-        :data-project-id="project.id"
-      >
-        <div>
-          <h3>{{ project.name }}</h3>
-          <p>{{ project.description || "暂无描述" }}</p>
-          <p class="dashboard-list__meta">{{ formatProjectMeta(project) }}</p>
-        </div>
-        <button
-          class="dashboard-list__action"
-          type="button"
-          :disabled="isBusy"
-          @click="$emit('select', project.id)"
-        >
-          打开
-        </button>
-      </article>
+
+    <div v-else class="recent-projects-table-wrap">
+      <table class="recent-projects-table">
+        <thead>
+          <tr>
+            <th>项目名称</th>
+            <th>描述</th>
+            <th>状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="project in projects" :key="project.id" :data-project-id="project.id">
+            <td class="recent-projects-table__name">{{ project.name }}</td>
+            <td class="recent-projects-table__desc">{{ project.description || '暂无描述' }}</td>
+            <td>
+              <span class="project-status-badge">{{ project.status }}</span>
+            </td>
+            <td>
+              <button
+                class="recent-projects-table__btn"
+                type="button"
+                :disabled="isBusy"
+                @click="$emit('select', project.id)"
+              >
+                打开
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 </template>
@@ -49,8 +63,4 @@ defineProps<{
   label: string;
   projects: ProjectSummary[];
 }>();
-
-function formatProjectMeta(project: ProjectSummary): string {
-  return `脚本 v${project.currentScriptVersion} / 分镜 v${project.currentStoryboardVersion} / ${project.status}`;
-}
 </script>

@@ -1,7 +1,7 @@
 <template>
   <section
     id="create-project"
-    class="command-panel command-panel--primary project-entry-card"
+    class="project-entry-card"
     data-dashboard-section="project-entry"
   >
     <div>

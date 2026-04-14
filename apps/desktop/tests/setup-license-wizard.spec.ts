@@ -169,7 +169,7 @@ describe("Setup bootstrap flow", () => {
     });
     await vi.waitFor(() => {
       expect(router.currentRoute.value.fullPath).toBe("/dashboard");
-      expect(wrapper.find(".title-bar").exists()).toBe(true);
+      expect(wrapper.find(".shell-title-bar").exists()).toBe(true);
     });
   });
 

@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Callable
 
 from fastapi import HTTPException
 
 from domain.models import ImportedVideo
 from domain.models.base import generate_uuid
 from repositories.imported_video_repository import ImportedVideoRepository
-from services.ffprobe import probe_video
+from tasks.video_tasks import process_video_import_task
 
 
 class VideoImportService:
@@ -16,29 +19,47 @@ class VideoImportService:
         self._repository = repository
 
     def import_video(self, *, project_id: str, file_path: str) -> dict[str, object]:
+        """
+        同步入口：快速保存记录并启动后台异步任务。
+        """
         path = Path(file_path)
         if not path.is_file():
             raise HTTPException(status_code=400, detail="视频文件不存在。")
 
         file_size = path.stat().st_size
-        probe_result = probe_video(path)
+        video_id = generate_uuid()
+        
+        # 初始状态设为 'imported' (表示已导入但元信息未解析)
         video = ImportedVideo(
-            id=generate_uuid(),
+            id=video_id,
             project_id=project_id,
             file_path=str(path),
             file_name=path.name,
-            file_size_bytes=probe_result.file_size_bytes if probe_result else file_size,
-            duration_seconds=probe_result.duration_seconds if probe_result else None,
-            width=probe_result.width if probe_result else None,
-            height=probe_result.height if probe_result else None,
-            frame_rate=probe_result.frame_rate if probe_result else None,
-            codec=probe_result.codec if probe_result else None,
-            status="ready" if probe_result else "imported",
-            error_message=None if probe_result else "FFprobe 不可用，已仅记录文件路径和大小。",
+            file_size_bytes=file_size,
+            duration_seconds=None,
+            width=None,
+            height=None,
+            frame_rate=None,
+            codec=None,
+            status="imported",
+            error_message=None,
             created_at=_utc_now(),
         )
 
-        return _to_dict(self._repository.create(video))
+        saved_video = self._repository.create(video)
+        
+        # --- 异步任务派发 ---
+        # 使用 asyncio.create_task 在后台运行解析任务
+        # 注意：在 FastAPI 环境下，这将在当前进程的事件循环中异步执行
+        asyncio.create_task(
+            process_video_import_task(
+                video_id=video_id,
+                file_path=str(path),
+                repository=self._repository,
+            )
+        )
+
+        return _to_dict(saved_video)
 
     def list_videos(self, *, project_id: str) -> list[dict[str, object]]:
         return [_to_dict(video) for video in self._repository.list_by_project(project_id)]

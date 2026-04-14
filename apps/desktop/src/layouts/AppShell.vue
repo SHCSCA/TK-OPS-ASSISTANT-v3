@@ -1,59 +1,67 @@
 <template>
-  <div class="app-shell command-shell">
-    <ShellTitleBar
-      :config-label="configStatusLabel"
-      :config-tone="configStatusTone"
-      :license-label="licenseStatusLabel"
-      :license-tone="licenseStatusTone"
-      :project-label="projectLabel || '当前未选择项目'"
-      :runtime-label="runtimeStatusLabel"
-      :runtime-tone="runtimeStatusTone"
-      :summary="pageContextSummary"
-      :title="currentPage.title"
-    />
-
-    <div class="app-shell__body command-shell__body" :class="{ 'app-shell__body--wizard': isWizardPage }">
-      <ShellSidebar v-if="showWorkspaceChrome" :nav-groups="navGroups" />
-
-      <main class="content-host command-content-host">
-        <RouterView />
-      </main>
-
-      <ShellDetailPanel
-        v-if="showWorkspaceChrome"
-        :diagnostics="diagnostics"
-        :last-error-summary="lastErrorSummary"
-        :license-label="licenseStatusLabel"
-        :machine-bound="licenseStore.machineBound"
-        :machine-code="licenseStore.machineCode || '待生成'"
-        :masked-code="licenseStore.maskedCode || '尚未激活'"
-        :page-summary="pageContextSummary"
-        :page-title="currentPage.title"
-        :project-id="projectStore.currentProject?.projectId ?? ''"
-        :project-name="projectStore.currentProject?.projectName ?? ''"
-        :project-status="projectStore.currentProject?.status ?? ''"
-        :runtime-label="runtimeStatusLabel"
-        :runtime-mode="health?.mode ?? '待同步'"
-        :runtime-version="health?.version ?? '待同步'"
-        :show-diagnostics="showSettingsDiagnostics"
+  <div class="app-shell command-shell" :data-theme="currentTheme">
+    <!-- 1. 冻结的顶部标题栏 -->
+    <div class="app-shell__header">
+      <ShellTitleBar
+        :runtime-tone="runtimeStatusTone"
+        :is-collapsed="isSidebarCollapsed"
+        :project-name="projectStore.currentProject?.projectName"
+        @toggle-sidebar="toggleSidebar"
+        @toggle-theme="toggleTheme"
       />
     </div>
 
-    <ShellStatusBar
-      :project-label="projectLabel || '当前未选择项目'"
-      :runtime-label="runtimeStatusLabel"
-      :secondary-label="isWizardPage ? licenseStatusLabel : configStatusLabel"
-      :sync-label="isWizardPage ? wizardStatusLabel : lastSyncLabel"
-    />
+    <!-- 2. 主体区域 -->
+    <div class="app-shell__main">
+      <div class="command-shell__body" :class="{ 'app-shell__body--wizard': isWizardPage }">
+        <!-- 侧边栏 -->
+        <ShellSidebar
+          v-if="showWorkspaceChrome"
+          :nav-groups="navGroups"
+          :is-collapsed="isSidebarCollapsed"
+        />
+
+        <!-- 独立滚动的创作主区 -->
+        <main class="content-host command-content-host">
+          <RouterView v-slot="{ Component }">
+            <transition name="page-fade" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </RouterView>
+        </main>
+
+        <!-- 详情面板（仅在宽屏下显示，且具备独立容器） -->
+        <div v-if="showWorkspaceChrome" class="detail-panel-container">
+          <ShellDetailPanel
+            :config-status-label="configStatusLabel"
+            :license-label="licenseStatusLabel"
+            :masked-code="licenseStore.maskedCode || '尚未激活'"
+            :project-name="projectStore.currentProject?.projectName ?? ''"
+            :project-status="projectStore.currentProject?.status ?? ''"
+            :runtime-label="runtimeStatusLabel"
+            :runtime-version="health?.version ?? '待同步'"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 冻结的底部状态栏 -->
+    <div class="app-shell__footer">
+      <ShellStatusBar
+        :project-label="projectLabel || '当前未选择项目'"
+        :runtime-label="runtimeStatusLabel"
+        :sync-label="lastSyncLabel"
+      />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, watchEffect } from "vue";
+import { computed, ref, watchEffect, onMounted } from "vue";
 import { RouterView, useRoute } from "vue-router";
 
-import { routeIds, routeManifest } from "@/app/router";
+import { routeManifest } from "@/app/router";
 import ShellDetailPanel from "@/layouts/shell/ShellDetailPanel.vue";
 import ShellSidebar from "@/layouts/shell/ShellSidebar.vue";
 import ShellStatusBar from "@/layouts/shell/ShellStatusBar.vue";
@@ -66,7 +74,32 @@ const route = useRoute();
 const configBusStore = useConfigBusStore();
 const licenseStore = useLicenseStore();
 const projectStore = useProjectStore();
-const { diagnostics, error, health } = storeToRefs(configBusStore);
+const { health } = storeToRefs(configBusStore);
+
+// --- 状态控制 ---
+const isSidebarCollapsed = ref(false);
+const currentTheme = ref<'light' | 'dark'>('dark');
+
+function toggleSidebar() {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value;
+}
+
+function toggleTheme() {
+  currentTheme.value = currentTheme.value === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', currentTheme.value);
+}
+
+onMounted(() => {
+  const savedTheme = localStorage.getItem('tkops-theme') as 'light' | 'dark';
+  if (savedTheme) {
+    currentTheme.value = savedTheme;
+  }
+  document.documentElement.setAttribute('data-theme', currentTheme.value);
+});
+
+watchEffect(() => {
+  localStorage.setItem('tkops-theme', currentTheme.value);
+});
 
 const navGroups = computed(() => {
   const labels = [...new Set(routeManifest.map((item) => item.navGroup))];
@@ -87,124 +120,107 @@ const projectLabel = computed(() =>
 
 const runtimeStatusLabel = computed(() => {
   switch (configBusStore.runtimeStatus) {
-    case "loading":
-      return "Runtime 检查中";
-    case "online":
-      return "Runtime 在线";
-    case "offline":
-      return "Runtime 离线";
-    default:
-      return "Runtime 待连接";
+    case "loading": return "Runtime 检查中";
+    case "online": return "Runtime 在线";
+    case "offline": return "Runtime 离线";
+    default: return "Runtime 待连接";
   }
 });
 
 const runtimeStatusTone = computed(() => {
   switch (configBusStore.runtimeStatus) {
-    case "online":
-      return "online";
-    case "offline":
-      return "offline";
-    case "loading":
-      return "loading";
-    default:
-      return "idle";
+    case "online": return "online";
+    case "offline": return "offline";
+    case "loading": return "loading";
+    default: return "idle";
   }
 });
 
 const licenseStatusLabel = computed(() => {
-  if (licenseStore.active) {
-    return "授权已激活";
-  }
-
-  if (licenseStore.status === "loading" || licenseStore.status === "submitting") {
-    return "授权检查中";
-  }
-
+  if (licenseStore.active) return "授权已激活";
+  if (licenseStore.status === "loading" || licenseStore.status === "submitting") return "授权检查中";
   return "需要授权";
-});
-
-const licenseStatusTone = computed(() => {
-  if (licenseStore.active) {
-    return "online";
-  }
-
-  if (licenseStore.status === "loading" || licenseStore.status === "submitting") {
-    return "loading";
-  }
-
-  return "offline";
 });
 
 const configStatusLabel = computed(() => {
   switch (configBusStore.status) {
-    case "loading":
-      return "配置读取中";
-    case "saving":
-      return "配置保存中";
-    case "ready":
-      return "配置已就绪";
-    case "error":
-      return "配置异常";
-    default:
-      return "配置待加载";
-  }
-});
-
-const configStatusTone = computed(() => {
-  switch (configBusStore.status) {
-    case "ready":
-      return "online";
-    case "error":
-      return "offline";
-    case "loading":
-    case "saving":
-      return "loading";
-    default:
-      return "idle";
+    case "loading": return "配置读取中";
+    case "saving": return "配置保存中";
+    case "ready": return "配置已就绪";
+    case "error": return "配置异常";
+    default: return "配置待加载";
   }
 });
 
 const lastSyncLabel = computed(() => {
-  return configBusStore.lastSyncedAt
-    ? `最近同步 ${configBusStore.lastSyncedAt}`
-    : "最近同步待完成";
-});
-
-const wizardStatusLabel = computed(() => {
-  return licenseStore.machineCode ? `机器码 ${licenseStore.machineCode}` : "机器码待生成";
-});
-
-const showSettingsDiagnostics = computed(() => currentPage.value.id === routeIds.aiSystemSettings);
-
-const pageContextSummary = computed(() => {
-  if (currentPage.value.requiresProjectContext) {
-    return "此页面会读取当前项目上下文，并把结果回流到同一条创作链路。";
-  }
-
-  if (currentPage.value.id === routeIds.creatorDashboard) {
-    return "项目入口、系统健康和下一步创作动作都从这里开始。";
-  }
-
-  return "系统级页面会影响全局配置、状态和后续任务执行。";
-});
-
-const lastErrorSummary = computed(() => {
-  if (licenseStore.error) {
-    return licenseStore.error.requestId
-      ? `${licenseStore.error.message}（${licenseStore.error.requestId}）`
-      : licenseStore.error.message;
-  }
-
-  if (!error.value) {
-    return "最近没有运行时错误。";
-  }
-
-  return error.value.requestId
-    ? `${error.value.message}（${error.value.requestId}）`
-    : error.value.message;
+  return configBusStore.lastSyncedAt ? `最近同步 ${configBusStore.lastSyncedAt}` : "最近同步待完成";
 });
 
 watchEffect(() => {
   document.title = `TK-OPS | ${currentPage.value.title}`;
 });
 </script>
+
+<style scoped>
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.app-shell__header {
+  flex-shrink: 0;
+  height: var(--titlebar-height);
+  z-index: 1000;
+}
+
+.app-shell__main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.app-shell__footer {
+  flex-shrink: 0;
+  height: var(--statusbar-height);
+  z-index: 1000;
+}
+
+.command-shell__body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-3);
+  gap: var(--space-3);
+  overflow: hidden;
+}
+
+.detail-panel-container {
+  flex-shrink: 0;
+  height: 100%;
+}
+
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+@media (max-width: 1365px) {
+  .detail-panel-container {
+    display: none;
+  }
+}
+</style>

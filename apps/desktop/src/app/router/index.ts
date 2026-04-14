@@ -15,7 +15,7 @@ import { routeIds } from "./route-ids";
 import { routeManifest } from "./route-manifest";
 
 function createRoutes(): RouteRecordRaw[] {
-  return routeManifest.map((item) => ({
+  const pages: RouteRecordRaw[] = routeManifest.map((item) => ({
     path: item.path,
     name: item.id,
     component: item.loadComponent,
@@ -29,6 +29,12 @@ function createRoutes(): RouteRecordRaw[] {
       title: item.title
     }
   }));
+
+  return [
+    { path: "/", redirect: "/dashboard" },
+    ...pages,
+    { path: "/:pathMatch(.*)*", redirect: "/dashboard" }
+  ];
 }
 
 function findRouteItem(route: RouteLocationNormalized) {
