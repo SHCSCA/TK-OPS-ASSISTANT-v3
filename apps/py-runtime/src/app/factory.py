@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 from pathlib import Path
@@ -18,6 +18,7 @@ from api.routes import (
     settings_router,
     storyboards_router,
     video_deconstruction_router,
+    ws_router,
 )
 from app.config import load_runtime_config
 from app.logging import configure_logging, log_event, pop_request_id, push_request_id
@@ -223,6 +224,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_router)
     app.include_router(storyboards_router)
     app.include_router(video_deconstruction_router)
+    app.include_router(ws_router)
     log_event(
         'system',
         'runtime.started',

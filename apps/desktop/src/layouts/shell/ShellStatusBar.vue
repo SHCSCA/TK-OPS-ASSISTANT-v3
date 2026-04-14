@@ -1,7 +1,6 @@
 <template>
-  <footer class="status-bar command-status-bar shell-status-bar">
+  <footer class="shell-status-bar">
     <span>{{ runtimeLabel }}</span>
-    <span>{{ secondaryLabel }}</span>
     <span>{{ projectLabel }}</span>
     <span>{{ syncLabel }}</span>
   </footer>
@@ -11,7 +10,6 @@
 defineProps<{
   projectLabel: string;
   runtimeLabel: string;
-  secondaryLabel: string;
   syncLabel: string;
 }>();
 </script>

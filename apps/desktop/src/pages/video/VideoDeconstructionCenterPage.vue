@@ -43,7 +43,8 @@
         <div v-else class="video-card-grid">
           <article v-for="video in videoImportStore.videos" :key="video.id" class="video-card">
             <div class="video-card__preview">
-              <span>{{ video.status === "ready" ? "READY" : "IMPORTED" }}</span>
+              <span v-if="video.status === 'ready'">▶ 预览</span>
+              <span v-else>解析中...</span>
             </div>
             <div class="video-card__body">
               <div class="command-panel__title-row">
@@ -51,17 +52,23 @@
                   <p class="detail-panel__label">{{ video.codec ?? "codec 待识别" }}</p>
                   <h3>{{ video.fileName }}</h3>
                 </div>
-                <span class="page-chip" :class="video.status === 'ready' ? 'status-pill--online' : 'status-pill--loading'">
-                  {{ video.status === "ready" ? "元信息就绪" : "已导入" }}
-                </span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span :class="['status-dot', video.status === 'ready' ? 'status-dot--ready' : 'status-dot--loading']"></span>
+                  <span class="page-chip" :class="video.status === 'ready' ? 'status-pill--online' : 'status-pill--loading'">
+                    {{ video.status === "ready" ? "元信息就绪" : "已导入" }}
+                  </span>
+                </div>
               </div>
               <div class="video-card__metrics">
                 <span>{{ formatDuration(video.durationSeconds) }}</span>
-                <span>{{ formatResolution(video.width, video.height) }}</span>
+                <span :style="getResolutionStyle(video.width)">{{ formatResolution(video.width, video.height) }}</span>
                 <span>{{ formatFrameRate(video.frameRate) }}</span>
                 <span>{{ formatFileSize(video.fileSizeBytes) }}</span>
               </div>
-              <p v-if="video.errorMessage" class="video-card__hint">{{ video.errorMessage }}</p>
+              <p v-if="video.errorMessage" class="video-card__hint">
+                <span class="status-dot status-dot--error"></span>
+                {{ video.errorMessage }}
+              </p>
               <button class="dashboard-list__action" type="button" @click="videoImportStore.removeVideo(video.id)">
                 删除记录
               </button>
@@ -108,6 +115,7 @@ const videoErrorSummary = computed(() => {
 });
 
 onMounted(() => {
+  videoImportStore.initializeWebSocket();
   if (currentProjectId.value) {
     void videoImportStore.loadVideos(currentProjectId.value);
   }
@@ -157,6 +165,13 @@ function formatDuration(value: number | null): string {
 
 function formatResolution(width: number | null, height: number | null): string {
   return width && height ? `${width} × ${height}` : "分辨率待识别";
+}
+
+function getResolutionStyle(width: number | null): any {
+  if (!width) return {};
+  if (width >= 3840) return { color: 'var(--brand-primary)', borderColor: 'var(--brand-primary)' }; // 4K
+  if (width >= 1920) return { color: 'var(--status-success)' }; // 1080p
+  return {};
 }
 
 function formatFrameRate(value: number | null): string {

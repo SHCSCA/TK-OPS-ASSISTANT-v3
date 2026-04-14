@@ -10,10 +10,7 @@ body,
 }
 
 body {
-  background:
-    radial-gradient(circle at 12% 12%, rgba(0, 242, 234, 0.16), transparent 28%),
-    radial-gradient(circle at 84% 18%, rgba(22, 78, 99, 0.12), transparent 30%),
-    linear-gradient(135deg, var(--surface-primary), var(--surface-sunken) 58%, var(--surface-tertiary));
+  background: var(--surface-primary);
   color: var(--text-primary);
   font-family: var(--font-base);
 }

@@ -1,161 +1,142 @@
-.command-shell {
-  min-height: 100vh;
-  position: relative;
+/* ── Global Reset for Shell ── */
+.command-shell * {
+  box-sizing: border-box;
 }
 
-.command-shell::before {
-  background-image:
-    linear-gradient(rgba(25, 28, 29, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(25, 28, 29, 0.04) 1px, transparent 1px);
-  background-size: 44px 44px;
-  content: "";
-  inset: 0;
-  mask-image: linear-gradient(to bottom, black, transparent 76%);
-  pointer-events: none;
-  position: fixed;
-  z-index: -1;
-}
-
-.command-title-bar {
-  background: color-mix(in srgb, var(--surface-secondary) 76%, transparent);
-  border-bottom-color: var(--border-default);
-  min-height: 118px;
-  padding: 22px 28px;
-}
-
-.command-brand {
-  gap: 18px;
-}
-
-.command-brand__mark {
-  border-radius: 20px;
-  box-shadow: 0 18px 42px rgba(32, 178, 170, 0.28);
-  height: 56px;
-  width: 56px;
-}
-
-.command-title-bar h1 {
-  font-size: clamp(30px, 3.2vw, 48px);
-}
-
-.title-bar__meta {
-  font-size: 13px;
-  line-height: 1.6;
-  margin: 8px 0 0;
-  max-width: 720px;
-}
-
-.command-title-bar__status {
-  max-width: 560px;
+/* ── Shell Layout (Fixed Pillars) ── */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% -20%, var(--surface-tertiary), var(--surface-primary));
 }
 
 .command-shell__body {
-  gap: 18px;
-  grid-template-columns: 276px minmax(0, 1fr) 348px;
-  padding: 18px;
-}
-
-.command-sidebar,
-.command-detail-panel {
-  background: color-mix(in srgb, var(--surface-elevated) 92%, transparent);
-  border-color: var(--border-default);
-  border-radius: 30px;
-  box-shadow: var(--shadow-sm);
-}
-
-.command-sidebar {
-  min-height: calc(100vh - 196px);
-  overflow: hidden auto;
-  padding: 16px;
-}
-
-.command-sidebar__intro {
-  background:
-    radial-gradient(circle at 15% 20%, rgba(32, 178, 170, 0.24), transparent 42%),
-    color-mix(in srgb, var(--surface-secondary) 78%, transparent);
-  border-color: var(--border-default);
-}
-
-.command-nav-link {
-  border-radius: 999px;
-  min-height: 42px;
-  position: relative;
-}
-
-.command-nav-link::before {
-  background: var(--brand-primary);
-  border-radius: 999px;
-  content: "";
-  height: 0;
-  left: 8px;
-  position: absolute;
-  transition: height 180ms ease;
-  width: 4px;
-}
-
-.command-nav-link.nav-link--active::before,
-.command-nav-link:hover::before {
-  height: 22px;
-}
-
-.command-nav-link.nav-link--active,
-.command-nav-link:hover {
-  background: color-mix(in srgb, var(--brand-primary) 14%, var(--surface-secondary));
-  transform: translateX(2px);
+  display: flex;
+  flex: 1;
+  min-height: 0; 
+  padding: var(--space-3);
+  gap: var(--space-3);
+  overflow: hidden;
+  width: 100%;
 }
 
 .command-content-host {
-  min-height: calc(100vh - 196px);
+  flex: 1;
+  min-width: 0; /* 防止内容撑破 flex 容器 */
+  overflow-y: auto;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  transition: all var(--motion-base);
+  position: relative;
 }
 
-.command-detail-panel {
-  max-height: calc(100vh - 196px);
-  overflow: hidden auto;
+/* ── Title Bar (Fixed Top) ── */
+.shell-title-bar {
+  flex-shrink: 0;
+  height: var(--titlebar-height);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 0 var(--space-4);
+  z-index: 1000;
 }
 
-.command-detail-panel__hero {
-  background:
-    radial-gradient(circle at top right, rgba(32, 178, 170, 0.22), transparent 42%),
-    color-mix(in srgb, var(--surface-secondary) 82%, transparent);
+.shell-title-bar__left,
+.shell-title-bar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-.detail-panel__section--error {
-  background: color-mix(in srgb, var(--status-error) 7%, var(--surface-tertiary));
+.shell-title-bar__center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
 }
 
-.command-status-bar {
-  background: color-mix(in srgb, var(--surface-secondary) 82%, transparent);
-  min-height: 44px;
+/* ── Sidebar (Fixed Left in Body) ── */
+.shell-sidebar {
+  flex-shrink: 0;
+  width: var(--sidebar-width);
+  background: var(--glass-bg);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.status-pill {
-  background: color-mix(in srgb, var(--surface-secondary) 72%, transparent);
-  font-weight: 700;
+/* ── Status Bar (Fixed Bottom) ── */
+.shell-status-bar {
+  flex-shrink: 0;
+  height: var(--statusbar-height);
+  background: var(--surface-secondary);
+  border-top: 1px solid var(--border-default);
+  padding: 0 var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  z-index: 1000;
 }
 
-@media (max-width: 1365px) {
-  .command-shell__body {
-    grid-template-columns: 240px minmax(0, 1fr);
-  }
-
-  .command-detail-panel {
-    grid-column: 1 / -1;
-    max-height: none;
-  }
+/* ── UI Elements ── */
+.icon-button {
+  position: relative;
 }
 
-@media (max-width: 959px) {
-  .command-shell__body {
-    grid-template-columns: 1fr;
-  }
+.notification-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  background: var(--status-error);
+  border-radius: 50%;
+  border: 1.5px solid var(--surface-secondary);
+}
 
-  .command-title-bar {
-    min-height: auto;
-  }
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-default);
+  margin: 0 var(--space-2);
+}
 
-  .command-sidebar,
-  .command-content-host,
-  .command-detail-panel {
-    min-height: auto;
-  }
+/* ── Transitions ── */
+.sidebar--collapsed {
+  width: 68px !important;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
 }

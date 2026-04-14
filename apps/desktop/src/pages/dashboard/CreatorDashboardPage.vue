@@ -1,33 +1,16 @@
 <template>
-  <section class="dashboard-page command-dashboard">
-    <header class="dashboard-hero command-dashboard__hero">
-      <div class="dashboard-hero__content">
-        <p class="dashboard-hero__eyebrow">创作总览</p>
-        <h1>把脚本、分镜、剪辑与发布收束到同一个项目。</h1>
-        <p>
-          从这里创建项目、恢复最近工作，并检查 Runtime、许可证与 AI 默认配置是否已经就绪。
-          当前页只展示真实状态；没有数据时使用明确空态，不制造假业务数字。
-        </p>
-        <div class="dashboard-hero__actions">
-          <a class="settings-page__button" href="#create-project">创建新项目</a>
-          <RouterLink class="settings-page__button settings-page__button--secondary" to="/settings/ai-system">
-            检查 AI 与系统设置
-          </RouterLink>
-        </div>
-      </div>
-
-      <aside class="command-signal" aria-label="当前项目状态">
-        <span class="command-signal__ring"></span>
-        <p>当前项目</p>
-        <strong>{{ currentProjectName }}</strong>
-        <small>{{ currentProjectStatus }}</small>
-      </aside>
+  <section class="dashboard-page">
+    <header class="dashboard-header">
+      <h1 class="dashboard-header__title">概览数据看板</h1>
+      <p class="dashboard-header__subtitle">把脚本、分镜、剪辑与发布收束到同一个项目。</p>
     </header>
 
     <p v-if="guardMessage" class="settings-page__error">{{ guardMessage }}</p>
     <p v-if="projectStore.error" class="settings-page__error">{{ projectErrorSummary }}</p>
 
-    <div class="dashboard-command-grid command-dashboard__grid">
+    <DashboardStatCards :project-count="projectStore.recentProjects.length" />
+
+    <div class="dashboard-middle">
       <DashboardProjectEntry
         v-model:name="projectName"
         v-model:description="projectDescription"
@@ -35,33 +18,27 @@
         @create="handleCreateProject"
       />
 
-      <DashboardRecentProjects
-        :is-busy="isBusy"
-        :label="recentProjectLabel"
-        :projects="projectStore.recentProjects"
-        @select="handleSelectProject"
-      />
-
-      <DashboardChainRail :has-project="projectStore.currentProject !== null" :steps="chainSteps" />
-
       <DashboardSystemStatus
         :config-status-label="configStatusLabel"
         :license-label="licenseLabel"
         :runtime-label="runtimeLabel"
       />
-
-      <DashboardStatCards
-        :model="configBusStore.settings?.ai.model ?? '待加载'"
-        :provider="configBusStore.settings?.ai.provider ?? '待加载'"
-        :workspace-root="configBusStore.settings?.runtime.workspaceRoot ?? '待加载'"
-      />
     </div>
+
+    <DashboardRecentProjects
+      :is-busy="isBusy"
+      :label="recentProjectLabel"
+      :projects="projectStore.recentProjects"
+      @select="handleSelectProject"
+    />
+
+    <DashboardChainRail :has-project="projectStore.currentProject !== null" :steps="chainSteps" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { RouterLink, useRoute, useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import { useConfigBusStore } from "@/stores/config-bus";
 import { useLicenseStore } from "@/stores/license";
@@ -110,8 +87,6 @@ const chainSteps = [
 ];
 
 const isBusy = computed(() => projectStore.status === "loading" || projectStore.status === "saving");
-const currentProjectName = computed(() => projectStore.currentProject?.projectName ?? "等待项目");
-const currentProjectStatus = computed(() => projectStore.currentProject?.status ?? "请先创建或打开项目");
 const recentProjectLabel = computed(() =>
   projectStore.recentProjects.length > 0 ? `${projectStore.recentProjects.length} 个真实项目` : "空态"
 );
