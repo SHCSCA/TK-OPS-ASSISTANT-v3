@@ -45,5 +45,12 @@ describe("App shell", () => {
     expect(wrapper.text()).toContain("Runtime 在线");
     expect(wrapper.text()).toContain("配置已就绪");
     expect(wrapper.text()).toContain("授权已激活");
+    expect(wrapper.text()).toContain("本地 AI 视频创作中枢");
+    expect(wrapper.text()).not.toContain("鏈");
+    expect(wrapper.text()).not.toContain("鍒");
+    expect(wrapper.find(".shell-title-bar").exists()).toBe(true);
+    expect(wrapper.find(".shell-sidebar").exists()).toBe(true);
+    expect(wrapper.find(".shell-detail-panel").exists()).toBe(true);
+    expect(wrapper.find(".shell-status-bar").exists()).toBe(true);
   });
 });

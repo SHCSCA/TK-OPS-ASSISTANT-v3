@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Spline Sans', "Microsoft YaHei", sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #00f0e844; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00f0e866; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display h-screen flex flex-col overflow-hidden">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 h-16 shrink-0">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center text-slate-900">
+<span class="material-symbols-outlined">analytics</span>
+</div>
+<h2 class="text-lg font-bold tracking-tight">TK-OPS 数据报告生成器</h2>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">仪表盘</a>
+<a class="text-sm font-medium text-primary" href="#">报告生成器</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">数据源</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">系统设置</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/50" placeholder="搜索资源..."/>
+</div>
+<div class="size-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden border-2 border-primary/20" data-alt="User profile avatar placeholder">
+<img alt="User" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7ZczaUoqaSJe9FX6nCxdFCeieTrDpDUHnz6f98_bP54oJmIPzW7acPN6l3W-cyIlDOmeatwmrf3PFnH2T3bgmL_0msJAuHggEA4HaTbJFAMmgTvRIBL1P6aEpoCrvA_GGQ3QAHOeg8535XnUtIw7xu1Nt6LQXjbZWZQb1DDsCeW4sj4O2Xb76wLJZaya15AWJi0uUAHhQ2coGrJOE5-EdFzyLLpcet4P6XYAbT24NJXUbBwlDIWyYAoVBHEVHLbuvt1isOT3bBMVh"/>
+</div>
+</div>
+</header>
+<main class="flex-1 flex overflow-hidden">
+<!-- Left Sidebar: Templates -->
+<aside class="w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col shrink-0">
+<div class="p-4 border-b border-slate-100 dark:border-slate-800">
+<button class="w-full flex items-center justify-center gap-2 bg-primary text-slate-900 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm">add</span>
+                    新建报告
+                </button>
+</div>
+<div class="flex-1 overflow-y-auto p-3 space-y-1">
+<div class="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">常用模板</div>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary font-medium text-sm text-left">
+<span class="material-symbols-outlined text-sm">description</span>
+                    空白报告
+                </button>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm text-left transition-colors">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+                    销售月报
+                </button>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm text-left transition-colors">
+<span class="material-symbols-outlined text-sm">group</span>
+                    用户增长周报
+                </button>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm text-left transition-colors">
+<span class="material-symbols-outlined text-sm">inventory_2</span>
+                    库存预警报告
+                </button>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm text-left transition-colors">
+<span class="material-symbols-outlined text-sm">account_balance_wallet</span>
+                    财务结算表
+                </button>
+<div class="px-3 py-2 pt-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">我的收藏</div>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm text-left transition-colors">
+<span class="material-symbols-outlined text-sm text-yellow-500">star</span>
+                    季度Q3运营汇总
+                </button>
+</div>
+</aside>
+<!-- Center Area: Configuration Panel -->
+<section class="flex-1 overflow-y-auto bg-slate-50 dark:bg-background-dark p-6 space-y-6">
+<div class="flex items-center justify-between mb-4">
+<div>
+<h1 class="text-2xl font-bold">配置报告方案</h1>
+<p class="text-slate-500 dark:text-slate-400 text-sm">定义您的数据维度、过滤器及可视化方案</p>
+</div>
+<div class="flex gap-2">
+<button class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 font-medium">重置</button>
+<button class="px-4 py-2 text-sm bg-primary text-slate-900 rounded-lg font-bold">应用更改</button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Data Fields -->
+<div class="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+<span class="material-symbols-outlined text-primary">view_column</span>
+<h3 class="font-bold">1. 字段选择</h3>
+</div>
+<div class="space-y-4">
+<div>
+<label class="text-xs font-bold text-slate-400 mb-2 block">可用维度</label>
+<div class="flex flex-wrap gap-2">
+<span class="bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-medium border border-primary/20 flex items-center gap-1 cursor-pointer">日期 <span class="material-symbols-outlined text-[14px]">check</span></span>
+<span class="bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-medium border border-primary/20 flex items-center gap-1 cursor-pointer">地区 <span class="material-symbols-outlined text-[14px]">check</span></span>
+<span class="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-700 cursor-pointer">渠道</span>
+<span class="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-700 cursor-pointer">品类</span>
+</div>
+</div>
+<div>
+<label class="text-xs font-bold text-slate-400 mb-2 block">度量指标</label>
+<div class="flex flex-wrap gap-2">
+<span class="bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-medium border border-primary/20 flex items-center gap-1 cursor-pointer">销售额 <span class="material-symbols-outlined text-[14px]">check</span></span>
+<span class="bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-medium border border-primary/20 flex items-center gap-1 cursor-pointer">订单量 <span class="material-symbols-outlined text-[14px]">check</span></span>
+<span class="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-700 cursor-pointer">毛利率</span>
+<span class="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-700 cursor-pointer">活跃用户</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Date & Filters -->
+<div class="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+<span class="material-symbols-outlined text-primary">filter_alt</span>
+<h3 class="font-bold">2. 筛选条件</h3>
+</div>
+<div class="space-y-4">
+<div class="flex gap-3">
+<div class="flex-1">
+<label class="text-xs font-bold text-slate-400 mb-2 block">时间范围</label>
+<select class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+<option>最近30天</option>
+<option>本季度</option>
+<option>自定义范围...</option>
+</select>
+</div>
+<div class="flex-1">
+<label class="text-xs font-bold text-slate-400 mb-2 block">数据对比</label>
+<select class="w-full bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-sm">
+<option>不对比</option>
+<option>环比 (MoM)</option>
+<option>同比 (YoY)</option>
+</select>
+</div>
+</div>
+<div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-medium text-slate-600 dark:text-slate-400">过滤规则: 地区 等于 '华东'</span>
+<span class="material-symbols-outlined text-xs cursor-pointer hover:text-red-500 transition-colors">close</span>
+</div>
+<button class="text-xs text-primary font-bold flex items-center gap-1">+ 添加更多过滤器</button>
+</div>
+</div>
+</div>
+<!-- Visualization Settings -->
+<div class="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 lg:col-span-2">
+<div class="flex items-center gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+<span class="material-symbols-outlined text-primary">bar_chart</span>
+<h3 class="font-bold">3. 图表类型</h3>
+</div>
+<div class="grid grid-cols-4 sm:grid-cols-8 gap-4">
+<div class="aspect-square flex flex-col items-center justify-center gap-2 border-2 border-primary bg-primary/5 rounded-xl cursor-pointer">
+<span class="material-symbols-outlined text-3xl text-primary">table_rows</span>
+<span class="text-[10px] font-bold">表格</span>
+</div>
+<div class="aspect-square flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-800 hover:border-primary/50 rounded-xl cursor-pointer">
+<span class="material-symbols-outlined text-3xl">show_chart</span>
+<span class="text-[10px] font-bold">折线图</span>
+</div>
+<div class="aspect-square flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-800 hover:border-primary/50 rounded-xl cursor-pointer">
+<span class="material-symbols-outlined text-3xl">bar_chart</span>
+<span class="text-[10px] font-bold">柱状图</span>
+</div>
+<div class="aspect-square flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-800 hover:border-primary/50 rounded-xl cursor-pointer">
+<span class="material-symbols-outlined text-3xl">pie_chart</span>
+<span class="text-[10px] font-bold">饼图</span>
+</div>
+<div class="aspect-square flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-800 hover:border-primary/50 rounded-xl cursor-pointer">
+<span class="material-symbols-outlined text-3xl">scatter_plot</span>
+<span class="text-[10px] font-bold">散点图</span>
+</div>
+<div class="aspect-square flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-800 hover:border-primary/50 rounded-xl cursor-pointer">
+<span class="material-symbols-outlined text-3xl">area_chart</span>
+<span class="text-[10px] font-bold">面积图</span>
+</div>
+<div class="aspect-square flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-800 hover:border-primary/50 rounded-xl cursor-pointer">
+<span class="material-symbols-outlined text-3xl">data_exploration</span>
+<span class="text-[10px] font-bold">混合图</span>
+</div>
+<div class="aspect-square flex flex-col items-center justify-center gap-2 border border-slate-200 dark:border-slate-800 hover:border-primary/50 rounded-xl cursor-pointer">
+<span class="material-symbols-outlined text-3xl">map</span>
+<span class="text-[10px] font-bold">热力图</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Preview Panel -->
+<aside class="w-[480px] border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col shrink-0 overflow-hidden">
+<div class="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<span class="text-sm font-bold flex items-center gap-2">
+<span class="size-2 rounded-full bg-green-500 animate-pulse"></span>
+                    实时预览
+                </span>
+<span class="text-xs text-slate-400">最后更新: 14:32:05</span>
+</div>
+<div class="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-950">
+<div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+<div class="p-4 bg-slate-50 dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
+<h4 class="font-bold text-sm">月度销售概览 (示例)</h4>
+</div>
+<div class="p-0">
+<table class="w-full text-left text-xs border-collapse">
+<thead>
+<tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-500">
+<th class="p-3 border-b border-slate-100 dark:border-slate-800">日期</th>
+<th class="p-3 border-b border-slate-100 dark:border-slate-800">地区</th>
+<th class="p-3 border-b border-slate-100 dark:border-slate-800">销售额</th>
+<th class="p-3 border-b border-slate-100 dark:border-slate-800">状态</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-slate-50 dark:border-slate-800/50">
+<td class="p-3">2023-11-01</td>
+<td class="p-3">上海</td>
+<td class="p-3 font-medium">¥12,400</td>
+<td class="p-3"><span class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded">达标</span></td>
+</tr>
+<tr class="border-b border-slate-50 dark:border-slate-800/50">
+<td class="p-3">2023-11-02</td>
+<td class="p-3">杭州</td>
+<td class="p-3 font-medium">¥8,920</td>
+<td class="p-3"><span class="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 px-2 py-0.5 rounded">持平</span></td>
+</tr>
+<tr class="border-b border-slate-50 dark:border-slate-800/50">
+<td class="p-3">2023-11-03</td>
+<td class="p-3">南京</td>
+<td class="p-3 font-medium">¥15,600</td>
+<td class="p-3"><span class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 rounded">达标</span></td>
+</tr>
+<tr class="border-b border-slate-50 dark:border-slate-800/50">
+<td class="p-3">2023-11-04</td>
+<td class="p-3">合肥</td>
+<td class="p-3 font-medium">¥5,200</td>
+<td class="p-3"><span class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 px-2 py-0.5 rounded">异常</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="mt-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 h-48 flex items-end justify-between gap-2" data-alt="Abstract data bar chart representation">
+<div class="flex-1 bg-primary/20 rounded-t h-[30%]"></div>
+<div class="flex-1 bg-primary/40 rounded-t h-[60%]"></div>
+<div class="flex-1 bg-primary/60 rounded-t h-[45%]"></div>
+<div class="flex-1 bg-primary rounded-t h-[85%]"></div>
+<div class="flex-1 bg-primary/30 rounded-t h-[50%]"></div>
+<div class="flex-1 bg-primary/50 rounded-t h-[70%]"></div>
+<div class="flex-1 bg-primary/80 rounded-t h-[95%]"></div>
+</div>
+<div class="mt-2 text-center text-xs text-slate-400">数据趋势可视化模拟图</div>
+</div>
+</aside>
+</main>
+<!-- Bottom Action Bar -->
+<footer class="h-16 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between px-6 shrink-0 z-10">
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-lg">save</span>
+                保存模板
+            </button>
+<div class="w-px h-6 bg-slate-200 dark:bg-slate-800"></div>
+<button class="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-primary text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-lg">schedule_send</span>
+                定时发送
+            </button>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-xs text-slate-400 mr-2">导出选项:</span>
+<button class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-lg">picture_as_pdf</span>
+                PDF
+            </button>
+<button class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-lg">grid_on</span>
+                Excel
+            </button>
+<button class="px-6 py-2 bg-primary text-slate-900 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-lg">rocket_launch</span>
+                立即生成报告
+            </button>
+</div>
+</footer>
+</body></html>

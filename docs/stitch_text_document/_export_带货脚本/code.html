@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>带货脚本 - 智能创作面板</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans SC", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00f0e840;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="flex h-screen flex-col overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between border-b border-primary/10 bg-white dark:bg-background-dark/50 px-6 py-3 shrink-0">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3">
+<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-background-dark">
+<span class="material-symbols-outlined">movie_edit</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight">带货脚本</h1>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-sm font-semibold border-b-2 border-primary text-primary pb-1" href="#">脚本编辑器</a>
+<a class="text-sm font-medium text-slate-500 hover:text-primary transition-colors" href="#">脚本库</a>
+<a class="text-sm font-medium text-slate-500 hover:text-primary transition-colors" href="#">话术库</a>
+<a class="text-sm font-medium text-slate-500 hover:text-primary transition-colors" href="#">数据看板</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
+<input class="w-64 rounded-full border-none bg-slate-100 dark:bg-slate-800 py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary/50 transition-all" placeholder="搜索脚本或话术..." type="text"/>
+</div>
+<button class="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-10 w-10 overflow-hidden rounded-full border-2 border-primary/20 bg-cover bg-center" data-alt="User profile avatar gradient" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCCj_izrLpApjPQMNOcnNNd17RXl79HqbwKOJFqGNbbEK--w1R6pj2bpgG_VDFYgX1S0-SHLgH424aIrPqO2arDi4jdDoLqmfSoiPcsk3jQFWI-KG463l0Tcjkvjcr0F9SRsZzxUrJuyJosvvKZty1o-02Eo91M_g9q7OMPXJfIOkH1WxjmJY8h8g5G2zTkWmTIQMYUWGzTwYpBgpZ6wbab8refBeos-ocIDqeghVGp0ETJ1PYjvSLVX9CmvzOCLIT6IgVnbvO-INTk')"></div>
+</div>
+</header>
+<main class="flex flex-1 overflow-hidden">
+<!-- Left Sidebar: Categories -->
+<aside class="w-64 border-r border-primary/10 bg-white dark:bg-background-dark/30 flex flex-col shrink-0">
+<div class="p-4">
+<h2 class="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">模板分类</h2>
+<div class="space-y-1">
+<button class="flex w-full items-center gap-3 rounded-lg bg-primary/10 px-3 py-2.5 text-sm font-semibold text-primary">
+<span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+                            美妆护肤
+                        </button>
+<button class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-[20px]">devices</span>
+                            数码家电
+                        </button>
+<button class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-[20px]">restaurant</span>
+                            食品饮料
+                        </button>
+<button class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-[20px]">apparel</span>
+                            服饰鞋包
+                        </button>
+<button class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
+<span class="material-symbols-outlined text-[20px]">home</span>
+                            家居百货
+                        </button>
+</div>
+<div class="mt-8">
+<h2 class="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">最近脚本</h2>
+<div class="space-y-3">
+<div class="group cursor-pointer rounded-lg p-2 hover:bg-slate-50 dark:hover:bg-slate-800">
+<p class="text-xs font-medium text-slate-900 dark:text-slate-200">夏季防晒霜直播话术...</p>
+<p class="text-[10px] text-slate-400 mt-1">10分钟前更新</p>
+</div>
+<div class="group cursor-pointer rounded-lg p-2 hover:bg-slate-50 dark:hover:bg-slate-800">
+<p class="text-xs font-medium text-slate-900 dark:text-slate-200">补水面霜爆款结构</p>
+<p class="text-[10px] text-slate-400 mt-1">昨天 14:20</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Center: Editor Content -->
+<section class="flex flex-1 flex-col bg-slate-50/50 dark:bg-background-dark/20 overflow-y-auto">
+<div class="mx-auto w-full max-w-3xl px-8 py-10">
+<div class="mb-8 flex items-end justify-between">
+<div>
+<h2 class="text-3xl font-bold tracking-tight">脚本创作中心</h2>
+<p class="text-slate-500 mt-2">支持多段式结构化创作，点击各版块开始编辑</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 rounded-lg border border-primary/30 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/5">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                                存为模板
+                            </button>
+<button class="flex items-center gap-2 rounded-lg bg-primary px-6 py-2 text-sm font-bold text-background-dark hover:brightness-110">
+<span class="material-symbols-outlined text-[18px]">send</span>
+                                发布脚本
+                            </button>
+</div>
+</div>
+<div class="space-y-8">
+<!-- Hook Section -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-0 bottom-0 w-px bg-primary/20"></div>
+<div class="absolute left-[-12px] top-0 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-background-dark">
+<span class="material-symbols-outlined text-[14px] font-bold">anchor</span>
+</div>
+<div class="rounded-xl border border-primary/20 bg-white dark:bg-slate-800 p-6 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex items-center justify-between mb-4">
+<div>
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">黄金3秒：黄金钩子 (Hook)</h3>
+<p class="text-xs text-slate-400">目标：吸引停留，抛出痛点</p>
+</div>
+<span class="rounded bg-primary/10 px-2 py-1 text-[10px] font-bold text-primary">建议时长: 3-5s</span>
+</div>
+<textarea class="w-full resize-none border-none bg-transparent p-0 text-slate-600 dark:text-slate-300 focus:ring-0" placeholder="例如：你是不是还在用手涂防晒？难怪你的脸越涂越黑！" rows="3"></textarea>
+<div class="mt-4 flex gap-2">
+<button class="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-medium hover:bg-primary/10 hover:text-primary transition-colors">🔥 引入冲突</button>
+<button class="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-medium hover:bg-primary/10 hover:text-primary transition-colors">❓ 提出疑问</button>
+<button class="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-medium hover:bg-primary/10 hover:text-primary transition-colors">📢 利益点前置</button>
+</div>
+</div>
+</div>
+<!-- Body Section -->
+<div class="relative pl-10">
+<div class="absolute left-0 top-0 bottom-0 w-px bg-primary/20"></div>
+<div class="absolute left-[-12px] top-0 flex h-6 w-6 items-center justify-center rounded-full bg-primary/30 text-primary">
+<span class="material-symbols-outlined text-[14px] font-bold">view_in_ar</span>
+</div>
+<div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<div>
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">核心展示：产品演示 (Body)</h3>
+<p class="text-xs text-slate-400">目标：展示产品，建立信任</p>
+</div>
+<span class="rounded bg-slate-100 dark:bg-slate-700 px-2 py-1 text-[10px] font-bold text-slate-500">建议时长: 30-45s</span>
+</div>
+<textarea class="w-full resize-none border-none bg-transparent p-0 text-slate-600 dark:text-slate-300 focus:ring-0" placeholder="在此输入产品核心利益点、测试环节或成分解说..." rows="6"></textarea>
+<div class="mt-4 flex gap-2">
+<button class="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-medium">🔬 成分拆解</button>
+<button class="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-medium">✨ 现场测试</button>
+<button class="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-medium">👥 痛点对比</button>
+</div>
+</div>
+</div>
+<!-- CTA Section -->
+<div class="relative pl-10 pb-8">
+<div class="absolute left-[-12px] top-0 flex h-6 w-6 items-center justify-center rounded-full bg-primary/30 text-primary">
+<span class="material-symbols-outlined text-[14px] font-bold">shopping_cart</span>
+</div>
+<div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<div>
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">成交转化：限时促单 (CTA)</h3>
+<p class="text-xs text-slate-400">目标：引导下单，营造紧迫感</p>
+</div>
+<span class="rounded bg-slate-100 dark:bg-slate-700 px-2 py-1 text-[10px] font-bold text-slate-500">建议时长: 15-20s</span>
+</div>
+<textarea class="w-full resize-none border-none bg-transparent p-0 text-slate-600 dark:text-slate-300 focus:ring-0" placeholder="例如：今天直播间只要这个数！最后10单，卖完就涨回原价！抢到就是赚到！" rows="4"></textarea>
+<div class="mt-4 flex gap-2">
+<button class="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-medium">⏱️ 限时限量</button>
+<button class="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-medium">🎁 额外赠品</button>
+<button class="rounded-full bg-slate-100 dark:bg-slate-700 px-3 py-1 text-[10px] font-medium">💳 价格承诺</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Sidebar: Phrases Library -->
+<aside class="w-72 border-l border-primary/10 bg-white dark:bg-background-dark/30 flex flex-col shrink-0">
+<div class="p-4 flex-1 overflow-y-auto">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-xs font-bold uppercase tracking-widest text-slate-400">快捷话术库</h2>
+<button class="text-primary hover:underline text-xs">管理</button>
+</div>
+<div class="space-y-6">
+<div>
+<p class="text-xs font-bold text-slate-400 mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">bolt</span> 欢迎话术
+                            </p>
+<div class="space-y-2">
+<div class="group relative rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2.5 hover:border-primary/40 transition-all cursor-pointer">
+<p class="text-xs leading-relaxed">欢迎XX进入直播间！今天给咱家人们准备了超级大礼...</p>
+<span class="material-symbols-outlined absolute right-2 top-2 text-[16px] text-primary opacity-0 group-hover:opacity-100">add_circle</span>
+</div>
+<div class="group relative rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2.5 hover:border-primary/40 transition-all cursor-pointer">
+<p class="text-xs leading-relaxed">没点关注的宝贝点点关注，左上角红包记得领一下！</p>
+<span class="material-symbols-outlined absolute right-2 top-2 text-[16px] text-primary opacity-0 group-hover:opacity-100">add_circle</span>
+</div>
+</div>
+</div>
+<div>
+<p class="text-xs font-bold text-slate-400 mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">local_fire_department</span> 互动话术
+                            </p>
+<div class="space-y-2">
+<div class="group relative rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2.5 hover:border-primary/40 transition-all cursor-pointer">
+<p class="text-xs leading-relaxed">想要的公屏扣个“1”，到10个我们就直接开炸！</p>
+<span class="material-symbols-outlined absolute right-2 top-2 text-[16px] text-primary opacity-0 group-hover:opacity-100">add_circle</span>
+</div>
+<div class="group relative rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2.5 hover:border-primary/40 transition-all cursor-pointer">
+<p class="text-xs leading-relaxed">大家猜猜这个原价是多少？绝对让你意想不到！</p>
+<span class="material-symbols-outlined absolute right-2 top-2 text-[16px] text-primary opacity-0 group-hover:opacity-100">add_circle</span>
+</div>
+</div>
+</div>
+<div>
+<p class="text-xs font-bold text-slate-400 mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">money_off</span> 促单话术
+                            </p>
+<div class="space-y-2">
+<div class="group relative rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2.5 hover:border-primary/40 transition-all cursor-pointer">
+<p class="text-xs leading-relaxed">最后5份！手慢无！错过今天再等一年！</p>
+<span class="material-symbols-outlined absolute right-2 top-2 text-[16px] text-primary opacity-0 group-hover:opacity-100">add_circle</span>
+</div>
+<div class="group relative rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2.5 hover:border-primary/40 transition-all cursor-pointer">
+<p class="text-xs leading-relaxed">拍一发三，仅限直播间前50名下单的宝贝！</p>
+<span class="material-symbols-outlined absolute right-2 top-2 text-[16px] text-primary opacity-0 group-hover:opacity-100">add_circle</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+<button class="w-full flex items-center justify-center gap-2 rounded-lg bg-primary/20 py-3 text-sm font-bold text-primary hover:bg-primary/30 transition-all">
+<span class="material-symbols-outlined text-[20px]">psychology</span>
+                        AI 生成卖点
+                    </button>
+</div>
+</aside>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f2ea",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans SC", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: "Spline Sans", "Noto Sans SC", sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #00f2ea33;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased font-display">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex h-16 items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 z-10 shrink-0">
+<div class="flex items-center gap-10">
+<div class="flex items-center gap-3">
+<div class="flex items-center justify-center size-9 rounded-lg bg-primary text-slate-900">
+<span class="material-symbols-outlined font-bold">rocket_launch</span>
+</div>
+<h2 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">TK-OPS</h2>
+</div>
+<nav class="flex items-center gap-6">
+<a class="text-slate-500 hover:text-primary transition-colors text-sm font-medium" href="#">控制台</a>
+<a class="text-slate-900 dark:text-primary border-b-2 border-primary py-5 text-sm font-bold" href="#">创意工坊</a>
+<a class="text-slate-500 hover:text-primary transition-colors text-sm font-medium" href="#">资产库</a>
+<a class="text-slate-500 hover:text-primary transition-colors text-sm font-medium" href="#">系统设置</a>
+</nav>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="w-full h-9 rounded-lg bg-slate-100 dark:bg-slate-800 border-none pl-10 pr-4 text-sm focus:ring-1 focus:ring-primary" placeholder="搜索任务或资源..." type="text"/>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex flex-col items-end">
+<span class="text-sm font-semibold">管理员</span>
+<span class="text-[10px] text-primary bg-primary/10 px-1.5 rounded uppercase tracking-wider">Premium</span>
+</div>
+<div class="size-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden ring-2 ring-primary/20">
+<img alt="User Avatar" data-alt="Professional user profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBdrUKyE6VvmeW0GZuVucldc2oY0fx87D6DyfbsqvNzoiwDUCBRzKluKFaTYHWJGjnvqmLKOx0q5Jabi_4P7e7BlkKMWAwqS2A5Y2yW07gQLHogTUz8T1yaKzDaME2Jzxkty46xRV8rGUIWjpkhzhEHr41ORr9Veh4rWwOzESMy6KmHqN4-WZONmjgyH6W_SHcR-hChf_gnF06yGxOAJWz7SG2aiBzBFbCp_O1En_KcIrMWQsBAod5gESoTCr8LsjqgZ4C1lTvPads5"/>
+</div>
+</div>
+</div>
+</header>
+<main class="flex flex-1 overflow-hidden">
+<!-- Sidebar: Configuration -->
+<aside class="w-80 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col shrink-0 custom-scrollbar overflow-y-auto">
+<div class="p-6 space-y-8">
+<div>
+<h3 class="text-lg font-bold text-slate-900 dark:text-white mb-1">批量创作配置</h3>
+<p class="text-xs text-slate-500">配置AI参数启动自动化创作任务</p>
+</div>
+<!-- Product Keywords -->
+<div class="space-y-3">
+<label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary text-lg">label</span>
+                        产品关键词
+                    </label>
+<textarea class="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary text-sm min-h-[120px] p-3" placeholder="每行输入一个产品关键词..."></textarea>
+<div class="flex justify-between text-[11px] text-slate-400">
+<span>支持批量粘贴</span>
+<span>0 / 50</span>
+</div>
+</div>
+<!-- Tone Selection -->
+<div class="space-y-3">
+<label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary text-lg">auto_awesome</span>
+                        语态风格
+                    </label>
+<div class="grid grid-cols-2 gap-2">
+<button class="flex items-center justify-center gap-2 py-2 px-3 rounded-lg border-2 border-primary bg-primary/5 text-primary text-xs font-bold">
+<span class="material-symbols-outlined text-sm">verified</span> 专业权威
+                        </button>
+<button class="flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary/50 text-slate-500 text-xs transition-all">
+<span class="material-symbols-outlined text-sm">sentiment_satisfied</span> 幽默风趣
+                        </button>
+<button class="flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary/50 text-slate-500 text-xs transition-all">
+<span class="material-symbols-outlined text-sm">local_fire_department</span> 充满热情
+                        </button>
+<button class="flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-primary/50 text-slate-500 text-xs transition-all">
+<span class="material-symbols-outlined text-sm">balance</span> 客观中立
+                        </button>
+</div>
+</div>
+<!-- Length Setting -->
+<div class="space-y-3">
+<label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary text-lg">straighten</span>
+                        内容长度
+                    </label>
+<div class="px-2">
+<input class="w-full accent-primary h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer" type="range"/>
+<div class="flex justify-between text-[10px] text-slate-400 mt-2">
+<span>短 (100字)</span>
+<span>中 (300字)</span>
+<span>长 (800字)</span>
+</div>
+</div>
+</div>
+<!-- AI Model selection -->
+<div class="space-y-3">
+<label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-primary text-lg">memory</span>
+                        模型选择
+                    </label>
+<select class="w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:ring-primary">
+<option>TK-GPT 4.0 Pro (推荐)</option>
+<option>Claude 3.5 Sonnet</option>
+<option>Gemini Ultra</option>
+</select>
+</div>
+<div class="pt-4">
+<button class="w-full bg-primary hover:bg-primary/90 text-slate-900 font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-transform active:scale-95">
+<span class="material-symbols-outlined">bolt</span>
+                        立即启动批量生成
+                    </button>
+</div>
+</div>
+</aside>
+<!-- Main Content: Active Tasks & Results -->
+<section class="flex-1 bg-background-light dark:bg-background-dark flex flex-col overflow-hidden">
+<!-- Header Section -->
+<div class="p-8 pb-4">
+<div class="flex justify-between items-end mb-6">
+<div>
+<h1 class="text-2xl font-bold text-slate-900 dark:text-white">任务管理与生成结果</h1>
+<p class="text-slate-500">实时监控任务进度并查看AI生成的高质量文案</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-medium">
+<span class="material-symbols-outlined text-lg">download</span> 导出全部
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-medium">
+<span class="material-symbols-outlined text-lg">history</span> 历史记录
+                        </button>
+</div>
+</div>
+<!-- Progress Tracker -->
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 mb-8 shadow-sm">
+<div class="flex items-center justify-between mb-3">
+<div class="flex items-center gap-3">
+<div class="size-2 rounded-full bg-primary animate-pulse"></div>
+<span class="text-sm font-bold">正在处理任务: BATCH_20231024_01</span>
+</div>
+<span class="text-xs text-slate-400">已完成 12/45</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[26%] rounded-full shadow-[0_0_10px_rgba(0,242,234,0.5)]"></div>
+</div>
+</div>
+</div>
+<!-- Results Grid -->
+<div class="flex-1 overflow-y-auto px-8 pb-8 custom-scrollbar">
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+<!-- Result Card 1 -->
+<div class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-xl hover:shadow-primary/5 transition-all flex flex-col gap-4 border-l-4 border-l-primary">
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-primary tracking-widest uppercase">关键词: 智能运动手表</span>
+<h4 class="text-base font-bold text-slate-900 dark:text-white mt-1">极致性能，触手可及</h4>
+</div>
+<span class="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-400">32s ago</span>
+</div>
+<p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                            "这款智能手表不仅是您的运动伴侣，更是您的健康管家。搭载最新的生物传感器，24小时监测心率与血氧，钛金属机身配合蓝宝石表盘，尽显高端品质。无论是极限攀登还是商务会议，它都能完美契合..."
+                        </p>
+<div class="flex items-center justify-between mt-auto pt-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex gap-2">
+<span class="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">专业</span>
+<span class="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">300字</span>
+</div>
+<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+</button>
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-red-500 transition-colors">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Result Card 2 -->
+<div class="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 hover:shadow-xl hover:shadow-primary/5 transition-all flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<span class="text-[10px] font-bold text-primary tracking-widest uppercase">关键词: 降噪耳机</span>
+<h4 class="text-base font-bold text-slate-900 dark:text-white mt-1">静谧世界，唯美乐音</h4>
+</div>
+<span class="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-400">1m ago</span>
+</div>
+<p class="text-sm text-slate-600 dark:text-slate-400 leading-relaxed italic">
+                            "置身喧嚣闹市，只需轻轻一按。全新自适应降噪技术，能够根据环境噪音实时调整过滤强度。Hi-Res无损音质解码，还原每一个音符的细节。长达40小时的续航能力，让音乐之旅永不断线..."
+                        </p>
+<div class="flex items-center justify-between mt-auto pt-4 border-t border-slate-100 dark:border-slate-800">
+<div class="flex gap-2">
+<span class="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">专业</span>
+<span class="text-[11px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">250字</span>
+</div>
+<div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">content_copy</span>
+</button>
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-red-500 transition-colors">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Result Card 3 (Processing State) -->
+<div class="bg-white/50 dark:bg-slate-900/50 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-6 flex items-center justify-center min-h-[200px]">
+<div class="flex flex-col items-center gap-3">
+<div class="size-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+<span class="text-sm text-slate-500 font-medium">正在生成 "人体工学办公椅" 相关文案...</span>
+</div>
+</div>
+<!-- Result Card 4 (Processing State) -->
+<div class="bg-white/50 dark:bg-slate-900/50 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-6 flex items-center justify-center min-h-[200px]">
+<div class="flex flex-col items-center gap-3">
+<span class="material-symbols-outlined text-slate-300 text-4xl">hourglass_empty</span>
+<span class="text-sm text-slate-400">等待处理队列...</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer Stats Overlay -->
+<footer class="h-10 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 flex items-center justify-between shrink-0">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2 text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+<span class="size-1.5 rounded-full bg-green-500"></span> 系统状态: 运行正常
+            </div>
+<div class="flex items-center gap-2 text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+<span class="material-symbols-outlined text-[14px]">storage</span> 存储: 85.4GB / 1TB
+            </div>
+</div>
+<div class="text-[10px] text-slate-400 font-medium">
+            TK-OPS 2.4.0-build.829 © 2024 Tech-Creative Laboratory
+        </div>
+</footer>
+</div>
+</body></html>

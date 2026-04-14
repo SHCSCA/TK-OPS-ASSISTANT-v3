@@ -86,6 +86,14 @@ describe("Creator dashboard", () => {
     await flushPromises();
     await flushPromises();
 
+    expect(wrapper.text()).toContain("把脚本、分镜、剪辑与发布收束到同一个项目");
+    expect(wrapper.text()).not.toContain("鏈");
+    expect(wrapper.text()).not.toContain("鍒");
+    expect(wrapper.find('[data-dashboard-section="project-entry"]').exists()).toBe(true);
+    expect(wrapper.find('[data-dashboard-section="recent-projects"]').exists()).toBe(true);
+    expect(wrapper.find('[data-dashboard-section="chain-rail"]').exists()).toBe(true);
+    expect(wrapper.find('[data-dashboard-section="system-status"]').exists()).toBe(true);
+
     await wrapper.get('[data-field="project.name"]').setValue("Summer Launch");
     await wrapper.get('[data-field="project.description"]').setValue("Creator flow");
     await wrapper.get('[data-action="create-project"]').trigger("click");

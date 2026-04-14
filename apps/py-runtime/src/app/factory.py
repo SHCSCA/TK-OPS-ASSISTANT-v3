@@ -17,14 +17,17 @@ from api.routes import (
     scripts_router,
     settings_router,
     storyboards_router,
+    video_deconstruction_router,
 )
 from app.config import load_runtime_config
 from app.logging import configure_logging, log_event, pop_request_id, push_request_id
 from app.secret_store import build_secret_store
+from persistence.engine import create_runtime_engine, create_session_factory, initialize_domain_schema
 from repositories.ai_capability_repository import AICapabilityRepository
 from repositories.ai_job_repository import AIJobRepository
 from repositories.dashboard_repository import DashboardRepository
 from repositories.license_repository import LicenseRepository
+from repositories.imported_video_repository import ImportedVideoRepository
 from repositories.script_repository import ScriptRepository
 from repositories.storyboard_repository import StoryboardRepository
 from repositories.system_config_repository import SystemConfigRepository
@@ -38,19 +41,24 @@ from services.machine_code import MachineCodeService
 from services.script_service import ScriptService
 from services.settings_service import SettingsService
 from services.storyboard_service import StoryboardService
+from services.video_import_service import VideoImportService
 
 
 def create_app() -> FastAPI:
     runtime_config = load_runtime_config()
     secret_store = build_secret_store(runtime_config)
+    engine = create_runtime_engine(runtime_config.database_path)
+    initialize_domain_schema(engine)
+    session_factory = create_session_factory(engine)
 
-    settings_repository = SystemConfigRepository(runtime_config.database_path)
-    license_repository = LicenseRepository(runtime_config.database_path)
-    dashboard_repository = DashboardRepository(runtime_config.database_path)
-    ai_capability_repository = AICapabilityRepository(runtime_config.database_path)
-    ai_job_repository = AIJobRepository(runtime_config.database_path)
-    script_repository = ScriptRepository(runtime_config.database_path)
-    storyboard_repository = StoryboardRepository(runtime_config.database_path)
+    settings_repository = SystemConfigRepository(session_factory=session_factory)
+    license_repository = LicenseRepository(session_factory=session_factory)
+    imported_video_repository = ImportedVideoRepository(session_factory=session_factory)
+    dashboard_repository = DashboardRepository(session_factory=session_factory)
+    ai_capability_repository = AICapabilityRepository(session_factory=session_factory)
+    ai_job_repository = AIJobRepository(session_factory=session_factory)
+    script_repository = ScriptRepository(session_factory=session_factory)
+    storyboard_repository = StoryboardRepository(session_factory=session_factory)
 
     settings_service = SettingsService(
         runtime_config=runtime_config,
@@ -78,6 +86,7 @@ def create_app() -> FastAPI:
         ai_text_generation_service,
         script_service,
     )
+    video_import_service = VideoImportService(repository=imported_video_repository)
     machine_code_service = MachineCodeService()
     license_service = LicenseService(
         runtime_config=runtime_config,
@@ -108,6 +117,16 @@ def create_app() -> FastAPI:
     )
     app.state.runtime_config = runtime_config
     app.state.secret_store = secret_store
+    app.state.runtime_engine = engine
+    app.state.session_factory = session_factory
+    app.state.settings_repository = settings_repository
+    app.state.license_repository = license_repository
+    app.state.imported_video_repository = imported_video_repository
+    app.state.dashboard_repository = dashboard_repository
+    app.state.ai_capability_repository = ai_capability_repository
+    app.state.ai_job_repository = ai_job_repository
+    app.state.script_repository = script_repository
+    app.state.storyboard_repository = storyboard_repository
     app.state.license_service = license_service
     app.state.settings_service = settings_service
     app.state.dashboard_service = dashboard_service
@@ -115,6 +134,7 @@ def create_app() -> FastAPI:
     app.state.ai_text_generation_service = ai_text_generation_service
     app.state.script_service = script_service
     app.state.storyboard_service = storyboard_service
+    app.state.video_import_service = video_import_service
 
     @app.middleware('http')
     async def request_context_middleware(request, call_next):  # type: ignore[no-untyped-def]
@@ -202,6 +222,7 @@ def create_app() -> FastAPI:
     app.include_router(scripts_router)
     app.include_router(settings_router)
     app.include_router(storyboards_router)
+    app.include_router(video_deconstruction_router)
     log_event(
         'system',
         'runtime.started',

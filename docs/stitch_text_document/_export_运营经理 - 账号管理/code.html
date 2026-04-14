@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TK-OPS 账号管理</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans SC", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased min-h-screen">
+<div class="flex flex-col min-h-screen">
+<!-- Top Navigation -->
+<header class="sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-3">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center text-slate-900">
+<span class="material-symbols-outlined">shield_person</span>
+</div>
+<h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">TK-OPS</h1>
+</div>
+<div class="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+<div class="relative w-72">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-slate-800 border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/50" placeholder="搜索账号、IP或ID..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 bg-primary text-slate-900 px-4 py-2 rounded-lg text-sm font-bold transition-all hover:brightness-105">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                    添加账号
+                </button>
+<button class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined text-[20px]">upload_file</span>
+                    导入 CSV
+                </button>
+<button class="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
+<span class="material-symbols-outlined">tune</span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 size-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+</button>
+<div class="size-10 rounded-full bg-slate-300 dark:bg-slate-700 border-2 border-primary overflow-hidden" data-alt="User profile avatar">
+<img alt="Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuARFZx8Z6vQEu5JM1YzbqQt6y1m6ODt8lLqnHFXhtC_xEb3spZSCy-eM0qBoNsDQBP98fSB0CAtJOm0N89OBtAVpOv_pxOXage0e-BrLb6M8DC70c7MPgMeYPHvq6vp7wLRDgzkQlvmO3WfRVJNACLORX4tEpIUqrrS-XQmzZiGndKvtJBo6R6pFbBwip2y9UG4K82fCMV1lK9ne12zDAzgki5Z8ZmMAs8QjVM5j-AzSRz1ivcLJUqCu_5zel-3LJjSDfm-8ZO3ngbq"/>
+</div>
+</div>
+</header>
+<!-- Warning Banner -->
+<div class="bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/50 px-6 py-3 flex items-center justify-between">
+<div class="flex items-center gap-3 text-red-700 dark:text-red-400">
+<span class="material-symbols-outlined">warning</span>
+<p class="text-sm font-medium">⚠️ 多账号隔离未启用 - 您的账号面临极高的封号风险</p>
+</div>
+<button class="text-xs font-bold bg-red-600 text-white px-3 py-1.5 rounded hover:bg-red-700 transition-colors">
+                立即开启
+            </button>
+</div>
+<main class="flex-1 flex overflow-hidden">
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto p-6">
+<!-- Tabs -->
+<div class="flex items-center gap-6 mb-6 border-b border-slate-200 dark:border-slate-800">
+<button class="pb-3 px-1 border-b-2 border-primary text-slate-900 dark:text-white text-sm font-bold">全部账号 (24)</button>
+<button class="pb-3 px-1 border-b-2 border-transparent text-slate-500 text-sm font-medium hover:text-slate-700">在线 (12)</button>
+<button class="pb-3 px-1 border-b-2 border-transparent text-slate-500 text-sm font-medium hover:text-slate-700">离线 (8)</button>
+<button class="pb-3 px-1 border-b-2 border-transparent text-slate-500 text-sm font-medium hover:text-slate-700">异常 (4)</button>
+</div>
+<!-- Card Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- Account Card 1 -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 hover:border-primary/50 transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="flex gap-3">
+<div class="size-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-primary" data-alt="TikTok user account avatar">
+<span class="material-symbols-outlined text-3xl">account_circle</span>
+</div>
+<div>
+<h3 class="font-bold text-slate-900 dark:text-white">TK_User_01</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="size-2 rounded-full bg-green-500"></span>
+<span class="text-xs text-slate-500">在线</span>
+</div>
+</div>
+</div>
+<div class="flex gap-1">
+<button class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-primary">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-red-500">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<div class="space-y-2 mb-4">
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-500">代理 IP</span>
+<span class="text-slate-900 dark:text-slate-300 font-mono">192.168.1.1 (美国)</span>
+</div>
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-500">上次登录</span>
+<span class="text-slate-900 dark:text-slate-300">10分钟前</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-2 bg-primary/10 hover:bg-primary/20 text-slate-900 dark:text-primary text-xs font-bold rounded transition-colors">
+                                登录环境
+                            </button>
+<button class="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold rounded">
+                                测试连接
+                            </button>
+</div>
+</div>
+<!-- Account Card 2 (Offline) -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border border-slate-200 dark:border-slate-800 hover:border-primary/50 transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="flex gap-3">
+<div class="size-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400" data-alt="TikTok user account avatar">
+<span class="material-symbols-outlined text-3xl">account_circle</span>
+</div>
+<div>
+<h3 class="font-bold text-slate-900 dark:text-white">TK_Creator_02</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="size-2 rounded-full bg-slate-400"></span>
+<span class="text-xs text-slate-500">离线</span>
+</div>
+</div>
+</div>
+<div class="flex gap-1">
+<button class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-primary">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-red-500">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<div class="space-y-2 mb-4">
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-500">代理 IP</span>
+<span class="text-slate-900 dark:text-slate-300 font-mono">154.22.81.44 (英国)</span>
+</div>
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-500">上次登录</span>
+<span class="text-slate-900 dark:text-slate-300">2小时前</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-2 bg-primary/10 hover:bg-primary/20 text-slate-900 dark:text-primary text-xs font-bold rounded transition-colors">
+                                登录环境
+                            </button>
+<button class="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold rounded">
+                                测试连接
+                            </button>
+</div>
+</div>
+<!-- Account Card 3 (Warning) -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-5 shadow-sm border-2 border-orange-200 dark:border-orange-900/40 transition-colors group relative overflow-hidden">
+<div class="absolute top-0 right-0">
+<div class="bg-orange-100 dark:bg-orange-900/30 text-orange-600 px-2 py-0.5 text-[10px] font-bold rounded-bl">高风险</div>
+</div>
+<div class="flex justify-between items-start mb-4">
+<div class="flex gap-3">
+<div class="size-12 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-500" data-alt="TikTok user account avatar">
+<span class="material-symbols-outlined text-3xl">account_circle</span>
+</div>
+<div>
+<h3 class="font-bold text-slate-900 dark:text-white">Shop_Manager_03</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="size-2 rounded-full bg-orange-500"></span>
+<span class="text-xs text-orange-600 font-medium">警告</span>
+</div>
+</div>
+</div>
+<div class="flex gap-1">
+<button class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-primary">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded text-slate-400 hover:text-red-500">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+<div class="space-y-2 mb-4">
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-500">代理 IP</span>
+<span class="text-orange-600 font-mono">异常 (IP已被拉黑)</span>
+</div>
+<div class="flex items-center justify-between text-xs">
+<span class="text-slate-500">上次登录</span>
+<span class="text-slate-900 dark:text-slate-300">1天前</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-2 bg-orange-500 text-white text-xs font-bold rounded transition-colors shadow-sm shadow-orange-500/20">
+                                处理异常
+                            </button>
+<button class="px-4 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold rounded">
+                                详情
+                            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Sidebar: Account Details -->
+<aside class="w-80 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-y-auto">
+<div class="p-6">
+<div class="flex items-center gap-4 mb-8">
+<div class="size-14 rounded-full border-2 border-primary p-0.5" data-alt="Account detail headshot">
+<img alt="Avatar" class="w-full h-full rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNCsPzynbaiUfL7xKXEc8zst5fezSsSo1aWr7B52mnR1Kck1NhBrspdrrZ7wBQODjhpt0BNvecH4wsEvNZPD1r7HPAGWfCEqZ7B5fwV6oQcwUj3DQ6cb7O35QGtmdK-2Cr1gIKkPiRAusuIp8-uo_9PIQMPm6dL6Mbio7-JE0e3r7hw95D1bEqztsS3yMfh4OotgVHnZkv_rBAVYD7VniQ9dQxUe5IC34Dv0kwVBxjAczFDtlB794b9Zavz3bIOL_r3HaPM3i9oMcb"/>
+</div>
+<div>
+<h2 class="font-bold text-lg">TK_User_01</h2>
+<p class="text-xs text-slate-500">ID: 992834012</p>
+</div>
+</div>
+<div class="space-y-8">
+<!-- Cookie Status -->
+<div>
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-sm font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">cookie</span>
+                                    Cookie 状态
+                                </h3>
+<span class="text-[10px] px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 rounded">有效</span>
+</div>
+<div class="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 space-y-2">
+<div class="flex justify-between text-xs">
+<span class="text-slate-500">过期日期</span>
+<span class="text-slate-700 dark:text-slate-300">2024-12-24</span>
+</div>
+<div class="flex justify-between text-xs">
+<span class="text-slate-500">域名数</span>
+<span class="text-slate-700 dark:text-slate-300">12</span>
+</div>
+<button class="w-full mt-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-100">管理 Cookies</button>
+</div>
+</div>
+<!-- Browser Fingerprint -->
+<div>
+<h3 class="text-sm font-bold flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary text-[20px]">fingerprint</span>
+                                浏览器指纹
+                            </h3>
+<div class="grid grid-cols-1 gap-2">
+<div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+<p class="text-[10px] text-slate-400 mb-1 uppercase tracking-wider">User-Agent</p>
+<p class="text-xs text-slate-700 dark:text-slate-300 truncate">Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)...</p>
+</div>
+<div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+<p class="text-[10px] text-slate-400 mb-1 uppercase tracking-wider">Canvas ID</p>
+<p class="text-xs text-slate-700 dark:text-slate-300 font-mono">e849c-f921-4d1a-82bc</p>
+</div>
+<div class="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+<p class="text-[10px] text-slate-400 mb-1 uppercase tracking-wider">WebGL Vendor</p>
+<p class="text-xs text-slate-700 dark:text-slate-300">Apple Inc. (Apple M1)</p>
+</div>
+</div>
+</div>
+<!-- Login History -->
+<div>
+<h3 class="text-sm font-bold flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-primary text-[20px]">history</span>
+                                登录历史
+                            </h3>
+<div class="space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-slate-200 dark:before:bg-slate-700">
+<div class="flex gap-4 relative">
+<div class="size-6 rounded-full bg-primary flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[14px] text-slate-900 font-bold">check</span>
+</div>
+<div>
+<p class="text-xs font-bold">成功登录</p>
+<p class="text-[10px] text-slate-500">今天 14:22 · IP: 192.168.1.1</p>
+</div>
+</div>
+<div class="flex gap-4 relative">
+<div class="size-6 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[14px] text-slate-400">login</span>
+</div>
+<div>
+<p class="text-xs font-bold">环境检测通过</p>
+<p class="text-[10px] text-slate-500">今天 14:20 · 洛杉矶</p>
+</div>
+</div>
+<div class="flex gap-4 relative">
+<div class="size-6 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-[14px] text-red-600">close</span>
+</div>
+<div>
+<p class="text-xs font-bold text-red-600">登录失败</p>
+<p class="text-[10px] text-slate-500">昨天 23:11 · 密码错误</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<button class="w-full mt-10 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+                        环境配置
+                    </button>
+</div>
+</aside>
+</main>
+</div>
+</body></html>

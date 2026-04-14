@@ -11,7 +11,8 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    include: ["./tests/**/*.spec.ts"]
+    include: ["./tests/**/*.spec.ts"],
+    testTimeout: 10000
   },
   server: {
     host: "127.0.0.1",

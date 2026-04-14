@@ -1,11 +1,13 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
-from uuid import uuid4
 
-from persistence import connect_sqlite, initialize_schema
+from sqlalchemy import select
+from sqlalchemy.orm import Session, sessionmaker
+
+from domain.models import AIJobRecord
+from domain.models.base import generate_uuid
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,9 +25,8 @@ class StoredAIJobRecord:
 
 
 class AIJobRepository:
-    def __init__(self, database_path: Path) -> None:
-        self._database_path = database_path
-        initialize_schema(database_path)
+    def __init__(self, *, session_factory: sessionmaker[Session]) -> None:
+        self._session_factory = session_factory
 
     def create_running(
         self,
@@ -35,49 +36,30 @@ class AIJobRepository:
         provider: str,
         model: str,
     ) -> StoredAIJobRecord:
-        stored = StoredAIJobRecord(
-            id=uuid4().hex,
+        job = AIJobRecord(
+            id=generate_uuid(),
             capability_id=capability_id,
             provider=provider,
             model=model,
-            status='running',
+            status="running",
             error=None,
             duration_ms=None,
             project_id=project_id,
+            provider_request_id=None,
             created_at=_utc_now(),
             completed_at=None,
         )
-        with connect_sqlite(self._database_path) as connection:
-            connection.execute(
-                '''
-                INSERT INTO ai_job_records (
-                    id, project_id, capability_id, provider, model, status,
-                    error, duration_ms, provider_request_id, created_at, completed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''',
-                (
-                    stored.id,
-                    stored.project_id,
-                    stored.capability_id,
-                    stored.provider,
-                    stored.model,
-                    stored.status,
-                    stored.error,
-                    stored.duration_ms,
-                    None,
-                    stored.created_at,
-                    stored.completed_at,
-                ),
-            )
-            connection.commit()
+        with self._session_factory() as session:
+            session.add(job)
+            session.commit()
 
-        return stored
+        return self._to_record(job)
 
     def mark_succeeded(self, job_id: str, *, duration_ms: int) -> StoredAIJobRecord:
-        return self._update(job_id, status='succeeded', error=None, duration_ms=duration_ms)
+        return self._update(job_id, status="succeeded", error=None, duration_ms=duration_ms)
 
     def mark_failed(self, job_id: str, *, error: str, duration_ms: int) -> StoredAIJobRecord:
-        return self._update(job_id, status='failed', error=error, duration_ms=duration_ms)
+        return self._update(job_id, status="failed", error=error, duration_ms=duration_ms)
 
     def list_recent(
         self,
@@ -86,62 +68,56 @@ class AIJobRepository:
         capability_ids: tuple[str, ...],
         limit: int = 5,
     ) -> list[StoredAIJobRecord]:
-        placeholders = ','.join('?' for _ in capability_ids)
-        with connect_sqlite(self._database_path) as connection:
-            rows = connection.execute(
-                f'''
-                SELECT id, capability_id, provider, model, status,
-                       error, duration_ms, project_id, created_at, completed_at
-                FROM ai_job_records
-                WHERE project_id = ?
-                  AND capability_id IN ({placeholders})
-                ORDER BY created_at DESC
-                LIMIT ?
-                ''',
-                (project_id, *capability_ids, limit),
-            ).fetchall()
+        if not capability_ids:
+            return []
+
+        with self._session_factory() as session:
+            rows = session.scalars(
+                select(AIJobRecord)
+                .where(
+                    AIJobRecord.project_id == project_id,
+                    AIJobRecord.capability_id.in_(capability_ids),
+                )
+                .order_by(AIJobRecord.created_at.desc())
+                .limit(limit)
+            ).all()
 
         return [self._to_record(row) for row in rows]
 
-    def _update(self, job_id: str, *, status: str, error: str | None, duration_ms: int) -> StoredAIJobRecord:
+    def _update(
+        self,
+        job_id: str,
+        *,
+        status: str,
+        error: str | None,
+        duration_ms: int,
+    ) -> StoredAIJobRecord:
         completed_at = _utc_now()
-        with connect_sqlite(self._database_path) as connection:
-            connection.execute(
-                '''
-                UPDATE ai_job_records
-                SET status = ?, error = ?, duration_ms = ?, completed_at = ?
-                WHERE id = ?
-                ''',
-                (status, error, duration_ms, completed_at, job_id),
-            )
-            row = connection.execute(
-                '''
-                SELECT id, capability_id, provider, model, status,
-                       error, duration_ms, project_id, created_at, completed_at
-                FROM ai_job_records
-                WHERE id = ?
-                ''',
-                (job_id,),
-            ).fetchone()
-            connection.commit()
+        with self._session_factory() as session:
+            job = session.get(AIJobRecord, job_id)
+            assert job is not None
+            job.status = status
+            job.error = error
+            job.duration_ms = duration_ms
+            job.completed_at = completed_at
+            session.commit()
 
-        assert row is not None
-        return self._to_record(row)
+        return self._to_record(job)
 
-    def _to_record(self, row) -> StoredAIJobRecord:
+    def _to_record(self, row: AIJobRecord) -> StoredAIJobRecord:
         return StoredAIJobRecord(
-            id=str(row['id']),
-            capability_id=str(row['capability_id']),
-            provider=str(row['provider']),
-            model=str(row['model']),
-            status=str(row['status']),
-            error=str(row['error']) if row['error'] else None,
-            duration_ms=int(row['duration_ms']) if row['duration_ms'] is not None else None,
-            project_id=str(row['project_id']) if row['project_id'] else None,
-            created_at=str(row['created_at']),
-            completed_at=str(row['completed_at']) if row['completed_at'] else None,
+            id=row.id,
+            capability_id=row.capability_id,
+            provider=row.provider,
+            model=row.model,
+            status=row.status,
+            error=row.error,
+            duration_ms=row.duration_ms,
+            project_id=row.project_id,
+            created_at=row.created_at,
+            completed_at=row.completed_at,
         )
 
 
 def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>互动分析 - Engagement Analysis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "Noto Sans SC", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: "Spline Sans", sans-serif;
+        }
+        .heatmap-cell {
+            aspect-ratio: 1/1;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 md:px-10 py-3 sticky top-0 z-50">
+<div class="flex items-center gap-4">
+<div class="flex items-center justify-center p-2 rounded-lg bg-primary text-slate-900">
+<span class="material-symbols-outlined text-2xl">analytics</span>
+</div>
+<h2 class="text-xl font-bold leading-tight tracking-tight">互动分析</h2>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center justify-center rounded-lg h-10 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-4 transition-colors">
+<span class="material-symbols-outlined text-xl mr-2">download</span>
+<span class="text-sm font-bold">导出报告</span>
+</button>
+<button class="flex items-center justify-center rounded-lg h-10 bg-primary text-slate-900 hover:bg-primary/90 px-4 transition-colors">
+<span class="material-symbols-outlined text-xl mr-2">share</span>
+<span class="text-sm font-bold">分享数据</span>
+</button>
+</div>
+</header>
+<div class="flex flex-1 flex-col lg:flex-row">
+<!-- Sidebar -->
+<aside class="w-full lg:w-64 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
+<div class="flex flex-col gap-6">
+<div class="flex gap-3 items-center px-2">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary" data-alt="User profile avatar with teal accent" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDia3gDCP5qE98KOlXPtBDjs-oD-WqO1hzKWZkSDxbk-gIHT01vgEtrfAzTPdorekqhP_4s1qR27YzaV4RPoU424utlKYA0KLjx60ns1MQkOkXZHa-x7L-aRBIuiboQkD5qhhQW10lILbhCtDuZ27QMPPAdI1ALKcnZn2MNg-R3rn-ls36AuS69NiO5cSJPNA8k5unowr_EBRUq-NLJ0PFj2MqksoWdn6ODy_A0xSQRLTkXS7EyoruNa_uZi98l2H3Oh1WQ0_YeLUCo");'></div>
+<div class="flex flex-col">
+<h1 class="text-sm font-bold">管理员后台</h1>
+<p class="text-xs text-slate-500">实时数据监控中</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<p class="text-sm font-medium">仪表盘首页</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary border-l-4 border-primary" href="#">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1">bar_chart</span>
+<p class="text-sm font-bold">互动深度分析</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">forum</span>
+<p class="text-sm font-medium">评论内容审计</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">group</span>
+<p class="text-sm font-medium">粉丝画像洞察</p>
+</a>
+<hr class="my-2 border-slate-100 dark:border-slate-800"/>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<p class="text-sm font-medium">系统设置</p>
+</a>
+</nav>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-6">
+<div class="max-w-6xl mx-auto space-y-6">
+<!-- Tabs -->
+<div class="flex border-b border-slate-200 dark:border-slate-800 mb-6">
+<a class="px-6 py-3 border-b-2 border-primary text-primary font-bold text-sm" href="#">互动概览</a>
+<a class="px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 font-bold text-sm" href="#">情感趋势</a>
+<a class="px-6 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 font-bold text-sm" href="#">用户流转</a>
+</div>
+<!-- Top Row: Heatmap -->
+<section class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">calendar_month</span>
+                                互动活跃热力图 (24h/7d)
+                            </h3>
+<div class="flex gap-2 text-xs text-slate-500 items-center">
+<span>低频率</span>
+<div class="w-3 h-3 bg-primary/10 rounded-sm"></div>
+<div class="w-3 h-3 bg-primary/30 rounded-sm"></div>
+<div class="w-3 h-3 bg-primary/60 rounded-sm"></div>
+<div class="w-3 h-3 bg-primary rounded-sm"></div>
+<span>高频率</span>
+</div>
+</div>
+<div class="grid grid-cols-24 gap-1">
+<!-- Heatmap Representation -->
+<div class="flex flex-col gap-1 w-full overflow-x-auto">
+<div class="flex gap-1 min-w-[800px]">
+<!-- Simplified Heatmap View -->
+<div class="grid grid-cols-24 grid-rows-7 gap-1 flex-1">
+<!-- Generating a visual pattern for the heatmap -->
+<div class="heatmap-cell bg-primary/20 rounded-sm"></div>
+<div class="heatmap-cell bg-primary/40 rounded-sm"></div>
+<div class="heatmap-cell bg-primary/10 rounded-sm"></div>
+<div class="heatmap-cell bg-primary/60 rounded-sm"></div>
+<div class="heatmap-cell bg-primary rounded-sm"></div>
+<div class="heatmap-cell bg-primary/80 rounded-sm"></div>
+<div class="heatmap-cell bg-primary/10 rounded-sm"></div>
+<div class="heatmap-cell bg-primary/5 rounded-sm"></div>
+<!-- ... Repeating similar cells for visualization ... -->
+<div class="heatmap-cell bg-primary/40 rounded-sm col-span-16"></div>
+<!-- Row 2-7 simplified placeholders -->
+<div class="col-span-24 grid grid-cols-24 gap-1">
+<div class="heatmap-cell bg-primary/10 rounded-sm"></div><div class="heatmap-cell bg-primary/30 rounded-sm"></div><div class="heatmap-cell bg-primary/90 rounded-sm"></div><div class="heatmap-cell bg-primary/10 rounded-sm"></div><div class="heatmap-cell bg-primary/50 rounded-sm"></div><div class="heatmap-cell bg-primary/20 rounded-sm"></div><div class="heatmap-cell bg-primary/10 rounded-sm"></div><div class="heatmap-cell bg-primary/10 rounded-sm"></div><div class="heatmap-cell bg-primary/30 rounded-sm"></div><div class="heatmap-cell bg-primary/90 rounded-sm"></div><div class="heatmap-cell bg-primary/10 rounded-sm"></div><div class="heatmap-cell bg-primary/50 rounded-sm"></div><div class="heatmap-cell bg-primary/20 rounded-sm"></div><div class="heatmap-cell bg-primary/10 rounded-sm"></div><div class="heatmap-cell bg-primary/10 rounded-sm"></div><div class="heatmap-cell bg-primary/30 rounded-sm"></div><div class="heatmap-cell bg-primary/90 rounded-sm"></div><div class="heatmap-cell bg-primary/10 rounded-sm"></div><div class="heatmap-cell bg-primary/50 rounded-sm"></div><div class="heatmap-cell bg-primary/20 rounded-sm"></div><div class="heatmap-cell bg-primary/10 rounded-sm"></div><div class="heatmap-cell bg-primary/10 rounded-sm"></div><div class="heatmap-cell bg-primary/30 rounded-sm"></div><div class="heatmap-cell bg-primary/90 rounded-sm"></div>
+</div>
+<div class="col-span-24 h-16 bg-gradient-to-r from-primary/5 via-primary/40 to-primary/10 rounded-lg flex items-center justify-center">
+<span class="text-slate-400 text-xs italic">互动频率在晚间 20:00 - 22:00 达到峰值</span>
+</div>
+</div>
+</div>
+<div class="flex justify-between text-[10px] text-slate-400 mt-2 px-1">
+<span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>23:59</span>
+</div>
+</div>
+</div>
+</section>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Sentiment Analysis -->
+<section class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+<h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">pie_chart</span>
+                                情感倾向分布
+                            </h3>
+<div class="flex flex-col items-center">
+<div class="relative size-48">
+<!-- Donut Chart SVG -->
+<svg class="size-full" viewbox="0 0 36 36">
+<circle class="dark:stroke-slate-800" cx="18" cy="18" fill="transparent" r="16" stroke="#e2e8f0" stroke-width="4"></circle>
+<circle cx="18" cy="18" fill="transparent" r="16" stroke="#00f0e8" stroke-dasharray="65 100" stroke-dashoffset="25" stroke-linecap="round" stroke-width="4"></circle>
+<circle cx="18" cy="18" fill="transparent" r="16" stroke="#facc15" stroke-dasharray="20 100" stroke-dashoffset="-40" stroke-linecap="round" stroke-width="4"></circle>
+<circle cx="18" cy="18" fill="transparent" r="16" stroke="#f87171" stroke-dasharray="15 100" stroke-dashoffset="-60" stroke-linecap="round" stroke-width="4"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-2xl font-bold">82%</span>
+<span class="text-[10px] text-slate-500 uppercase">满意度</span>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-4 mt-8 w-full">
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-1.5">
+<div class="size-2 rounded-full bg-primary"></div>
+<span class="text-xs font-medium">正面</span>
+</div>
+<span class="text-sm font-bold mt-1">65%</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-1.5">
+<div class="size-2 rounded-full bg-yellow-400"></div>
+<span class="text-xs font-medium">中立</span>
+</div>
+<span class="text-sm font-bold mt-1">20%</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="flex items-center gap-1.5">
+<div class="size-2 rounded-full bg-red-400"></div>
+<span class="text-xs font-medium">负面</span>
+</div>
+<span class="text-sm font-bold mt-1">15%</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Word Cloud -->
+<section class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+<h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">cloud</span>
+                                评论关键词云
+                            </h3>
+<div class="flex flex-wrap gap-3 items-center justify-center h-48 content-center">
+<span class="text-3xl font-extrabold text-primary px-3 py-1 bg-primary/5 rounded-lg border border-primary/20">非常好用</span>
+<span class="text-xl font-bold text-slate-700 dark:text-slate-300">物流给力</span>
+<span class="text-sm font-medium text-slate-400">包装一般</span>
+<span class="text-2xl font-bold text-primary/80">回购多次</span>
+<span class="text-base font-semibold text-slate-600 dark:text-slate-400">性价比高</span>
+<span class="text-lg font-bold text-primary/60">客服专业</span>
+<span class="text-sm font-medium text-slate-500">颜色漂亮</span>
+<span class="text-2xl font-bold text-primary/90">推荐购买</span>
+<span class="text-xs font-normal text-slate-400">发货太慢</span>
+<span class="text-base font-semibold text-slate-600 dark:text-slate-400">功能强大</span>
+<span class="text-sm font-medium text-primary/40">值得信赖</span>
+</div>
+<div class="mt-6">
+<div class="flex items-center justify-between text-xs text-slate-500 mb-2">
+<span>搜索频率最高: <strong class="text-slate-900 dark:text-slate-100">非常好用</strong></span>
+<span>环比增长: <span class="text-emerald-500 font-bold">+12.4%</span></span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-1 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[88%]"></div>
+</div>
+</div>
+</section>
+</div>
+<!-- Recent Highlights Table -->
+<section class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+<h3 class="text-lg font-bold mb-6">高频互动内容回顾</h3>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="border-b border-slate-100 dark:border-slate-800">
+<th class="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider">评论内容摘要</th>
+<th class="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider">情感标签</th>
+<th class="pb-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">互动热度</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-50 dark:divide-slate-800/50">
+<tr>
+<td class="py-4">
+<p class="text-sm font-medium">“这款产品的设计真的惊艳到我了，希望能出更多颜色。”</p>
+<span class="text-[10px] text-slate-400">2小时前 · 来自上海</span>
+</td>
+<td class="py-4">
+<span class="px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">正面期待</span>
+</td>
+<td class="py-4 text-right">
+<div class="flex items-center justify-end gap-1 text-primary">
+<span class="material-symbols-outlined text-sm">favorite</span>
+<span class="text-sm font-bold">1,248</span>
+</div>
+</td>
+</tr>
+<tr>
+<td class="py-4">
+<p class="text-sm font-medium">“说明书写的太简单了，摸索了好久才明白怎么联网。”</p>
+<span class="text-[10px] text-slate-400">5小时前 · 来自北京</span>
+</td>
+<td class="py-4">
+<span class="px-2.5 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 text-[10px] font-bold">建议反馈</span>
+</td>
+<td class="py-4 text-right">
+<div class="flex items-center justify-end gap-1 text-slate-400">
+<span class="material-symbols-outlined text-sm">favorite</span>
+<span class="text-sm font-bold">452</span>
+</div>
+</td>
+</tr>
+<tr>
+<td class="py-4">
+<p class="text-sm font-medium">“售后响应速度很快，解决问题效率高，赞一个。”</p>
+<span class="text-[10px] text-slate-400">昨天 · 来自成都</span>
+</td>
+<td class="py-4">
+<span class="px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">好评</span>
+</td>
+<td class="py-4 text-right">
+<div class="flex items-center justify-end gap-1 text-primary">
+<span class="material-symbols-outlined text-sm">favorite</span>
+<span class="text-sm font-bold">890</span>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<button class="w-full mt-4 py-2 text-sm font-medium text-primary hover:bg-primary/5 rounded-lg transition-colors">查看更多评论分析</button>
+</section>
+</div>
+</main>
+</div>
+</div>
+</div>
+</body></html>

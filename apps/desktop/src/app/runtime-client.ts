@@ -17,6 +17,7 @@ import type {
   StoryboardDocument,
   StoryboardScene
 } from "@/types/runtime";
+import type { ImportedVideo } from "@/types/video";
 
 const DEFAULT_RUNTIME_BASE_URL = "http://127.0.0.1:8000";
 
@@ -180,6 +181,28 @@ export async function saveStoryboardDocument(
 export async function generateStoryboardDocument(projectId: string): Promise<StoryboardDocument> {
   return requestRuntime<StoryboardDocument>(`/api/storyboards/projects/${projectId}/generate`, {
     method: "POST"
+  });
+}
+
+export async function fetchImportedVideos(projectId: string): Promise<ImportedVideo[]> {
+  return requestRuntime<ImportedVideo[]>(
+    `/api/video-deconstruction/projects/${projectId}/videos`
+  );
+}
+
+export async function importVideo(projectId: string, filePath: string): Promise<ImportedVideo> {
+  return requestRuntime<ImportedVideo>(
+    `/api/video-deconstruction/projects/${projectId}/import`,
+    {
+      body: JSON.stringify({ filePath }),
+      method: "POST"
+    }
+  );
+}
+
+export async function deleteImportedVideo(videoId: string): Promise<void> {
+  return requestRuntime<void>(`/api/video-deconstruction/videos/${videoId}`, {
+    method: "DELETE"
   });
 }
 

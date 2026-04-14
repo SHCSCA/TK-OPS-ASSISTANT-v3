@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>TK-OPS Setup Wizard</title>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Header / Nav -->
+<header class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-4 md:px-20 lg:px-40 bg-white dark:bg-background-dark">
+<div class="flex items-center gap-4 text-slate-900 dark:text-slate-100">
+<div class="size-8 flex items-center justify-center rounded-lg bg-primary text-background-dark">
+<span class="material-symbols-outlined text-2xl font-bold">bolt</span>
+</div>
+<h2 class="text-xl font-bold leading-tight tracking-tight">TK-OPS</h2>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+</header>
+<main class="flex flex-1 justify-center py-8 px-4 md:px-10 lg:px-40">
+<div class="layout-content-container flex flex-col max-w-[800px] flex-1">
+<!-- Progress Stepper -->
+<div class="flex flex-col gap-4 mb-10">
+<div class="flex items-center justify-between px-2">
+<div class="flex flex-col items-center gap-2 group">
+<div class="size-8 rounded-full bg-primary flex items-center justify-center text-background-dark font-bold text-sm">
+<span class="material-symbols-outlined text-sm">check</span>
+</div>
+<span class="text-xs font-medium text-slate-500">Welcome</span>
+</div>
+<div class="h-[2px] grow bg-primary mx-2"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="size-10 rounded-full border-4 border-primary bg-background-dark flex items-center justify-center text-primary font-bold text-sm">2</div>
+<span class="text-xs font-bold text-slate-900 dark:text-slate-100">AI Config</span>
+</div>
+<div class="h-[2px] grow bg-slate-200 dark:bg-slate-800 mx-2"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="size-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-sm">3</div>
+<span class="text-xs font-medium text-slate-400">TTS Config</span>
+</div>
+<div class="h-[2px] grow bg-slate-200 dark:bg-slate-800 mx-2"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="size-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-sm">4</div>
+<span class="text-xs font-medium text-slate-400">Browser</span>
+</div>
+<div class="h-[2px] grow bg-slate-200 dark:bg-slate-800 mx-2"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="size-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 font-bold text-sm">5</div>
+<span class="text-xs font-medium text-slate-400">Complete</span>
+</div>
+</div>
+</div>
+<!-- Content Area -->
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-8 flex flex-col gap-6">
+<div>
+<h1 class="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">Configure your AI Engine</h1>
+<p class="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Connect your preferred AI provider to enable the TK-OPS intelligence layer. Your keys are encrypted and stored locally on your device.
+                        </p>
+</div>
+<div class="grid gap-6">
+<!-- Provider Selection -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                AI Provider
+                                <span class="material-symbols-outlined text-sm text-slate-400 cursor-help" title="Select the LLM backend provider">info</span>
+</label>
+<div class="relative">
+<select class="w-full h-12 rounded-lg bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-primary focus:ring-primary appearance-none px-4 text-slate-900 dark:text-slate-100">
+<option>OpenAI (GPT-4o, GPT-3.5)</option>
+<option>Anthropic (Claude 3.5 Sonnet)</option>
+<option>Mistral AI</option>
+<option>Local (Ollama / Llama 3)</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-3 text-slate-400 pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- API Key -->
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                    API Key
+                                    <span class="material-symbols-outlined text-sm text-slate-400 cursor-help" title="Your private API key for the chosen provider">lock</span>
+</label>
+<a class="text-xs text-primary font-medium hover:underline" href="#">Where do I find this?</a>
+</div>
+<input class="w-full h-12 rounded-lg bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-primary focus:ring-primary px-4 text-slate-900 dark:text-slate-100" placeholder="sk-..." type="password"/>
+<p class="text-[11px] text-slate-500 italic">Example: sk-proj-xxxxxxxxxxxxxxxxxxxx</p>
+</div>
+<!-- Organization ID (Optional) -->
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                Organization ID (Optional)
+                                <span class="material-symbols-outlined text-sm text-slate-400 cursor-help" title="Required for some enterprise accounts">info</span>
+</label>
+<input class="w-full h-12 rounded-lg bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-primary focus:ring-primary px-4 text-slate-900 dark:text-slate-100" placeholder="org-xxxxxxxx" type="text"/>
+</div>
+<!-- Toggle Options -->
+<div class="flex items-center justify-between p-4 rounded-lg bg-primary/5 border border-primary/20 mt-2">
+<div class="flex flex-col gap-0.5">
+<span class="text-sm font-semibold text-slate-900 dark:text-slate-100">Enable Advanced Reasoning</span>
+<span class="text-xs text-slate-500">Allows the agent to take more time for complex tasks.</span>
+</div>
+<div class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-primary transition-colors duration-200 ease-in-out">
+<span class="translate-x-5 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+</div>
+</div>
+</div>
+</div>
+<!-- Navigation Buttons -->
+<div class="flex items-center justify-between mt-8">
+<button class="flex items-center gap-2 px-6 h-12 rounded-lg font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+<span class="material-symbols-outlined">arrow_back</span>
+                        Back
+                    </button>
+<div class="flex gap-4">
+<button class="px-6 h-12 rounded-lg font-bold text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-all">
+                            Skip for now
+                        </button>
+<button class="flex items-center gap-2 px-10 h-12 rounded-lg font-bold bg-primary text-background-dark shadow-lg shadow-primary/20 hover:brightness-105 active:scale-95 transition-all">
+                            Next Step
+                            <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Help Tip -->
+<div class="mt-12 p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 flex items-start gap-4">
+<div class="text-primary mt-1">
+<span class="material-symbols-outlined">lightbulb</span>
+</div>
+<div>
+<h4 class="text-sm font-bold text-slate-900 dark:text-slate-100">Pro Tip</h4>
+<p class="text-sm text-slate-600 dark:text-slate-400">You can switch between different models and providers at any time from the main TK-OPS dashboard settings.</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Info -->
+<footer class="py-6 text-center text-slate-400 text-xs">
+<p>© 2024 TK-OPS Intelligence System • v1.0.4-beta</p>
+</footer>
+</div>
+</div>
+</body></html>

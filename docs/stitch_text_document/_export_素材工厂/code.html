@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "system-ui", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Spline Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .active-nav { background-color: rgba(0, 240, 232, 0.1); border-left: 4px solid #00f0e8; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="flex h-screen flex-col overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 shrink-0">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-3 text-primary">
+<span class="material-symbols-outlined text-3xl">factory</span>
+<h1 class="text-slate-900 dark:text-white text-xl font-bold tracking-tight">素材工厂</h1>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-primary font-medium text-sm" href="#">工作台</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors text-sm" href="#">云端存储</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors text-sm" href="#">处理历史</a>
+<a class="text-slate-500 dark:text-slate-400 hover:text-primary transition-colors text-sm" href="#">团队协作</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative max-w-md hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
+<input class="w-64 bg-slate-100 dark:bg-slate-800 border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/50" placeholder="搜索素材..." type="text"/>
+</div>
+<button class="bg-primary text-slate-900 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 hover:brightness-110 transition-all">
+<span class="material-symbols-outlined text-sm">cloud_upload</span>
+                上传文件
+            </button>
+<div class="flex items-center gap-2 ml-2">
+<button class="p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="User profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBl_osYZxlJLAaGGOd5dkidtIjvTmWXrQNTFcsVky0r8Di66df5ooc1jWvj_gxW41Zotbk3w1173fsURfxaeFydryq-nuyWmRIE5D4noUKHC7PjdmMcVADpwBOUmhlMRt-aWNMJhAgjvJ9Du3IOhRw-5_fYuGppUO3HD8ezt0swPjMuhLJvi3KcLkZkQ14yT6lppNvGNTnTpZ4pe_QSR7O3O7c3SlN0RyrFxdyEMNWgeoDuQD41LJYPbgMqjcEes3Td67E6GkveiKnR"/>
+</div>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="w-60 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col shrink-0">
+<div class="p-4 space-y-1">
+<div class="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">媒体库</div>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg active-nav text-slate-900 dark:text-white" href="#">
+<span class="material-symbols-outlined text-primary">folder_open</span>
+<span class="text-sm font-medium">全部项目</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">schedule</span>
+<span class="text-sm font-medium">最近上传</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">movie</span>
+<span class="text-sm font-medium">视频素材</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">image</span>
+<span class="text-sm font-medium">图片素材</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">star</span>
+<span class="text-sm font-medium">我的收藏</span>
+</a>
+<div class="pt-6 px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">分类</div>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">landscape</span>
+<span class="text-sm font-medium">自然风景</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">apartment</span>
+<span class="text-sm font-medium">城市建筑</span>
+</a>
+</div>
+<div class="mt-auto p-4 border-t border-slate-200 dark:border-slate-800">
+<div class="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl">
+<div class="flex justify-between text-xs mb-2">
+<span class="text-slate-500">存储容量</span>
+<span class="text-slate-900 dark:text-slate-200 font-bold">75%</span>
+</div>
+<div class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 75%"></div>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area: Grid View -->
+<main class="flex-1 overflow-y-auto p-6 relative">
+<div class="flex items-center justify-between mb-6">
+<div>
+<h2 class="text-lg font-bold text-slate-900 dark:text-white">全部项目 <span class="text-slate-400 font-normal ml-2 text-sm">(124个文件)</span></h2>
+</div>
+<div class="flex gap-2">
+<button class="p-2 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-500">
+<span class="material-symbols-outlined">grid_view</span>
+</button>
+<button class="p-2 border border-slate-200 dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-500">
+<span class="material-symbols-outlined">format_list_bulleted</span>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-24">
+<!-- Grid Items -->
+<div class="group relative flex flex-col gap-3">
+<div class="aspect-square rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden relative border-2 border-primary">
+<img class="w-full h-full object-cover" data-alt="Breathtaking mountain sunrise video thumbnail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyzSYFdqtkFIOo0mOFKHRckULiSrOsAxoQ32wNJZEsIxD8lY97NMiccDGI9ABqqrACe7nBF_v43zPhxGXc0sH-oD0IWk7BVmLbzCyczVtI1j6lvNs5y8sCSZV-G60brQipIWGw6RWrUGMAhvtAhQvDyhUaWHlIH1olA8bb8eLijvpBbHRJHxkWX5aLjCJAPwidjpqbjAXFluDutkmI_Z4DoIMNp35r3IKrnRYshm9ALunJgZW-ENiQCVU6P2FpT5sP-cVdKPGZU883"/>
+<div class="absolute top-2 right-2 bg-primary text-slate-900 rounded-full p-1 opacity-100">
+<span class="material-symbols-outlined text-sm">check</span>
+</div>
+<div class="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">00:15</div>
+<div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-4xl">play_circle</span>
+</div>
+</div>
+<div>
+<p class="text-sm font-semibold truncate">自然风光_01.mp4</p>
+<p class="text-xs text-slate-500">12.5 MB • 1080p</p>
+</div>
+</div>
+<div class="group relative flex flex-col gap-3">
+<div class="aspect-square rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden relative border-2 border-transparent hover:border-primary/50 transition-all">
+<img class="w-full h-full object-cover" data-alt="Modern cityscape aerial photograph" src="https://lh3.googleusercontent.com/aida-public/AB6AXuADkI2VPmiigIFsfN4uHAEwu1h5d2u2xDNtVe9pkrWO6aMvwc0A13S4dun_m7JMVlTdcZ8B_jGOFrg4JkpwTU2YIbRH8bU1THO2bzdjqBVKQRfiBOVM-Jnz2GDJ54GPjgYEQ33Z4X8-_p9aA5_4lPJj1BaoUAlD_FGT9F90OXdWLZC_5fGJKBqkwHKEzYCkSQ8sHavfmlKvzOMx1-8BgU94inemfmSeUAXiyD4suoVB4ciWZrQy-1VdQ968ZdiPwjpBnG4S3GRkfGFi"/>
+<div class="absolute top-2 right-2 bg-slate-900/40 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-sm">circle</span>
+</div>
+</div>
+<div>
+<p class="text-sm font-semibold truncate">城市航拍_02.jpg</p>
+<p class="text-xs text-slate-500">4.2 MB • 4K</p>
+</div>
+</div>
+<div class="group relative flex flex-col gap-3">
+<div class="aspect-square rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden relative border-2 border-primary">
+<img class="w-full h-full object-cover" data-alt="Professional interview setup recording thumbnail" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD2-A1SzuiI9mwhxGQaOWQ9mt92zzKiFP9FChkH2Ep-gZ9fouTqPjfv2rLA2zI8h5Khkzy0Nl1LTcRBGxkNi7jOH8Oss9nMAoYQv2ZwVHkSNfPbElvPFqR1_hy03cZttvn1pasXiEtqWknbadk67xuBQhkTVNPWIS7aTJJkej_FipBWB_zbRwXykmS0gXu1JnVq4wqxa0gmAZdZcJPYXzHJ5GboW_CXEF1w_TObGV75GA21f2uc9RyxEMoeY-F1WSG1tRyFUDYKWhc1"/>
+<div class="absolute top-2 right-2 bg-primary text-slate-900 rounded-full p-1">
+<span class="material-symbols-outlined text-sm">check</span>
+</div>
+<div class="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">02:45</div>
+</div>
+<div>
+<p class="text-sm font-semibold truncate">人物访谈_03.mp4</p>
+<p class="text-xs text-slate-500">85.1 MB • 1080p</p>
+</div>
+</div>
+<!-- Repeatable Placeholders -->
+<div class="group relative flex flex-col gap-3">
+<div class="aspect-square rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden relative border-2 border-transparent">
+<img class="w-full h-full object-cover" data-alt="Abstract minimal brand patterns" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUEFLnDL_7suN3KYRyraY0zeL2qXIW6IabfaA6fHpH5Geb_gzdfBErMx8vuQXmz72Fa0ugd0wRXnN976KIVwMi9vGk9kIrUG1Ev4Bn7AJDIoGfQsgJiHCnZElEDUk2FIMc6JmHNtRhqmF5eo6ByEy8fdFibJxxg4hDXH6wunxdc2eJ9otYWa8yjvdNHaVllOo_0YVN8Dj8mMXYsXjOHR6So2BKeCcPjonJt0lfA70CoHYO7AMTSMcXjYvcvU52LAVq7XE3E8E8Erzn"/>
+</div>
+<div>
+<p class="text-sm font-semibold truncate">产品展示_04.png</p>
+<p class="text-xs text-slate-500">2.1 MB • PNG</p>
+</div>
+</div>
+<div class="group relative flex flex-col gap-3">
+<div class="aspect-square rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden relative border-2 border-transparent">
+<img class="w-full h-full object-cover" data-alt="Neon nights urban photography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBa3A4two6Aua7CZcbtZcpe_r_k-u0yhEQlzTxOHRLifdwvrmeYb0XYLXWnwz_3-w2ScMnoUmUhfgwZaQsZDw5Pa5Si4dyMbaMHzknFrFdpDHpcVJTN-jHmhSpwosHRxP-huptFEUzhuog_7xXycJ_zwUfxNOlBj7XgYG4ZY2Zu39f3J_BHX_YoPahrnk8RfpHWe1sk0fe9VuStuUJBUpJDb3hXVBVZq58XPDz4RjEBG5nq_KZ6rhwEfpPrSuXn_-mj3YsFJxV1Zl6q"/>
+<div class="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded backdrop-blur-sm">00:30</div>
+</div>
+<div>
+<p class="text-sm font-semibold truncate">宣传片剪辑.mov</p>
+<p class="text-xs text-slate-500">45.8 MB • ProRes</p>
+</div>
+</div>
+<div class="group relative flex flex-col gap-3">
+<div class="aspect-square rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden relative border-2 border-transparent">
+<img class="w-full h-full object-cover" data-alt="Creative workspace flatlay photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDmkIPXHypfKhR2kBV8CyvHEq1314quqDREWGCfRptzrjIm2iNrIB6Ms3HYd12QCPoWwcWFDI4qCvzSeDWiNNOhFL96SuJg0z_8fqfOSfxhsgXmuMTuadwsYmQPqG9RFyvjrp-FLkyDt7uwI77XexI0uzPzBTV3nPW5NQvPfcA4YmI8wtgqMI_Br4eBte2DQOudEETjMplYGZlT7RTZkofm0DlekUx_BI72mIAUlmB8OqffvjIdUFgQyP763FQX6mjoC5iqkzlGmoXz"/>
+</div>
+<div>
+<p class="text-sm font-semibold truncate">背景图库_08.webp</p>
+<p class="text-xs text-slate-500">1.8 MB • WebP</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Right Preview Panel -->
+<aside class="w-80 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-y-auto p-4 shrink-0">
+<h3 class="text-sm font-bold mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-base">info</span>
+                素材详情
+            </h3>
+<div class="rounded-lg overflow-hidden bg-black aspect-video mb-4 group relative">
+<img class="w-full h-full object-cover opacity-80" data-alt="High quality preview of selected mountain video" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDO5tz9GbhcYck-theWxB9vP0F7t_XQ5e0Qxbo_qTf6Uc2mx3mK7xiVyjH-Ho1yJnPy81BGJmNZKHtS86vVjAa8YmuXz_qSHWLBcbPd1lT4ioZbjR-l-ef3_jQNh5q6By7ff509NzrrETVL-FvYXI_E5HwlNCdrf_GsMI8Kg219sj_suczYXLcAyTlYdVPmYZ9gvdhcCchiIezKJWkbk7mGA3OAYQzlNFm2i4fHi-J9woahgXKvQ13JFC_s0PsQgqlftisWQojD3S7m"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<button class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/40 transition-all">
+<span class="material-symbols-outlined text-3xl">play_arrow</span>
+</button>
+</div>
+<div class="absolute bottom-0 left-0 right-0 h-1 bg-slate-700">
+<div class="h-full bg-primary" style="width: 40%"></div>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">文件名</p>
+<p class="text-sm font-medium">自然风光_01.mp4</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">格式</p>
+<p class="text-sm font-medium">MPEG-4</p>
+</div>
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">分辨率</p>
+<p class="text-sm font-medium">1920 x 1080</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">大小</p>
+<p class="text-sm font-medium">12.5 MB</p>
+</div>
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">帧率</p>
+<p class="text-sm font-medium">30 fps</p>
+</div>
+</div>
+<div>
+<p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest mb-1">标签</p>
+<div class="flex flex-wrap gap-1.5 mt-1">
+<span class="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[10px] text-slate-600 dark:text-slate-400">风景</span>
+<span class="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[10px] text-slate-600 dark:text-slate-400">自然</span>
+<span class="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[10px] text-slate-600 dark:text-slate-400">日出</span>
+<button class="px-2 py-0.5 border border-dashed border-slate-300 dark:border-slate-700 rounded text-[10px] text-slate-400">
+                            + 添加
+                        </button>
+</div>
+</div>
+<div class="pt-4 space-y-2">
+<button class="w-full bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined text-sm">download</span>
+                        立即下载
+                    </button>
+<button class="w-full border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-sm">share</span>
+                        共享素材
+                    </button>
+</div>
+</div>
+</aside>
+</div>
+<!-- Bottom Batch Process Bar -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4 z-50">
+<div class="bg-slate-900/90 dark:bg-slate-800/90 backdrop-blur-xl border border-white/10 dark:border-primary/20 shadow-2xl rounded-2xl p-4 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<div class="flex -space-x-3 items-center">
+<div class="w-10 h-10 rounded-lg border-2 border-slate-900 bg-slate-800 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Selection thumbnail 1" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB54o8qm5PaLHr5atHMuaIYYkLgwzItczcvOQZJf8Rjbeq0UXkBt5zlQFF1WHo25XxODigcwa8qhbhsiipUhry6Ybto_hqTqIRExC5fRzPSGFTwjLju-XDOgW4FDImcrzLnYkCaEt_fe7s_-r2LqXcGCNhwv4cNTo4dUJdxwAhNraEOr0xZCe7Pk0DUDXmLUz4qehqhYDrv_hIAL8QsKiLdKyP46lGrs64PGBLoh5jysmHCLXITAJBXRpRLaLpf6CgzOelLm13zlya4"/>
+</div>
+<div class="w-10 h-10 rounded-lg border-2 border-slate-900 bg-slate-800 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Selection thumbnail 2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQmcx2-ikCwhMG8HXQ44X310xzJCS6xOXpGv_nDMbY3eCfIMsDow0x0K8yKx2-DNWW0fIycJ68VghAe4JA82s3FK1pxsHluh26sLC53MlUI_pnUex_0_OZ2CdonvzEgb9R5pMxlfesWPVe6wsFOYnPV5ELf346cw0OcZasLHq34fj7Q3FiG3ac9dPo8HycGp2Yf9IWckxhE8djkE5PRRzYzu5RrWIdi29GVitm9MvoocPjGBanJv8QWfxWCEJqxUKkbyRP4UgjRmeL"/>
+</div>
+<div class="w-10 h-10 rounded-lg border-2 border-slate-900 bg-slate-800 flex items-center justify-center text-white text-xs font-bold">
+                        +2
+                    </div>
+</div>
+<div class="text-white">
+<p class="text-sm font-bold">已选择 4 个素材</p>
+<p class="text-[10px] text-slate-400">总计 112.4 MB</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex bg-slate-800 dark:bg-slate-700/50 p-1 rounded-lg border border-white/5">
+<button class="px-4 py-2 text-xs font-bold text-white hover:bg-slate-700 dark:hover:bg-slate-600 rounded-md transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">difference</span>
+                        一键去重
+                    </button>
+<div class="w-[1px] bg-white/10 mx-1"></div>
+<button class="px-4 py-2 text-xs font-bold text-white hover:bg-slate-700 dark:hover:bg-slate-600 rounded-md transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">aspect_ratio</span>
+                        批量改尺寸
+                    </button>
+</div>
+<button class="bg-primary text-slate-900 px-6 py-2 rounded-lg font-bold text-sm shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+                    开始处理
+                </button>
+<button class="p-2 text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

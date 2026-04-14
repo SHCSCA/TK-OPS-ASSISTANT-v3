@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TK-OPS CRM Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                        "warning": "#FFB300",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-4 lg:px-20">
+<div class="flex items-center gap-3">
+<div class="bg-primary p-2 rounded-lg">
+<svg class="size-6 text-slate-900" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M4 4H17.3334V17.3334H30.6666V30.6666H44V44H4V4Z" fill="currentColor"></path>
+</svg>
+</div>
+<div>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight">TK-OPS CRM</h2>
+<p class="text-xs text-slate-500 font-medium">Workspace Management</p>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="flex min-w-[100px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm font-bold transition-colors hover:bg-slate-300">
+<span>Reset to Default</span>
+</button>
+<button class="flex min-w-[120px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-primary text-slate-900 text-sm font-bold transition-opacity hover:opacity-90">
+<span>Save Changes</span>
+</button>
+</div>
+</header>
+<main class="flex flex-1 justify-center px-6 py-8 lg:px-20">
+<div class="layout-content-container flex max-w-[1200px] flex-1 gap-8">
+<!-- Sidebar Navigation -->
+<aside class="flex w-64 flex-col gap-2 shrink-0">
+<div class="mb-4">
+<h1 class="text-2xl font-bold">Settings</h1>
+<p class="text-sm text-slate-500">Configure your system preferences</p>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-sm font-medium">General</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary/10 text-slate-900 dark:text-slate-100 transition-colors" href="#">
+<span class="material-symbols-outlined fill-1">psychology</span>
+<span class="text-sm font-bold">AI Configuration</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">record_voice_over</span>
+<span class="text-sm font-medium">TTS Services</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">public</span>
+<span class="text-sm font-medium">Browser Isolation</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined">tune</span>
+<span class="text-sm font-medium">Advanced</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<div class="flex flex-1 flex-col gap-6 max-w-[800px]">
+<!-- Warning Alert -->
+<div class="flex items-center gap-4 rounded-lg bg-warning/10 border border-warning/20 p-4">
+<span class="material-symbols-outlined text-warning text-3xl">warning</span>
+<div class="flex-1">
+<p class="text-slate-900 dark:text-slate-100 font-bold text-sm">⚠️ 修改浏览器隔离设置需要重启应用</p>
+<p class="text-slate-600 dark:text-slate-400 text-xs mt-0.5">Changing browser isolation settings requires a manual application restart to take effect.</p>
+</div>
+<button class="bg-warning text-white px-4 py-1.5 rounded-md text-xs font-bold hover:brightness-95">Restart Now</button>
+</div>
+<!-- Form Title -->
+<div class="border-b border-slate-200 dark:border-slate-800 pb-4">
+<h3 class="text-xl font-bold">AI &amp; Automation Engine</h3>
+<p class="text-sm text-slate-500 mt-1">Configure the intelligence core for lead processing and automated communications.</p>
+</div>
+<!-- Settings Form -->
+<div class="flex flex-col gap-8">
+<!-- Setting Group: LLM Selection -->
+<section class="flex flex-col gap-6">
+<div class="flex flex-col gap-4">
+<!-- Label & Description -->
+<div class="flex flex-col">
+<label class="text-sm font-bold flex items-center gap-1">
+                                            Primary AI Model <span class="text-red-500">*</span>
+</label>
+<p class="text-xs text-slate-500 mt-1">Choose the primary large language model for generating content and automation flows.</p>
+</div>
+<!-- Input and Link -->
+<div class="flex flex-col gap-2">
+<select class="w-full h-11 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none">
+<option>GPT-4o (Recommended)</option>
+<option>GPT-3.5 Turbo</option>
+<option>Claude 3.5 Sonnet</option>
+<option>Llama 3 70B (Local)</option>
+</select>
+<button class="text-xs text-primary font-medium hover:underline self-start">Reset to default (GPT-4o)</button>
+</div>
+</div>
+<!-- API Key Setting -->
+<div class="flex flex-col gap-4">
+<div class="flex flex-col">
+<label class="text-sm font-bold flex items-center gap-1">
+                                            OpenAI API Key <span class="text-red-500">*</span>
+</label>
+<p class="text-xs text-slate-500 mt-1">Required for GPT models. Your key is stored securely using AES-256 encryption.</p>
+</div>
+<div class="flex gap-2">
+<input class="flex-1 h-11 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="sk-..." type="password" value="••••••••••••••••••••••••••••••"/>
+<button class="flex items-center justify-center gap-2 px-6 h-11 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-sm">link</span>
+                                            Test Connection
+                                        </button>
+</div>
+<button class="text-xs text-primary font-medium hover:underline self-start">Clear and reset to default</button>
+</div>
+<!-- Temperature Control -->
+<div class="flex flex-col gap-4">
+<div class="flex flex-col">
+<label class="text-sm font-bold flex items-center gap-1">
+                                            Creativity Level (Temperature)
+                                        </label>
+<p class="text-xs text-slate-500 mt-1">Higher values (0.8+) make the output more creative, lower values (0.2) make it more deterministic.</p>
+</div>
+<div class="flex items-center gap-4">
+<input class="flex-1 accent-primary" max="100" min="0" type="range" value="70"/>
+<span class="text-sm font-bold bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded min-w-[40px] text-center">0.7</span>
+</div>
+<button class="text-xs text-primary font-medium hover:underline self-start">Reset to default (0.7)</button>
+</div>
+<!-- Context Length -->
+<div class="flex flex-col gap-4">
+<div class="flex flex-col">
+<label class="text-sm font-bold flex items-center gap-1">
+                                            Max Tokens per Response
+                                        </label>
+<p class="text-xs text-slate-500 mt-1">Maximum number of tokens to generate in a single response to control costs.</p>
+</div>
+<div class="flex flex-col gap-2">
+<input class="w-full h-11 px-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none" placeholder="2048" type="number" value="4096"/>
+<button class="text-xs text-primary font-medium hover:underline self-start">Reset to default (4096)</button>
+</div>
+</div>
+<!-- System Prompt -->
+<div class="flex flex-col gap-4">
+<div class="flex flex-col">
+<label class="text-sm font-bold flex items-center gap-1">
+                                            Global System Prompt
+                                        </label>
+<p class="text-xs text-slate-500 mt-1">Base instructions given to the AI across all CRM interactions.</p>
+</div>
+<div class="flex flex-col gap-2">
+<textarea class="w-full p-4 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none resize-none" rows="4">You are a helpful CRM assistant for TK-OPS. Always maintain a professional tone and ensure customer data privacy is respected in every interaction.</textarea>
+<button class="text-xs text-primary font-medium hover:underline self-start">Reset to default prompt</button>
+</div>
+</div>
+</section>
+<!-- Settings Validation Status Bar -->
+<div class="sticky bottom-4 left-0 right-0 mt-8 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 shadow-xl backdrop-blur p-4 flex items-center justify-between">
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<div class="size-2 rounded-full bg-green-500"></div>
+<span class="text-xs font-bold text-slate-600 dark:text-slate-400">Connection Status: <span class="text-green-500">Connected</span></span>
+</div>
+<div class="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-6">
+<span class="material-symbols-outlined text-sm text-slate-400">check_circle</span>
+<span class="text-xs font-bold text-slate-600 dark:text-slate-400">Validation: <span class="text-slate-900 dark:text-slate-100">4 / 4 Settings Valid</span></span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-xs text-slate-500 italic">Last validated: 2 mins ago</span>
+<button class="text-slate-900 dark:text-slate-100 material-symbols-outlined text-xl hover:rotate-180 transition-transform duration-500">refresh</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

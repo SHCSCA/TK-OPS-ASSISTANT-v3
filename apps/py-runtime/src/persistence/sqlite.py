@@ -6,6 +6,8 @@ from pathlib import Path
 from .migrations import apply_migrations
 
 
+# Deprecated: new Runtime data access should use SQLAlchemy sessions from
+# persistence.engine. This entry remains as historical bootstrap reference.
 def connect_sqlite(database_path: Path) -> sqlite3.Connection:
     database_path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(database_path)

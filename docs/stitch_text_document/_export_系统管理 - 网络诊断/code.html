@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>TK-OPS Network Diagnostics</title>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- TopNavBar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-slate-800 px-10 py-3 bg-white dark:bg-slate-900">
+<div class="flex items-center gap-4">
+<div class="size-6 text-primary">
+<span class="material-symbols-outlined text-3xl">terminal</span>
+</div>
+<div class="flex flex-col">
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight">TK-OPS</h2>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-medium">Network Diagnostics Engine v4.2</p>
+</div>
+</div>
+<div class="flex flex-1 justify-end gap-4">
+<div class="flex gap-2">
+<button class="flex items-center justify-center rounded-lg h-10 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="flex items-center justify-center rounded-lg h-10 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined">refresh</span>
+</button>
+<button class="flex items-center justify-center rounded-lg h-10 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-3 hover:bg-primary/20 transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+</div>
+<div class="bg-slate-200 dark:bg-slate-700 aspect-square rounded-full size-10 flex items-center justify-center border border-primary/30">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-300">person</span>
+</div>
+</div>
+</header>
+<main class="flex flex-col flex-1 px-10 py-8 gap-8 max-w-[1440px] mx-auto w-full">
+<!-- Quick Status Cards -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="flex flex-col gap-2 rounded-xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start">
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">IP Address</p>
+<span class="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+</div>
+<p class="text-slate-900 dark:text-slate-100 text-2xl font-bold leading-tight">192.168.1.1</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-green-500 text-sm">verified_user</span>
+<p class="text-green-600 dark:text-green-400 text-xs font-bold">SECURE CONNECTION</p>
+</div>
+</div>
+<div class="flex flex-col gap-2 rounded-xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Proxy Status</p>
+<p class="text-slate-900 dark:text-slate-100 text-2xl font-bold leading-tight">Connected</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-primary text-sm">hub</span>
+<p class="text-primary text-xs font-bold uppercase tracking-wider">Luminati-Residential</p>
+</div>
+</div>
+<div class="flex flex-col gap-2 rounded-xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">API Connectivity</p>
+<p class="text-slate-900 dark:text-slate-100 text-2xl font-bold leading-tight">99.9% Uptime</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-medium uppercase tracking-wider">All Systems Operational</p>
+</div>
+</div>
+<div class="flex flex-col gap-2 rounded-xl p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium">Fingerprint Uniqueness</p>
+<p class="text-slate-900 dark:text-slate-100 text-2xl font-bold leading-tight">98.2%</p>
+<div class="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full mt-2">
+<div class="bg-primary h-1.5 rounded-full" style="width: 98.2%"></div>
+</div>
+</div>
+</section>
+<!-- Diagnostic Tests Section -->
+<section class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h2 class="text-slate-900 dark:text-slate-100 text-xl font-bold tracking-tight">Active Diagnostic Tests</h2>
+<button class="bg-primary hover:bg-primary/90 text-slate-900 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all">
+<span class="material-symbols-outlined text-lg">play_arrow</span>
+                            RUN ALL TESTS
+                        </button>
+</div>
+<div class="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+<table class="w-full text-left">
+<thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+<tr>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Test Name</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Last Run Time</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+<tr>
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-slate-900 dark:text-slate-100">DNS Resolution Speed</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Verifying propagation across global nodes</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold w-fit border border-green-200 dark:border-green-800">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+                                            PASS
+                                        </div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">2 mins ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded font-bold text-xs transition-colors">RUN TEST</button>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-slate-900 dark:text-slate-100">Global Latency Check</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Measurement to US-East-1, EU-West-1</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 px-2.5 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold w-fit border border-yellow-200 dark:border-yellow-800">
+<span class="material-symbols-outlined text-sm">warning</span>
+                                            WARNING
+                                        </div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">5 mins ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded font-bold text-xs transition-colors">RUN TEST</button>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-slate-900 dark:text-slate-100">SSL Handshake Integrity</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">TLS 1.3 verification with cipher suite audit</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 px-2.5 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold w-fit border border-red-200 dark:border-red-800">
+<span class="material-symbols-outlined text-sm">error</span>
+                                            FAIL
+                                        </div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">12 mins ago</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded font-bold text-xs transition-colors">RUN TEST</button>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-slate-900 dark:text-slate-100">Packet Loss (STUN/TURN)</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">WebRTC connection stability testing</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2 px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold w-fit border border-green-200 dark:border-green-800">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+                                            PASS
+                                        </div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">Just now</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:bg-primary/10 px-3 py-1.5 rounded font-bold text-xs transition-colors">RUN TEST</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Detailed Test Results Log (Expandable Accordion Style) -->
+<section class="flex flex-col gap-4">
+<h2 class="text-slate-900 dark:text-slate-100 text-xl font-bold tracking-tight">Technical Analysis Log</h2>
+<div class="space-y-3">
+<!-- Open Accordion Item -->
+<div class="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 overflow-hidden">
+<div class="px-6 py-4 flex items-center justify-between cursor-pointer border-b border-red-200 dark:border-red-900/50">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-red-500">expand_more</span>
+<span class="font-bold text-red-700 dark:text-red-400">SSL Handshake Integrity Failure [ERR_702]</span>
+</div>
+<span class="text-xs font-bold text-red-600 dark:text-red-400 uppercase">Critical Action Required</span>
+</div>
+<div class="p-6 space-y-4">
+<div class="bg-slate-900 text-slate-300 p-4 rounded-lg font-mono text-xs leading-relaxed overflow-x-auto">
+<p class="text-primary"># Executing SSL Handshake Audit...</p>
+<p>&gt; Initiating connection to gateway.tk-ops.internal...</p>
+<p>&gt; Detected Cipher Suite: ECDHE-RSA-AES256-GCM-SHA384</p>
+<p class="text-red-400">&gt; ERROR: Certificate Transparency check failed.</p>
+<p class="text-red-400">&gt; ERROR: Handshake timed out after 5000ms.</p>
+<p>&gt; Connection Terminated.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+<h4 class="text-sm font-bold text-slate-900 dark:text-slate-100 mb-2">Detailed Output</h4>
+<p class="text-xs text-slate-500 dark:text-slate-400">The gateway server rejected the connection due to an expired root CA certificate in the local trust store. Proxy-based SSL inspection is currently interfering with the signature validation.</p>
+</div>
+<div class="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+<h4 class="text-sm font-bold text-slate-900 dark:text-slate-100 mb-2">Recommendations</h4>
+<ul class="text-xs text-slate-500 dark:text-slate-400 list-disc list-inside space-y-1">
+<li>Update local machine CA certificates bundle.</li>
+<li>Disable SSL Decryption on the active proxy node.</li>
+<li>Verify firewall rules for port 443 outgoing.</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<!-- Closed Accordion Item -->
+<div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+<div class="px-6 py-4 flex items-center justify-between cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">chevron_right</span>
+<span class="font-bold text-slate-700 dark:text-slate-300">Latency Check Analysis [LOG_991]</span>
+</div>
+<span class="text-xs font-bold text-yellow-600 dark:text-yellow-400 uppercase">Warning</span>
+</div>
+</div>
+<!-- Closed Accordion Item -->
+<div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+<div class="px-6 py-4 flex items-center justify-between cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">chevron_right</span>
+<span class="font-bold text-slate-700 dark:text-slate-300">DNS Propagation Report [LOG_104]</span>
+</div>
+<span class="text-xs font-bold text-green-600 dark:text-green-400 uppercase">Optimal</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer Meta -->
+<footer class="mt-auto px-10 py-6 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-between items-center text-slate-500 dark:text-slate-400 text-xs">
+<div class="flex gap-4">
+<span>Server: <span class="text-slate-900 dark:text-slate-100 font-mono">NODE-TK-04-US</span></span>
+<span>Uptime: <span class="text-slate-900 dark:text-slate-100 font-mono">14d 06h 22m</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="flex h-2 w-2 rounded-full bg-primary"></span>
+<span class="uppercase tracking-widest font-bold">Terminal Live Sync Active</span>
+</div>
+</footer>
+</div>
+</div>
+</body></html>

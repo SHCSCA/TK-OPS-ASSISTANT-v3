@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "system-ui", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>数据采集助手</title>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-64 flex-shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col">
+<div class="p-6 flex flex-col h-full">
+<div class="flex items-center gap-3 mb-8">
+<div class="bg-primary/20 rounded-full p-2 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">analytics</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-base font-bold leading-none">数据采集助手</h1>
+<p class="text-[10px] text-slate-500 mt-1 uppercase tracking-wider font-semibold">Data Analyst Pro</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary font-medium" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>采集任务</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" href="#">
+<span class="material-symbols-outlined">history</span>
+<span>历史记录</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" href="#">
+<span class="material-symbols-outlined">api</span>
+<span>API设置</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span>系统状态</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-2 px-2 mb-4">
+<div class="size-2 rounded-full bg-green-500 animate-pulse"></div>
+<span class="text-xs text-green-600 dark:text-green-400 font-medium">Using Apify API</span>
+</div>
+<button class="w-full py-2.5 bg-primary hover:bg-primary/90 text-slate-900 font-bold rounded-lg transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span>
+                    新建任务
+                </button>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark p-8">
+<!-- Header -->
+<header class="flex justify-between items-center mb-8">
+<div>
+<h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">数据采集</h2>
+<p class="text-slate-500 dark:text-slate-400 mt-1">配置并监控您的数据抓取任务，获取全方位的业务洞察</p>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="pl-10 pr-4 py-2 rounded-lg border-none bg-white dark:bg-slate-800 focus:ring-2 focus:ring-primary w-64 shadow-sm" placeholder="搜索任务..." type="text"/>
+</div>
+<button class="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="size-10 rounded-full bg-slate-200 overflow-hidden border-2 border-primary">
+<img alt="User Avatar" data-alt="Professional data analyst user profile photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrotJsZ9Yla0_NsDBKJAYQuCzkHxH-PhbL7KFrajP_OMdInpqibo0bwNgv0EQWl0CcueTbmw6Qg5lsmdtw_CqzcbGFm4sOQybyo3JOqn-FVcqdZawLZ1l51iQiyzkrlhLz4-klWXBT39xFRWaK3tAEQYWLi1vk5LArGvVTl7HqS7JJpCC--1HD_iMoDMvFSV1RvFfbUkoCdjwv02llXBcbJ4lU6FR6du6BKZS_hujPK-edVyHHuke12Qw-Af8to3EY1oqGWkYK-clV"/>
+</div>
+</div>
+</header>
+<div class="grid grid-cols-12 gap-6">
+<!-- Top: Task Creator -->
+<section class="col-span-12 bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
+<h3 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">add_task</span>
+                    创建新采集任务
+                </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<div class="space-y-2 lg:col-span-2">
+<label class="text-sm font-semibold text-slate-600 dark:text-slate-400">目标类型</label>
+<div class="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+<label class="flex-1 cursor-pointer">
+<input checked="" class="sr-only peer" name="target" type="radio"/>
+<div class="py-2 text-center rounded-md text-sm font-medium transition-all peer-checked:bg-white dark:peer-checked:bg-slate-700 peer-checked:text-primary peer-checked:shadow-sm">用户主页</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="sr-only peer" name="target" type="radio"/>
+<div class="py-2 text-center rounded-md text-sm font-medium transition-all peer-checked:bg-white dark:peer-checked:bg-slate-700 peer-checked:text-primary peer-checked:shadow-sm">视频内容</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="sr-only peer" name="target" type="radio"/>
+<div class="py-2 text-center rounded-md text-sm font-medium transition-all peer-checked:bg-white dark:peer-checked:bg-slate-700 peer-checked:text-primary peer-checked:shadow-sm">话题标签</div>
+</label>
+<label class="flex-1 cursor-pointer">
+<input class="sr-only peer" name="target" type="radio"/>
+<div class="py-2 text-center rounded-md text-sm font-medium transition-all peer-checked:bg-white dark:peer-checked:bg-slate-700 peer-checked:text-primary peer-checked:shadow-sm">商品详情</div>
+</label>
+</div>
+</div>
+<div class="space-y-2 lg:col-span-2">
+<label class="text-sm font-semibold text-slate-600 dark:text-slate-400">目标 URL</label>
+<input class="w-full py-2.5 px-4 rounded-lg border-none bg-slate-100 dark:bg-slate-800 focus:ring-2 focus:ring-primary" placeholder="https://example.com/profile/..." type="url"/>
+</div>
+<div class="space-y-4 lg:col-span-3">
+<div class="flex justify-between">
+<label class="text-sm font-semibold text-slate-600 dark:text-slate-400">采集深度 (1-10 层)</label>
+<span class="text-sm font-bold text-primary">5 层</span>
+</div>
+<input class="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-primary" max="10" min="1" type="range" value="5"/>
+</div>
+<div class="lg:col-span-1 flex items-end">
+<button class="w-full py-3 bg-primary text-slate-900 font-bold rounded-lg hover:shadow-lg hover:shadow-primary/20 transition-all">开始采集</button>
+</div>
+</div>
+</section>
+<!-- Middle: Active Tasks -->
+<section class="col-span-12">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-lg font-bold">进行中的任务</h3>
+<span class="bg-primary/20 text-primary text-xs font-bold px-2.5 py-1 rounded-full uppercase">3 正在运行</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Task Card 1 -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-bold text-slate-900 dark:text-white">抖音热门视频抓取</h4>
+<p class="text-xs text-slate-500 mt-0.5 truncate max-w-[180px]">#科技 #数码 #测评</p>
+</div>
+<span class="material-symbols-outlined text-primary">videocam</span>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between text-xs font-medium">
+<span>进度</span>
+<span>65%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[65%]"></div>
+</div>
+<div class="flex gap-2 pt-2">
+<button class="flex-1 py-2 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-sm">pause</span> 暂停
+                                </button>
+<button class="flex-1 py-2 text-xs font-bold text-red-500 border border-red-100 dark:border-red-900/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-sm">close</span> 取消
+                                </button>
+</div>
+</div>
+</div>
+<!-- Task Card 2 -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-bold text-slate-900 dark:text-white">小红书美妆博主分析</h4>
+<p class="text-xs text-slate-500 mt-0.5 truncate max-w-[180px]">User: @beauty_vlog</p>
+</div>
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between text-xs font-medium">
+<span>进度</span>
+<span>12%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[12%]"></div>
+</div>
+<div class="flex gap-2 pt-2">
+<button class="flex-1 py-2 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-sm">pause</span> 暂停
+                                </button>
+<button class="flex-1 py-2 text-xs font-bold text-red-500 border border-red-100 dark:border-red-900/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-sm">close</span> 取消
+                                </button>
+</div>
+</div>
+</div>
+<!-- Task Card 3 -->
+<div class="bg-white dark:bg-slate-900 rounded-xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h4 class="font-bold text-slate-900 dark:text-white">亚马逊竞品价格监控</h4>
+<p class="text-xs text-slate-500 mt-0.5 truncate max-w-[180px]">ASIN: B08N5K17KK</p>
+</div>
+<span class="material-symbols-outlined text-primary">shopping_cart</span>
+</div>
+<div class="space-y-3">
+<div class="flex justify-between text-xs font-medium">
+<span>进度</span>
+<span>89%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[89%]"></div>
+</div>
+<div class="flex gap-2 pt-2">
+<button class="flex-1 py-2 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-sm">pause</span> 暂停
+                                </button>
+<button class="flex-1 py-2 text-xs font-bold text-red-500 border border-red-100 dark:border-red-900/30 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-sm">close</span> 取消
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom: History Table -->
+<section class="col-span-12">
+<h3 class="text-lg font-bold mb-4">历史采集记录</h3>
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead class="bg-slate-50 dark:bg-slate-800/50">
+<tr>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">任务 ID</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">类型</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">目标</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">完成时间</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">数据量</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">状态</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<tr>
+<td class="px-6 py-4 text-sm font-mono text-slate-500">#AC-9842</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 rounded">个人主页</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">JackMa_Official</td>
+<td class="px-6 py-4 text-sm text-slate-500">2023-10-24 14:20</td>
+<td class="px-6 py-4 text-sm font-bold">1,402 条</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5 text-green-500">
+<span class="material-symbols-outlined text-lg">check_circle</span>
+<span class="text-sm font-medium">成功</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<button class="text-primary hover:underline text-sm font-bold">查看数据</button>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4 text-sm font-mono text-slate-500">#AC-9831</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 rounded">话题标签</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">#AppleEvent</td>
+<td class="px-6 py-4 text-sm text-slate-500">2023-10-23 09:15</td>
+<td class="px-6 py-4 text-sm font-bold">25,600 条</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5 text-green-500">
+<span class="material-symbols-outlined text-lg">check_circle</span>
+<span class="text-sm font-medium">成功</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<button class="text-primary hover:underline text-sm font-bold">查看数据</button>
+</td>
+</tr>
+<tr>
+<td class="px-6 py-4 text-sm font-mono text-slate-500">#AC-9755</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 rounded">商品详情</span>
+</td>
+<td class="px-6 py-4 text-sm font-medium">iPhone 15 Pro Max</td>
+<td class="px-6 py-4 text-sm text-slate-500">2023-10-22 18:45</td>
+<td class="px-6 py-4 text-sm font-bold">0 条</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5 text-red-500">
+<span class="material-symbols-outlined text-lg">error</span>
+<span class="text-sm font-medium">失败</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<button class="text-slate-400 hover:text-slate-600 text-sm font-bold">重新尝试</button>
+</td>
+</tr>
+</tbody>
+</table>
+<div class="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
+<span class="text-sm text-slate-500">显示 3 条，共 156 条</span>
+<div class="flex gap-2">
+<button class="px-3 py-1 text-sm border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50">上一页</button>
+<button class="px-3 py-1 text-sm bg-primary text-slate-900 rounded font-bold">1</button>
+<button class="px-3 py-1 text-sm border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50">2</button>
+<button class="px-3 py-1 text-sm border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50">下一页</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+</body></html>

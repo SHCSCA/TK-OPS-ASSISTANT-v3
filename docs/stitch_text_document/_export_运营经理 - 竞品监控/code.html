@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#00f0e8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#0f2323",
+                    },
+                    fontFamily: {
+                        "display": ["Spline Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<title>TK-OPS 竞争对手监控仪表盘</title>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100">
+<div class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<!-- Top Navigation Bar -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-3 lg:px-10">
+<div class="flex items-center gap-4">
+<div class="size-8 bg-primary rounded-lg flex items-center justify-center text-slate-900">
+<span class="material-symbols-outlined font-bold">analytics</span>
+</div>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight">TK-OPS 竞争对手监控</h2>
+</div>
+<div class="flex flex-1 justify-end gap-4 items-center">
+<label class="hidden md:flex flex-col min-w-40 h-10 max-w-64">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full bg-slate-100 dark:bg-slate-800">
+<div class="text-slate-500 flex items-center justify-center pl-4">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 border-none bg-transparent focus:ring-0 text-slate-900 dark:text-slate-100 placeholder:text-slate-500 text-sm" placeholder="搜索监控账号..." value=""/>
+</div>
+</label>
+<button class="flex items-center justify-center rounded-full size-10 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary" data-alt="User profile avatar showing a professional male" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDZjo_-pnOGXlKksfCwhB-Zfy7nHWsk5gnKTrddMXWWJXb2GRhAoNN9GLU7Y0ZHTg8QcQmUxSGFXoIz6Z-sDqkmgujicL6tyeu0mU2y6OJ7Y_LrXcT6Uuy0NJuAleUoOHL0VTyGnxwK_Y3IM-_KPFhFBxd-ThS3KnQ7nOGx7Tf0GOyHCwfurT3KIJVphhOkttOHk0XImO8QGdqzo1bbXBeKEF3h2uuRGibYxtlFC-JhaIColh4mStARQl71dyMMzNX8znxGz4-Il1wx");'></div>
+</div>
+</header>
+<main class="flex flex-1 flex-col p-4 lg:p-8 gap-6 max-w-[1600px] mx-auto w-full">
+<!-- Top Section: Add & Monitored Accounts -->
+<section class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="text-xl font-bold">正在监控的账号</h3>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-slate-900 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">person_add</span>
+                            添加竞争对手
+                        </button>
+</div>
+<div class="flex overflow-x-auto gap-4 pb-2 scrollbar-hide">
+<!-- Account Card 1 (User) -->
+<div class="flex flex-col items-center justify-center bg-white dark:bg-slate-900 p-6 rounded-xl border-2 border-primary min-w-[180px] shadow-sm">
+<div class="size-16 rounded-full border-2 border-primary p-0.5 mb-3">
+<div class="w-full h-full rounded-full bg-cover bg-center" data-alt="Brand logo for TK-OPS account" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDdIDNd6k56Tqsc7TmzgrmAknLVjH3w4Zdb86sQU2jlDxlZA1Eba-4cpE6bmLrZSoeYMoKMpsyqebbnjbAwcFw0B9Hlj2H2MSsgX98gJoNhjyJpR-xlot-hjUPshXRYilGlm0utjqGp4hgrPS7s5V3l1ZKBiRdTrafNDL2OXucZnxmvY3ezdkdfUX3EhALt74ZJsJ3KdJxRL2Fe_Eug-I94a83zkw-LZawtNwvINaqDLb34ODTuElNvwWLvAVQc934IeQtGATSTtijs')"></div>
+</div>
+<span class="font-bold text-slate-900 dark:text-slate-100 text-sm">@TK_OPS_Official</span>
+<div class="mt-2 flex items-center gap-1 text-primary">
+<span class="text-lg font-bold">2.4M</span>
+<span class="material-symbols-outlined text-sm">trending_up</span>
+</div>
+<span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold mt-1">我的账号</span>
+</div>
+<!-- Account Card 2 (Competitor) -->
+<div class="flex flex-col items-center justify-center bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 min-w-[180px] shadow-sm">
+<div class="size-16 rounded-full border border-slate-200 dark:border-slate-700 p-0.5 mb-3">
+<div class="w-full h-full rounded-full bg-cover bg-center" data-alt="Competitor user avatar 1" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCJ1gFKKKFP4JZ6-hOzr5EEwCsZRAP8UJ5qbKwkg42Ff4Qjq49-jJRP0ASNSMzguNH6PLgY8VjXQvzsNfVfZKElSLqUwjsIz0fWjAKbCkIsMx1mgONCe1FAVOTq80UWHissrD8x7K26UK-phiH34dFmhluiqI3JMsAATRHuZ9KruVdGQs9blUgFj90xUnQas0Np52j11lowc2MJ_fjjHJaWINU3QMzEIFLH723jpBuizgfnlejYZbNjp1NfqiGMUH0ijR5FyskTM30_')"></div>
+</div>
+<span class="font-medium text-slate-700 dark:text-slate-300 text-sm">@GlobalTech</span>
+<div class="mt-2 flex items-center gap-1 text-rose-500">
+<span class="text-lg font-bold">1.8M</span>
+<span class="material-symbols-outlined text-sm">trending_down</span>
+</div>
+<span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold mt-1">竞争对手</span>
+</div>
+<!-- Account Card 3 (Competitor) -->
+<div class="flex flex-col items-center justify-center bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 min-w-[180px] shadow-sm">
+<div class="size-16 rounded-full border border-slate-200 dark:border-slate-700 p-0.5 mb-3">
+<div class="w-full h-full rounded-full bg-cover bg-center" data-alt="Competitor user avatar 2" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA8N2aQSsa-emJd5GsGPmR66z00Fmihpl20QaolOO7eG29shR0LAKYG1oLznV8emS7VozkMwv-HIweIf0CsANKZdM77vPAYRsVaI7Wyipzjl073WS4ojbe0-ct4rA7jTGXWVyo-51zqqMi-kKzTZjexmCLXHkv0UdiEFur6k3xQq-S6pmJA4QqB0WfWeKj9bGckFG0-qdGRxmI2drFj5iA4PmJXXt4mMP2mXIVxZCORE-Ml3_N-cmZWRD4m8TZDsuwmVIXcVuxaWJq9')"></div>
+</div>
+<span class="font-medium text-slate-700 dark:text-slate-300 text-sm">@InsightCore</span>
+<div class="mt-2 flex items-center gap-1 text-emerald-500">
+<span class="text-lg font-bold">920K</span>
+<span class="material-symbols-outlined text-sm">trending_up</span>
+</div>
+<span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold mt-1">竞争对手</span>
+</div>
+<!-- Account Card 4 (Competitor) -->
+<div class="flex flex-col items-center justify-center bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 min-w-[180px] shadow-sm">
+<div class="size-16 rounded-full border border-slate-200 dark:border-slate-700 p-0.5 mb-3">
+<div class="w-full h-full rounded-full bg-cover bg-center" data-alt="Competitor user avatar 3" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAYm2LNtYjKdz139iSb8Qr2LoNjrqKhiZdVOnqGsMfBEd6MNyF9v_fzAQY-iWGvNXzjutRdlqseNJ_nIPoSopEZtgaEVsjEJWfifoS20_F0KrKrTwZaEOd_34BARfpaCgxGggahsoYwLttQByFQe2VBCb0SE0bmuLz2FPocLEWQapN7vmwcX2lMYA3lMjjrEXjpf8513LLh7ppA_iIibSiTUxD_5piuzjrXw5D4warndvHe70eDPa2lRZ4igvq8z_IkSd5LXcEjgpOU')"></div>
+</div>
+<span class="font-medium text-slate-700 dark:text-slate-300 text-sm">@MarketTrend</span>
+<div class="mt-2 flex items-center gap-1 text-emerald-500">
+<span class="text-lg font-bold">3.1M</span>
+<span class="material-symbols-outlined text-sm">trending_up</span>
+</div>
+<span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold mt-1">竞争对手</span>
+</div>
+</div>
+</section>
+<div class="flex flex-col lg:flex-row gap-6">
+<!-- Main Area: Tabs -->
+<div class="flex-1 flex flex-col gap-4 min-w-0">
+<div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+<div class="flex border-b border-slate-200 dark:border-slate-800 px-4 overflow-x-auto bg-slate-50 dark:bg-slate-900/50">
+<button class="px-6 py-4 text-sm font-bold border-b-2 border-primary text-slate-900 dark:text-slate-100 whitespace-nowrap">视频表现</button>
+<button class="px-6 py-4 text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 whitespace-nowrap">增长趋势</button>
+<button class="px-6 py-4 text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 whitespace-nowrap">内容分析</button>
+</div>
+<!-- Tab 1: Video Performance -->
+<div class="p-0 overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 text-[12px] uppercase tracking-wider">
+<th class="px-6 py-4 font-bold">封面图 / 标题</th>
+<th class="px-6 py-4 font-bold text-center">播放量</th>
+<th class="px-6 py-4 font-bold text-center">点赞</th>
+<th class="px-6 py-4 font-bold text-center">评论</th>
+<th class="px-6 py-4 font-bold text-right">发布日期</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-4">
+<div class="w-16 h-20 rounded bg-slate-200 dark:bg-slate-800 flex-shrink-0 overflow-hidden">
+<div class="w-full h-full bg-cover bg-center" data-alt="Video thumbnail showing technology gadgets" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBoWBkHZHGX6b2BWWx3guZWnuNP6Q3kqNXZHFpuv0m9GHcm91iF2KklKwxAO5-trMq22UVZmrhsLrkw7XcU6UfOEZx_qRmqkfGUqKrOTYTcDsXb0NGuj6ixQyHKvPKRI-lBa1FrKvgfJIWvOFgC50t95hd3LAuUS-3eDPtawi-raB2h-8Lu3Y-UVUKhliwZ9d5YR-H37ETXV1-bBoLPgwHY-74BCSCtZsNtMsXPGtddCdSeIvsdmOpe89Voko2gyfhaZIUma_4cBvm4')"></div>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-bold text-sm truncate max-w-[200px]">2024 科技前瞻：未来已来</span>
+<span class="text-xs text-slate-400">@TK_OPS_Official</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-center font-bold text-primary">1.2M</td>
+<td class="px-6 py-4 text-center text-slate-600 dark:text-slate-400">45K</td>
+<td class="px-6 py-4 text-center text-slate-600 dark:text-slate-400">2.1K</td>
+<td class="px-6 py-4 text-right text-xs text-slate-400">2024-05-20</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-4">
+<div class="w-16 h-20 rounded bg-slate-200 dark:bg-slate-800 flex-shrink-0 overflow-hidden">
+<div class="w-full h-full bg-cover bg-center" data-alt="Video thumbnail showing data analytics charts" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAHPkVKXI4VjC4igvEMEKAwemdmhXWn7eA5Ui0SHbm1igUpSELBLA-N7-f0Ym0xa3GVZze9VmVG9rk-Xp2OpBIHUyBPCQ0Bqrqc0gIamArbFBKr5nwxuXZeDe4G9Vr2hcIHTY08NB8X6qzHg-dF0nPD0rolLWeDMEe6pnZ9L4KNwbUyUHmAoKdhoAl-uPTJ8l4f7VPz3Rh6qa8iVGfjFxklwoglIfU4M92EpnYXqsTUkK9zsceJ_gvcgZ2yftF6gmuyG4xUYLz-Rzar')"></div>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-bold text-sm truncate max-w-[200px]">市场深度解析：如何应对波动</span>
+<span class="text-xs text-slate-400">@MarketTrend</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-center font-bold text-slate-400">850K</td>
+<td class="px-6 py-4 text-center text-slate-600 dark:text-slate-400">12K</td>
+<td class="px-6 py-4 text-center text-slate-600 dark:text-slate-400">890</td>
+<td class="px-6 py-4 text-right text-xs text-slate-400">2024-05-19</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-4">
+<div class="w-16 h-20 rounded bg-slate-200 dark:bg-slate-800 flex-shrink-0 overflow-hidden">
+<div class="w-full h-full bg-cover bg-center" data-alt="Video thumbnail showing coding background" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC5pm1nTdcYmkEP6hTh0m7UW3ZItOqMShPqsKE13N_bQZmC9Z_3xwNuoMMMAf9kD9OsLMYkM8dNcfGV8ZYFPo652dPLdJSe0nzeJ5P3EJYL-qQ6e50z0r8QhbfrPKCaZxEeIkWOW5Fm5yf663dmD-X4WHacwIdN1kb5MHKYZ8uVVXFKApL5hOmDb7afjkRGanBJST1lbuhjCOFyqiHtQaPMWdgufYPqEXVo9oc2RIozqgvyw32WpwO8e9CMusgeg_i3Re-U8oPDy14f')"></div>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-bold text-sm truncate max-w-[200px]">AI 工具箱：提升 10 倍效率</span>
+<span class="text-xs text-slate-400">@InsightCore</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-center font-bold text-slate-400">2.1M</td>
+<td class="px-6 py-4 text-center text-slate-600 dark:text-slate-400">102K</td>
+<td class="px-6 py-4 text-center text-slate-600 dark:text-slate-400">5.4K</td>
+<td class="px-6 py-4 text-right text-xs text-slate-400">2024-05-18</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Content Analysis: Popular Hashtags -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<h4 class="font-bold text-lg mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">tag</span>
+                                内容分析：热门话题榜
+                            </h4>
+<div class="flex flex-wrap gap-2">
+<span class="px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-full text-sm font-bold">#AI革命</span>
+<span class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-sm font-medium">#远程办公</span>
+<span class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-sm font-medium">#数字化转型</span>
+<span class="px-4 py-2 bg-primary/10 text-primary/80 border border-primary/20 rounded-full text-sm font-bold">#TK运营技巧</span>
+<span class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-sm font-medium">#职场干货</span>
+<span class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-sm font-medium">#生活方式</span>
+<span class="px-4 py-2 bg-primary/20 text-primary border border-primary/30 rounded-full text-sm font-bold">#创业指南</span>
+<span class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-sm font-medium">#科技生活</span>
+<span class="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-full text-sm font-medium">#未来趋势</span>
+</div>
+</div>
+</div>
+<!-- Right Sidebar: Quick Stats -->
+<aside class="w-full lg:w-80 flex flex-col gap-6">
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<h4 class="font-bold text-slate-900 dark:text-slate-100 mb-6">核心数据概览</h4>
+<div class="space-y-6">
+<!-- Stat 1 -->
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center text-xs text-slate-500 uppercase font-bold tracking-wider">
+<span>发布频率 (每周)</span>
+<span class="text-primary">高</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-3xl font-bold">4.2</span>
+<span class="text-emerald-500 text-xs font-bold mb-1">+12%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 70%"></div>
+</div>
+</div>
+<!-- Stat 2 -->
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center text-xs text-slate-500 uppercase font-bold tracking-wider">
+<span>平均互动率</span>
+<span class="text-slate-400">行业平均: 3.5%</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-3xl font-bold">5.8%</span>
+<span class="text-emerald-500 text-xs font-bold mb-1">+0.4%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 85%"></div>
+</div>
+</div>
+<!-- Stat 3 -->
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center text-xs text-slate-500 uppercase font-bold tracking-wider">
+<span>粉丝转化率</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-3xl font-bold">2.1%</span>
+<span class="text-rose-500 text-xs font-bold mb-1">-0.2%</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 45%"></div>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800">
+<p class="text-sm font-medium mb-4">竞对对比总结</p>
+<div class="space-y-3">
+<div class="flex items-center gap-3">
+<div class="size-2 rounded-full bg-primary"></div>
+<p class="text-xs text-slate-600 dark:text-slate-400">您的互动率高出竞对 24%</p>
+</div>
+<div class="flex items-center gap-3">
+<div class="size-2 rounded-full bg-slate-400"></div>
+<p class="text-xs text-slate-600 dark:text-slate-400">@MarketTrend 发布频率更高</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Growth Mini Chart (Visual representation using CSS) -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+<h4 class="font-bold text-sm mb-4">今日流量波动</h4>
+<div class="h-24 flex items-end gap-1 px-1">
+<div class="flex-1 bg-primary/20 hover:bg-primary transition-colors h-[40%] rounded-t-sm" title="00:00"></div>
+<div class="flex-1 bg-primary/20 hover:bg-primary transition-colors h-[30%] rounded-t-sm" title="04:00"></div>
+<div class="flex-1 bg-primary/20 hover:bg-primary transition-colors h-[50%] rounded-t-sm" title="08:00"></div>
+<div class="flex-1 bg-primary/20 hover:bg-primary transition-colors h-[80%] rounded-t-sm" title="12:00"></div>
+<div class="flex-1 bg-primary h-[95%] rounded-t-sm" title="16:00"></div>
+<div class="flex-1 bg-primary/20 hover:bg-primary transition-colors h-[70%] rounded-t-sm" title="20:00"></div>
+<div class="flex-1 bg-primary/20 hover:bg-primary transition-colors h-[60%] rounded-t-sm" title="23:59"></div>
+</div>
+<div class="flex justify-between mt-2 text-[10px] text-slate-400 uppercase font-bold">
+<span>00:00</span>
+<span>12:00</span>
+<span>23:59</span>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Bottom Status Bar -->
+<footer class="mt-auto px-8 py-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-[11px] text-slate-500 flex justify-between items-center">
+<div class="flex items-center gap-4">
+<span>最后更新: 2024-05-21 14:30:00</span>
+<span class="flex items-center gap-1"><div class="size-1.5 rounded-full bg-emerald-500"></div> 数据监控运行中</span>
+</div>
+<div class="flex gap-4">
+<a class="hover:text-primary transition-colors" href="#">隐私政策</a>
+<a class="hover:text-primary transition-colors" href="#">用户反馈</a>
+</div>
+</footer>
+</div>
+</div>
+</body></html>
