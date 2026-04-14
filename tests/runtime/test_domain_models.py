@@ -9,14 +9,24 @@ from domain.models import (
     AICapabilityConfig,
     AIJobRecord,
     AIProviderSetting,
+    Account,
+    Asset,
+    AutomationTask,
     Base,
+    DeviceWorkspace,
+    ExecutionBinding,
     LicenseGrant,
     ImportedVideo,
     Project,
+    PublishPlan,
+    RenderTask,
     ScriptVersion,
     SessionContext,
+    SubtitleTrack,
     StoryboardVersion,
     SystemConfig,
+    Timeline,
+    VoiceTrack,
     generate_uuid,
 )
 from persistence.engine import create_runtime_engine, create_session_factory
@@ -44,6 +54,16 @@ def test_domain_models_match_existing_table_names() -> None:
     assert AIProviderSetting.__tablename__ == "ai_provider_settings"
     assert LicenseGrant.__tablename__ == "license_grant"
     assert ImportedVideo.__tablename__ == "imported_videos"
+    assert Timeline.__tablename__ == "timelines"
+    assert VoiceTrack.__tablename__ == "voice_tracks"
+    assert SubtitleTrack.__tablename__ == "subtitle_tracks"
+    assert Asset.__tablename__ == "assets"
+    assert Account.__tablename__ == "accounts"
+    assert DeviceWorkspace.__tablename__ == "device_workspaces"
+    assert ExecutionBinding.__tablename__ == "execution_bindings"
+    assert AutomationTask.__tablename__ == "automation_tasks"
+    assert PublishPlan.__tablename__ == "publish_plans"
+    assert RenderTask.__tablename__ == "render_tasks"
     assert SystemConfig.__tablename__ == "system_config"
     assert SessionContext.__tablename__ == "session_context"
 
@@ -122,6 +142,143 @@ def test_imported_video_columns_match_target_schema(tmp_path: Path) -> None:
         "status",
         "error_message",
         "created_at",
+    }
+
+
+def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+    Base.metadata.create_all(engine)
+
+    inspector = inspect(engine)
+    table_columns = {
+        table: {col["name"] for col in inspector.get_columns(table)}
+        for table in (
+            "timelines",
+            "voice_tracks",
+            "subtitle_tracks",
+            "assets",
+            "accounts",
+            "device_workspaces",
+            "execution_bindings",
+            "automation_tasks",
+            "publish_plans",
+            "render_tasks",
+        )
+    }
+
+    assert table_columns["timelines"] == {
+        "id",
+        "project_id",
+        "name",
+        "status",
+        "duration_seconds",
+        "tracks_json",
+        "source",
+        "created_at",
+        "updated_at",
+    }
+    assert table_columns["voice_tracks"] == {
+        "id",
+        "project_id",
+        "timeline_id",
+        "source",
+        "provider",
+        "voice_name",
+        "file_path",
+        "segments_json",
+        "status",
+        "created_at",
+    }
+    assert table_columns["subtitle_tracks"] == {
+        "id",
+        "project_id",
+        "timeline_id",
+        "source",
+        "language",
+        "style_json",
+        "segments_json",
+        "status",
+        "created_at",
+    }
+    assert table_columns["assets"] == {
+        "id",
+        "project_id",
+        "kind",
+        "file_path",
+        "file_name",
+        "file_size_bytes",
+        "mime_type",
+        "source",
+        "metadata_json",
+        "created_at",
+    }
+    assert table_columns["accounts"] == {
+        "id",
+        "platform",
+        "handle",
+        "display_name",
+        "group_name",
+        "status",
+        "source",
+        "metadata_json",
+        "created_at",
+    }
+    assert table_columns["device_workspaces"] == {
+        "id",
+        "name",
+        "device_type",
+        "root_path",
+        "browser_profile",
+        "status",
+        "health_json",
+        "source",
+        "created_at",
+    }
+    assert table_columns["execution_bindings"] == {
+        "id",
+        "account_id",
+        "device_workspace_id",
+        "status",
+        "source",
+        "metadata_json",
+        "created_at",
+    }
+    assert table_columns["automation_tasks"] == {
+        "id",
+        "project_id",
+        "binding_id",
+        "task_type",
+        "status",
+        "schedule_json",
+        "payload_json",
+        "source",
+        "created_at",
+        "updated_at",
+    }
+    assert table_columns["publish_plans"] == {
+        "id",
+        "project_id",
+        "account_id",
+        "binding_id",
+        "status",
+        "scheduled_at",
+        "caption",
+        "source",
+        "metadata_json",
+        "created_at",
+    }
+    assert table_columns["render_tasks"] == {
+        "id",
+        "project_id",
+        "timeline_id",
+        "status",
+        "output_path",
+        "profile_json",
+        "progress",
+        "source",
+        "error_message",
+        "created_at",
+        "updated_at",
     }
 
 
