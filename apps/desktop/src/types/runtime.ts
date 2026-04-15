@@ -188,6 +188,63 @@ export type StoryboardDocument = {
   recentJobs: AIJobRecord[];
 };
 
+export type AssetDto = {
+  id: string;
+  name: string;
+  type: string;
+  source: string;
+  filePath: string | null;
+  fileSizeBytes: number | null;
+  durationMs: number | null;
+  thumbnailPath: string | null;
+  tags: string | null;
+  projectId: string | null;
+  metadataJson: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AssetReferenceDto = {
+  id: string;
+  assetId: string;
+  referenceType: string;
+  referenceId: string;
+  createdAt: string;
+};
+
+export type AccountDto = {
+  id: string;
+  name: string;
+  platform: string;
+  username: string | null;
+  avatarUrl: string | null;
+  status: string;
+  authExpiresAt: string | null;
+  followerCount: number | null;
+  followingCount: number | null;
+  videoCount: number | null;
+  tags: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AccountGroupDto = {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  createdAt: string;
+};
+
+export type AccountCreateInput = {
+  name: string;
+  platform: string;
+  username?: string;
+  avatarUrl?: string;
+  status: string;
+};
+
 export type { ImportedVideo, ImportedVideoStatus } from "./video";
 
 export type RuntimeSuccessEnvelope<T> = {

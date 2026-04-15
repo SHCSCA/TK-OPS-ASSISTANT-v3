@@ -91,16 +91,8 @@ export function createAppRouter(
       if (projectStore.status === "idle") {
         await projectStore.load();
       }
-
-      if (!projectStore.currentProject) {
-        return {
-          path: "/dashboard",
-          query: {
-            redirect: to.fullPath,
-            reason: "missing-project"
-          }
-        };
-      }
+      // Removed hard redirect to /dashboard. 
+      // Individual pages will handle missing context via ProjectContextGuard.
     }
 
     return true;

@@ -13,7 +13,7 @@ describe("Project context guard", () => {
     vi.restoreAllMocks();
   });
 
-  it("redirects project-scoped routes to dashboard when no current project is selected", async () => {
+  it("stays on the requested route but shows empty state when no current project is selected", async () => {
     vi.stubGlobal(
       "fetch",
       createRouteAwareFetch((path) => {
@@ -40,12 +40,14 @@ describe("Project context guard", () => {
       })
     );
 
-    const { router } = await mountApp("/scripts/topics");
+    const { wrapper, router } = await mountApp("/scripts/topics");
     await flushPromises();
 
-    expect(router.currentRoute.value.fullPath).toBe(
-      "/dashboard?redirect=/scripts/topics&reason=missing-project"
-    );
-    expect(router.currentRoute.value.query.reason).toBe("missing-project");
+    // Behavior changed: we stay on the page
+    expect(router.currentRoute.value.path).toBe("/scripts/topics");
+    
+    // Check if the ProjectContextGuard rendered the empty state
+    expect(wrapper.find(".empty-state-container").exists()).toBe(true);
+    expect(wrapper.text()).toContain("需要选择项目");
   });
 });

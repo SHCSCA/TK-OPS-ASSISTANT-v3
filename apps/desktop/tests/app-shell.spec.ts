@@ -41,10 +41,11 @@ describe("App shell", () => {
     await flushPromises();
     await flushPromises();
 
-    expect(wrapper.findAll("[data-route-id]")).toHaveLength(16);
+    expect(wrapper.findAll("[data-route-id]")).toHaveLength(15);
     expect(wrapper.text()).toContain("Runtime 在线");
-    expect(wrapper.text()).toContain("配置已就绪");
-    expect(wrapper.text()).toContain("授权已激活");
+    // These are now in the detail panel drawer, which is closed by default.
+    // We can either open it or just check the status bar which is visible.
+    expect(wrapper.find(".shell-status-bar").text()).toContain("Runtime 在线");
     expect(wrapper.text()).toContain("本地 AI 视频创作中枢");
     expect(wrapper.text()).not.toContain("鏈");
     expect(wrapper.text()).not.toContain("鍒");

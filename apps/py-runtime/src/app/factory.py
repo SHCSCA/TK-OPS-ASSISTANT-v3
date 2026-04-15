@@ -11,9 +11,16 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.routes import (
+    accounts_router,
     ai_capabilities_router,
+    assets_router,
+    automation_router,
     dashboard_router,
+    device_workspaces_router,
     license_router,
+    publishing_router,
+    renders_router,
+    review_router,
     scripts_router,
     settings_router,
     storyboards_router,
@@ -26,19 +33,33 @@ from app.secret_store import build_secret_store
 from persistence.engine import create_runtime_engine, create_session_factory, initialize_domain_schema
 from repositories.ai_capability_repository import AICapabilityRepository
 from repositories.ai_job_repository import AIJobRepository
+from repositories.account_repository import AccountRepository
+from repositories.automation_repository import AutomationRepository
+from repositories.asset_repository import AssetRepository
 from repositories.dashboard_repository import DashboardRepository
+from repositories.device_workspace_repository import DeviceWorkspaceRepository
 from repositories.license_repository import LicenseRepository
 from repositories.imported_video_repository import ImportedVideoRepository
+from repositories.publishing_repository import PublishingRepository
+from repositories.render_repository import RenderRepository
+from repositories.review_repository import ReviewRepository
 from repositories.script_repository import ScriptRepository
 from repositories.storyboard_repository import StoryboardRepository
 from repositories.system_config_repository import SystemConfigRepository
 from schemas.envelope import error_response
+from services.account_service import AccountService
+from services.asset_service import AssetService
 from services.ai_capability_service import AICapabilityService
 from services.ai_text_generation_service import AITextGenerationService
+from services.automation_service import AutomationService
 from services.dashboard_service import DashboardService
+from services.device_workspace_service import DeviceWorkspaceService
 from services.license_activation import OfflineLicenseActivationAdapter
 from services.license_service import LicenseService
 from services.machine_code import MachineCodeService
+from services.publishing_service import PublishingService
+from services.render_service import RenderService
+from services.review_service import ReviewService
 from services.script_service import ScriptService
 from services.settings_service import SettingsService
 from services.storyboard_service import StoryboardService
@@ -60,6 +81,13 @@ def create_app() -> FastAPI:
     ai_job_repository = AIJobRepository(session_factory=session_factory)
     script_repository = ScriptRepository(session_factory=session_factory)
     storyboard_repository = StoryboardRepository(session_factory=session_factory)
+    asset_repository = AssetRepository(session_factory=session_factory)
+    account_repository = AccountRepository(session_factory=session_factory)
+    device_workspace_repository = DeviceWorkspaceRepository(session_factory=session_factory)
+    automation_repository = AutomationRepository(session_factory=session_factory)
+    publishing_repository = PublishingRepository(session_factory=session_factory)
+    render_repository = RenderRepository(session_factory=session_factory)
+    review_repository = ReviewRepository(session_factory=session_factory)
 
     settings_service = SettingsService(
         runtime_config=runtime_config,
@@ -88,6 +116,13 @@ def create_app() -> FastAPI:
         script_service,
     )
     video_import_service = VideoImportService(repository=imported_video_repository)
+    asset_service = AssetService(asset_repository)
+    account_service = AccountService(account_repository)
+    device_workspace_service = DeviceWorkspaceService(device_workspace_repository)
+    automation_service = AutomationService(automation_repository)
+    publishing_service = PublishingService(publishing_repository)
+    render_service = RenderService(render_repository)
+    review_service = ReviewService(review_repository)
     machine_code_service = MachineCodeService()
     license_service = LicenseService(
         runtime_config=runtime_config,
@@ -128,6 +163,13 @@ def create_app() -> FastAPI:
     app.state.ai_job_repository = ai_job_repository
     app.state.script_repository = script_repository
     app.state.storyboard_repository = storyboard_repository
+    app.state.asset_repository = asset_repository
+    app.state.account_repository = account_repository
+    app.state.device_workspace_repository = device_workspace_repository
+    app.state.automation_repository = automation_repository
+    app.state.publishing_repository = publishing_repository
+    app.state.render_repository = render_repository
+    app.state.review_repository = review_repository
     app.state.license_service = license_service
     app.state.settings_service = settings_service
     app.state.dashboard_service = dashboard_service
@@ -135,6 +177,13 @@ def create_app() -> FastAPI:
     app.state.ai_text_generation_service = ai_text_generation_service
     app.state.script_service = script_service
     app.state.storyboard_service = storyboard_service
+    app.state.asset_service = asset_service
+    app.state.account_service = account_service
+    app.state.device_workspace_service = device_workspace_service
+    app.state.automation_service = automation_service
+    app.state.publishing_service = publishing_service
+    app.state.render_service = render_service
+    app.state.review_service = review_service
     app.state.video_import_service = video_import_service
 
     @app.middleware('http')
@@ -217,9 +266,16 @@ def create_app() -> FastAPI:
             content=error_response('Internal server error', request_id=request_id),
         )
 
+    app.include_router(accounts_router)
     app.include_router(ai_capabilities_router)
+    app.include_router(assets_router)
+    app.include_router(automation_router)
     app.include_router(dashboard_router)
+    app.include_router(device_workspaces_router)
     app.include_router(license_router)
+    app.include_router(publishing_router)
+    app.include_router(renders_router)
+    app.include_router(review_router)
     app.include_router(scripts_router)
     app.include_router(settings_router)
     app.include_router(storyboards_router)

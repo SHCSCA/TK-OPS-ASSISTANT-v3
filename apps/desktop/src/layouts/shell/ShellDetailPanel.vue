@@ -1,60 +1,24 @@
 <template>
   <aside class="shell-detail-panel">
-    <section class="detail-section">
-      <div class="detail-section__header">
-        <p class="detail-section__title">系统状态</p>
-        <span class="live-indicator">
-          <span class="live-indicator__dot"></span>
-          <span class="live-indicator__text">Live</span>
-        </span>
-      </div>
-
-      <div class="status-row">
-        <div class="status-row__info">
-          <p class="status-row__label">Runtime 引擎</p>
-          <p class="status-row__sub">{{ runtimeVersion }}</p>
-        </div>
-        <p class="status-row__value" :class="runtimeLabel.includes('在线') ? 'status-row__value--active' : 'status-row__value--inactive'">
-          {{ runtimeLabel.includes('在线') ? 'Active' : 'Inactive' }}
-        </p>
-      </div>
-
-      <div class="status-row">
-        <div class="status-row__info">
-          <p class="status-row__label">许可证授权</p>
-          <p class="status-row__sub">{{ maskedCode }}</p>
-        </div>
-        <p class="status-row__value" :class="licenseLabel.includes('已激活') ? 'status-row__value--active' : 'status-row__value--inactive'">
-          {{ licenseLabel.includes('已激活') ? 'Active' : 'Inactive' }}
-        </p>
-      </div>
-
-      <div class="status-row">
-        <div class="status-row__info">
-          <p class="status-row__label">配置总线</p>
-          <p class="status-row__sub">{{ configStatusLabel }}</p>
-        </div>
-        <p class="status-row__value" :class="configStatusLabel.includes('就绪') ? 'status-row__value--active' : 'status-row__value--inactive'">
-          {{ configStatusLabel.includes('就绪') ? 'Active' : 'Inactive' }}
-        </p>
-      </div>
-    </section>
-
-    <section class="detail-section">
-      <p class="detail-section__title">项目上下文</p>
-      <template v-if="projectName">
-        <div class="project-context">
-          <strong>{{ projectName }}</strong>
-          <p>状态：{{ projectStatus }}</p>
-        </div>
-      </template>
-      <p v-else class="detail-section__empty">尚未选择项目。需要项目上下文的页面会先回到创作总览。</p>
-    </section>
+    <transition name="panel-fade" mode="out-in">
+      <component
+        :is="activeComponent"
+        v-bind="componentProps"
+      />
+    </transition>
   </aside>
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue';
+import SystemStatusDetail from '@/components/shell/details/SystemStatusDetail.vue';
+import ContextualDetail from '@/components/shell/details/ContextualDetail.vue';
+import AssetDetail from '@/components/shell/details/AssetDetail.vue';
+import LogDetail from '@/components/shell/details/LogDetail.vue';
+import BindingDetail from '@/components/shell/details/BindingDetail.vue';
+
+const props = defineProps<{
+  mode: 'hidden' | 'contextual' | 'asset' | 'logs' | 'binding' | 'settings';
   configStatusLabel: string;
   licenseLabel: string;
   maskedCode: string;
@@ -63,4 +27,61 @@ defineProps<{
   runtimeLabel: string;
   runtimeVersion: string;
 }>();
+
+const activeComponent = computed(() => {
+  switch (props.mode) {
+    case 'settings': return SystemStatusDetail;
+    case 'contextual': return ContextualDetail;
+    case 'asset': return AssetDetail;
+    case 'logs': return LogDetail;
+    case 'binding': return BindingDetail;
+    default: return ContextualDetail;
+  }
+});
+
+const componentProps = computed(() => {
+  if (props.mode === 'settings') {
+    return {
+      configStatusLabel: props.configStatusLabel,
+      licenseLabel: props.licenseLabel,
+      maskedCode: props.maskedCode,
+      projectName: props.projectName,
+      projectStatus: props.projectStatus,
+      runtimeLabel: props.runtimeLabel,
+      runtimeVersion: props.runtimeVersion
+    };
+  }
+  return {};
+});
 </script>
+
+<style scoped>
+.shell-detail-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+  width: var(--detail-panel-width);
+  box-shadow: var(--shadow-md);
+  height: 100%;
+  overflow-y: auto;
+  color: var(--text-primary);
+}
+
+.panel-fade-enter-active,
+.panel-fade-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.panel-fade-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.panel-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+</style>

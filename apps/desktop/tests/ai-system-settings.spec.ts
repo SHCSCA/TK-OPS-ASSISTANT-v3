@@ -82,6 +82,10 @@ describe("AI 与系统设置页", () => {
     expect(
       (wrapper.get('[data-field="ai.model"]').element as HTMLInputElement).value
     ).toBe("gpt-5.4");
+    // Open detail panel to see masked license code
+    await wrapper.find('button[title="切换属性面板"]').trigger("click");
+    await flushPromises();
+
     expect(wrapper.text()).toContain("TK-O****************0001");
 
     vi.setSystemTime(new Date("2026-04-11T08:05:00.000Z"));

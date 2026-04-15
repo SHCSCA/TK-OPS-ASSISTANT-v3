@@ -12,10 +12,12 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "TK-OPS",
         "width": 1440,
         "height": 960,
-        "resizable": true
+        "resizable": true,
+        "decorations": false
       }
     ]
   },

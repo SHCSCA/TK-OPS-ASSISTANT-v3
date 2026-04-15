@@ -15,7 +15,12 @@ import type {
   RuntimeHealthSnapshot,
   ScriptDocument,
   StoryboardDocument,
-  StoryboardScene
+  StoryboardScene,
+  AssetDto,
+  AssetReferenceDto,
+  AccountDto,
+  AccountGroupDto,
+  AccountCreateInput
 } from "@/types/runtime";
 import type { ImportedVideo } from "@/types/video";
 
@@ -203,6 +208,58 @@ export async function importVideo(projectId: string, filePath: string): Promise<
 export async function deleteImportedVideo(videoId: string): Promise<void> {
   return requestRuntime<void>(`/api/video-deconstruction/videos/${videoId}`, {
     method: "DELETE"
+  });
+}
+
+// Assets
+export async function fetchAssets(type?: string, q?: string): Promise<AssetDto[]> {
+  const params = new URLSearchParams();
+  if (type) params.append("type", type);
+  if (q) params.append("q", q);
+  const query = params.toString();
+  return requestRuntime<AssetDto[]>(`/api/assets${query ? `?${query}` : ""}`);
+}
+
+export async function deleteAsset(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/assets/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export async function fetchAssetReferences(id: string): Promise<AssetReferenceDto[]> {
+  return requestRuntime<AssetReferenceDto[]>(`/api/assets/${id}/references`);
+}
+
+// Accounts
+export async function fetchAccounts(groupId?: string, status?: string, q?: string): Promise<AccountDto[]> {
+  const params = new URLSearchParams();
+  if (groupId) params.append("group_id", groupId);
+  if (status) params.append("status", status);
+  if (q) params.append("q", q);
+  const query = params.toString();
+  return requestRuntime<AccountDto[]>(`/api/accounts${query ? `?${query}` : ""}`);
+}
+
+export async function createAccount(input: AccountCreateInput): Promise<AccountDto> {
+  return requestRuntime<AccountDto>("/api/accounts", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function deleteAccount(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/accounts/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export async function fetchAccountGroups(): Promise<AccountGroupDto[]> {
+  return requestRuntime<AccountGroupDto[]>("/api/accounts/groups");
+}
+
+export async function refreshAccountStats(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/accounts/${id}/refresh-stats`, {
+    method: "POST"
   });
 }
 
