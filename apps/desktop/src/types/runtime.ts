@@ -245,6 +245,211 @@ export type AccountCreateInput = {
   status: string;
 };
 
+export type AutomationTaskCreateInput = {
+  name: string;
+  type: string;
+  cron_expr?: string | null;
+  config_json?: string | null;
+};
+
+export type AutomationTaskUpdateInput = {
+  name?: string | null;
+  type?: string | null;
+  enabled?: boolean | null;
+  cron_expr?: string | null;
+  config_json?: string | null;
+};
+
+export type AutomationTaskDto = {
+  id: string;
+  name: string;
+  type: string;
+  enabled: boolean;
+  cron_expr: string | null;
+  last_run_at: string | null;
+  last_run_status: string | null;
+  run_count: number;
+  config_json: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AutomationTaskRunDto = {
+  id: string;
+  task_id: string;
+  status: string;
+  started_at: string | null;
+  finished_at: string | null;
+  log_text: string | null;
+  created_at: string;
+};
+
+export type TriggerTaskResultDto = {
+  task_id: string;
+  run_id: string;
+  status: string;
+  message: string;
+};
+
+export type DeviceWorkspaceCreateInput = {
+  name: string;
+  root_path: string;
+};
+
+export type DeviceWorkspaceUpdateInput = {
+  name?: string | null;
+  root_path?: string | null;
+  status?: string | null;
+};
+
+export type DeviceWorkspaceDto = {
+  id: string;
+  name: string;
+  root_path: string;
+  status: string;
+  error_count: number;
+  last_used_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HealthCheckResultDto = {
+  workspace_id: string;
+  status: string;
+  checked_at: string;
+};
+
+export type PublishPlanCreateInput = {
+  title: string;
+  account_id?: string | null;
+  account_name?: string | null;
+  project_id?: string | null;
+  video_asset_id?: string | null;
+  scheduled_at?: string | null;
+};
+
+export type PublishPlanUpdateInput = {
+  title?: string | null;
+  account_name?: string | null;
+  status?: string | null;
+  scheduled_at?: string | null;
+};
+
+export type PublishPlanDto = {
+  id: string;
+  title: string;
+  account_id: string | null;
+  account_name: string | null;
+  project_id: string | null;
+  video_asset_id: string | null;
+  status: string;
+  scheduled_at: string | null;
+  submitted_at: string | null;
+  published_at: string | null;
+  error_message: string | null;
+  precheck_result_json: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PrecheckItemResult = {
+  code: string;
+  label: string;
+  result: string;
+  message?: string | null;
+};
+
+export type PrecheckResultDto = {
+  plan_id: string;
+  items: PrecheckItemResult[];
+  has_errors: boolean;
+  checked_at: string;
+};
+
+export type SubmitPlanResultDto = {
+  plan_id: string;
+  status: string;
+  submitted_at: string;
+  message: string;
+};
+
+export type RenderTaskCreateInput = {
+  project_id?: string | null;
+  project_name?: string | null;
+  preset?: string;
+  format?: string;
+};
+
+export type RenderTaskUpdateInput = {
+  preset?: string | null;
+  format?: string | null;
+  status?: string | null;
+  progress?: number | null;
+  output_path?: string | null;
+  error_message?: string | null;
+};
+
+export type RenderTaskDto = {
+  id: string;
+  project_id: string | null;
+  project_name: string | null;
+  preset: string;
+  format: string;
+  status: string;
+  progress: number;
+  output_path: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CancelRenderResultDto = {
+  task_id: string;
+  status: string;
+  message: string;
+};
+
+export type ReviewSuggestion = {
+  code: string;
+  category: string;
+  title: string;
+  description: string;
+  priority: string;
+};
+
+export type ReviewSummaryUpdateInput = {
+  project_name?: string | null;
+  total_views?: number | null;
+  total_likes?: number | null;
+  total_comments?: number | null;
+  avg_watch_time_sec?: number | null;
+  completion_rate?: number | null;
+};
+
+export type ReviewSummaryDto = {
+  id: string;
+  project_id: string;
+  project_name: string | null;
+  total_views: number;
+  total_likes: number;
+  total_comments: number;
+  avg_watch_time_sec: number;
+  completion_rate: number;
+  suggestions: ReviewSuggestion[];
+  last_analyzed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AnalyzeProjectResultDto = {
+  project_id: string;
+  status: string;
+  message: string;
+  analyzed_at: string;
+};
+
 export type { ImportedVideo, ImportedVideoStatus } from "./video";
 
 export type RuntimeSuccessEnvelope<T> = {

@@ -104,14 +104,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
+import { useRendersStore } from '@/stores/renders';
 
 interface RenderTask {
   id: string;
   projectName: string;
   fileName: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | string;
   progress: number;
   format: string;
   duration: string;
@@ -120,47 +121,29 @@ interface RenderTask {
 }
 
 const statusTabs = [
-  { label: '全部', value: 'all' },
-  { label: '进行中', value: 'running' },
-  { label: '已完成', value: 'completed' },
-  { label: '失败', value: 'failed' }
+  { label: '??', value: 'all' },
+  { label: '???', value: 'running' },
+  { label: '???', value: 'completed' },
+  { label: '??', value: 'failed' }
 ];
 
+const rendersStore = useRendersStore();
 const currentFilter = ref('all');
 const selectedTaskId = ref<string | null>(null);
 
-// Memory state for demo/V1
-const tasks = ref<RenderTask[]>([
-  {
-    id: '1',
-    projectName: '夏季爆款带货',
-    fileName: 'video_v1_0620.mp4',
-    status: 'completed',
-    progress: 100,
-    format: 'MP4 (H.264)',
-    duration: '00:15',
-    createdAt: '2024-06-20 14:20',
-    logs: [
-      { time: '14:20:01', msg: 'Task initialized' },
-      { time: '14:20:05', msg: 'Media sources loaded' },
-      { time: '14:21:30', msg: 'Render successful' }
-    ]
-  },
-  {
-    id: '2',
-    projectName: '剧情脚本测试',
-    fileName: 'draft_preview.mp4',
-    status: 'running',
-    progress: 45,
-    format: 'MP4 (H.264)',
-    duration: '01:20',
-    createdAt: '2024-06-20 15:45',
-    logs: [
-      { time: '15:45:10', msg: 'Starting render engine' },
-      { time: '15:45:30', msg: 'Encoding audio streams' }
-    ]
-  }
-]);
+const tasks = computed<RenderTask[]>(() =>
+  rendersStore.tasks.map((task) => ({
+    id: task.id,
+    projectName: task.project_name ?? '?????',
+    fileName: task.output_path?.split(/[\/]/).pop() || `${task.id}.${task.format}`,
+    status: normalizeRenderStatus(task.status),
+    progress: task.progress,
+    format: task.format.toUpperCase(),
+    duration: task.finished_at && task.started_at ? '???' : '???',
+    createdAt: task.created_at,
+    logs: task.error_message ? [{ time: task.updated_at, msg: task.error_message }] : []
+  }))
+);
 
 const filteredTasks = computed(() => {
   if (currentFilter.value === 'all') return tasks.value;
@@ -171,17 +154,30 @@ const selectedTask = computed(() =>
   tasks.value.find(t => t.id === selectedTaskId.value)
 );
 
-function handleNewTask() {
-  alert('渲染引擎 B-M14 后端尚未就绪，功能接入中');
+onMounted(() => {
+  rendersStore.loadTasks();
+});
+
+async function handleNewTask(): Promise<void> {
+  const task = await rendersStore.addTask({ preset: '1080p', format: 'mp4' });
+  if (task) selectedTaskId.value = task.id;
 }
 
-function handleDownload() {
-  alert('视频文件准备中，请稍后');
+function handleDownload(): void {
+  if (!selectedTask.value) return;
+  console.info('Render output path', selectedTask.value.fileName);
 }
 
-function handleDelete(id: string) {
-  tasks.value = tasks.value.filter(t => t.id !== id);
+async function handleDelete(id: string): Promise<void> {
+  await rendersStore.removeTask(id);
   if (selectedTaskId.value === id) selectedTaskId.value = null;
+}
+
+function normalizeRenderStatus(status: string): RenderTask['status'] {
+  if (status === 'succeeded') return 'completed';
+  if (status === 'queued') return 'pending';
+  if (status === 'cancelled') return 'failed';
+  return status;
 }
 
 function getStatusIcon(status: string) {
@@ -196,10 +192,10 @@ function getStatusIcon(status: string) {
 
 function getStatusLabel(status: string) {
   switch (status) {
-    case 'pending': return '等待中';
-    case 'running': return '渲染中';
-    case 'completed': return '已完成';
-    case 'failed': return '渲染失败';
+    case 'pending': return '???';
+    case 'running': return '???';
+    case 'completed': return '???';
+    case 'failed': return '????';
     default: return status;
   }
 }

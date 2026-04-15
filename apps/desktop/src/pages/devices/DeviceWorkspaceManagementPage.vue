@@ -121,19 +121,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useDeviceWorkspacesStore } from '@/stores/device-workspaces';
 
 interface Workspace {
   id: string;
   name: string;
   root_path: string;
-  status: 'online' | 'offline' | 'running' | 'error';
+  status: 'online' | 'offline' | 'running' | 'error' | string;
   error_count: number;
   last_used_at: string | null;
   created_at: string;
 }
 
-const workspaces = ref<Workspace[]>([]);
+const deviceWorkspacesStore = useDeviceWorkspacesStore();
+const workspaces = computed<Workspace[]>(() => deviceWorkspacesStore.workspaces as Workspace[]);
 const selectedId = ref<string | null>(null);
 const isCreating = ref(false);
 const form = ref({ name: '', root_path: '' });
@@ -142,30 +144,43 @@ const selectedWorkspace = computed(() =>
   workspaces.value.find((w) => w.id === selectedId.value) ?? null
 );
 
+onMounted(() => {
+  deviceWorkspacesStore.loadWorkspaces();
+});
+
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
-    online: '在线',
-    offline: '离线',
-    running: '运行中',
-    error: '错误'
+    online: '??',
+    offline: '??',
+    running: '???',
+    error: '??'
   };
   return map[status] ?? status;
 }
 
-function handleCreate(): void {
+async function handleCreate(): Promise<void> {
   if (!form.value.name || !form.value.root_path) return;
-  alert('后端接入后可创建工作区（B-M11 待实现）');
+  const workspace = await deviceWorkspacesStore.addWorkspace({
+    name: form.value.name,
+    root_path: form.value.root_path
+  });
+  if (!workspace) return;
+  selectedId.value = workspace.id;
+  form.value = { name: '', root_path: '' };
   isCreating.value = false;
 }
 
-function handleHealthCheck(): void {
-  alert('后端接入后可执行健康检查（B-M11 待实现）');
+async function handleHealthCheck(): Promise<void> {
+  if (!selectedWorkspace.value) return;
+  await deviceWorkspacesStore.checkHealth(selectedWorkspace.value.id);
 }
 
-function handleDelete(): void {
+async function handleDelete(): Promise<void> {
   if (!selectedWorkspace.value) return;
-  if (!confirm(`确认删除工作区"${selectedWorkspace.value.name}"？`)) return;
-  alert('后端接入后可删除工作区（B-M11 待实现）');
+  if (!confirm(`??????? "${selectedWorkspace.value.name}"?`)) return;
+  const deletedId = selectedWorkspace.value.id;
+  await deviceWorkspacesStore.removeWorkspace(deletedId);
+  if (selectedId.value === deletedId) selectedId.value = null;
 }
 </script>
 

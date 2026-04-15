@@ -95,59 +95,63 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
+import { fetchCurrentProjectContext } from '@/app/runtime-client';
+import { useReviewStore } from '@/stores/review';
 
 interface Suggestion {
   id: string;
   title: string;
   description: string;
-  priority: 'high' | 'medium' | 'low';
+  priority: 'high' | 'medium' | 'low' | string;
 }
 
-const projects = ref([
-  { id: 'p1', name: '夏季爆款带货' },
-  { id: 'p2', name: '数码产品测评' }
-]);
+const reviewStore = useReviewStore();
+const currentProjectId = ref<string | null>(null);
+const ignoredSuggestionIds = ref<string[]>([]);
 
-const suggestions = ref<Suggestion[]>([
-  {
-    id: 's1',
-    title: '调整视频前 3 秒钩子文案',
-    description: '数据表明当前脚本开场留存率较低，建议增加更具冲击力的视觉悬念或利益点引导。',
-    priority: 'high'
-  },
-  {
-    id: 's2',
-    title: '优化配音语速与情感',
-    description: 'AI 检测到当前音频在 15-20s 处情绪略显平淡，建议在该段落使用“欢快”风格。',
-    priority: 'medium'
-  },
-  {
-    id: 's3',
-    title: '更换背景音乐 BGM',
-    description: '此类视频近期流行更动感的鼓点节奏，当前 BGM 风格略显陈旧。',
-    priority: 'low'
-  }
-]);
+const projects = computed(() =>
+  reviewStore.summary
+    ? [{ id: reviewStore.summary.project_id, name: reviewStore.summary.project_name ?? reviewStore.summary.project_id }]
+    : []
+);
 
-function handleAnalyze() {
-  alert('复盘中心 B-M15 后端尚未就绪，当前展示为静态示例');
+const suggestions = computed<Suggestion[]>(() =>
+  (reviewStore.summary?.suggestions ?? [])
+    .filter((suggestion) => !ignoredSuggestionIds.value.includes(suggestion.code))
+    .map((suggestion) => ({
+      id: suggestion.code,
+      title: suggestion.title,
+      description: suggestion.description,
+      priority: suggestion.priority
+    }))
+);
+
+onMounted(async () => {
+  const context = await fetchCurrentProjectContext();
+  currentProjectId.value = context?.projectId ?? null;
+  if (currentProjectId.value) await reviewStore.loadSummary(currentProjectId.value);
+});
+
+async function handleAnalyze(): Promise<void> {
+  if (!currentProjectId.value) return;
+  await reviewStore.analyze(currentProjectId.value);
 }
 
 function handleApply(id: string) {
-  alert('已根据建议创建脚本草稿，请在脚本中心查看');
+  console.info('Apply review suggestion', id);
 }
 
 function handleIgnore(id: string) {
-  suggestions.value = suggestions.value.filter(s => s.id !== id);
+  ignoredSuggestionIds.value = [...ignoredSuggestionIds.value, id];
 }
 
 function getPriorityLabel(priority: string) {
   switch (priority) {
-    case 'high': return '高优先级';
-    case 'medium': return '中';
-    case 'low': return '建议';
+    case 'high': return '????';
+    case 'medium': return '????';
+    case 'low': return '??';
     default: return priority;
   }
 }

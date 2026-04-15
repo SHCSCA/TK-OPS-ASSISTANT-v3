@@ -127,34 +127,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { useAutomationStore } from '@/stores/automation';
+import type { AutomationTaskDto } from '@/types/runtime';
 
 interface AutoTask {
   id: string;
   name: string;
-  type: 'collect' | 'reply' | 'sync' | 'validate';
+  type: string;
   enabled: boolean;
   lastRun: string | null;
 }
 
-const tasks = ref<AutoTask[]>([]);
+const automationStore = useAutomationStore();
 const selectedTaskId = ref<string | null>(null);
 const statusFilter = ref<string>('all');
 const typeFilter = ref<string>('');
 const showAddTask = ref(false);
 const addForm = ref({ name: '', type: 'collect' });
 
+const tasks = computed<AutoTask[]>(() =>
+  automationStore.tasks.map((task) => mapAutomationTask(task))
+);
+
 const statusFilters = [
-  { value: 'all', label: '全部' },
-  { value: 'enabled', label: '启用中' },
-  { value: 'disabled', label: '已禁用' }
+  { value: 'all', label: '??' },
+  { value: 'enabled', label: '???' },
+  { value: 'disabled', label: '???' }
 ];
 
 const typeFilters = [
-  { value: 'collect', label: '采集' },
-  { value: 'reply', label: '回复' },
-  { value: 'sync', label: '同步' },
-  { value: 'validate', label: '验证' }
+  { value: 'collect', label: '??' },
+  { value: 'reply', label: '??' },
+  { value: 'sync', label: '??' },
+  { value: 'validate', label: '??' }
 ];
 
 const filteredTasks = computed(() => {
@@ -169,13 +175,42 @@ const selectedTask = computed(() =>
   tasks.value.find((t) => t.id === selectedTaskId.value) ?? null
 );
 
-function handleRunTask(id: string): void {
-  alert('后端接入后可手动触发任务（B-M12 待实现）');
+onMounted(() => {
+  automationStore.loadTasks();
+});
+
+function mapAutomationTask(task: AutomationTaskDto): AutoTask {
+  const viewTask = {
+    id: task.id,
+    name: task.name,
+    type: task.type,
+    lastRun: task.last_run_at
+  } as AutoTask;
+
+  Object.defineProperty(viewTask, 'enabled', {
+    enumerable: true,
+    get: () => task.enabled,
+    set: (enabled: boolean) => {
+      automationStore.updateTask(task.id, { enabled });
+    }
+  });
+
+  return viewTask;
 }
 
-function handleCreateTask(): void {
+async function handleRunTask(id: string): Promise<void> {
+  await automationStore.triggerTask(id);
+}
+
+async function handleCreateTask(): Promise<void> {
   if (!addForm.value.name) return;
-  alert('后端接入后可保存任务（B-M12 待实现）');
+  const task = await automationStore.addTask({
+    name: addForm.value.name,
+    type: addForm.value.type
+  });
+  if (!task) return;
+  selectedTaskId.value = task.id;
+  addForm.value = { name: '', type: 'collect' };
   showAddTask.value = false;
 }
 </script>

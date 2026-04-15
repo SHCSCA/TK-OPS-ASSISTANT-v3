@@ -149,22 +149,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
+import { usePublishingStore } from '@/stores/publishing';
 
 interface PublishPlan {
   id: string;
   title: string;
   accountName: string;
   scheduledAt: string | null;
-  status: 'draft' | 'ready' | 'submitting' | 'published' | 'failed' | 'cancelled';
+  status: string;
 }
 
 interface PrecheckItem {
   code: string;
   label: string;
-  result: 'passed' | 'failed' | 'pending';
-  message?: string;
+  result: 'passed' | 'failed' | 'pending' | string;
+  message?: string | null;
 }
 
 interface Receipt {
@@ -172,26 +173,50 @@ interface Receipt {
   error?: string;
 }
 
-const plans = ref<PublishPlan[]>([]);
+const publishingStore = usePublishingStore();
 const selectedPlanId = ref<string | null>(null);
 const statusFilter = ref<string>('all');
 const showAddPlan = ref(false);
-const receipt = ref<Receipt | null>(null);
 const addForm = ref({ title: '', accountName: '', scheduledAt: '' });
 
-const precheckItems = ref<PrecheckItem[]>([
-  { code: 'account_online', label: '账号在线状态', result: 'pending' },
-  { code: 'render_ready', label: '视频渲染就绪', result: 'pending' },
-  { code: 'workspace_bound', label: '工作区绑定', result: 'pending' },
-  { code: 'has_title', label: '发布信息完整', result: 'pending' }
-]);
+const defaultPrecheckItems: PrecheckItem[] = [
+  { code: 'account_online', label: '??????', result: 'pending' },
+  { code: 'render_ready', label: '??????', result: 'pending' },
+  { code: 'workspace_bound', label: '?????', result: 'pending' },
+  { code: 'has_title', label: '??????', result: 'pending' }
+];
+
+const plans = computed<PublishPlan[]>(() =>
+  publishingStore.plans.map((plan) => ({
+    id: plan.id,
+    title: plan.title,
+    accountName: plan.account_name ?? '',
+    scheduledAt: plan.scheduled_at,
+    status: plan.status
+  }))
+);
+
+const precheckItems = computed<PrecheckItem[]>(() =>
+  publishingStore.precheckResult?.items ?? defaultPrecheckItems
+);
+
+const receipt = computed<Receipt | null>(() => {
+  if (publishingStore.submitResult) {
+    return {
+      status: publishingStore.submitResult.status,
+      error: publishingStore.error ?? undefined
+    };
+  }
+  if (publishingStore.error) return { status: 'failed', error: publishingStore.error };
+  return null;
+});
 
 const statusFilters = [
-  { value: 'all', label: '全部' },
-  { value: 'draft', label: '草稿' },
-  { value: 'ready', label: '就绪' },
-  { value: 'published', label: '已发布' },
-  { value: 'failed', label: '失败' }
+  { value: 'all', label: '??' },
+  { value: 'draft', label: '??' },
+  { value: 'ready', label: '??' },
+  { value: 'published', label: '???' },
+  { value: 'failed', label: '??' }
 ];
 
 const filteredPlans = computed(() => {
@@ -207,30 +232,47 @@ const hasErrorChecks = computed(() =>
   precheckItems.value.some((c) => c.result === 'failed')
 );
 
+onMounted(() => {
+  publishingStore.loadPlans();
+});
+
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
-    draft: '草稿', ready: '就绪', submitting: '发布中',
-    published: '已发布', failed: '失败', cancelled: '已取消'
+    draft: '??',
+    ready: '??',
+    submitting: '???',
+    published: '???',
+    failed: '??',
+    cancelled: '???'
   };
   return map[status] ?? status;
 }
 
-function handlePrecheck(): void {
-  alert('后端接入后可执行预检（B-M13 待实现）');
+async function handlePrecheck(): Promise<void> {
+  if (!selectedPlan.value) return;
+  await publishingStore.precheck(selectedPlan.value.id);
 }
 
-function handleSubmit(): void {
-  if (hasErrorChecks.value) return;
-  alert('后端接入后可提交发布（B-M13 待实现）');
+async function handleSubmit(): Promise<void> {
+  if (!selectedPlan.value || hasErrorChecks.value) return;
+  await publishingStore.submit(selectedPlan.value.id);
 }
 
-function handleCancel(): void {
-  alert('后端接入后可取消发布（B-M13 待实现）');
+async function handleCancel(): Promise<void> {
+  if (!selectedPlan.value) return;
+  await publishingStore.cancel(selectedPlan.value.id);
 }
 
-function handleCreatePlan(): void {
+async function handleCreatePlan(): Promise<void> {
   if (!addForm.value.title) return;
-  alert('后端接入后可保存计划（B-M13 待实现）');
+  const plan = await publishingStore.addPlan({
+    title: addForm.value.title,
+    account_name: addForm.value.accountName || null,
+    scheduled_at: addForm.value.scheduledAt || null
+  });
+  if (!plan) return;
+  selectedPlanId.value = plan.id;
+  addForm.value = { title: '', accountName: '', scheduledAt: '' };
   showAddPlan.value = false;
 }
 </script>
