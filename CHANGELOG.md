@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.1 - 2026-04-15
+
+### 基础问题收口
+
+- 视频导入后台处理接入统一 TaskBus，前端通过中心化任务状态消费进度与终态。
+- 补齐 M09-M15 Runtime client、Pinia store 与后端 API 契约测试，覆盖资产、账号、设备工作区、自动化、发布、渲染与复盘基础链路。
+- 修复设备工作区、自动化任务、发布计划和渲染任务删除接口的空响应问题，统一返回 Runtime JSON 信封。
+- 资产中心与账号管理 store 增加可断言错误态，为页面展示中文错误反馈打基础。
+
+### 验证
+
+- `npm --prefix apps/desktop run test`
+- `npm --prefix apps/desktop run build`
+- `venv\Scripts\python.exe -m pytest tests/runtime -q`
+- `venv\Scripts\python.exe -m pytest tests/contracts -q`
+
 ## 0.2.0 - 2026-04-12
 
 ### 合并基线

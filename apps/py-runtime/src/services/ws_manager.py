@@ -27,6 +27,7 @@ class ConnectionManager:
 
     async def broadcast(self, message: dict[str, Any]) -> None:
         """向所有连接的客户端广播 JSON 消息。"""
+        message.setdefault("schema_version", 1)
         if not self.active_connections:
             return
 

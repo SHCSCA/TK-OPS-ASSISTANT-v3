@@ -1,22 +1,30 @@
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
 
-from domain.models import Base, Project
+from domain.models import Base, ImportedVideo, Project
 from persistence.engine import create_runtime_engine, create_session_factory
 from repositories.imported_video_repository import ImportedVideoRepository
 from services.video_import_service import VideoImportService
+from tasks.video_tasks import process_video_import_task
 
 # 配置 pytest-asyncio
 pytestmark = pytest.mark.asyncio
 
 
-def _make_service(tmp_path: Path) -> VideoImportService:
+class RecordingTaskManager:
+    def __init__(self) -> None:
+        self.submissions: list[dict[str, object]] = []
+
+    def submit(self, **kwargs):
+        self.submissions.append(kwargs)
+
+
+def _make_repository(tmp_path: Path) -> ImportedVideoRepository:
     engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
@@ -37,8 +45,17 @@ def _make_service(tmp_path: Path) -> VideoImportService:
         )
         session.commit()
 
+    return ImportedVideoRepository(session_factory=session_factory)
+
+
+def _make_service(
+    tmp_path: Path,
+    *,
+    task_manager: RecordingTaskManager | None = None,
+) -> VideoImportService:
     return VideoImportService(
-        repository=ImportedVideoRepository(session_factory=session_factory)
+        repository=_make_repository(tmp_path),
+        task_manager=task_manager,
     )
 
 
@@ -46,26 +63,37 @@ async def test_import_video_starts_async_task(tmp_path: Path) -> None:
     """
     验证导入视频会立即返回 'imported' 状态，并启动后台异步任务。
     """
-    service = _make_service(tmp_path)
+    task_manager = RecordingTaskManager()
+    service = _make_service(tmp_path, task_manager=task_manager)
     fake_video = tmp_path / "clip.mp4"
     fake_video.write_bytes(b"\x00" * 1024)
 
-    # Mock 异步任务处理器，确保它被调用
-    with patch("services.video_import_service.process_video_import_task", new_callable=AsyncMock) as mock_task:
-        # 在异步测试中运行同步方法
-        video = service.import_video(project_id="project-1", file_path=str(fake_video))
+    video = service.import_video(project_id="project-1", file_path=str(fake_video))
 
-        assert video["status"] == "imported"
-        assert video["fileName"] == "clip.mp4"
-        assert video["fileSizeBytes"] == 1024
-        
-        # 验证异步任务是否被派发
-        # 我们给一点点时间让 create_task 运行到我们的 mock 上
-        await asyncio.sleep(0.1)
-        mock_task.assert_called_once()
-        args, kwargs = mock_task.call_args
-        assert kwargs["file_path"] == str(fake_video)
-        assert kwargs["video_id"] == video["id"]
+    assert video["status"] == "imported"
+    assert video["fileName"] == "clip.mp4"
+    assert video["fileSizeBytes"] == 1024
+    assert set(video) == {
+        "id",
+        "projectId",
+        "filePath",
+        "fileName",
+        "fileSizeBytes",
+        "durationSeconds",
+        "width",
+        "height",
+        "frameRate",
+        "codec",
+        "status",
+        "errorMessage",
+        "createdAt",
+    }
+
+    assert len(task_manager.submissions) == 1
+    submission = task_manager.submissions[0]
+    assert submission["task_type"] == "video_import"
+    assert submission["project_id"] == "project-1"
+    assert submission["task_id"] == video["id"]
 
 
 async def test_import_nonexistent_file_raises_http_error(tmp_path: Path) -> None:
@@ -76,15 +104,98 @@ async def test_import_nonexistent_file_raises_http_error(tmp_path: Path) -> None
 
 
 async def test_list_videos_for_project(tmp_path: Path) -> None:
-    service = _make_service(tmp_path)
+    task_manager = RecordingTaskManager()
+    service = _make_service(tmp_path, task_manager=task_manager)
     fake_video = tmp_path / "listed.mp4"
     fake_video.write_bytes(b"\x00" * 512)
 
-    with patch("services.video_import_service.process_video_import_task", new_callable=AsyncMock):
-        service.import_video(project_id="project-1", file_path=str(fake_video))
+    service.import_video(project_id="project-1", file_path=str(fake_video))
 
     videos = service.list_videos(project_id="project-1")
 
     assert len(videos) == 1
     assert videos[0]["fileName"] == "listed.mp4"
     assert videos[0]["status"] == "imported"
+
+
+async def test_process_video_import_task_reports_progress_when_ffprobe_unavailable(
+    tmp_path: Path,
+) -> None:
+    repository = _make_repository(tmp_path)
+    fake_video = tmp_path / "progress.mp4"
+    fake_video.write_bytes(b"\x00" * 1024)
+    video = ImportedVideo(
+        id="video-progress",
+        project_id="project-1",
+        file_path=str(fake_video),
+        file_name="progress.mp4",
+        file_size_bytes=1024,
+        duration_seconds=None,
+        width=None,
+        height=None,
+        frame_rate=None,
+        codec=None,
+        status="imported",
+        error_message=None,
+        created_at="2026-04-13T00:00:00Z",
+    )
+    repository.create(video)
+    progress_events: list[tuple[int, str]] = []
+
+    async def progress_callback(progress: int, message: str) -> None:
+        progress_events.append((progress, message))
+
+    with patch("tasks.video_tasks.probe_video", return_value=None):
+        await process_video_import_task(
+            video_id="video-progress",
+            file_path=str(fake_video),
+            repository=repository,
+            progress_callback=progress_callback,
+        )
+
+    updated = repository.get("video-progress")
+    assert updated is not None
+    assert updated.status == "imported"
+    assert updated.error_message == "FFprobe 不可用，已仅记录文件路径和大小。"
+    assert progress_events == [
+        (10, "正在读取视频文件"),
+        (40, "正在解析视频元信息"),
+        (80, "正在保存解析结果"),
+    ]
+
+
+async def test_process_video_import_task_marks_error_and_reraises(
+    tmp_path: Path,
+) -> None:
+    repository = _make_repository(tmp_path)
+    fake_video = tmp_path / "broken.mp4"
+    fake_video.write_bytes(b"\x00" * 1024)
+    video = ImportedVideo(
+        id="video-error",
+        project_id="project-1",
+        file_path=str(fake_video),
+        file_name="broken.mp4",
+        file_size_bytes=1024,
+        duration_seconds=None,
+        width=None,
+        height=None,
+        frame_rate=None,
+        codec=None,
+        status="imported",
+        error_message=None,
+        created_at="2026-04-13T00:00:00Z",
+    )
+    repository.create(video)
+
+    with patch("tasks.video_tasks.probe_video", side_effect=RuntimeError("ffprobe failed")):
+        with pytest.raises(RuntimeError, match="ffprobe failed"):
+            await process_video_import_task(
+                video_id="video-error",
+                file_path=str(fake_video),
+                repository=repository,
+            )
+
+    updated = repository.get("video-error")
+    assert updated is not None
+    assert updated.status == "error"
+    assert updated.error_message == "解析失败: ffprobe failed"

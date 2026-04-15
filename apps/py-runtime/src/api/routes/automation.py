@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Request, status
 
 from schemas.automation import AutomationTaskCreateInput, AutomationTaskUpdateInput
 from schemas.envelope import ok_response
@@ -45,10 +45,10 @@ def update_task(
     return ok_response(task.model_dump(mode="json"))
 
 
-@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_task(task_id: str, request: Request) -> Response:
+@router.delete("/{task_id}")
+def delete_task(task_id: str, request: Request) -> dict[str, object]:
     _svc(request).delete_task(task_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return ok_response({"deleted": True})
 
 
 @router.post("/{task_id}/trigger")

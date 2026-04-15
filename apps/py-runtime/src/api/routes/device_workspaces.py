@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Request, status
 
 from schemas.device_workspaces import DeviceWorkspaceCreateInput, DeviceWorkspaceUpdateInput
 from schemas.envelope import ok_response
@@ -44,10 +44,10 @@ def update_workspace(
     return ok_response(item.model_dump(mode="json"))
 
 
-@router.delete("/{ws_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_workspace(ws_id: str, request: Request) -> Response:
+@router.delete("/{ws_id}")
+def delete_workspace(ws_id: str, request: Request) -> dict[str, object]:
     _svc(request).delete_workspace(ws_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return ok_response({"deleted": True})
 
 
 @router.post("/{ws_id}/health-check")

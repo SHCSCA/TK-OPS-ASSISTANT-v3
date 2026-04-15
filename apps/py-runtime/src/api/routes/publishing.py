@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, Request, status
 
 from schemas.envelope import ok_response
 from schemas.publishing import PublishPlanCreateInput, PublishPlanUpdateInput
@@ -41,10 +41,10 @@ def update_plan(
     return ok_response(plan.model_dump(mode="json"))
 
 
-@router.delete("/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_plan(plan_id: str, request: Request) -> Response:
+@router.delete("/{plan_id}")
+def delete_plan(plan_id: str, request: Request) -> dict[str, object]:
     _svc(request).delete_plan(plan_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return ok_response({"deleted": True})
 
 
 @router.post("/{plan_id}/precheck")

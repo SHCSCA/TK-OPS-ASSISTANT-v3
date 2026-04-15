@@ -13,6 +13,7 @@ from api.routes.review import router as review_router
 from api.routes.scripts import router as scripts_router
 from api.routes.settings import router as settings_router
 from api.routes.storyboards import router as storyboards_router
+from api.routes.tasks import router as tasks_router
 from api.routes.video_deconstruction import router as video_deconstruction_router
 from api.routes.ws import router as ws_router
 
@@ -30,6 +31,7 @@ __all__ = [
     'scripts_router',
     'settings_router',
     'storyboards_router',
+    'tasks_router',
     'video_deconstruction_router',
     'ws_router',
 ]

@@ -43,6 +43,7 @@ import type {
   ReviewSummaryUpdateInput,
   AnalyzeProjectResultDto
 } from "@/types/runtime";
+import type { TaskInfo } from "@/types/task-events";
 import type { ImportedVideo } from "@/types/video";
 
 const DEFAULT_RUNTIME_BASE_URL = "http://127.0.0.1:8000";
@@ -492,6 +493,25 @@ export async function updateReviewSummary(
     body: JSON.stringify(input),
     method: "PATCH"
   });
+}
+
+export async function fetchActiveTasks(): Promise<TaskInfo[]> {
+  return requestRuntime<TaskInfo[]>("/api/tasks");
+}
+
+export async function fetchTaskStatus(taskId: string): Promise<TaskInfo> {
+  return requestRuntime<TaskInfo>(`/api/tasks/${taskId}`);
+}
+
+export async function cancelTask(
+  taskId: string
+): Promise<{ task_id: string; status: string; message: string }> {
+  return requestRuntime<{ task_id: string; status: string; message: string }>(
+    `/api/tasks/${taskId}/cancel`,
+    {
+      method: "POST"
+    }
+  );
 }
 
 async function requestRuntime<T>(path: string, init: RequestInit = {}): Promise<T> {

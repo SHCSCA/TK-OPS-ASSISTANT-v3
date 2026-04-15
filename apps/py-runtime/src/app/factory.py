@@ -24,6 +24,7 @@ from api.routes import (
     scripts_router,
     settings_router,
     storyboards_router,
+    tasks_router,
     video_deconstruction_router,
     ws_router,
 )
@@ -63,6 +64,7 @@ from services.review_service import ReviewService
 from services.script_service import ScriptService
 from services.settings_service import SettingsService
 from services.storyboard_service import StoryboardService
+from services.task_manager import task_manager
 from services.video_import_service import VideoImportService
 
 
@@ -185,6 +187,7 @@ def create_app() -> FastAPI:
     app.state.render_service = render_service
     app.state.review_service = review_service
     app.state.video_import_service = video_import_service
+    app.state.task_manager = task_manager
 
     @app.middleware('http')
     async def request_context_middleware(request, call_next):  # type: ignore[no-untyped-def]
@@ -279,6 +282,7 @@ def create_app() -> FastAPI:
     app.include_router(scripts_router)
     app.include_router(settings_router)
     app.include_router(storyboards_router)
+    app.include_router(tasks_router)
     app.include_router(video_deconstruction_router)
     app.include_router(ws_router)
     log_event(

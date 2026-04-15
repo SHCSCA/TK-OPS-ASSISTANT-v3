@@ -16,7 +16,7 @@ def get_video_import_service(request: Request) -> VideoImportService:
 
 
 @router.post("/projects/{project_id}/import")
-def import_video(
+async def import_video(
     project_id: str,
     payload: ImportVideoInput,
     request: Request,

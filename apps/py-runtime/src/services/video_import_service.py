@@ -1,22 +1,26 @@
 from __future__ import annotations
 
-import asyncio
-import logging
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from fastapi import HTTPException
 
 from domain.models import ImportedVideo
 from domain.models.base import generate_uuid
 from repositories.imported_video_repository import ImportedVideoRepository
+from services.task_manager import TaskManager, task_manager as default_task_manager
 from tasks.video_tasks import process_video_import_task
 
 
 class VideoImportService:
-    def __init__(self, *, repository: ImportedVideoRepository) -> None:
+    def __init__(
+        self,
+        *,
+        repository: ImportedVideoRepository,
+        task_manager: TaskManager | None = None,
+    ) -> None:
         self._repository = repository
+        self._task_manager = task_manager or default_task_manager
 
     def import_video(self, *, project_id: str, file_path: str) -> dict[str, object]:
         """
@@ -48,16 +52,23 @@ class VideoImportService:
 
         saved_video = self._repository.create(video)
         
-        # --- 异步任务派发 ---
-        # 使用 asyncio.create_task 在后台运行解析任务
-        # 注意：在 FastAPI 环境下，这将在当前进程的事件循环中异步执行
-        asyncio.create_task(
-            process_video_import_task(
+        def create_import_task(progress_callback):
+            return process_video_import_task(
                 video_id=video_id,
                 file_path=str(path),
                 repository=self._repository,
+                progress_callback=progress_callback,
             )
-        )
+
+        try:
+            self._task_manager.submit(
+                task_type="video_import",
+                coro_factory=create_import_task,
+                project_id=project_id,
+                task_id=video_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
         return _to_dict(saved_video)
 

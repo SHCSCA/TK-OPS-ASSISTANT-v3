@@ -65,6 +65,15 @@
                   <span>{{ formatFrameRate(video.frameRate) }}</span>
                   <span>{{ formatFileSize(video.fileSizeBytes) }}</span>
                 </div>
+                <div v-if="taskForVideo(video.id)" class="video-card__task">
+                  <div class="video-card__task-row">
+                    <span>{{ taskForVideo(video.id)?.message || taskStatusLabel(video.id) }}</span>
+                    <strong>{{ taskForVideo(video.id)?.progress ?? 0 }}%</strong>
+                  </div>
+                  <div class="video-card__progress" :aria-label="taskStatusLabel(video.id)">
+                    <span :style="taskProgressStyle(video.id)"></span>
+                  </div>
+                </div>
                 <p v-if="video.errorMessage" class="video-card__hint">
                   <span class="status-dot status-dot--error"></span>
                   {{ video.errorMessage }}
@@ -101,6 +110,7 @@ import { computed, onMounted, watch } from "vue";
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
 import { useProjectStore } from "@/stores/project";
 import { useVideoImportStore } from "@/stores/video-import";
+import type { TaskInfo } from "@/types/task-events";
 
 const projectStore = useProjectStore();
 const videoImportStore = useVideoImportStore();
@@ -176,6 +186,36 @@ function getResolutionStyle(width: number | null): any {
   return {};
 }
 
+function taskForVideo(videoId: string): TaskInfo | undefined {
+  return videoImportStore.taskForVideo(videoId);
+}
+
+function taskStatusLabel(videoId: string): string {
+  const task = taskForVideo(videoId);
+  if (!task) {
+    return "";
+  }
+
+  if (task.status === "failed") {
+    return "解析失败";
+  }
+
+  if (task.status === "succeeded") {
+    return "解析完成";
+  }
+
+  if (task.status === "cancelled") {
+    return "已取消";
+  }
+
+  return "解析中";
+}
+
+function taskProgressStyle(videoId: string): Record<string, string> {
+  const progress = Math.min(100, Math.max(0, taskForVideo(videoId)?.progress ?? 0));
+  return { width: `${progress}%` };
+}
+
 function formatFrameRate(value: number | null): string {
   return value === null ? "帧率待识别" : `${value} fps`;
 }
@@ -187,3 +227,40 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 </script>
+
+<style scoped>
+.video-card__task {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.video-card__task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.video-card__task-row strong {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.video-card__progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--surface-muted);
+}
+
+.video-card__progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand-primary);
+  transition: width 180ms ease;
+}
+</style>
