@@ -2,7 +2,7 @@
 
 > 计划来源：`docs/superpowers/plans/2026-04-16-m07-voice-studio-runtime-ui.md`
 > 接口真源：`docs/RUNTIME-API-CALLS.md`
-> 状态：Draft，等待用户审批
+> 状态：Implemented，用户已审批通过，M07-A Runtime/UI/测试闭环已完成并进入验收
 > 适用流程：`tkops-agent-council` + `tkops-ui-experience-council` + `tkops-runtime-contract-council`
 
 ## 1. 设计目标

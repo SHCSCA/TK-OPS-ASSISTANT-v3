@@ -1,3 +1,5 @@
+import type { TaskInfo } from "./task-events";
+
 export type RuntimeHealthSnapshot = {
   service: string;
   version: string;
@@ -186,6 +188,53 @@ export type StoryboardDocument = {
   currentVersion: StoryboardVersion | null;
   versions: StoryboardVersion[];
   recentJobs: AIJobRecord[];
+};
+
+export type VoiceTrackStatus = "blocked" | "ready" | "error" | "generating";
+
+export type VoiceProfileDto = {
+  id: string;
+  provider: string;
+  voiceId: string;
+  displayName: string;
+  locale: string;
+  tags: string[];
+  enabled: boolean;
+};
+
+export type VoiceTrackSegmentDto = {
+  segmentIndex: number;
+  text: string;
+  startMs: number | null;
+  endMs: number | null;
+  audioAssetId: string | null;
+};
+
+export type VoiceTrackDto = {
+  id: string;
+  projectId: string;
+  timelineId: string | null;
+  source: string;
+  provider: string | null;
+  voiceName: string;
+  filePath: string | null;
+  segments: VoiceTrackSegmentDto[];
+  status: VoiceTrackStatus;
+  createdAt: string;
+};
+
+export type VoiceTrackGenerateInput = {
+  profileId: string;
+  sourceText: string;
+  speed: number;
+  pitch: number;
+  emotion: string;
+};
+
+export type VoiceTrackGenerateResultDto = {
+  track: VoiceTrackDto;
+  task: TaskInfo | null;
+  message: string;
 };
 
 export type AssetDto = {

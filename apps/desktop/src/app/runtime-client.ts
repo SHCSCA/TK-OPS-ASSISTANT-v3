@@ -16,6 +16,10 @@ import type {
   ScriptDocument,
   StoryboardDocument,
   StoryboardScene,
+  VoiceProfileDto,
+  VoiceTrackDto,
+  VoiceTrackGenerateInput,
+  VoiceTrackGenerateResultDto,
   AssetDeleteResult,
   AssetDto,
   AssetImportInput,
@@ -211,6 +215,38 @@ export async function saveStoryboardDocument(
 export async function generateStoryboardDocument(projectId: string): Promise<StoryboardDocument> {
   return requestRuntime<StoryboardDocument>(`/api/storyboards/projects/${projectId}/generate`, {
     method: "POST"
+  });
+}
+
+// Voice studio
+export async function fetchVoiceProfiles(): Promise<VoiceProfileDto[]> {
+  return requestRuntime<VoiceProfileDto[]>("/api/voice/profiles");
+}
+
+export async function fetchVoiceTracks(projectId: string): Promise<VoiceTrackDto[]> {
+  return requestRuntime<VoiceTrackDto[]>(`/api/voice/projects/${projectId}/tracks`);
+}
+
+export async function generateVoiceTrack(
+  projectId: string,
+  input: VoiceTrackGenerateInput
+): Promise<VoiceTrackGenerateResultDto> {
+  return requestRuntime<VoiceTrackGenerateResultDto>(
+    `/api/voice/projects/${projectId}/tracks/generate`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
+}
+
+export async function fetchVoiceTrack(trackId: string): Promise<VoiceTrackDto> {
+  return requestRuntime<VoiceTrackDto>(`/api/voice/tracks/${trackId}`);
+}
+
+export async function deleteVoiceTrack(trackId: string): Promise<void> {
+  return requestRuntime<void>(`/api/voice/tracks/${trackId}`, {
+    method: "DELETE"
   });
 }
 
