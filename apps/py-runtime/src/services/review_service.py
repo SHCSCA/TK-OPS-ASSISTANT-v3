@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
 
 from fastapi import HTTPException
 
+from common.time import utc_now
 from domain.models.review import ReviewSummary
 from repositories.review_repository import ReviewRepository
 from schemas.review import (
@@ -88,7 +88,7 @@ class ReviewService:
             project_id=project_id,
             status="done",
             message="复盘分析已完成",
-            analyzed_at=summary.last_analyzed_at or datetime.utcnow(),
+            analyzed_at=summary.last_analyzed_at or utc_now(),
         )
 
     def _to_dto(self, summary: ReviewSummary) -> ReviewSummaryDto:

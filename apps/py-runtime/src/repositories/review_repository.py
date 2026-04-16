@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from common.time import utc_now
 from domain.models.review import ReviewSummary
 
 
@@ -31,7 +30,7 @@ class ReviewRepository:
             summary = session.scalar(
                 select(ReviewSummary).where(ReviewSummary.project_id == project_id)
             )
-            now = datetime.utcnow()
+            now = utc_now()
             if summary is None:
                 summary = ReviewSummary(project_id=project_id, project_name=project_name)
                 session.add(summary)
@@ -55,7 +54,7 @@ class ReviewRepository:
                 session.add(summary)
                 session.flush()
             summary.suggestions_json = suggestions_json
-            summary.updated_at = datetime.utcnow()
+            summary.updated_at = utc_now()
             session.commit()
             session.refresh(summary)
             session.expunge(summary)
@@ -70,7 +69,7 @@ class ReviewRepository:
                 summary = ReviewSummary(project_id=project_id)
                 session.add(summary)
                 session.flush()
-            now = datetime.utcnow()
+            now = utc_now()
             summary.last_analyzed_at = now
             summary.updated_at = now
             session.commit()

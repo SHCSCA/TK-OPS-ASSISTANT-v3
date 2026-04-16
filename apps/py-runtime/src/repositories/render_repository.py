@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from common.time import utc_now
 from domain.models.render import RenderTask
 
 
@@ -43,7 +42,7 @@ class RenderRepository:
                 return None
             for key, value in kwargs.items():
                 setattr(task, key, value)
-            task.updated_at = datetime.utcnow()
+            task.updated_at = utc_now()
             session.commit()
             session.refresh(task)
             session.expunge(task)
@@ -64,7 +63,7 @@ class RenderRepository:
             if task is None:
                 return None
             task.status = "cancelled"
-            task.finished_at = datetime.utcnow()
+            task.finished_at = utc_now()
             task.updated_at = task.finished_at
             session.commit()
             session.refresh(task)

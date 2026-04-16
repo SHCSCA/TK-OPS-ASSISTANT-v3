@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
 
 from fastapi import HTTPException
 
+from common.time import utc_now
 from domain.models.publishing import PublishPlan
 from repositories.publishing_repository import PublishingRepository
 from schemas.publishing import (
@@ -75,7 +75,7 @@ class PublishingService:
 
     def precheck(self, plan_id: str) -> PrecheckResultDto:
         self._get_plan_model(plan_id)
-        checked_at = datetime.utcnow()
+        checked_at = utc_now()
         items = [
             PrecheckItemResult(
                 code="account_binding",
@@ -125,7 +125,7 @@ class PublishingService:
         return SubmitPlanResultDto(
             plan_id=plan_id,
             status=submitted.status,
-            submitted_at=submitted.submitted_at or datetime.utcnow(),
+            submitted_at=submitted.submitted_at or utc_now(),
             message="发布计划已提交",
         )
 

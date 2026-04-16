@@ -118,7 +118,10 @@ describe("AI 与系统设置页", () => {
       }
     });
     expect(wrapper.text()).toContain("配置已就绪");
-    expect(wrapper.text()).toContain("最近同步 2026-04-11 16:05:00 Asia/Shanghai");
+    expect(wrapper.text()).toContain("最近同步 2026-04-11");
+    expect(wrapper.text()).not.toContain("16:05:00");
+    expect(wrapper.text()).not.toContain("Asia/Shanghai");
+    expect(wrapper.text()).not.toContain("Z");
   });
 
   it("加载集中式 AI 能力配置，并通过能力总线保存更新", async () => {

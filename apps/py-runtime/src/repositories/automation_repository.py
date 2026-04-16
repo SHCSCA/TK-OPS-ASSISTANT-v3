@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from common.time import utc_now
 from domain.models.automation import AutomationTask, AutomationTaskRun
 
 
@@ -50,7 +49,7 @@ class AutomationRepository:
                 return None
             for key, value in kwargs.items():
                 setattr(task, key, value)
-            task.updated_at = datetime.utcnow()
+            task.updated_at = utc_now()
             session.commit()
             session.refresh(task)
             session.expunge(task)
@@ -70,7 +69,7 @@ class AutomationRepository:
             task = session.get(AutomationTask, task_id)
             if task is None:
                 return None
-            now = datetime.utcnow()
+            now = utc_now()
             run = AutomationTaskRun(
                 task_id=task_id,
                 status="running",

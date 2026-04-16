@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from common.time import utc_now
 from domain.models.publishing import PublishPlan
 
 
@@ -43,7 +42,7 @@ class PublishingRepository:
                 return None
             for key, value in kwargs.items():
                 setattr(plan, key, value)
-            plan.updated_at = datetime.utcnow()
+            plan.updated_at = utc_now()
             session.commit()
             session.refresh(plan)
             session.expunge(plan)
@@ -64,7 +63,7 @@ class PublishingRepository:
             if plan is None:
                 return None
             plan.precheck_result_json = items_json
-            plan.updated_at = datetime.utcnow()
+            plan.updated_at = utc_now()
             session.commit()
             session.refresh(plan)
             session.expunge(plan)
@@ -76,7 +75,7 @@ class PublishingRepository:
             if plan is None:
                 return None
             plan.status = "submitting"
-            plan.submitted_at = datetime.utcnow()
+            plan.submitted_at = utc_now()
             plan.updated_at = plan.submitted_at
             session.commit()
             session.refresh(plan)

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from common.time import utc_now
 from domain.models.device_workspace import DeviceWorkspace
 
 
@@ -43,7 +42,7 @@ class DeviceWorkspaceRepository:
                 return None
             for key, value in kwargs.items():
                 setattr(workspace, key, value)
-            workspace.updated_at = datetime.utcnow()
+            workspace.updated_at = utc_now()
             session.commit()
             session.refresh(workspace)
             session.expunge(workspace)
@@ -63,7 +62,7 @@ class DeviceWorkspaceRepository:
             workspace = session.get(DeviceWorkspace, ws_id)
             if workspace is None:
                 return None
-            checked_at = datetime.utcnow()
+            checked_at = utc_now()
             workspace.last_used_at = checked_at
             workspace.updated_at = checked_at
             session.commit()

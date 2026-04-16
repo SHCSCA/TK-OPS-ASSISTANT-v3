@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from uuid import uuid4
 
 from fastapi import HTTPException
 
+from common.time import utc_now_iso
 from domain.models.account import Account, AccountGroup, AccountGroupMember
 from repositories.account_repository import AccountRepository
 from schemas.accounts import (
@@ -270,4 +270,4 @@ class AccountService:
 
 
 def _utc_now() -> str:
-    return datetime.utcnow().isoformat()
+    return utc_now_iso()

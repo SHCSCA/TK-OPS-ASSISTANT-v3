@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from common.time import utc_now_iso
 from domain.models.account import Account, AccountGroup, AccountGroupMember
 
 log = logging.getLogger(__name__)
@@ -185,4 +185,4 @@ class AccountRepository:
 
 
 def _utc_now() -> str:
-    return datetime.utcnow().isoformat()
+    return utc_now_iso()
