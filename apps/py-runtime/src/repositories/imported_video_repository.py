@@ -27,6 +27,17 @@ class ImportedVideoRepository:
 
         return list(videos)
 
+    def get(self, video_id: str) -> ImportedVideo | None:
+        with self._session_factory() as session:
+            return session.get(ImportedVideo, video_id)
+
+    def update(self, video: ImportedVideo) -> ImportedVideo:
+        with self._session_factory() as session:
+            merged = session.merge(video)
+            session.commit()
+            session.refresh(merged)
+            return merged
+
     def delete(self, video_id: str) -> bool:
         with self._session_factory() as session:
             video = session.get(ImportedVideo, video_id)

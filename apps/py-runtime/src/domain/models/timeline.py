@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from domain.models.base import Base
@@ -45,8 +45,6 @@ class VoiceTrack(Base):
     segments_json: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
-
-
 class SubtitleTrack(Base):
     __tablename__ = "subtitle_tracks"
 
@@ -67,27 +65,3 @@ class SubtitleTrack(Base):
     segments_json: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
-
-
-class RenderTask(Base):
-    __tablename__ = "render_tasks"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True)
-    project_id: Mapped[str] = mapped_column(
-        String,
-        ForeignKey("projects.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    timeline_id: Mapped[str | None] = mapped_column(
-        String,
-        ForeignKey("timelines.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    status: Mapped[str] = mapped_column(String, nullable=False)
-    output_path: Mapped[str | None] = mapped_column(Text, nullable=True)
-    profile_json: Mapped[str] = mapped_column(Text, nullable=False)
-    progress: Mapped[int] = mapped_column(Integer, nullable=False)
-    source: Mapped[str] = mapped_column(String, nullable=False)
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[str] = mapped_column(Text, nullable=False)
-    updated_at: Mapped[str] = mapped_column(Text, nullable=False)

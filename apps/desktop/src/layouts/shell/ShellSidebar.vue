@@ -5,18 +5,32 @@
         <p v-if="!isCollapsed" class="nav-group__title">{{ group.label }}</p>
         <div v-else class="nav-group__divider"></div>
 
-        <RouterLink
-          v-for="item in group.items"
-          :key="item.id"
-          :to="item.path"
-          class="shell-nav-link"
-          active-class="nav-link--active"
-          :data-route-id="item.id"
-          :title="isCollapsed ? item.title : ''"
-        >
-          <span class="shell-nav-link__icon material-symbols-outlined">{{ item.icon }}</span>
-          <span v-if="!isCollapsed" class="shell-nav-link__text">{{ item.title }}</span>
-        </RouterLink>
+        <template v-for="item in group.items" :key="item.id">
+          <!-- 正常态 -->
+          <RouterLink
+            v-if="!item.requiresProjectContext || hasProject"
+            :to="item.path"
+            class="shell-nav-link"
+            active-class="nav-link--active"
+            :data-route-id="item.id"
+            :title="isCollapsed ? item.title : ''"
+          >
+            <span class="shell-nav-link__icon material-symbols-outlined">{{ item.icon }}</span>
+            <span v-if="!isCollapsed" class="shell-nav-link__text">{{ item.title }}</span>
+          </RouterLink>
+
+          <!-- 禁用态（无项目时拦截） -->
+          <div
+            v-else
+            class="shell-nav-link shell-nav-link--disabled"
+            :data-route-id="item.id"
+            title="请先在总览选择或创建项目"
+          >
+            <span class="shell-nav-link__icon material-symbols-outlined">{{ item.icon }}</span>
+            <span v-if="!isCollapsed" class="shell-nav-link__text">{{ item.title }}</span>
+            <span v-if="!isCollapsed" class="material-symbols-outlined lock-icon">lock</span>
+          </div>
+        </template>
       </section>
     </nav>
 
@@ -36,11 +50,13 @@ defineProps<{
     items: RouteManifestItem[];
   }>;
   isCollapsed: boolean;
+  hasProject: boolean;
 }>();
 </script>
 
 <style scoped>
 .shell-sidebar {
+  width: var(--sidebar-width);
   transition: width var(--motion-base), background var(--motion-base);
   display: flex;
   flex-direction: column;
@@ -50,7 +66,7 @@ defineProps<{
 }
 
 .sidebar--collapsed {
-  width: 68px !important;
+  width: 64px !important;
 }
 
 .nav-group__title {
@@ -101,15 +117,29 @@ defineProps<{
   font-weight: 500;
 }
 
-.shell-nav-link:hover {
-  background: rgba(255, 255, 255, 0.05);
+.shell-nav-link:not(.shell-nav-link--disabled):hover {
+  background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
   color: var(--text-primary);
+  transform: translateX(4px);
+  box-shadow: inset 1px 0 0 var(--brand-primary);
 }
 
 .shell-nav-link.nav-link--active {
   background: var(--surface-tertiary);
   color: var(--brand-primary);
   box-shadow: inset 3px 0 0 var(--brand-primary);
+}
+
+.shell-nav-link--disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.lock-icon {
+  font-size: 16px;
+  margin-left: auto;
+  opacity: 0.8;
 }
 
 .sidebar-footer {

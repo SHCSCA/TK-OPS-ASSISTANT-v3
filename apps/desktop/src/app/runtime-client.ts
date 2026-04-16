@@ -15,8 +15,38 @@ import type {
   RuntimeHealthSnapshot,
   ScriptDocument,
   StoryboardDocument,
-  StoryboardScene
+  StoryboardScene,
+  AssetDeleteResult,
+  AssetDto,
+  AssetImportInput,
+  AssetReferenceDto,
+  AssetUpdateInput,
+  AccountDto,
+  AccountGroupDto,
+  AccountCreateInput,
+  AutomationTaskCreateInput,
+  AutomationTaskDto,
+  AutomationTaskRunDto,
+  AutomationTaskUpdateInput,
+  TriggerTaskResultDto,
+  DeviceWorkspaceCreateInput,
+  DeviceWorkspaceDto,
+  DeviceWorkspaceUpdateInput,
+  HealthCheckResultDto,
+  PublishPlanCreateInput,
+  PublishPlanDto,
+  PublishPlanUpdateInput,
+  PrecheckResultDto,
+  SubmitPlanResultDto,
+  RenderTaskCreateInput,
+  RenderTaskDto,
+  RenderTaskUpdateInput,
+  CancelRenderResultDto,
+  ReviewSummaryDto,
+  ReviewSummaryUpdateInput,
+  AnalyzeProjectResultDto
 } from "@/types/runtime";
+import type { TaskInfo } from "@/types/task-events";
 import type { ImportedVideo } from "@/types/video";
 
 const DEFAULT_RUNTIME_BASE_URL = "http://127.0.0.1:8000";
@@ -204,6 +234,305 @@ export async function deleteImportedVideo(videoId: string): Promise<void> {
   return requestRuntime<void>(`/api/video-deconstruction/videos/${videoId}`, {
     method: "DELETE"
   });
+}
+
+// Assets
+export async function fetchAssets(type?: string, q?: string): Promise<AssetDto[]> {
+  const params = new URLSearchParams();
+  if (type) params.append("type", type);
+  if (q) params.append("q", q);
+  const query = params.toString();
+  return requestRuntime<AssetDto[]>(`/api/assets${query ? `?${query}` : ""}`);
+}
+
+export async function importAsset(input: AssetImportInput): Promise<AssetDto> {
+  return requestRuntime<AssetDto>("/api/assets/import", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function fetchAsset(id: string): Promise<AssetDto> {
+  return requestRuntime<AssetDto>(`/api/assets/${id}`);
+}
+
+export async function updateAsset(id: string, input: AssetUpdateInput): Promise<AssetDto> {
+  return requestRuntime<AssetDto>(`/api/assets/${id}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function deleteAsset(id: string): Promise<AssetDeleteResult> {
+  return requestRuntime<AssetDeleteResult>(`/api/assets/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export async function fetchAssetReferences(id: string): Promise<AssetReferenceDto[]> {
+  return requestRuntime<AssetReferenceDto[]>(`/api/assets/${id}/references`);
+}
+
+// Accounts
+export async function fetchAccounts(groupId?: string, status?: string, q?: string): Promise<AccountDto[]> {
+  const params = new URLSearchParams();
+  if (groupId) params.append("group_id", groupId);
+  if (status) params.append("status", status);
+  if (q) params.append("q", q);
+  const query = params.toString();
+  return requestRuntime<AccountDto[]>(`/api/accounts${query ? `?${query}` : ""}`);
+}
+
+export async function createAccount(input: AccountCreateInput): Promise<AccountDto> {
+  return requestRuntime<AccountDto>("/api/accounts", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function deleteAccount(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/accounts/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export async function fetchAccountGroups(): Promise<AccountGroupDto[]> {
+  return requestRuntime<AccountGroupDto[]>("/api/accounts/groups");
+}
+
+export async function refreshAccountStats(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/accounts/${id}/refresh-stats`, {
+    method: "POST"
+  });
+}
+
+// Automation
+export async function fetchAutomationTasks(
+  status?: string,
+  type?: string
+): Promise<AutomationTaskDto[]> {
+  const params = new URLSearchParams();
+  if (status) params.append("status", status);
+  if (type) params.append("type", type);
+  const query = params.toString();
+  return requestRuntime<AutomationTaskDto[]>(
+    `/api/automation/tasks${query ? `?${query}` : ""}`
+  );
+}
+
+export async function createAutomationTask(
+  input: AutomationTaskCreateInput
+): Promise<AutomationTaskDto> {
+  return requestRuntime<AutomationTaskDto>("/api/automation/tasks", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function fetchAutomationTask(id: string): Promise<AutomationTaskDto> {
+  return requestRuntime<AutomationTaskDto>(`/api/automation/tasks/${id}`);
+}
+
+export async function updateAutomationTask(
+  id: string,
+  input: AutomationTaskUpdateInput
+): Promise<AutomationTaskDto> {
+  return requestRuntime<AutomationTaskDto>(`/api/automation/tasks/${id}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function deleteAutomationTask(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/automation/tasks/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export async function triggerAutomationTask(id: string): Promise<TriggerTaskResultDto> {
+  return requestRuntime<TriggerTaskResultDto>(`/api/automation/tasks/${id}/trigger`, {
+    method: "POST"
+  });
+}
+
+export async function fetchAutomationTaskRuns(id: string): Promise<AutomationTaskRunDto[]> {
+  return requestRuntime<AutomationTaskRunDto[]>(`/api/automation/tasks/${id}/runs`);
+}
+
+// Device workspaces
+export async function fetchDeviceWorkspaces(): Promise<DeviceWorkspaceDto[]> {
+  return requestRuntime<DeviceWorkspaceDto[]>("/api/devices/workspaces");
+}
+
+export async function createDeviceWorkspace(
+  input: DeviceWorkspaceCreateInput
+): Promise<DeviceWorkspaceDto> {
+  return requestRuntime<DeviceWorkspaceDto>("/api/devices/workspaces", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function fetchDeviceWorkspace(id: string): Promise<DeviceWorkspaceDto> {
+  return requestRuntime<DeviceWorkspaceDto>(`/api/devices/workspaces/${id}`);
+}
+
+export async function updateDeviceWorkspace(
+  id: string,
+  input: DeviceWorkspaceUpdateInput
+): Promise<DeviceWorkspaceDto> {
+  return requestRuntime<DeviceWorkspaceDto>(`/api/devices/workspaces/${id}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function deleteDeviceWorkspace(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/devices/workspaces/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export async function checkDeviceWorkspaceHealth(id: string): Promise<HealthCheckResultDto> {
+  return requestRuntime<HealthCheckResultDto>(`/api/devices/workspaces/${id}/health-check`, {
+    method: "POST"
+  });
+}
+
+// Publishing
+export async function fetchPublishPlans(status?: string): Promise<PublishPlanDto[]> {
+  const params = new URLSearchParams();
+  if (status) params.append("status", status);
+  const query = params.toString();
+  return requestRuntime<PublishPlanDto[]>(
+    `/api/publishing/plans${query ? `?${query}` : ""}`
+  );
+}
+
+export async function createPublishPlan(input: PublishPlanCreateInput): Promise<PublishPlanDto> {
+  return requestRuntime<PublishPlanDto>("/api/publishing/plans", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function fetchPublishPlan(id: string): Promise<PublishPlanDto> {
+  return requestRuntime<PublishPlanDto>(`/api/publishing/plans/${id}`);
+}
+
+export async function updatePublishPlan(
+  id: string,
+  input: PublishPlanUpdateInput
+): Promise<PublishPlanDto> {
+  return requestRuntime<PublishPlanDto>(`/api/publishing/plans/${id}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function deletePublishPlan(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/publishing/plans/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export async function runPublishingPrecheck(id: string): Promise<PrecheckResultDto> {
+  return requestRuntime<PrecheckResultDto>(`/api/publishing/plans/${id}/precheck`, {
+    method: "POST"
+  });
+}
+
+export async function submitPublishPlan(id: string): Promise<SubmitPlanResultDto> {
+  return requestRuntime<SubmitPlanResultDto>(`/api/publishing/plans/${id}/submit`, {
+    method: "POST"
+  });
+}
+
+export async function cancelPublishPlan(id: string): Promise<PublishPlanDto> {
+  return requestRuntime<PublishPlanDto>(`/api/publishing/plans/${id}/cancel`, {
+    method: "POST"
+  });
+}
+
+// Renders
+export async function fetchRenderTasks(status?: string): Promise<RenderTaskDto[]> {
+  const params = new URLSearchParams();
+  if (status) params.append("status", status);
+  const query = params.toString();
+  return requestRuntime<RenderTaskDto[]>(`/api/renders/tasks${query ? `?${query}` : ""}`);
+}
+
+export async function createRenderTask(input: RenderTaskCreateInput): Promise<RenderTaskDto> {
+  return requestRuntime<RenderTaskDto>("/api/renders/tasks", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function fetchRenderTask(id: string): Promise<RenderTaskDto> {
+  return requestRuntime<RenderTaskDto>(`/api/renders/tasks/${id}`);
+}
+
+export async function updateRenderTask(
+  id: string,
+  input: RenderTaskUpdateInput
+): Promise<RenderTaskDto> {
+  return requestRuntime<RenderTaskDto>(`/api/renders/tasks/${id}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function deleteRenderTask(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/renders/tasks/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export async function cancelRenderTask(id: string): Promise<CancelRenderResultDto> {
+  return requestRuntime<CancelRenderResultDto>(`/api/renders/tasks/${id}/cancel`, {
+    method: "POST"
+  });
+}
+
+// Review
+export async function fetchReviewSummary(projectId: string): Promise<ReviewSummaryDto> {
+  return requestRuntime<ReviewSummaryDto>(`/api/review/projects/${projectId}/summary`);
+}
+
+export async function analyzeReviewProject(projectId: string): Promise<AnalyzeProjectResultDto> {
+  return requestRuntime<AnalyzeProjectResultDto>(`/api/review/projects/${projectId}/analyze`, {
+    method: "POST"
+  });
+}
+
+export async function updateReviewSummary(
+  projectId: string,
+  input: ReviewSummaryUpdateInput
+): Promise<ReviewSummaryDto> {
+  return requestRuntime<ReviewSummaryDto>(`/api/review/projects/${projectId}/summary`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function fetchActiveTasks(): Promise<TaskInfo[]> {
+  return requestRuntime<TaskInfo[]>("/api/tasks");
+}
+
+export async function fetchTaskStatus(taskId: string): Promise<TaskInfo> {
+  return requestRuntime<TaskInfo>(`/api/tasks/${taskId}`);
+}
+
+export async function cancelTask(
+  taskId: string
+): Promise<{ task_id: string; status: string; message: string }> {
+  return requestRuntime<{ task_id: string; status: string; message: string }>(
+    `/api/tasks/${taskId}/cancel`,
+    {
+      method: "POST"
+    }
+  );
 }
 
 async function requestRuntime<T>(path: string, init: RequestInit = {}): Promise<T> {

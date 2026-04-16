@@ -15,7 +15,7 @@ def test_video_deconstruction_import_and_list_contract(runtime_app, tmp_path: Pa
     video_path = tmp_path / "contract.mp4"
     video_path.write_bytes(b"\x00" * 4096)
 
-    with patch("services.video_import_service.probe_video", return_value=None):
+    with patch("tasks.video_tasks.probe_video", return_value=None):
         import_response = client.post(
             f"/api/video-deconstruction/projects/{project_id}/import",
             json={"filePath": str(video_path)},

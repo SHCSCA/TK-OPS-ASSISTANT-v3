@@ -254,8 +254,9 @@ def _insert_seed_graph(
     session: Session,
     candidates: Sequence[LocalAssetCandidate],
 ) -> None:
-    now = _utc_now()
-    later = (datetime.now(UTC) + timedelta(days=1)).isoformat().replace("+00:00", "Z")
+    now_dt = datetime.now(UTC)
+    now = now_dt.isoformat().replace("+00:00", "Z")
+    later_dt = now_dt + timedelta(days=1)
     project_main = Project(
         id="dev-seed-project-ai-video-hub",
         name="TikTok AI 爆款短视频样例",
@@ -426,40 +427,40 @@ def _insert_seed_graph(
             RenderTask(
                 id="dev-seed-render-main",
                 project_id=project_main.id,
-                timeline_id=timeline.id,
+                project_name=project_main.name,
+                preset="1080x1920",
+                format="mp4",
                 status="queued",
                 output_path=str(Path(".runtime-data") / "exports" / "dev-seed-tiktok-demo.mp4"),
-                profile_json=_json({"format": "mp4", "resolution": "1080x1920", "fps": 30}),
                 progress=0,
-                source=DEV_SEED_SOURCE,
                 error_message=None,
-                created_at=now,
-                updated_at=now,
             ),
         ]
     )
 
     account = Account(
         id="dev-seed-account-tiktok-main",
+        name="TK-OPS 开发账号",
         platform="tiktok",
-        handle="@tkops_demo",
-        display_name="TK-OPS 测试账号",
-        group_name="开发样例组",
+        username="@tkops_demo",
+        avatar_url=None,
         status="healthy",
-        source=DEV_SEED_SOURCE,
-        metadata_json=_json({"region": "US", "note": "仅用于本地开发调试"}),
+        auth_expires_at=None,
+        follower_count=0,
+        following_count=0,
+        video_count=0,
+        tags=_json(["开发样例"]),
+        notes="仅用于本地开发调试",
         created_at=now,
+        updated_at=now,
     )
     workspace = DeviceWorkspace(
         id="dev-seed-device-local-browser",
         name="本机 Chrome 工作区",
-        device_type="pc_browser",
         root_path=str(Path.home()),
-        browser_profile="Default",
         status="ready",
-        health_json=_json({"disk": "ok", "browser": "configured"}),
-        source=DEV_SEED_SOURCE,
-        created_at=now,
+        error_count=0,
+        last_used_at=now_dt,
     )
     binding = ExecutionBinding(
         id="dev-seed-binding-main",
@@ -468,7 +469,6 @@ def _insert_seed_graph(
         status="active",
         source=DEV_SEED_SOURCE,
         metadata_json=_json({"policy": "manual_review_before_publish"}),
-        created_at=now,
     )
     session.add_all([account, workspace])
     session.flush()
@@ -478,39 +478,46 @@ def _insert_seed_graph(
         [
             PublishPlan(
                 id="dev-seed-publish-main",
+                title="开发样例发布计划",
                 project_id=project_main.id,
                 account_id=account.id,
-                binding_id=binding.id,
+                account_name=account.name,
+                video_asset_id=None,
                 status="scheduled",
-                scheduled_at=later,
-                caption="用 AI 把脚本、分镜、配音、字幕和发布串成一个闭环。",
-                source=DEV_SEED_SOURCE,
-                metadata_json=_json({"hashtags": ["#AIVideo", "#TikTokCreator"]}),
-                created_at=now,
+                scheduled_at=later_dt,
+                precheck_result_json=_json({"hashtags": ["#AIVideo", "#TikTokCreator"]}),
             ),
             AutomationTask(
                 id="dev-seed-automation-publish-check",
-                project_id=project_main.id,
-                binding_id=binding.id,
-                task_type="publish",
-                status="waiting",
-                schedule_json=_json({"mode": "manual_window", "scheduledAt": later}),
-                payload_json=_json({"publishPlanId": "dev-seed-publish-main"}),
-                source=DEV_SEED_SOURCE,
-                created_at=now,
-                updated_at=now,
+                name="发布前检查",
+                type="publish_precheck",
+                enabled=True,
+                cron_expr=None,
+                last_run_status="waiting",
+                run_count=0,
+                config_json=_json(
+                    {
+                        "projectId": project_main.id,
+                        "bindingId": binding.id,
+                        "publishPlanId": "dev-seed-publish-main",
+                    }
+                ),
             ),
             AutomationTask(
                 id="dev-seed-automation-sync-check",
-                project_id=project_import.id,
-                binding_id=binding.id,
-                task_type="sync_check",
-                status="queued",
-                schedule_json=_json({"mode": "on_demand"}),
-                payload_json=_json({"scope": "asset_index"}),
-                source=DEV_SEED_SOURCE,
-                created_at=now,
-                updated_at=now,
+                name="资产索引检查",
+                type="sync_check",
+                enabled=True,
+                cron_expr=None,
+                last_run_status="queued",
+                run_count=0,
+                config_json=_json(
+                    {
+                        "projectId": project_import.id,
+                        "bindingId": binding.id,
+                        "scope": "asset_index",
+                    }
+                ),
             ),
         ]
     )
@@ -529,21 +536,25 @@ def _insert_assets_and_imported_videos(
         session.add(
             Asset(
                 id=asset_id,
-                project_id=project_id,
-                kind=candidate.kind,
-                file_path=str(candidate.path),
-                file_name=candidate.file_name,
-                file_size_bytes=candidate.file_size_bytes,
-                mime_type=candidate.mime_type,
+                name=candidate.file_name,
+                type=candidate.kind,
                 source=DEV_SEED_SOURCE,
+                file_path=str(candidate.path),
+                file_size_bytes=candidate.file_size_bytes,
+                duration_ms=None,
+                thumbnail_path=None,
+                tags=None,
+                project_id=project_id,
                 metadata_json=_json(
                     {
                         "source": DEV_SEED_SOURCE,
                         "modifiedAt": candidate.modified_at,
+                        "mimeType": candidate.mime_type,
                         "copied": False,
                     }
                 ),
                 created_at=now,
+                updated_at=now,
             )
         )
         if candidate.kind == "video":

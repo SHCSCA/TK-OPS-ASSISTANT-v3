@@ -6,6 +6,8 @@ import {
   fetchImportedVideos,
   importVideo
 } from "@/app/runtime-client";
+import { useTaskBusStore } from "@/stores/task-bus";
+import type { TaskEvent, TaskInfo } from "@/types/task-events";
 import type { RuntimeRequestErrorShape } from "@/types/runtime";
 import type { ImportedVideo } from "@/types/video";
 
@@ -15,39 +17,19 @@ type VideoImportState = {
   error: RuntimeRequestErrorShape | null;
   status: VideoImportStatus;
   videos: ImportedVideo[];
+  _taskUnsubscribers: Record<string, () => void>;
 };
 
 export const useVideoImportStore = defineStore("video-import", {
   state: (): VideoImportState => ({
     error: null,
     status: "idle",
-    videos: []
+    videos: [],
+    _taskUnsubscribers: {}
   }),
   actions: {
     initializeWebSocket(): void {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = "127.0.0.1:8000"; // Runtime 默认地址
-      const socket = new WebSocket(`${protocol}//${host}/api/ws`);
-
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.event === "video_status_changed") {
-            const videoIndex = this.videos.findIndex((v) => v.id === data.video_id);
-            if (videoIndex !== -1) {
-              // 触发列表刷新或局部更新
-              void this.loadVideos(this.videos[videoIndex].projectId);
-            }
-          }
-        } catch (e) {
-          console.error("解析 WebSocket 消息失败:", e);
-        }
-      };
-
-      socket.onclose = () => {
-        console.warn("WebSocket 已断开，3秒后重连...");
-        setTimeout(() => this.initializeWebSocket(), 3000);
-      };
+      useTaskBusStore().connect();
     },
     async loadVideos(projectId: string): Promise<void> {
       this.status = "loading";
@@ -67,6 +49,7 @@ export const useVideoImportStore = defineStore("video-import", {
       try {
         const video = await importVideo(projectId, filePath);
         this.videos = [video, ...this.videos.filter((item) => item.id !== video.id)];
+        this.watchVideoTask(projectId, video.id);
         this.status = "ready";
         return video;
       } catch (error) {
@@ -79,10 +62,39 @@ export const useVideoImportStore = defineStore("video-import", {
 
       try {
         await deleteImportedVideo(videoId);
+        this.unwatchVideoTask(videoId);
         this.videos = this.videos.filter((item) => item.id !== videoId);
       } catch (error) {
         this.applyRuntimeError(error, "删除视频失败。");
       }
+    },
+    taskForVideo(videoId: string): TaskInfo | undefined {
+      return useTaskBusStore().tasks.get(videoId);
+    },
+    watchVideoTask(projectId: string, videoId: string): void {
+      this.unwatchVideoTask(videoId);
+      this._taskUnsubscribers[videoId] = useTaskBusStore().subscribe(
+        videoId,
+        (event: TaskEvent) => {
+          if (
+            event.taskType !== "video_import" ||
+            !["task.completed", "task.failed"].includes(event.type)
+          ) {
+            return;
+          }
+
+          void this.loadVideos(projectId);
+        }
+      );
+    },
+    unwatchVideoTask(videoId: string): void {
+      const unsubscribe = this._taskUnsubscribers[videoId];
+      if (!unsubscribe) {
+        return;
+      }
+
+      unsubscribe();
+      delete this._taskUnsubscribers[videoId];
     },
     applyRuntimeError(error: unknown, fallbackMessage: string): void {
       const runtimeError =
