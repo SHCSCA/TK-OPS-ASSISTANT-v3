@@ -16,6 +16,10 @@ import type {
   ScriptDocument,
   StoryboardDocument,
   StoryboardScene,
+  SubtitleTrackDto,
+  SubtitleTrackGenerateInput,
+  SubtitleTrackGenerateResultDto,
+  SubtitleTrackUpdateInput,
   VoiceProfileDto,
   VoiceTrackDto,
   VoiceTrackGenerateInput,
@@ -249,6 +253,45 @@ export async function deleteVoiceTrack(trackId: string): Promise<void> {
     method: "DELETE"
   });
 }
+
+// Subtitle alignment center
+export async function fetchSubtitleTracks(projectId: string): Promise<SubtitleTrackDto[]> {
+  return requestRuntime<SubtitleTrackDto[]>(`/api/subtitles/projects/${projectId}/tracks`);
+}
+
+export async function generateSubtitleTrack(
+  projectId: string,
+  input: SubtitleTrackGenerateInput
+): Promise<SubtitleTrackGenerateResultDto> {
+  return requestRuntime<SubtitleTrackGenerateResultDto>(
+    `/api/subtitles/projects/${projectId}/tracks/generate`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
+}
+
+export async function fetchSubtitleTrack(trackId: string): Promise<SubtitleTrackDto> {
+  return requestRuntime<SubtitleTrackDto>(`/api/subtitles/tracks/${trackId}`);
+}
+
+export async function updateSubtitleTrack(
+  trackId: string,
+  input: SubtitleTrackUpdateInput
+): Promise<SubtitleTrackDto> {
+  return requestRuntime<SubtitleTrackDto>(`/api/subtitles/tracks/${trackId}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function deleteSubtitleTrack(trackId: string): Promise<void> {
+  return requestRuntime<void>(`/api/subtitles/tracks/${trackId}`, {
+    method: "DELETE"
+  });
+}
+
 
 export async function fetchImportedVideos(projectId: string): Promise<ImportedVideo[]> {
   return requestRuntime<ImportedVideo[]>(

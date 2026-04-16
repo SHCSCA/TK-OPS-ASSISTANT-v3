@@ -122,7 +122,7 @@
 | `task` | `object | null` | 本批无真实任务时为 `null` |
 | `message` | `string` | 中文结果说明 |
 
-### 4.2 后端接口与前端调用
+### 6.2 后端接口与前端调用
 
 | 状态 | 方法 | 路径 | 后端入口 | 前端调用 | 消费方 | 测试 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -194,11 +194,162 @@
 - `segments` 必须来自真实脚本文本切分。
 - 真实 TTS Provider、音频落盘、资产注册和时间线落轨必须作为后续独立计划。
 
-## 5. M09 资产中心
+## 5. M08 字幕对齐中心
+
+> 2026-04-16 新增：M08 字幕对齐中心第一批只建立真实 Runtime 契约、字幕轨草稿记录和 UI 校对工作台。无可用字幕对齐 Provider 时，`POST /api/subtitles/projects/{project_id}/tracks/generate` 必须创建真实 `SubtitleTrack` 记录并返回 `blocked` 状态和中文说明，不得伪造成自动对齐完成。页面所有字幕读写必须通过 `runtime-client.ts` 和 `subtitle-alignment` store，不得继续使用页面内 `setTimeout`、随机假字幕或 `alert`。
+
+### 6.1 数据对象
+
+`SubtitleStyleDto`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `preset` | `string` | 当前样式预设，默认 `creator-default` |
+| `fontSize` | `number` | 字号，默认 32，范围 18 到 72 |
+| `position` | `bottom \| center \| top` | 字幕位置 |
+| `textColor` | `string` | 字幕文字颜色 |
+| `background` | `string` | 字幕背景，允许 `rgba(...)` |
+
+`SubtitleSegmentDto`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `segmentIndex` | `number` | 字幕段序号，从 0 开始 |
+| `text` | `string` | 字幕文本 |
+| `startMs` | `number \| null` | 起始时间；无真实对齐时为 `null` |
+| `endMs` | `number \| null` | 结束时间；无真实对齐时为 `null` |
+| `confidence` | `number \| null` | 后续 Provider 置信度；本批为 `null` |
+| `locked` | `boolean` | 用户是否手动锁定该段 |
+
+`SubtitleTrackDto`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `string` | 字幕轨 ID |
+| `projectId` | `string` | 项目 ID |
+| `timelineId` | `string \| null` | 后续时间线 ID |
+| `source` | `script \| manual \| provider` | 字幕来源，本批生成默认为 `script` |
+| `language` | `string` | 语言，如 `zh-CN` |
+| `style` | `SubtitleStyleDto` | 字幕样式 |
+| `segments` | `SubtitleSegmentDto[]` | 字幕段落 |
+| `status` | `blocked \| ready \| error \| aligning` | 字幕轨状态 |
+| `createdAt` | `string` | UTC ISO 时间 |
+
+`SubtitleTrackGenerateInput`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `sourceText` | `string` | 待生成字幕草稿的脚本文本 |
+| `language` | `string` | 默认 `zh-CN` |
+| `stylePreset` | `string` | 默认 `creator-default` |
+
+`SubtitleTrackUpdateInput`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `segments` | `SubtitleSegmentDto[]` | 用户校正后的字幕段 |
+| `style` | `SubtitleStyleDto` | 用户调整后的字幕样式 |
+
+`SubtitleTrackGenerateResultDto`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `track` | `SubtitleTrackDto` | 已创建的字幕轨记录 |
+| `task` | `object \| null` | 本批无真实任务时为 `null` |
+| `message` | `string` | 中文结果说明 |
+
+### 5.2 后端接口与前端调用
+
+| 状态 | 方法 | 路径 | 后端入口 | 前端调用 | 消费方 | 测试 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 当前 | `GET` | `/api/subtitles/projects/{project_id}/tracks` | `api/routes/subtitles.py:list_project_tracks` | `fetchSubtitleTracks(projectId)` | `subtitle-alignment` store、`SubtitleVersionPanel.vue` | `tests/contracts/test_subtitle_runtime_contract.py`、`apps/desktop/tests/runtime-client-subtitles.spec.ts` |
+| 当前 | `POST` | `/api/subtitles/projects/{project_id}/tracks/generate` | `api/routes/subtitles.py:generate_track` | `generateSubtitleTrack(projectId, input)` | `subtitle-alignment` store、字幕对齐中心页面 | `tests/contracts/test_subtitle_runtime_contract.py`、`tests/runtime/test_subtitle_service.py`、`apps/desktop/tests/subtitle-alignment-store.spec.ts` |
+| 当前 | `GET` | `/api/subtitles/tracks/{track_id}` | `api/routes/subtitles.py:get_track` | `fetchSubtitleTrack(trackId)` | `subtitle-alignment` store、版本详情 | `tests/contracts/test_subtitle_runtime_contract.py`、`apps/desktop/tests/runtime-client-subtitles.spec.ts` |
+| 当前 | `PATCH` | `/api/subtitles/tracks/{track_id}` | `api/routes/subtitles.py:update_track` | `updateSubtitleTrack(trackId, input)` | `subtitle-alignment` store、`SubtitleSegmentList.vue`、`SubtitleTimingPanel.vue`、`SubtitleStylePanel.vue` | `tests/contracts/test_subtitle_runtime_contract.py`、`tests/runtime/test_subtitle_service.py`、`apps/desktop/tests/subtitle-alignment-store.spec.ts` |
+| 当前 | `DELETE` | `/api/subtitles/tracks/{track_id}` | `api/routes/subtitles.py:delete_track` | `deleteSubtitleTrack(trackId)` | `subtitle-alignment` store、`SubtitleVersionPanel.vue` | `tests/contracts/test_subtitle_runtime_contract.py`、`apps/desktop/tests/subtitle-alignment-store.spec.ts` |
+
+### 5.3 `POST /api/subtitles/projects/{project_id}/tracks/generate`
+
+请求：
+
+```json
+{
+  "sourceText": "第一段脚本\n第二段脚本",
+  "language": "zh-CN",
+  "stylePreset": "creator-default"
+}
+```
+
+无 Provider 时成功响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "track": {
+      "id": "subtitle-1",
+      "projectId": "project-1",
+      "timelineId": null,
+      "source": "script",
+      "language": "zh-CN",
+      "style": {
+        "preset": "creator-default",
+        "fontSize": 32,
+        "position": "bottom",
+        "textColor": "#FFFFFF",
+        "background": "rgba(0,0,0,0.62)"
+      },
+      "segments": [
+        {
+          "segmentIndex": 0,
+          "text": "第一段脚本",
+          "startMs": null,
+          "endMs": null,
+          "confidence": null,
+          "locked": false
+        }
+      ],
+      "status": "blocked",
+      "createdAt": "2026-04-16T00:00:00Z"
+    },
+    "task": null,
+    "message": "尚未配置可用字幕对齐 Provider，已保存字幕草稿。"
+  }
+}
+```
+
+空脚本失败响应：
+
+```json
+{
+  "ok": false,
+  "error": "字幕源文本为空，请先在脚本与选题中心创建内容。"
+}
+```
+
+约束：
+
+- 本批不创建 TaskBus 任务，不广播假进度。
+- 字幕段必须来自真实脚本文本切分，不能写固定演示字幕。
+- 无真实对齐时 `startMs`、`endMs`、`confidence` 必须为 `null`。
+- 无 Provider 时状态必须为 `blocked`，不能误导为自动对齐完成。
+- 真实字幕对齐 Provider、ASR、SRT/VTT 导入导出、TaskBus 长任务和时间线回写必须作为后续独立计划。
+
+### 5.4 前端调用登记
+
+| 函数 | 文件 | Runtime 路径 | 返回类型 | 主要消费方 | 更新要求 |
+| --- | --- | --- | --- | --- | --- |
+| `fetchSubtitleTracks(projectId)` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/subtitles/projects/{project_id}/tracks` | `SubtitleTrackDto[]` | `subtitle-alignment` store、`SubtitleVersionPanel.vue` | 列表必须来自真实 Runtime 记录 |
+| `generateSubtitleTrack(projectId, input)` | `apps/desktop/src/app/runtime-client.ts` | `POST /api/subtitles/projects/{project_id}/tracks/generate` | `SubtitleTrackGenerateResultDto` | `subtitle-alignment` store、字幕对齐中心页面 | 无 Provider 时必须展示 `blocked`，不得假成功 |
+| `fetchSubtitleTrack(trackId)` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/subtitles/tracks/{track_id}` | `SubtitleTrackDto` | `subtitle-alignment` store、版本详情 | 返回段落和样式映射 |
+| `updateSubtitleTrack(trackId, input)` | `apps/desktop/src/app/runtime-client.ts` | `PATCH /api/subtitles/tracks/{track_id}` | `SubtitleTrackDto` | `subtitle-alignment` store、字幕段落、时间码、样式面板 | 保存失败必须显示中文错误 |
+| `deleteSubtitleTrack(trackId)` | `apps/desktop/src/app/runtime-client.ts` | `DELETE /api/subtitles/tracks/{track_id}` | `void` | `subtitle-alignment` store、版本面板 | 删除后必须刷新列表并清空失效选中态 |
+
+## 6. M09 资产中心
 
 > 2026-04-16 修订：Runtime 启动时会兼容修复旧版 `assets` 表，避免旧本地库缺少 `name`、`type`、`updated_at` 等列导致 `GET /api/assets` 直接 500，也避免旧版 `kind` / `file_name` 非空约束阻断新图片导入。点击“导入资产”必须弹出桌面文件选择器并支持多选；每个被选中的真实本地路径逐个通过 `importAsset(input)` 进入 Runtime。Tauri 主窗口 capability 必须包含 `dialog:allow-open`，否则文件选择器会被运行时权限拒绝；`tauri.conf.json` 必须启用 `app.security.assetProtocol` 并允许用户素材目录，否则 `convertFileSrc(filePath)` 生成的真实预览地址无法在 WebView 中读取。资产中心前端已采用素材墙、批量导入状态、真实本地预览、UTF-8 文档预览和全局右侧抽屉联动；页面不得回退到手动路径输入或图标占位预览。
 
-### 5.1 数据对象
+### 6.1 数据对象
 
 `AssetDto`
 
@@ -245,7 +396,7 @@
 | --- | --- | --- |
 | `deleted` | `boolean` | 删除是否完成 |
 
-### 4.2 后端接口与前端调用
+### 6.2 后端接口与前端调用
 
 | 状态 | 方法 | 路径 | 后端入口 | 前端调用 | 消费方 | 测试 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -260,7 +411,7 @@
 | 当前 | `DELETE` | `/api/assets/references/{ref_id}` | `api/routes/assets.py:delete_asset_reference` | 暂无公开页面调用 | 后端测试/后续引用管理 | `tests/contracts/test_runtime_page_modules_contract.py` |
 | 当前 | `GET` | `/api/assets/references/{ref_id}` | `api/routes/assets.py:get_reference` | 暂无公开页面调用 | 后端测试/后续引用管理 | `tests/contracts/test_runtime_page_modules_contract.py` |
 
-### 5.3 `POST /api/assets/import`
+### 6.3 `POST /api/assets/import`
 
 当前已实现接口。
 
@@ -320,7 +471,7 @@
 - 资产预览不使用假缩略图：视频、图片、可嵌入文档优先通过 `@tauri-apps/api/core` 的 `convertFileSrc(filePath)` 渲染真实本地文件；有 `thumbnailPath` 时优先渲染真实缩略图路径。该能力依赖 Tauri `assetProtocol.enable = true`，并且 `scope` 至少覆盖用户常用素材目录。
 - `.txt`、`.md`、`.json`、`.csv`、`.srt` 等文本类文档不得直接交给 iframe 猜测编码；前端必须读取 `convertFileSrc(filePath)` 返回的内容，并按 UTF-8 文本预览渲染。PDF 保持 iframe 嵌入预览。
 
-### 5.4 删除与引用影响范围
+### 6.4 删除与引用影响范围
 
 删除前端流程：
 
@@ -336,7 +487,7 @@
 - 存在引用时返回统一错误信封，中文错误说明引用影响。
 - 删除成功返回 `{ "deleted": true }`。
 
-### 5.5 旧版本地库兼容
+### 6.5 旧版本地库兼容
 
 历史本地库可能已经存在旧版 `assets` 表，字段为 `kind`、`file_name` 等旧命名，缺少当前 `AssetDto` 依赖的 `name`、`type`、`duration_ms`、`thumbnail_path`、`tags`、`updated_at` 等列。Runtime 初始化必须在 `initialize_domain_schema(engine)` 中执行兼容修复：
 
@@ -346,11 +497,11 @@
 - 如旧列 `kind`、`file_name`、`mime_type` 带有非空约束并会阻断新 ORM 插入，允许原地重建 `assets` 表；重建必须保留旧数据和旧列值，不清空用户本地资产。
 - 兼容修复必须由 `tests/runtime/test_asset_schema_migration.py` 覆盖。
 
-## 5.6 TaskBus WebSocket 依赖
+### 6.6 TaskBus WebSocket 依赖
 
 前端任务总线连接 `ws://127.0.0.1:8000/api/ws`。Runtime 运行环境必须安装 `websockets` 或 `wsproto` 之一；当前项目依赖固定为 `websockets>=14.0,<16.0`。如果缺少该依赖，Uvicorn 会记录 `No supported WebSocket library detected`，升级请求会退化成普通 `GET /api/ws` 并持续返回 404。
 
-## 6. 前端调用登记表
+## 7. 前端调用登记表
 
 | 函数 | 文件 | Runtime 路径 | 返回类型 | 主要消费方 | 更新要求 |
 | --- | --- | --- | --- | --- | --- |
@@ -372,7 +523,7 @@
 | --- | --- | --- | --- |
 | `convertFileSrc(filePath)` | `apps/desktop/src/components/assets/AssetPreview.vue` | 将真实本地视频、图片、文档路径转换为 WebView 可渲染地址；文本类文档读取后按 UTF-8 渲染 | 依赖 Tauri 桌面环境和 `app.security.assetProtocol`；不得用假缩略图替代真实文件预览 |
 
-## 7. 验证命令
+## 8. 验证命令
 
 接口或调用文档变化后，至少运行：
 

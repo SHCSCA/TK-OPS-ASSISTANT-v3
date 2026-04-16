@@ -237,6 +237,55 @@ export type VoiceTrackGenerateResultDto = {
   message: string;
 };
 
+export type SubtitleTrackStatus = "blocked" | "ready" | "error" | "aligning";
+
+export type SubtitleStyleDto = {
+  preset: string;
+  fontSize: number;
+  position: "bottom" | "center" | "top";
+  textColor: string;
+  background: string;
+};
+
+export type SubtitleSegmentDto = {
+  segmentIndex: number;
+  text: string;
+  startMs: number | null;
+  endMs: number | null;
+  confidence: number | null;
+  locked: boolean;
+};
+
+export type SubtitleTrackDto = {
+  id: string;
+  projectId: string;
+  timelineId: string | null;
+  source: "script" | "manual" | "provider";
+  language: string;
+  style: SubtitleStyleDto;
+  segments: SubtitleSegmentDto[];
+  status: SubtitleTrackStatus;
+  createdAt: string;
+};
+
+export type SubtitleTrackGenerateInput = {
+  sourceText: string;
+  language: string;
+  stylePreset: string;
+};
+
+export type SubtitleTrackUpdateInput = {
+  segments: SubtitleSegmentDto[];
+  style: SubtitleStyleDto;
+};
+
+export type SubtitleTrackGenerateResultDto = {
+  track: SubtitleTrackDto;
+  task: TaskInfo | null;
+  message: string;
+};
+
+
 export type AssetDto = {
   id: string;
   name: string;
