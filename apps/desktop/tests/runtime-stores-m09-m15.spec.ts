@@ -173,14 +173,61 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
     expect(devices.loading).toBe(false);
     expect(devices.error).toBe("设备工作区加载失败");
   });
+  it("资产 store 支持真实导入、标签解析和删除前引用阻断", async () => {
+    let references = [assetReference()];
+    const fetchMock = createRouteAwareFetch((path, method, init) => {
+      if (path === "/api/assets" && method === "GET") return okJsonResponse([asset()]);
+      if (path === "/api/assets/import" && method === "POST") {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          filePath: "D:/tkops/assets/opening.mp4",
+          type: "video",
+          source: "local",
+          projectId: "project-1",
+          tags: '["开场"]'
+        });
+        return okJsonResponse(asset("asset-2", '["开场"]'));
+      }
+      if (path === "/api/assets/asset-1/references") return okJsonResponse(references);
+      if (path === "/api/assets/asset-1" && method === "DELETE") {
+        return okJsonResponse({ deleted: true });
+      }
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const assets = useAssetLibraryStore();
+    await assets.load();
+
+    const imported = await assets.importLocalFile({
+      filePath: "D:/tkops/assets/opening.mp4",
+      type: "video",
+      source: "local",
+      projectId: "project-1",
+      tags: '["开场"]'
+    });
+    expect(imported.id).toBe("asset-2");
+    expect(assets.selectedId).toBe("asset-2");
+    expect(assets.importStatus).toBe("succeeded");
+    expect(assets.parseTags(imported)).toEqual(["开场"]);
+    expect(assets.parseTags({ ...imported, tags: "not-json" })).toEqual([]);
+
+    const canDelete = await assets.prepareDelete("asset-1");
+    expect(canDelete).toBe(false);
+    expect(assets.deleteError).toContain("资产存在引用");
+
+    references = [];
+    await assets.prepareDelete("asset-1");
+    await assets.deleteSelected();
+    expect(assets.assets.every((item) => item.id !== "asset-1")).toBe(true);
+  });
 });
 
 function now() {
   return "2026-04-15T10:00:00Z";
 }
 
-function asset() {
-  return { id: "asset-1", name: "Clip", type: "video", source: "local", filePath: null, fileSizeBytes: null, durationMs: null, thumbnailPath: null, tags: null, projectId: null, metadataJson: null, createdAt: now(), updatedAt: now() };
+function asset(id = "asset-1", tags: string | null = null) {
+  return { id, name: "Clip", type: "video", source: "local", filePath: null, fileSizeBytes: null, durationMs: null, thumbnailPath: null, tags, projectId: null, metadataJson: null, createdAt: now(), updatedAt: now() };
 }
 
 function assetReference() {

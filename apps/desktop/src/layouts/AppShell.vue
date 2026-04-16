@@ -73,16 +73,18 @@ import ShellTitleBar from "@/layouts/shell/ShellTitleBar.vue";
 import { useConfigBusStore } from "@/stores/config-bus";
 import { useLicenseStore } from "@/stores/license";
 import { useProjectStore } from "@/stores/project";
+import { useShellUiStore } from "@/stores/shell-ui";
 
 const route = useRoute();
 const configBusStore = useConfigBusStore();
 const licenseStore = useLicenseStore();
 const projectStore = useProjectStore();
+const shellUiStore = useShellUiStore();
 const { health } = storeToRefs(configBusStore);
+const { isDetailPanelOpen } = storeToRefs(shellUiStore);
 
 // --- 状态控制 ---
 const isSidebarCollapsed = ref(false);
-const isDetailPanelOpen = ref(false);
 const currentTheme = ref<'light' | 'dark'>('light');
 
 function toggleSidebar() {
@@ -90,7 +92,7 @@ function toggleSidebar() {
 }
 
 function toggleDetailPanel() {
-  isDetailPanelOpen.value = !isDetailPanelOpen.value;
+  shellUiStore.toggleDetailPanel();
 }
 
 function toggleTheme() {
@@ -167,12 +169,33 @@ const configStatusLabel = computed(() => {
 });
 
 const lastSyncLabel = computed(() => {
-  return configBusStore.lastSyncedAt ? `最近同步 ${configBusStore.lastSyncedAt}` : "最近同步待完成";
+  return configBusStore.lastSyncedAt
+    ? `最近同步 ${formatShanghaiDateTime(configBusStore.lastSyncedAt)}`
+    : "最近同步待完成";
 });
 
 watchEffect(() => {
   document.title = `TK-OPS | ${currentPage.value.title}`;
 });
+
+function formatShanghaiDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")} Asia/Shanghai`;
+}
 </script>
 
 <style scoped>

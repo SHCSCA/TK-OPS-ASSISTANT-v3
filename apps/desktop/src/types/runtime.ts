@@ -204,6 +204,32 @@ export type AssetDto = {
   updatedAt: string;
 };
 
+export type AssetImportInput = {
+  filePath: string;
+  type: string;
+  source?: string;
+  projectId?: string | null;
+  tags?: string | null;
+  metadataJson?: string | null;
+};
+
+export type AssetUpdateInput = {
+  name?: string | null;
+  type?: string | null;
+  source?: string | null;
+  filePath?: string | null;
+  fileSizeBytes?: number | null;
+  durationMs?: number | null;
+  thumbnailPath?: string | null;
+  tags?: string | null;
+  projectId?: string | null;
+  metadataJson?: string | null;
+};
+
+export type AssetDeleteResult = {
+  deleted: boolean;
+};
+
 export type AssetReferenceDto = {
   id: string;
   assetId: string;

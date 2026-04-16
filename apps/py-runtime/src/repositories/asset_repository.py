@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from domain.models.asset import Asset, AssetReference
@@ -55,6 +55,21 @@ class AssetRepository:
             if asset is not None:
                 session.expunge(asset)
             return asset
+
+    def get_reference(self, reference_id: str) -> AssetReference | None:
+        with self._session_factory() as session:
+            reference = session.get(AssetReference, reference_id)
+            if reference is not None:
+                session.expunge(reference)
+            return reference
+
+    def count_references(self, asset_id: str) -> int:
+        with self._session_factory() as session:
+            return session.scalar(
+                select(func.count(AssetReference.id)).where(
+                    AssetReference.asset_id == asset_id
+                )
+            ) or 0
 
     def update_asset(self, asset_id: str, *, changes: dict[str, object]) -> Asset | None:
         with self._session_factory() as session:

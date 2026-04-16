@@ -16,8 +16,11 @@ import type {
   ScriptDocument,
   StoryboardDocument,
   StoryboardScene,
+  AssetDeleteResult,
   AssetDto,
+  AssetImportInput,
   AssetReferenceDto,
+  AssetUpdateInput,
   AccountDto,
   AccountGroupDto,
   AccountCreateInput,
@@ -242,8 +245,26 @@ export async function fetchAssets(type?: string, q?: string): Promise<AssetDto[]
   return requestRuntime<AssetDto[]>(`/api/assets${query ? `?${query}` : ""}`);
 }
 
-export async function deleteAsset(id: string): Promise<void> {
-  return requestRuntime<void>(`/api/assets/${id}`, {
+export async function importAsset(input: AssetImportInput): Promise<AssetDto> {
+  return requestRuntime<AssetDto>("/api/assets/import", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function fetchAsset(id: string): Promise<AssetDto> {
+  return requestRuntime<AssetDto>(`/api/assets/${id}`);
+}
+
+export async function updateAsset(id: string, input: AssetUpdateInput): Promise<AssetDto> {
+  return requestRuntime<AssetDto>(`/api/assets/${id}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function deleteAsset(id: string): Promise<AssetDeleteResult> {
+  return requestRuntime<AssetDeleteResult>(`/api/assets/${id}`, {
     method: "DELETE"
   });
 }

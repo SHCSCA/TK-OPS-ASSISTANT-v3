@@ -1,6 +1,6 @@
 [package]
 name = "tk-ops-desktop"
-version = "0.3.1"
+version = "0.3.2"
 description = "TK-OPS desktop shell"
 authors = ["TK-OPS"]
 edition = "2021"
@@ -10,4 +10,5 @@ build = "build.rs"
 tauri-build = { version = "2.0.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0.0", features = [] }
+tauri = { version = "2.0.0", features = ["protocol-asset"] }
+tauri-plugin-dialog = "2"

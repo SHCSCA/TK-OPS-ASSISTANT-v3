@@ -1,555 +1,381 @@
 <template>
   <ProjectContextGuard>
-    <div class="asset-library" @dragover.prevent="isDragging = true" @dragleave.prevent="isDragging = false" @drop.prevent="handleDrop">
-    <div v-if="isDragging" class="drag-overlay">
-      <div class="drag-message">
+    <section
+      class="asset-library"
+      data-testid="asset-library"
+      @dragenter.prevent="handleDragOver"
+      @dragover.prevent="handleDragOver"
+      @dragleave.prevent="handleDragLeave"
+      @drop.prevent="handleDrop"
+    >
+      <div v-if="isDragging" class="asset-library__drop-layer">
         <span class="material-symbols-outlined">upload_file</span>
-        <span>松开鼠标上传资产</span>
+        <strong>松开导入到资产中心</strong>
+        <span>{{ dragFileCountLabel }}，只记录真实本地文件路径，不生成演示素材。</span>
       </div>
-    </div>
 
-    <!-- 工具栏 -->
-    <header class="asset-toolbar">
-      <div class="toolbar-left">
-        <div class="search-box">
-          <span class="material-symbols-outlined">search</span>
-          <input type="text" v-model="searchQuery" @input="handleSearch" placeholder="搜索资产名称..." />
-        </div>
-        <div class="type-tabs">
-          <button v-for="tab in typeTabs" :key="tab.value" 
-            :class="{ active: store.filter.type === tab.value }"
-            @click="store.setFilterType(tab.value)">
-            {{ tab.label }}
-          </button>
-        </div>
+      <AssetToolbar
+        :filter-type="store.filter.type"
+        :is-importing="store.importStatus === 'importing'"
+        :search-query="searchQuery"
+        :sort-mode="sortMode"
+        @filter-type="handleFilterType"
+        @import="handleUpload"
+        @search="handleSearch"
+        @sort="handleSort"
+      />
+
+      <div
+        v-if="visibleNotice"
+        class="asset-library__notice"
+        :class="`asset-library__notice--${visibleNotice.type}`"
+        role="status"
+      >
+        <span class="material-symbols-outlined">{{ visibleNotice.icon }}</span>
+        <span>{{ visibleNotice.text }}</span>
       </div>
-      <div class="toolbar-right">
-        <button class="btn-upload" @click="handleUpload">
-          <span class="material-symbols-outlined">add</span>
-          上传资产
-        </button>
-      </div>
-    </header>
 
-    <main class="asset-content">
-      <!-- 资产网格 -->
-      <section class="asset-grid-container">
-        <div v-if="store.status === 'loading'" class="empty-state">
-          <span class="material-symbols-outlined rotating">sync</span>
-          <span>加载中...</span>
-        </div>
-        <div v-else-if="store.assets.length === 0" class="empty-state">
-          <span class="material-symbols-outlined">folder_open</span>
-          <span>暂无此类型资产</span>
-        </div>
-        <div v-else class="asset-grid">
-          <div v-for="asset in store.assets" :key="asset.id" 
-            class="asset-card" 
-            :class="{ 'asset-card--selected': store.selectedId === asset.id }"
-            @click="store.select(asset.id)">
-            <div class="asset-card__thumb">
-              <span class="material-symbols-outlined">{{ getAssetIcon(asset.type) }}</span>
-              <button class="delete-btn" @click.stop="store.delete(asset.id)">
-                <span class="material-symbols-outlined">delete</span>
-              </button>
-            </div>
-            <div class="asset-card__meta">
-              <div class="asset-name" :title="asset.name">{{ asset.name }}</div>
-              <div class="asset-info">
-                <span class="type-chip">{{ asset.type }}</span>
-                <span class="size-text">{{ formatSize(asset.fileSizeBytes) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 详情面板 -->
-      <transition name="drawer">
-        <aside v-if="selectedAsset" class="asset-detail-panel">
-          <div class="panel-header">
-            <h3>资产详情</h3>
-            <button class="close-btn" @click="store.select(null)">
-              <span class="material-symbols-outlined">close</span>
-            </button>
-          </div>
-          <div class="panel-body">
-            <div class="detail-preview">
-               <span class="material-symbols-outlined">{{ getAssetIcon(selectedAsset.type) }}</span>
-            </div>
-            <div class="detail-info">
-              <div class="info-row">
-                <label>名称</label>
-                <span>{{ selectedAsset.name }}</span>
-              </div>
-              <div class="info-row">
-                <label>类型</label>
-                <span>{{ selectedAsset.type }}</span>
-              </div>
-              <div class="info-row">
-                <label>大小</label>
-                <span>{{ formatSize(selectedAsset.fileSizeBytes) }}</span>
-              </div>
-               <div class="info-row">
-                <label>来源</label>
-                <span>{{ selectedAsset.source }}</span>
-              </div>
-              <div class="info-row">
-                <label>创建时间</label>
-                <span>{{ formatDate(selectedAsset.createdAt) }}</span>
-              </div>
-            </div>
-            <div class="detail-references">
-              <h4>项目引用 ({{ store.references.length }})</h4>
-              <div v-if="store.references.length === 0" class="no-references">
-                暂无项目引用
-              </div>
-              <ul v-else class="reference-list">
-                <li v-for="ref in store.references" :key="ref.id">
-                  <span class="material-symbols-outlined">link</span>
-                  <span class="ref-text">{{ ref.referenceType }}: {{ ref.referenceId }}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </aside>
-      </transition>
-    </main>
-  </div>
+      <main class="asset-library__workspace">
+        <AssetWall
+          :assets="sortedAssets"
+          :error="store.error"
+          :parse-tags="store.parseTags"
+          :selected-id="store.selectedId"
+          :status="store.status"
+          @import="handleUpload"
+          @retry="store.load()"
+          @select="selectAsset"
+        />
+      </main>
+    </section>
   </ProjectContextGuard>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from "vue";
+import { open } from "@tauri-apps/plugin-dialog";
+
+import AssetToolbar from "@/components/assets/AssetToolbar.vue";
+import AssetWall from "@/components/assets/AssetWall.vue";
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
-import { useAssetLibraryStore } from '@/stores/asset-library';
+import { useAssetLibraryStore } from "@/stores/asset-library";
+import { useShellUiStore } from "@/stores/shell-ui";
+import type { AssetDto } from "@/types/runtime";
 
 const store = useAssetLibraryStore();
-const searchQuery = ref('');
+const shellUiStore = useShellUiStore();
+const searchQuery = ref("");
+const sortMode = ref<"latest" | "name" | "size">("latest");
 const isDragging = ref(false);
+const dragFileCount = ref(0);
+const importSuccessMessage = ref<string | null>(null);
+const importInfoMessage = ref<string | null>(null);
+const importProgress = ref<{ completed: number; total: number } | null>(null);
 
-const typeTabs = [
-  { label: '全部', value: '' },
-  { label: '视频', value: 'video' },
-  { label: '图片', value: 'image' },
-  { label: '音频', value: 'audio' },
-  { label: '文档', value: 'document' }
-];
-
-const selectedAsset = computed(() => 
-  store.assets.find(a => a.id === store.selectedId)
-);
-
-onMounted(() => {
-  store.load();
+const sortedAssets = computed(() => {
+  const assets = [...store.assets];
+  switch (sortMode.value) {
+    case "name":
+      return assets.sort((left, right) => left.name.localeCompare(right.name, "zh-CN"));
+    case "size":
+      return assets.sort((left, right) => (right.fileSizeBytes ?? -1) - (left.fileSizeBytes ?? -1));
+    case "latest":
+    default:
+      return assets.sort((left, right) => toTime(right.createdAt) - toTime(left.createdAt));
+  }
 });
 
-function handleSearch() {
-  store.setSearchQuery(searchQuery.value);
+const dragFileCountLabel = computed(() => {
+  if (dragFileCount.value <= 0) return "待识别本地文件";
+  return `${dragFileCount.value} 个本地文件`;
+});
+
+const visibleNotice = computed(() => {
+  const error = store.deleteError || store.importError || store.error;
+  if (error) return { icon: "error", text: error, type: "error" };
+  if (importProgress.value) {
+    return {
+      icon: "sync",
+      text: `正在导入 ${importProgress.value.completed}/${importProgress.value.total} 个真实本地资产`,
+      type: "info"
+    };
+  }
+  if (importSuccessMessage.value) {
+    return { icon: "check_circle", text: importSuccessMessage.value, type: "success" };
+  }
+  if (importInfoMessage.value) {
+    return { icon: "info", text: importInfoMessage.value, type: "info" };
+  }
+  return null;
+});
+
+onMounted(() => {
+  void store.load();
+});
+
+function handleSearch(query: string) {
+  searchQuery.value = query;
+  void store.setSearchQuery(query);
 }
 
-function handleUpload() {
-  alert('功能开发中：V1 仅支持通过项目导入或自动生成资产');
+function handleFilterType(type: string) {
+  void store.setFilterType(type);
 }
 
-function handleDrop(e: DragEvent) {
+function handleSort(mode: string) {
+  if (mode === "latest" || mode === "name" || mode === "size") {
+    sortMode.value = mode;
+  }
+}
+
+function handleDragOver(event: DragEvent) {
+  isDragging.value = true;
+  dragFileCount.value = countTransferFiles(event.dataTransfer);
+}
+
+function handleDragLeave() {
   isDragging.value = false;
-  const files = e.dataTransfer?.files;
-  if (files && files.length > 0) {
-    alert(`检测到 ${files.length} 个文件，功能开发中`);
+  dragFileCount.value = 0;
+}
+
+async function handleUpload() {
+  store.importError = null;
+  importSuccessMessage.value = null;
+  importInfoMessage.value = null;
+  const filePaths = await pickAssetFilePaths();
+  if (filePaths.length === 0) return;
+  await importFromPaths(filePaths);
+}
+
+async function handleDrop(event: DragEvent) {
+  isDragging.value = false;
+  dragFileCount.value = 0;
+  store.importError = null;
+  importSuccessMessage.value = null;
+  importInfoMessage.value = null;
+
+  const files = Array.from(event.dataTransfer?.files ?? []) as Array<File & { path?: string }>;
+  if (files.length === 0) return;
+
+  const filePaths = files.map((file) => file.path).filter((path): path is string => !!path);
+  if (filePaths.length === 0) {
+    store.importError = "拖拽文件未提供本地路径，请使用桌面文件选择入口。";
+    return;
+  }
+
+  await importFromPaths(filePaths);
+}
+
+async function importFromPaths(filePaths: string[]) {
+  const validPaths = filePaths.map((filePath) => filePath.trim()).filter((filePath) => filePath.length > 0);
+  const uniquePaths = [...new Set(validPaths)];
+  const skippedCount = validPaths.length - uniquePaths.length;
+
+  if (uniquePaths.length === 0) {
+    importInfoMessage.value = "没有选择可导入的本地文件。";
+    return;
+  }
+
+  importProgress.value = { completed: 0, total: uniquePaths.length };
+  const importedNames: string[] = [];
+  const failedMessages: string[] = [];
+  let lastImportedAsset: AssetDto | null = null;
+
+  for (const filePath of uniquePaths) {
+    try {
+      const imported = await store.importLocalFile({
+        filePath,
+        type: inferAssetType(filePath),
+        source: "local"
+      });
+      importedNames.push(imported.name);
+      lastImportedAsset = imported;
+    } catch (error) {
+      failedMessages.push(error instanceof Error ? error.message : `${filePath} 导入失败`);
+    } finally {
+      importProgress.value = {
+        completed: (importProgress.value?.completed ?? 0) + 1,
+        total: uniquePaths.length
+      };
+    }
+  }
+
+  importProgress.value = null;
+  if (lastImportedAsset) {
+    store.selectedId = lastImportedAsset.id;
+    store.references = [];
+    shellUiStore.openDetailPanel();
+  }
+
+  if (failedMessages.length > 0) {
+    const skippedText = skippedCount > 0 ? `，跳过 ${skippedCount} 个重复路径` : "";
+    store.importError = `已导入 ${importedNames.length} 个，${failedMessages.length} 个失败${skippedText}：${failedMessages[0]}`;
+    importSuccessMessage.value = null;
+    return;
+  }
+
+  const skippedText = skippedCount > 0 ? `，跳过 ${skippedCount} 个重复路径` : "";
+  importSuccessMessage.value =
+    importedNames.length === 1
+      ? `已导入真实本地资产：${importedNames[0]}${skippedText}`
+      : `已导入 ${importedNames.length} 个真实本地资产${skippedText}`;
+}
+
+async function pickAssetFilePaths(): Promise<string[]> {
+  try {
+    const selected = await open({
+      multiple: true,
+      filters: [
+        {
+          name: "创作资产",
+          extensions: [
+            "mp4",
+            "mov",
+            "mkv",
+            "webm",
+            "png",
+            "jpg",
+            "jpeg",
+            "webp",
+            "gif",
+            "mp3",
+            "wav",
+            "m4a",
+            "aac",
+            "txt",
+            "md",
+            "srt",
+            "json",
+            "csv",
+            "pdf",
+            "doc",
+            "docx"
+          ]
+        }
+      ]
+    });
+    if (typeof selected === "string") return [selected];
+    if (Array.isArray(selected)) return selected.filter((item): item is string => typeof item === "string");
+    importInfoMessage.value = "已取消选择资产文件。";
+    return [];
+  } catch {
+    store.importError = "无法打开系统文件选择器，请确认当前在桌面端运行后重试。";
+    return [];
   }
 }
 
-function getAssetIcon(type: string) {
-  switch (type) {
-    case 'video': return 'movie';
-    case 'image': return 'image';
-    case 'audio': return 'audiotrack';
-    case 'document': return 'description';
-    default: return 'draft';
-  }
+async function selectAsset(assetId: string) {
+  await store.select(assetId);
+  shellUiStore.openDetailPanel();
 }
 
-function formatSize(bytes: number | null) {
-  if (!bytes) return '--';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = bytes;
-  let unitIndex = 0;
-  while (size > 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-  return `${size.toFixed(1)} ${units[unitIndex]}`;
+function inferAssetType(name: string, mime = "") {
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("audio/")) return "audio";
+  const lowerName = name.toLowerCase();
+  if (/\.(mp4|mov|mkv|webm)$/.test(lowerName)) return "video";
+  if (/\.(png|jpg|jpeg|webp|gif)$/.test(lowerName)) return "image";
+  if (/\.(mp3|wav|m4a|aac)$/.test(lowerName)) return "audio";
+  return "document";
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleString();
+function countTransferFiles(dataTransfer: DataTransfer | null) {
+  if (!dataTransfer) return 0;
+  if (dataTransfer.items?.length) {
+    return Array.from(dataTransfer.items).filter((item) => item.kind === "file").length;
+  }
+  return dataTransfer.files?.length ?? 0;
+}
+
+function toTime(value: string) {
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
 }
 </script>
 
 <style scoped>
 .asset-library {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-primary) 94%, transparent), var(--surface-primary)),
+    var(--surface-primary);
+  color: var(--text-primary);
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-base);
-  color: var(--text-primary);
-  position: relative;
+  min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
-.drag-overlay {
-  position: absolute;
-  inset: var(--spacing-sm);
-  background: rgba(0, 242, 234, 0.05);
-  border: 2px dashed var(--brand-primary);
-  border-radius: var(--radius-lg);
-  z-index: 100;
-  display: flex;
+.asset-library__drop-layer {
   align-items: center;
+  background: color-mix(in srgb, var(--brand-primary) 14%, var(--surface-secondary));
+  border: 1px dashed color-mix(in srgb, var(--brand-primary) 72%, var(--border-default));
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  inset: 18px;
   justify-content: center;
   pointer-events: none;
-}
-
-.drag-message {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  color: var(--brand-primary);
-}
-
-.drag-message .material-symbols-outlined {
-  font-size: 48px;
-}
-
-/* ── 工具栏 ── */
-.asset-toolbar {
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--spacing-lg);
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border-default);
-  flex-shrink: 0;
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xl);
-}
-
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  padding: 0 12px;
-  width: 240px;
-  height: 32px;
-}
-
-.search-box input {
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  font-size: 13px;
-  width: 100%;
-  outline: none;
-}
-
-.type-tabs {
-  display: flex;
-  gap: var(--spacing-sm);
-}
-
-.type-tabs button {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 13px;
-  padding: 4px 12px;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: all 0.2s;
-}
-
-.type-tabs button:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.type-tabs button.active {
-  color: var(--brand-primary);
-  background: rgba(0, 242, 234, 0.1);
-  font-weight: 600;
-}
-
-.btn-upload {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--brand-primary);
-  color: #000;
-  border: none;
-  padding: 6px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* ── 主内容 ── */
-.asset-content {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-}
-
-.asset-grid-container {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--spacing-lg);
-}
-
-.asset-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--spacing-lg);
-}
-
-.asset-card {
-  background: var(--bg-card);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.asset-card:hover {
-  border-color: var(--border-default);
-  transform: translateY(-2px);
-  background: var(--bg-hover);
-}
-
-.asset-card--selected {
-  border-color: var(--brand-primary);
-  box-shadow: 0 0 0 1px var(--brand-primary);
-}
-
-.asset-card__thumb {
-  aspect-ratio: 16/10;
-  background: #252525;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.asset-card__thumb .material-symbols-outlined {
-  font-size: 40px;
-  color: var(--text-muted);
-}
-
-.delete-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
-  color: var(--text-secondary);
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s;
+  z-index: 20;
 }
 
-.asset-card:hover .delete-btn {
-  opacity: 1;
-}
-
-.delete-btn:hover {
-  color: var(--brand-secondary);
-  background: rgba(255, 0, 80, 0.1);
-}
-
-.asset-card__meta {
-  padding: 12px;
-}
-
-.asset-name {
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.asset-info {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.type-chip {
-  font-size: 10px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.05);
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
-.size-text {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-/* ── 详情面板 ── */
-.asset-detail-panel {
-  width: 360px;
-  background: var(--bg-elevated);
-  border-left: 1px solid var(--border-default);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
-.panel-header {
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--spacing-lg);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.panel-header h3 {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.close-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.panel-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--spacing-lg);
-}
-
-.detail-preview {
-  aspect-ratio: 16/9;
-  background: #252525;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--spacing-xl);
-}
-
-.detail-preview .material-symbols-outlined {
-  font-size: 64px;
-  color: var(--text-muted);
-}
-
-.detail-info {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: var(--spacing-xl);
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-}
-
-.info-row label {
-  color: var(--text-secondary);
-}
-
-.detail-references h4 {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-}
-
-.no-references {
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: center;
-  padding: 20px;
-}
-
-.reference-list {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.reference-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  padding: 8px;
-  background: var(--bg-card);
-  border-radius: var(--radius-sm);
-}
-
-.ref-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── 动画 ── */
-.drawer-enter-active, .drawer-leave-active {
-  transition: transform 0.3s ease;
-}
-.drawer-enter-from, .drawer-leave-to {
-  transform: translateX(100%);
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-muted);
-  gap: 12px;
-}
-
-.empty-state .material-symbols-outlined {
+.asset-library__drop-layer .material-symbols-outlined {
+  color: var(--brand-primary);
   font-size: 48px;
 }
 
-.rotating {
-  animation: rotate 2s linear infinite;
+.asset-library__drop-layer strong {
+  font-size: 18px;
 }
 
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.asset-library__drop-layer span:last-child {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.asset-library__notice {
+  align-items: center;
+  background: color-mix(in srgb, var(--status-error) 10%, var(--surface-secondary));
+  border-bottom: 1px solid color-mix(in srgb, var(--status-error) 35%, var(--border-default));
+  color: var(--text-primary);
+  display: flex;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 24px;
+}
+
+.asset-library__notice .material-symbols-outlined {
+  color: var(--status-error);
+  font-size: 18px;
+}
+
+.asset-library__notice--success {
+  background: color-mix(in srgb, var(--status-success) 10%, var(--surface-secondary));
+  border-bottom-color: color-mix(in srgb, var(--status-success) 35%, var(--border-default));
+}
+
+.asset-library__notice--success .material-symbols-outlined {
+  color: var(--status-success);
+}
+
+.asset-library__notice--info {
+  background: color-mix(in srgb, var(--brand-primary) 10%, var(--surface-secondary));
+  border-bottom-color: color-mix(in srgb, var(--brand-primary) 35%, var(--border-default));
+}
+
+.asset-library__notice--info .material-symbols-outlined {
+  color: var(--brand-primary);
+}
+
+.asset-library__workspace {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
 }
 </style>

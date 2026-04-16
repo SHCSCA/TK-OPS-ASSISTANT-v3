@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tk-ops-runtime"
-version = "0.3.1"
+version = "0.3.2"
 description = "TK-OPS Python runtime skeleton"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
   "fastapi>=0.115,<1.0",
   "uvicorn>=0.34,<1.0",
+  "websockets>=14.0,<16.0",
   "sqlalchemy>=2.0,<3.0",
   "alembic>=1.16,<2.0",
   "pydantic>=2.11,<3.0",

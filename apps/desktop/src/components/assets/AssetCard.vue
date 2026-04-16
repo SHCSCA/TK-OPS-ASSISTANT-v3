@@ -1,0 +1,153 @@
+<template>
+  <button
+    class="asset-card"
+    :class="{ 'asset-card--selected': isSelected }"
+    :data-testid="`asset-card-${asset.id}`"
+    type="button"
+    @click="$emit('select', asset.id)"
+  >
+    <span class="asset-card__type">{{ typeLabel(asset.type) }}</span>
+    <AssetPreview :asset="asset" />
+    <span class="asset-card__name" :title="asset.name">{{ asset.name }}</span>
+    <span class="asset-card__path" :title="asset.filePath || '未记录路径'">
+      {{ asset.filePath || "未记录路径" }}
+    </span>
+    <span class="asset-card__meta">
+      {{ formatSize(asset.fileSizeBytes) }} · {{ asset.source }}
+    </span>
+    <span v-if="tags.length" class="asset-card__tags">
+      <span v-for="tag in tags" :key="tag">{{ tag }}</span>
+    </span>
+  </button>
+</template>
+
+<script setup lang="ts">
+import AssetPreview from "@/components/assets/AssetPreview.vue";
+import type { AssetDto } from "@/types/runtime";
+
+defineProps<{
+  asset: AssetDto;
+  isSelected: boolean;
+  tags: string[];
+}>();
+
+defineEmits<{
+  select: [assetId: string];
+}>();
+
+function typeLabel(type: string) {
+  switch (type) {
+    case "video":
+      return "视频";
+    case "image":
+      return "图片";
+    case "audio":
+      return "音频";
+    case "document":
+      return "文档";
+    default:
+      return type || "未知";
+  }
+}
+
+function formatSize(bytes: number | null) {
+  if (bytes === null) return "未记录";
+  const units = ["B", "KB", "MB", "GB"];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+</script>
+
+<style scoped>
+.asset-card {
+  background: color-mix(in srgb, var(--surface-secondary) 88%, transparent);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  display: grid;
+  gap: 8px;
+  min-height: 246px;
+  overflow: hidden;
+  padding: 12px;
+  position: relative;
+  text-align: left;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.asset-card:hover,
+.asset-card--selected {
+  background: color-mix(in srgb, var(--brand-primary) 8%, var(--surface-secondary));
+  border-color: color-mix(in srgb, var(--brand-primary) 70%, var(--border-default));
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--brand-primary) 13%, transparent);
+  transform: translateY(-2px);
+}
+
+.asset-card--selected::after {
+  background: var(--brand-primary);
+  border-radius: 999px;
+  content: "";
+  height: 7px;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 7px;
+}
+
+.asset-card__type {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.asset-card__name {
+  font-size: 15px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-card__path,
+.asset-card__meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.asset-card__tags span {
+  background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 22%, transparent);
+  border-radius: 999px;
+  color: var(--text-primary);
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .asset-card {
+    transition: none;
+  }
+
+  .asset-card:hover,
+  .asset-card--selected {
+    transform: none;
+  }
+}
+</style>

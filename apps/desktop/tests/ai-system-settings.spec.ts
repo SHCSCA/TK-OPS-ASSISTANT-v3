@@ -23,6 +23,7 @@ async function mountApp(path: string) {
 
 describe("AI 与系统设置页", () => {
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -117,7 +118,7 @@ describe("AI 与系统设置页", () => {
       }
     });
     expect(wrapper.text()).toContain("配置已就绪");
-    expect(wrapper.text()).toContain("最近同步 2026-04-11T08:05:00.000Z");
+    expect(wrapper.text()).toContain("最近同步 2026-04-11 16:05:00 Asia/Shanghai");
   });
 
   it("加载集中式 AI 能力配置，并通过能力总线保存更新", async () => {

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 
@@ -15,7 +17,10 @@ def _assert_deleted_envelope(response) -> None:  # type: ignore[no-untyped-def]
     assert data == {"deleted": True}
 
 
-def test_assets_contract_covers_crud_and_references(runtime_client: TestClient) -> None:
+def test_assets_contract_covers_crud_import_and_references(
+    runtime_client: TestClient,
+    tmp_path: Path,
+) -> None:
     list_response = runtime_client.get("/api/assets")
     assert list_response.status_code == 200
     assert _assert_ok(list_response.json()) == []
@@ -55,6 +60,37 @@ def test_assets_contract_covers_crud_and_references(runtime_client: TestClient) 
     }
     asset_id = asset["id"]
 
+    imported_file = tmp_path / "clip.mp4"
+    imported_file.write_bytes(b"tkops-video")
+    import_response = runtime_client.post(
+        "/api/assets/import",
+        json={
+            "filePath": str(imported_file),
+            "type": "video",
+            "source": "local",
+            "projectId": project_id,
+            "tags": '["开场"]',
+        },
+    )
+    assert import_response.status_code == 200
+    imported_asset = _assert_ok(import_response.json())
+    assert imported_asset["name"] == "clip.mp4"
+    assert imported_asset["filePath"] == str(imported_file)
+    assert imported_asset["fileSizeBytes"] == len(b"tkops-video")
+
+    missing_response = runtime_client.post(
+        "/api/assets/import",
+        json={
+            "filePath": str(tmp_path / "missing.mp4"),
+            "type": "video",
+            "source": "local",
+        },
+    )
+    assert missing_response.status_code == 400
+    missing_payload = missing_response.json()
+    assert missing_payload["ok"] is False
+    assert "文件不存在" in missing_payload["error"]
+
     refs_response = runtime_client.post(
         f"/api/assets/{asset_id}/references",
         json={"referenceType": "storyboard", "referenceId": "scene-1"},
@@ -63,12 +99,23 @@ def test_assets_contract_covers_crud_and_references(runtime_client: TestClient) 
     ref = _assert_ok(refs_response.json())
     assert set(ref) == {"id", "assetId", "referenceType", "referenceId", "createdAt"}
 
+    ref_detail_response = runtime_client.get(f"/api/assets/references/{ref['id']}")
+    assert ref_detail_response.status_code == 200
+    assert _assert_ok(ref_detail_response.json())["id"] == ref["id"]
+
     list_refs_response = runtime_client.get(f"/api/assets/{asset_id}/references")
     assert list_refs_response.status_code == 200
     assert len(_assert_ok(list_refs_response.json())) == 1
 
+    blocked_delete_response = runtime_client.delete(f"/api/assets/{asset_id}")
+    assert blocked_delete_response.status_code == 409
+    blocked_payload = blocked_delete_response.json()
+    assert blocked_payload["ok"] is False
+    assert "资产存在引用" in blocked_payload["error"]
+
     _assert_deleted_envelope(runtime_client.delete(f"/api/assets/references/{ref['id']}"))
     _assert_deleted_envelope(runtime_client.delete(f"/api/assets/{asset_id}"))
+    _assert_deleted_envelope(runtime_client.delete(f"/api/assets/{imported_asset['id']}"))
 
 
 def test_accounts_contract_covers_groups_refresh_and_delete(runtime_client: TestClient) -> None:

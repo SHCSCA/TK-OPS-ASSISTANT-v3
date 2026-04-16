@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from schemas.assets import AssetCreateInput, AssetReferenceCreateInput, AssetUpdateInput
+from schemas.assets import (
+    AssetCreateInput,
+    AssetImportInput,
+    AssetReferenceCreateInput,
+    AssetUpdateInput,
+)
 from schemas.envelope import ok_response
 from services.asset_service import AssetService
 
@@ -21,8 +26,13 @@ def list_assets(
     project_id: str | None = None,
     q: str | None = None,
 ) -> dict[str, object]:
-    assets = _svc(request).list_assets(asset_type=type, source=source, project_id=project_id, q=q)
-    return ok_response([a.model_dump(mode="json") for a in assets])
+    assets = _svc(request).list_assets(
+        asset_type=type,
+        source=source,
+        project_id=project_id,
+        q=q,
+    )
+    return ok_response([asset.model_dump(mode="json") for asset in assets])
 
 
 @router.post("")
@@ -31,10 +41,16 @@ def create_asset(payload: AssetCreateInput, request: Request) -> dict[str, objec
     return ok_response(asset.model_dump(mode="json"))
 
 
+@router.post("/import")
+def import_asset(payload: AssetImportInput, request: Request) -> dict[str, object]:
+    asset = _svc(request).import_asset(payload)
+    return ok_response(asset.model_dump(mode="json"))
+
+
 @router.get("/references/{ref_id}")
 def get_reference(ref_id: str, request: Request) -> dict[str, object]:
-    # placeholder – individual reference fetch; DELETE is below
-    raise NotImplementedError
+    ref = _svc(request).get_reference(ref_id)
+    return ok_response(ref.model_dump(mode="json"))
 
 
 @router.delete("/references/{ref_id}")
@@ -64,10 +80,14 @@ def delete_asset(asset_id: str, request: Request) -> dict[str, object]:
 @router.get("/{asset_id}/references")
 def list_asset_references(asset_id: str, request: Request) -> dict[str, object]:
     refs = _svc(request).list_references(asset_id)
-    return ok_response([r.model_dump(mode="json") for r in refs])
+    return ok_response([ref.model_dump(mode="json") for ref in refs])
 
 
 @router.post("/{asset_id}/references")
-def add_asset_reference(asset_id: str, payload: AssetReferenceCreateInput, request: Request) -> dict[str, object]:
+def add_asset_reference(
+    asset_id: str,
+    payload: AssetReferenceCreateInput,
+    request: Request,
+) -> dict[str, object]:
     ref = _svc(request).add_reference(asset_id, payload)
     return ok_response(ref.model_dump(mode="json"))

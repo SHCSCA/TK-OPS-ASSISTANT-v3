@@ -5,14 +5,23 @@ from pydantic import BaseModel
 
 class AssetCreateInput(BaseModel):
     name: str
-    type: str                       # video / audio / image / document / other
-    source: str                     # local / generated / imported
+    type: str
+    source: str
     filePath: str | None = None
     fileSizeBytes: int | None = None
     durationMs: int | None = None
     thumbnailPath: str | None = None
-    tags: str | None = None         # JSON array string
+    tags: str | None = None
     projectId: str | None = None
+    metadataJson: str | None = None
+
+
+class AssetImportInput(BaseModel):
+    filePath: str
+    type: str
+    source: str = "local"
+    projectId: str | None = None
+    tags: str | None = None
     metadataJson: str | None = None
 
 
@@ -39,7 +48,7 @@ class AssetDto(BaseModel):
 
 
 class AssetReferenceCreateInput(BaseModel):
-    referenceType: str   # script / storyboard / render / timeline
+    referenceType: str
     referenceId: str
 
 

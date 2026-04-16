@@ -18,6 +18,7 @@ import {
   deleteRenderTask,
   fetchAccountGroups,
   fetchAccounts,
+  fetchAsset,
   fetchAssetReferences,
   fetchAssets,
   fetchAutomationTaskRuns,
@@ -26,12 +27,14 @@ import {
   fetchPublishPlans,
   fetchRenderTasks,
   fetchReviewSummary,
+  importAsset,
   refreshAccountStats,
   runPublishingPrecheck,
   submitPublishPlan,
   triggerAutomationTask,
   analyzeReviewProject,
   updateAutomationTask,
+  updateAsset,
   updateDeviceWorkspace,
   updatePublishPlan,
   updateRenderTask,
@@ -59,8 +62,17 @@ describe("M09-M15 Runtime client 契约", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await fetchAssets("video", "hook");
+    await importAsset({
+      filePath: "D:/tkops/assets/clip.mp4",
+      type: "video",
+      source: "local",
+      projectId: "project-1",
+      tags: '["开场"]'
+    });
+    await fetchAsset("asset-1");
+    await updateAsset("asset-1", { name: "Clip 2", tags: '["开场", "产品"]' });
     await fetchAssetReferences("asset-1");
-    await deleteAsset("asset-1");
+    const deletedAsset = await deleteAsset("asset-1");
     await fetchAccounts("group-1", "active", "creator");
     await createAccount({ name: "Creator A", platform: "tiktok", status: "active" });
     await deleteAccount("account-1");
@@ -93,8 +105,27 @@ describe("M09-M15 Runtime client 契约", () => {
     await analyzeReviewProject("project-1");
     await updateReviewSummary("project-1", { completion_rate: 0 });
 
+    expect(deletedAsset).toEqual({ deleted: true });
+
     expect(calls).toEqual([
       { path: "/api/assets?type=video&q=hook", method: "GET", body: undefined },
+      {
+        path: "/api/assets/import",
+        method: "POST",
+        body: {
+          filePath: "D:/tkops/assets/clip.mp4",
+          type: "video",
+          source: "local",
+          projectId: "project-1",
+          tags: '["开场"]'
+        }
+      },
+      { path: "/api/assets/asset-1", method: "GET", body: undefined },
+      {
+        path: "/api/assets/asset-1",
+        method: "PATCH",
+        body: { name: "Clip 2", tags: '["开场", "产品"]' }
+      },
       { path: "/api/assets/asset-1/references", method: "GET", body: undefined },
       { path: "/api/assets/asset-1", method: "DELETE", body: undefined },
       {
@@ -171,6 +202,7 @@ describe("M09-M15 Runtime client 契约", () => {
 });
 
 function sampleResponseFor(path: string, method: string): unknown {
+  if (method === "DELETE" && path.startsWith("/api/assets")) return { deleted: true };
   if (method === "DELETE") return undefined;
   if (path.endsWith("/references")) return [assetReference()];
   if (path.startsWith("/api/assets")) return path.includes("?") ? [asset()] : asset();
