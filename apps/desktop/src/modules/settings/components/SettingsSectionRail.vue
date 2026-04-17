@@ -33,7 +33,7 @@ const items: Array<{ id: SettingsSectionId; label: string; summary: string }> = 
   {
     id: "system",
     label: "系统总线",
-    summary: "Runtime、目录、日志和默认模型"
+    summary: "Runtime、路径、日志与默认 AI 项"
   },
   {
     id: "provider",
@@ -42,12 +42,12 @@ const items: Array<{ id: SettingsSectionId; label: string; summary: string }> = 
   },
   {
     id: "capability",
-    label: "能力策略",
-    summary: "能力矩阵、默认模型和提示词"
+    label: "能力矩阵",
+    summary: "能力绑定、默认模型和提示词策略"
   },
   {
     id: "diagnostics",
-    label: "诊断台",
+    label: "诊断工作台",
     summary: "错误、依赖和系统可用性"
   }
 ];
@@ -58,10 +58,10 @@ const items: Array<{ id: SettingsSectionId; label: string; summary: string }> = 
   display: grid;
   align-content: start;
   gap: 12px;
-  padding: 18px 16px;
+  padding: 16px;
   border: 1px solid var(--border-default);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
   min-height: 100%;
 }
 
@@ -73,9 +73,9 @@ const items: Array<{ id: SettingsSectionId; label: string; summary: string }> = 
 .settings-section-rail__item {
   display: grid;
   gap: 6px;
-  padding: 14px 14px 13px;
+  padding: 14px;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
@@ -101,10 +101,6 @@ const items: Array<{ id: SettingsSectionId; label: string; summary: string }> = 
 }
 
 @media (max-width: 1120px) {
-  .settings-section-rail {
-    padding: 14px;
-  }
-
   .settings-section-rail__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

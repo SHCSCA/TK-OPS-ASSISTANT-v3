@@ -9,6 +9,7 @@ from api.routes.dashboard import router as dashboard_router
 from api.routes.device_workspaces import router as device_workspaces_router
 from api.routes.license import router as license_router
 from api.routes.publishing import router as publishing_router
+from api.routes.prompt_templates import router as prompt_templates_router
 from api.routes.renders import router as renders_router
 from api.routes.review import router as review_router
 from api.routes.scripts import router as scripts_router
@@ -31,6 +32,7 @@ __all__ = [
     'device_workspaces_router',
     'license_router',
     'publishing_router',
+    'prompt_templates_router',
     'renders_router',
     'review_router',
     'scripts_router',

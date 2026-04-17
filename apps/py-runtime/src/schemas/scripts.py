@@ -29,6 +29,20 @@ class ScriptRewriteInput(BaseModel):
     instructions: str = Field(min_length=1)
 
 
+class ScriptTitleVariantsInput(BaseModel):
+    topic: str = Field(min_length=1)
+    count: int = Field(ge=1, le=10)
+
+
+class ScriptSegmentRewriteInput(BaseModel):
+    instructions: str = Field(min_length=1)
+    promptTemplateId: str | None = None
+
+
+class ScriptTitleVariantDto(BaseModel):
+    title: str
+
+
 class ScriptVersionDto(BaseModel):
     revision: int
     source: str

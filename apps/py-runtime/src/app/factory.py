@@ -20,6 +20,7 @@ from api.routes import (
     device_workspaces_router,
     license_router,
     publishing_router,
+    prompt_templates_router,
     renders_router,
     review_router,
     scripts_router,
@@ -48,12 +49,14 @@ from repositories.imported_video_repository import ImportedVideoRepository
 from repositories.publishing_repository import PublishingRepository
 from repositories.render_repository import RenderRepository
 from repositories.review_repository import ReviewRepository
+from repositories.prompt_template_repository import PromptTemplateRepository
 from repositories.script_repository import ScriptRepository
 from repositories.storyboard_repository import StoryboardRepository
 from repositories.subtitle_repository import SubtitleRepository
 from repositories.system_config_repository import SystemConfigRepository
 from repositories.timeline_repository import TimelineRepository
 from repositories.voice_repository import VoiceRepository
+from repositories.video_deconstruction_repository import VideoDeconstructionRepository
 from schemas.envelope import error_response
 from services.account_service import AccountService
 from services.asset_service import AssetService
@@ -68,11 +71,13 @@ from services.machine_code import MachineCodeService
 from services.publishing_service import PublishingService
 from services.render_service import RenderService
 from services.review_service import ReviewService
+from services.prompt_template_service import PromptTemplateService
 from services.script_service import ScriptService
 from services.settings_service import SettingsService
 from services.storyboard_service import StoryboardService
 from services.subtitle_service import SubtitleService
 from services.task_manager import task_manager
+from services.video_deconstruction_service import VideoDeconstructionService
 from services.video_import_service import VideoImportService
 from services.voice_service import VoiceService
 from services.workspace_service import WorkspaceService
@@ -88,6 +93,8 @@ def create_app() -> FastAPI:
     settings_repository = SystemConfigRepository(session_factory=session_factory)
     license_repository = LicenseRepository(session_factory=session_factory)
     imported_video_repository = ImportedVideoRepository(session_factory=session_factory)
+    prompt_template_repository = PromptTemplateRepository(session_factory=session_factory)
+    video_deconstruction_repository = VideoDeconstructionRepository(session_factory=session_factory)
     dashboard_repository = DashboardRepository(session_factory=session_factory)
     ai_capability_repository = AICapabilityRepository(session_factory=session_factory)
     ai_job_repository = AIJobRepository(session_factory=session_factory)
@@ -122,6 +129,7 @@ def create_app() -> FastAPI:
         script_repository,
         ai_job_repository,
         ai_text_generation_service,
+        prompt_template_repository,
     )
     storyboard_service = StoryboardService(
         dashboard_service,
@@ -130,9 +138,21 @@ def create_app() -> FastAPI:
         ai_text_generation_service,
         script_service,
     )
-    video_import_service = VideoImportService(repository=imported_video_repository)
-    asset_service = AssetService(asset_repository)
-    account_service = AccountService(account_repository)
+    prompt_template_service = PromptTemplateService(prompt_template_repository)
+    video_deconstruction_service = VideoDeconstructionService(
+        imported_video_repository=imported_video_repository,
+        stage_repository=video_deconstruction_repository,
+        task_manager=task_manager,
+    )
+    video_import_service = VideoImportService(
+        repository=imported_video_repository,
+        stage_repository=video_deconstruction_repository,
+    )
+    asset_service = AssetService(asset_repository, task_manager=task_manager)
+    account_service = AccountService(
+        account_repository,
+        binding_repository=device_workspace_repository,
+    )
     device_workspace_service = DeviceWorkspaceService(device_workspace_repository)
     automation_service = AutomationService(automation_repository)
     publishing_service = PublishingService(publishing_repository)
@@ -140,7 +160,10 @@ def create_app() -> FastAPI:
     review_service = ReviewService(review_repository)
     voice_service = VoiceService(voice_repository)
     subtitle_service = SubtitleService(subtitle_repository)
-    workspace_service = WorkspaceService(timeline_repository)
+    workspace_service = WorkspaceService(
+        timeline_repository,
+        task_manager=task_manager,
+    )
     machine_code_service = MachineCodeService()
     license_service = LicenseService(
         runtime_config=runtime_config,
@@ -176,6 +199,8 @@ def create_app() -> FastAPI:
     app.state.settings_repository = settings_repository
     app.state.license_repository = license_repository
     app.state.imported_video_repository = imported_video_repository
+    app.state.prompt_template_repository = prompt_template_repository
+    app.state.video_deconstruction_repository = video_deconstruction_repository
     app.state.dashboard_repository = dashboard_repository
     app.state.ai_capability_repository = ai_capability_repository
     app.state.ai_job_repository = ai_job_repository
@@ -198,6 +223,8 @@ def create_app() -> FastAPI:
     app.state.ai_text_generation_service = ai_text_generation_service
     app.state.script_service = script_service
     app.state.storyboard_service = storyboard_service
+    app.state.prompt_template_service = prompt_template_service
+    app.state.video_deconstruction_service = video_deconstruction_service
     app.state.asset_service = asset_service
     app.state.account_service = account_service
     app.state.device_workspace_service = device_workspace_service
@@ -300,6 +327,7 @@ def create_app() -> FastAPI:
     app.include_router(device_workspaces_router)
     app.include_router(license_router)
     app.include_router(publishing_router)
+    app.include_router(prompt_templates_router)
     app.include_router(renders_router)
     app.include_router(review_router)
     app.include_router(scripts_router)

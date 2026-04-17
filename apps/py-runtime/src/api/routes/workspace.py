@@ -4,6 +4,9 @@ from fastapi import APIRouter, Request, status
 
 from schemas.envelope import ok_response
 from schemas.workspace import (
+    ClipMoveInput,
+    ClipReplaceInput,
+    ClipTrimInput,
     TimelineCreateInput,
     TimelineUpdateInput,
     WorkspaceAICommandInput,
@@ -43,8 +46,56 @@ def update_timeline(
     return ok_response(result.model_dump(mode="json"))
 
 
+@router.get("/clips/{clip_id}")
+def get_clip(clip_id: str, request: Request) -> dict[str, object]:
+    result = _svc(request).fetch_clip(clip_id)
+    return ok_response(result.model_dump(mode="json"))
+
+
+@router.post("/clips/{clip_id}/move")
+def move_clip(
+    clip_id: str,
+    payload: ClipMoveInput,
+    request: Request,
+) -> dict[str, object]:
+    result = _svc(request).move_clip(clip_id, payload)
+    return ok_response(result.model_dump(mode="json"))
+
+
+@router.post("/clips/{clip_id}/trim")
+def trim_clip(
+    clip_id: str,
+    payload: ClipTrimInput,
+    request: Request,
+) -> dict[str, object]:
+    result = _svc(request).trim_clip(clip_id, payload)
+    return ok_response(result.model_dump(mode="json"))
+
+
+@router.post("/clips/{clip_id}/replace")
+def replace_clip(
+    clip_id: str,
+    payload: ClipReplaceInput,
+    request: Request,
+) -> dict[str, object]:
+    result = _svc(request).replace_clip(clip_id, payload)
+    return ok_response(result.model_dump(mode="json"))
+
+
+@router.get("/timelines/{timeline_id}/preview")
+def get_timeline_preview(timeline_id: str, request: Request) -> dict[str, object]:
+    result = _svc(request).fetch_timeline_preview(timeline_id)
+    return ok_response(result.model_dump(mode="json"))
+
+
+@router.post("/timelines/{timeline_id}/precheck")
+def precheck_timeline(timeline_id: str, request: Request) -> dict[str, object]:
+    result = _svc(request).precheck_timeline(timeline_id)
+    return ok_response(result.model_dump(mode="json"))
+
+
 @router.post("/projects/{project_id}/ai-commands")
-def run_ai_command(
+async def run_ai_command(
     project_id: str,
     payload: WorkspaceAICommandInput,
     request: Request,

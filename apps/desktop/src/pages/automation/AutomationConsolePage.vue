@@ -1,453 +1,1138 @@
 <template>
-  <div class="automation-page">
-    <!-- 工具栏 -->
-    <header class="toolbar">
-      <div class="toolbar-left">
-        <button class="btn-primary" @click="showAddTask = true">
-          <span class="material-symbols-outlined">add</span>新建任务
-        </button>
-        <div class="filter-group">
-          <button
-            v-for="s in statusFilters"
-            :key="s.value"
-            class="filter-chip"
-            :class="{ active: statusFilter === s.value }"
-            @click="statusFilter = s.value"
-          >{{ s.label }}</button>
-        </div>
-        <div class="filter-group">
-          <button
-            v-for="t in typeFilters"
-            :key="t.value"
-            class="type-chip"
-            :class="[`type-${t.value}`, { active: typeFilter === t.value }]"
-            @click="typeFilter = typeFilter === t.value ? '' : t.value"
-          >{{ t.label }}</button>
-        </div>
+  <div class="automation-console" data-testid="automation-console">
+    <header class="automation-console__header">
+      <div class="automation-console__headline">
+        <p class="automation-console__eyebrow">执行链路</p>
+        <h1>自动化执行中心</h1>
+        <p class="automation-console__summary">
+          真实任务、运行记录和日志流都从 Runtime 读取。已关闭任务会被标记为禁用，最近一次阻断会直接暴露在日志面板里。
+        </p>
+      </div>
+
+      <div class="automation-console__metrics">
+        <article class="automation-console__metric">
+          <span>任务总数</span>
+          <strong>{{ tasks.length }}</strong>
+        </article>
+        <article class="automation-console__metric">
+          <span>已启用</span>
+          <strong>{{ enabledTaskCount }}</strong>
+        </article>
+        <article class="automation-console__metric">
+          <span>已阻断</span>
+          <strong>{{ blockedTaskCount }}</strong>
+        </article>
+        <article class="automation-console__metric">
+          <span>最近触发</span>
+          <strong>{{ triggerStateLabel }}</strong>
+        </article>
       </div>
     </header>
 
-    <main class="console-layout">
-      <!-- 左：任务列表 -->
-      <aside class="task-sidebar">
-        <div v-if="filteredTasks.length === 0" class="empty-guide">
-          <span class="material-symbols-outlined guide-icon">robot_2</span>
-          <h3>还没有自动化任务</h3>
-          <p>点击"新建任务"配置您的第一个自动化流程</p>
-          <button class="btn-primary" @click="showAddTask = true">
-            <span class="material-symbols-outlined">add</span>立即创建
+    <div v-if="automationStore.error" class="automation-console__banner automation-console__banner--error">
+      {{ automationStore.error }}
+    </div>
+    <div v-else-if="isLoading" class="automation-console__banner automation-console__banner--loading">
+      正在读取自动化任务和运行日志。
+    </div>
+    <div v-else-if="automationStore.lastTriggerResult" class="automation-console__banner">
+      <strong>最近一次触发：</strong>
+      <span>{{ automationStore.lastTriggerResult.message }}</span>
+      <span class="automation-console__banner-status">{{ automationStore.lastTriggerResult.status }}</span>
+    </div>
+
+    <main class="automation-console__body">
+      <aside class="automation-console__rail">
+        <div class="automation-console__rail-toolbar">
+          <button class="automation-console__primary" type="button" @click="showAddTask = true">
+            <span class="material-symbols-outlined">add</span>
+            新建任务
+          </button>
+
+          <div class="automation-console__chips" aria-label="任务筛选">
+            <button
+              v-for="item in statusFilters"
+              :key="item.value"
+              type="button"
+              class="automation-console__chip"
+              :class="{ 'automation-console__chip--active': statusFilter === item.value }"
+              @click="statusFilter = item.value"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+
+          <div class="automation-console__chips" aria-label="任务类型筛选">
+            <button
+              v-for="item in typeFilters"
+              :key="item.value"
+              type="button"
+              class="automation-console__chip automation-console__chip--soft"
+              :class="{ 'automation-console__chip--active': typeFilter === item.value }"
+              @click="typeFilter = typeFilter === item.value ? '' : item.value"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="isEmpty" class="automation-console__empty" data-testid="automation-empty-state">
+          <span class="material-symbols-outlined automation-console__empty-icon">robot_2</span>
+          <h2>暂时没有自动化任务</h2>
+          <p>先创建一个任务，再查看运行记录、日志和阻断原因。</p>
+          <button class="automation-console__secondary" type="button" @click="showAddTask = true">
+            立刻创建
           </button>
         </div>
-        <div v-else class="task-list">
-          <div
+
+        <div v-else class="automation-console__task-list" data-testid="automation-task-list">
+          <button
             v-for="task in filteredTasks"
             :key="task.id"
-            class="task-item"
-            :class="{ active: selectedTaskId === task.id }"
+            type="button"
+            class="automation-console__task"
+            :class="{
+              'automation-console__task--active': selectedTaskId === task.id,
+              'automation-console__task--disabled': !task.enabled,
+              'automation-console__task--blocked': isTaskBlocked(task)
+            }"
             @click="selectedTaskId = task.id"
           >
-            <div class="task-meta">
-              <div class="task-name">{{ task.name }}</div>
-              <span class="type-chip-sm" :class="`type-${task.type}`">{{ task.type }}</span>
-            </div>
-            <div class="task-row2">
-              <span class="task-last-run">上次运行：{{ task.lastRun ?? '从未' }}</span>
-              <div class="task-toggle" :class="{ enabled: task.enabled }" @click.stop="task.enabled = !task.enabled">
-                <div class="toggle-knob"></div>
+            <div class="automation-console__task-row">
+              <div class="automation-console__task-title">
+                <strong>{{ task.name }}</strong>
+                <span>{{ task.type }}</span>
               </div>
+              <span class="automation-console__status-pill" :class="taskStatusTone(task)">
+                {{ taskStatusLabel(task) }}
+              </span>
             </div>
-            <div class="task-actions">
-              <button class="btn-action" @click.stop="handleRunTask(task.id)" title="手动触发">
-                <span class="material-symbols-outlined">play_arrow</span>
+
+            <div class="automation-console__task-meta">
+              <span>Cron {{ task.cron_expr || "未配置" }}</span>
+              <span>运行 {{ task.run_count }}</span>
+            </div>
+            <div class="automation-console__task-meta">
+              <span>最近运行 {{ task.last_run_at ? formatDate(task.last_run_at) : "从未" }}</span>
+              <span>最后状态 {{ task.last_run_status || "未知" }}</span>
+            </div>
+
+            <div class="automation-console__task-footer">
+              <span class="automation-console__inline-flag" :class="task.enabled ? 'is-on' : 'is-off'">
+                {{ task.enabled ? "已启用" : "已关闭" }}
+              </span>
+              <button
+                class="automation-console__ghost"
+                type="button"
+                :disabled="isBusy"
+                @click.stop="handleRunTask(task.id)"
+              >
+                运行
               </button>
             </div>
-          </div>
+          </button>
         </div>
       </aside>
 
-      <!-- 右：监控 -->
-      <section class="monitor-area">
-        <div v-if="!selectedTask" class="monitor-placeholder">
-          <span class="material-symbols-outlined" style="font-size:56px;opacity:0.2">monitoring</span>
-          <p>选择任务查看运行历史与日志</p>
-        </div>
-        <div v-else class="monitor-content">
-          <div class="monitor-header">
-            <h3>{{ selectedTask.name }}</h3>
-            <span class="type-chip-sm" :class="`type-${selectedTask.type}`">{{ selectedTask.type }}</span>
-          </div>
-          <div class="history-section">
-            <h4>运行记录</h4>
-            <div class="empty-sub">暂无执行记录</div>
-          </div>
-          <div class="logs-section">
-            <div class="logs-header">
-              <h4>实时日志</h4>
-              <span class="log-badge">IDLE</span>
+      <section class="automation-console__workspace" data-testid="automation-task-detail">
+        <template v-if="selectedTask">
+          <div class="automation-console__workspace-head">
+            <div>
+              <p class="automation-console__eyebrow">当前任务</p>
+              <h2>{{ selectedTask.name }}</h2>
+              <p class="automation-console__summary automation-console__summary--compact">
+                类型 {{ selectedTask.type }}，Cron {{ selectedTask.cron_expr || "未配置" }}，运行次数
+                {{ selectedTask.run_count }}。
+              </p>
             </div>
-            <div class="log-terminal">
-              <div class="log-line">&gt; 监控系统就绪，等待任务触发…</div>
+
+            <div class="automation-console__workspace-actions">
+              <span class="automation-console__status-pill" :class="taskStatusTone(selectedTask)">
+                {{ taskStatusLabel(selectedTask) }}
+              </span>
+              <button
+                class="automation-console__secondary"
+                type="button"
+                :disabled="isBusy"
+                @click="selectedTask.enabled ? handleRunTask(selectedTask.id) : undefined"
+              >
+                {{ selectedTask.enabled ? "手动触发" : "任务已关闭" }}
+              </button>
             </div>
           </div>
+
+          <div class="automation-console__state-row">
+            <article class="automation-console__state-tile">
+              <span>执行开关</span>
+              <strong>{{ selectedTask.enabled ? "已启用" : "已关闭" }}</strong>
+            </article>
+            <article class="automation-console__state-tile">
+              <span>最近状态</span>
+              <strong>{{ selectedTask.last_run_status || "未知" }}</strong>
+            </article>
+            <article class="automation-console__state-tile">
+              <span>运行状态</span>
+              <strong>{{ currentRunStateLabel }}</strong>
+            </article>
+            <article class="automation-console__state-tile">
+              <span>阻断语义</span>
+              <strong>{{ selectedTaskBlockLabel }}</strong>
+            </article>
+          </div>
+
+          <section class="automation-console__lane">
+            <div class="automation-console__lane-head">
+              <h3>运行历史</h3>
+              <span>{{ selectedRuns.length }} 条记录</span>
+            </div>
+
+            <div v-if="runsLoading" class="automation-console__empty automation-console__empty--inline">
+              正在读取该任务的运行历史。
+            </div>
+            <div v-else-if="selectedRuns.length === 0" class="automation-console__empty automation-console__empty--inline">
+              该任务暂时还没有运行记录。
+            </div>
+            <div v-else class="automation-console__run-list">
+              <article
+                v-for="run in selectedRuns"
+                :key="run.id"
+                class="automation-console__run"
+                :class="{ 'automation-console__run--blocked': run.status === 'blocked' }"
+              >
+                <div class="automation-console__run-head">
+                  <strong>{{ run.status }}</strong>
+                  <span>{{ formatDateTime(run.started_at ?? run.created_at) }}</span>
+                </div>
+                <div class="automation-console__run-meta">
+                  <span>开始 {{ run.started_at ? formatDateTime(run.started_at) : "未开始" }}</span>
+                  <span>结束 {{ run.finished_at ? formatDateTime(run.finished_at) : "未结束" }}</span>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="automation-console__lane">
+            <div class="automation-console__lane-head">
+              <h3>日志流</h3>
+              <span>{{ selectedLogs.length }} 行</span>
+            </div>
+
+            <div class="automation-console__terminal" data-testid="automation-log-stream">
+              <div v-if="selectedLogs.length === 0" class="automation-console__terminal-line automation-console__terminal-line--muted">
+                > 暂无日志。触发任务后，运行内容会在这里展开。
+              </div>
+              <template v-else>
+                <div
+                  v-for="line in selectedLogs"
+                  :key="line.id"
+                  class="automation-console__terminal-line"
+                  :class="{ 'automation-console__terminal-line--blocked': line.status === 'blocked' }"
+                >
+                  > {{ line.text }}
+                </div>
+              </template>
+            </div>
+          </section>
+
+          <section class="automation-console__lane">
+            <div class="automation-console__lane-head">
+              <h3>执行配置</h3>
+              <span>{{ selectedTask.enabled ? "可执行" : "已关闭" }}</span>
+            </div>
+            <div class="automation-console__config">
+              <div class="automation-console__config-row">
+                <span>任务类型</span>
+                <strong>{{ selectedTask.type }}</strong>
+              </div>
+              <div class="automation-console__config-row">
+                <span>Cron</span>
+                <strong>{{ selectedTask.cron_expr || "未配置" }}</strong>
+              </div>
+              <div class="automation-console__config-row">
+                <span>配置体</span>
+                <pre>{{ selectedTaskConfigPreview }}</pre>
+              </div>
+            </div>
+          </section>
+        </template>
+
+        <div v-else class="automation-console__detail-empty">
+          <span class="material-symbols-outlined automation-console__empty-icon">monitoring</span>
+          <h2>选择一个任务查看执行链路</h2>
+          <p>这里会显示运行历史、日志流和阻断语义。</p>
         </div>
       </section>
     </main>
 
-    <!-- 新建任务抽屉 -->
-    <div v-if="showAddTask" class="drawer-overlay" @click.self="showAddTask = false">
-      <div class="drawer">
-        <div class="drawer-header">
-          <h2>新建自动化任务</h2>
-          <button class="btn-icon" @click="showAddTask = false">
+    <div v-if="showAddTask" class="automation-console__drawer" @click.self="showAddTask = false">
+      <section class="automation-console__drawer-panel">
+        <div class="automation-console__drawer-head">
+          <div>
+            <p class="automation-console__eyebrow">新建任务</p>
+            <h2>创建自动化任务</h2>
+          </div>
+          <button class="automation-console__icon-button" type="button" @click="showAddTask = false">
             <span class="material-symbols-outlined">close</span>
           </button>
         </div>
-        <div class="drawer-body">
-          <div class="form-group">
-            <label>任务名称</label>
-            <input v-model="addForm.name" placeholder="例：每日采集-主账号" />
-          </div>
-          <div class="form-group">
-            <label>任务类型</label>
+
+        <div class="automation-console__drawer-body">
+          <label class="automation-console__field">
+            <span>任务名称</span>
+            <input v-model="addForm.name" type="text" placeholder="例如：每日同步账号状态" />
+          </label>
+
+          <label class="automation-console__field">
+            <span>任务类型</span>
             <select v-model="addForm.type">
-              <option value="collect">采集 (collect)</option>
-              <option value="reply">回复 (reply)</option>
-              <option value="sync">同步 (sync)</option>
-              <option value="validate">验证 (validate)</option>
+              <option value="collect">采集</option>
+              <option value="reply">回复</option>
+              <option value="sync">同步</option>
+              <option value="validate">校验</option>
             </select>
-          </div>
-          <div class="drawer-footer">
-            <button class="btn-secondary" @click="showAddTask = false">取消</button>
-            <button class="btn-primary" @click="handleCreateTask">保存任务</button>
+          </label>
+
+          <label class="automation-console__field">
+            <span>Cron 表达式</span>
+            <input v-model="addForm.cronExpr" type="text" placeholder="0 */2 * * *" />
+          </label>
+
+          <label class="automation-console__field">
+            <span>执行参数 JSON</span>
+            <textarea
+              v-model="addForm.configJson"
+              rows="6"
+              placeholder='{"workspaceId":"ws-1","enabled":true}'
+            />
+          </label>
+
+          <div class="automation-console__drawer-actions">
+            <button class="automation-console__secondary" type="button" @click="showAddTask = false">
+              取消
+            </button>
+            <button class="automation-console__primary" type="button" :disabled="isBusy" @click="handleCreateTask">
+              保存任务
+            </button>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { useAutomationStore } from '@/stores/automation';
-import type { AutomationTaskDto } from '@/types/runtime';
+import { computed, onMounted, ref, watch } from "vue";
 
-interface AutoTask {
-  id: string;
-  name: string;
-  type: string;
-  enabled: boolean;
-  lastRun: string | null;
-}
+import { useAutomationStore } from "@/stores/automation";
+import type { AutomationTaskCreateInput, AutomationTaskDto } from "@/types/runtime";
+
+type TaskView = AutomationTaskDto;
+type TaskFilterValue = "all" | "enabled" | "disabled";
 
 const automationStore = useAutomationStore();
 const selectedTaskId = ref<string | null>(null);
-const statusFilter = ref<string>('all');
-const typeFilter = ref<string>('');
+const statusFilter = ref<TaskFilterValue>("all");
+const typeFilter = ref<string>("");
 const showAddTask = ref(false);
-const addForm = ref({ name: '', type: 'collect' });
+const addForm = ref({
+  name: "",
+  type: "collect",
+  cronExpr: "",
+  configJson: ""
+});
 
-const tasks = computed<AutoTask[]>(() =>
-  automationStore.tasks.map((task) => mapAutomationTask(task))
+const tasks = computed(() => automationStore.tasks as TaskView[]);
+const enabledTaskCount = computed(() => tasks.value.filter((task) => task.enabled).length);
+const blockedTaskCount = computed(
+  () =>
+    tasks.value.filter((task) => task.last_run_status === "blocked" || !task.enabled).length
+);
+const isLoading = computed(() => automationStore.loading || automationStore.viewState === "loading");
+const isEmpty = computed(() => automationStore.viewState === "empty" && !isLoading.value);
+const isBusy = computed(() => isLoading.value || automationStore.triggerState === "running");
+const triggerStateLabel = computed(() =>
+  automationStore.triggerState === "running"
+    ? "触发中"
+    : automationStore.triggerState === "error"
+      ? "触发失败"
+      : automationStore.triggerState === "ready"
+        ? "已触发"
+        : "空闲"
 );
 
-const statusFilters = [
-  { value: 'all', label: '??' },
-  { value: 'enabled', label: '???' },
-  { value: 'disabled', label: '???' }
+const statusFilters: Array<{ label: string; value: TaskFilterValue }> = [
+  { label: "全部", value: "all" },
+  { label: "已启用", value: "enabled" },
+  { label: "已关闭", value: "disabled" }
 ];
 
 const typeFilters = [
-  { value: 'collect', label: '??' },
-  { value: 'reply', label: '??' },
-  { value: 'sync', label: '??' },
-  { value: 'validate', label: '??' }
+  { label: "采集", value: "collect" },
+  { label: "回复", value: "reply" },
+  { label: "同步", value: "sync" },
+  { label: "校验", value: "validate" }
 ];
 
 const filteredTasks = computed(() => {
   let list = tasks.value;
-  if (statusFilter.value === 'enabled') list = list.filter((t) => t.enabled);
-  if (statusFilter.value === 'disabled') list = list.filter((t) => !t.enabled);
-  if (typeFilter.value) list = list.filter((t) => t.type === typeFilter.value);
+
+  if (statusFilter.value === "enabled") {
+    list = list.filter((task) => task.enabled);
+  } else if (statusFilter.value === "disabled") {
+    list = list.filter((task) => !task.enabled);
+  }
+
+  if (typeFilter.value) {
+    list = list.filter((task) => task.type === typeFilter.value);
+  }
+
   return list;
 });
 
 const selectedTask = computed(() =>
-  tasks.value.find((t) => t.id === selectedTaskId.value) ?? null
+  tasks.value.find((task) => task.id === selectedTaskId.value) ?? null
 );
 
-onMounted(() => {
-  automationStore.loadTasks();
+const selectedRuns = computed(() =>
+  selectedTaskId.value ? automationStore.runsByTaskId[selectedTaskId.value] ?? [] : []
+);
+
+const runsLoading = computed(
+  () =>
+    (selectedTaskId.value ? automationStore.runsStatusByTaskId[selectedTaskId.value] : "idle") ===
+    "loading"
+);
+
+const currentRunStateLabel = computed(() => {
+  if (automationStore.triggerState === "running") {
+    return "正在触发";
+  }
+  if (runsLoading.value) {
+    return "读取运行历史";
+  }
+  return automationStore.triggerState === "error" ? "触发异常" : "待命";
 });
 
-function mapAutomationTask(task: AutomationTaskDto): AutoTask {
-  const viewTask = {
-    id: task.id,
-    name: task.name,
-    type: task.type,
-    lastRun: task.last_run_at
-  } as AutoTask;
+const selectedTaskBlockLabel = computed(() => {
+  if (!selectedTask.value) {
+    return "未选中";
+  }
+  if (!selectedTask.value.enabled) {
+    return "任务已关闭";
+  }
+  if (selectedTask.value.last_run_status === "blocked") {
+    return "最近一次运行被阻断";
+  }
+  return "可手动运行";
+});
 
-  Object.defineProperty(viewTask, 'enabled', {
-    enumerable: true,
-    get: () => task.enabled,
-    set: (enabled: boolean) => {
-      automationStore.updateTask(task.id, { enabled });
+const selectedLogs = computed(() =>
+  selectedRuns.value.flatMap((run) =>
+    (run.log_text ?? "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => ({
+        id: `${run.id}-${line}`,
+        status: run.status,
+        text: line
+      }))
+  )
+);
+
+const selectedTaskConfigPreview = computed(() => prettyJson(selectedTask.value?.config_json));
+
+onMounted(() => {
+  void automationStore.loadTasks();
+});
+
+watch(
+  () => tasks.value.map((task) => task.id).join("|"),
+  () => {
+    if (!selectedTaskId.value && tasks.value.length > 0) {
+      selectedTaskId.value = tasks.value[0].id;
     }
-  });
+  },
+  { immediate: true }
+);
 
-  return viewTask;
+watch(
+  () => selectedTaskId.value,
+  (taskId) => {
+    if (taskId) {
+      void automationStore.loadRuns(taskId);
+    }
+  },
+  { immediate: true }
+);
+
+function isTaskBlocked(task: TaskView): boolean {
+  return !task.enabled || task.last_run_status === "blocked";
+}
+
+function taskStatusTone(task: TaskView): string {
+  if (!task.enabled) {
+    return "is-off";
+  }
+  if (task.last_run_status === "blocked") {
+    return "is-blocked";
+  }
+  if (task.last_run_status === "failed") {
+    return "is-error";
+  }
+  if (task.last_run_status === "running" || automationStore.triggerState === "running") {
+    return "is-running";
+  }
+  return "is-on";
+}
+
+function taskStatusLabel(task: TaskView): string {
+  if (!task.enabled) {
+    return "已关闭";
+  }
+  if (!task.last_run_status) {
+    return "待运行";
+  }
+  return task.last_run_status;
 }
 
 async function handleRunTask(id: string): Promise<void> {
+  selectedTaskId.value = id;
   await automationStore.triggerTask(id);
 }
 
 async function handleCreateTask(): Promise<void> {
-  if (!addForm.value.name) return;
-  const task = await automationStore.addTask({
-    name: addForm.value.name,
-    type: addForm.value.type
-  });
-  if (!task) return;
+  if (!addForm.value.name.trim()) {
+    return;
+  }
+
+  const input: AutomationTaskCreateInput = {
+    name: addForm.value.name.trim(),
+    type: addForm.value.type,
+    cron_expr: addForm.value.cronExpr.trim() || null,
+    config_json: addForm.value.configJson.trim() || null
+  };
+
+  const task = await automationStore.addTask(input);
+  if (!task) {
+    return;
+  }
+
   selectedTaskId.value = task.id;
-  addForm.value = { name: '', type: 'collect' };
+  addForm.value = {
+    name: "",
+    type: "collect",
+    cronExpr: "",
+    configJson: ""
+  };
   showAddTask.value = false;
+}
+
+function prettyJson(value: string | null): string {
+  if (!value) {
+    return "未配置";
+  }
+
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return value;
+  }
+}
+
+function formatDate(value: string | null): string {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("zh-CN");
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return `${date.toLocaleDateString("zh-CN")} ${date.toLocaleTimeString("zh-CN", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit"
+  })}`;
 }
 </script>
 
 <style scoped>
-.automation-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: var(--bg-base);
-  color: var(--text-primary);
-  overflow: hidden;
-  position: relative;
-}
-
-.toolbar {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  padding: 0 var(--spacing-md);
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border-default);
-  flex-shrink: 0;
-}
-
-.toolbar-left { display: flex; align-items: center; gap: var(--spacing-md); }
-
-.filter-group { display: flex; gap: 4px; }
-
-.filter-chip {
-  padding: 3px 10px;
-  border-radius: 20px;
-  border: 1px solid var(--border-default);
-  font-size: 11px;
-  color: var(--text-secondary);
-  background: transparent;
-  cursor: pointer;
-}
-.filter-chip.active { background: var(--brand-primary); color: #000; border-color: var(--brand-primary); font-weight: 600; }
-
-.type-chip {
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-.type-chip.active { opacity: 1; }
-
-.type-collect, .type-chip.type-collect { background: rgba(59,130,246,0.15); color: #60a5fa; border-color: rgba(59,130,246,0.3); }
-.type-reply, .type-chip.type-reply { background: rgba(168,85,247,0.15); color: #c084fc; border-color: rgba(168,85,247,0.3); }
-.type-sync, .type-chip.type-sync { background: rgba(34,197,94,0.15); color: #4ade80; border-color: rgba(34,197,94,0.3); }
-.type-validate, .type-chip.type-validate { background: rgba(251,146,60,0.15); color: #fb923c; border-color: rgba(251,146,60,0.3); }
-
-.type-chip-sm {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.console-layout {
+.automation-console {
   display: grid;
-  grid-template-columns: 360px 1fr;
-  flex: 1;
-  overflow: hidden;
+  gap: 16px;
+  min-height: 100%;
+  padding: 20px 24px 24px;
 }
 
-.task-sidebar {
-  border-right: 1px solid var(--border-default);
-  overflow-y: auto;
-  background: var(--bg-card);
+.automation-console__header {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
 }
 
-.empty-guide {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 40px;
-  text-align: center;
-  color: var(--text-muted);
-  gap: var(--spacing-sm);
-}
-
-.guide-icon { font-size: 56px; color: var(--brand-primary); opacity: 0.4; }
-.empty-guide h3 { font-size: 15px; color: var(--text-secondary); margin: 0; }
-.empty-guide p { font-size: 12px; margin: 0; }
-
-.task-list { padding: var(--spacing-sm); }
-
-.task-item {
-  padding: 12px;
-  border-radius: var(--radius-md);
-  margin-bottom: 6px;
-  border: 1px solid var(--border-subtle);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.task-item:hover { background: var(--bg-hover); }
-.task-item.active { border-color: var(--brand-primary); background: rgba(0,242,234,0.04); }
-
-.task-meta { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.task-name { font-size: 13px; font-weight: 600; }
-
-.task-row2 { display: flex; align-items: center; justify-content: space-between; }
-.task-last-run { font-size: 11px; color: var(--text-muted); }
-
-.task-toggle {
-  width: 32px;
-  height: 18px;
-  border-radius: 9px;
-  background: var(--text-muted);
-  position: relative;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.task-toggle.enabled { background: var(--brand-primary); }
-.toggle-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  transition: left 0.2s;
-}
-.task-toggle.enabled .toggle-knob { left: 16px; }
-
-.task-actions { display: flex; justify-content: flex-end; margin-top: 6px; }
-.btn-action {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  width: 28px; height: 28px;
-  border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-}
-.btn-action:hover { color: var(--brand-primary); border-color: var(--brand-primary); }
-
-.monitor-area {
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-base);
-  overflow: hidden;
-}
-
-.monitor-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-muted);
+.automation-console__headline {
+  display: grid;
   gap: 8px;
+  max-width: 860px;
+}
+
+.automation-console__eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.automation-console__headline h1,
+.automation-console__workspace-head h2,
+.automation-console__drawer-head h2,
+.automation-console__detail-empty h2,
+.automation-console__empty h2 {
+  margin: 0;
+}
+
+.automation-console__summary {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.automation-console__summary--compact {
+  max-width: 780px;
+}
+
+.automation-console__metrics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.automation-console__metric,
+.automation-console__state-tile {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-primary) 92%, transparent);
+}
+
+.automation-console__metric span,
+.automation-console__state-tile span,
+.automation-console__task-meta,
+.automation-console__lane-head span,
+.automation-console__run-meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.automation-console__metric strong,
+.automation-console__state-tile strong {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.automation-console__banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 12px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 90%, transparent);
+}
+
+.automation-console__banner--error {
+  border-color: color-mix(in srgb, var(--status-error) 30%, var(--border-default));
+  color: var(--status-error);
+}
+
+.automation-console__banner--loading {
+  border-color: color-mix(in srgb, var(--brand-primary) 24%, var(--border-default));
+}
+
+.automation-console__banner-status,
+.automation-console__inline-flag,
+.automation-console__status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.automation-console__banner-status,
+.automation-console__status-pill.is-on {
+  background: color-mix(in srgb, var(--status-success) 16%, transparent);
+  color: var(--status-success);
+}
+
+.automation-console__status-pill.is-off,
+.automation-console__inline-flag.is-off {
+  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  color: var(--text-muted);
+}
+
+.automation-console__status-pill.is-blocked,
+.automation-console__inline-flag.is-blocked {
+  background: color-mix(in srgb, var(--status-warning) 18%, transparent);
+  color: var(--status-warning);
+}
+
+.automation-console__status-pill.is-error {
+  background: color-mix(in srgb, var(--status-error) 18%, transparent);
+  color: var(--status-error);
+}
+
+.automation-console__status-pill.is-running {
+  background: color-mix(in srgb, var(--brand-primary) 18%, transparent);
+  color: var(--brand-primary);
+}
+
+.automation-console__body {
+  display: grid;
+  grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.automation-console__rail,
+.automation-console__workspace {
+  min-width: 0;
+}
+
+.automation-console__rail {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.automation-console__rail-toolbar {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
+}
+
+.automation-console__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.automation-console__chip,
+.automation-console__primary,
+.automation-console__secondary,
+.automation-console__ghost,
+.automation-console__icon-button {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 80ms ease;
+}
+
+.automation-console__chip {
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.automation-console__chip--soft {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--surface-primary) 92%, transparent);
+}
+
+.automation-console__chip--active {
+  background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand-primary) 26%, var(--border-default));
+  color: var(--brand-primary);
+}
+
+.automation-console__primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  background: var(--brand-primary);
+  color: #000;
+  font-weight: 700;
+}
+
+.automation-console__secondary,
+.automation-console__ghost {
+  min-height: 32px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.automation-console__ghost {
+  padding-inline: 10px;
+}
+
+.automation-console__secondary:disabled,
+.automation-console__ghost:disabled,
+.automation-console__primary:disabled,
+.automation-console__icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.automation-console__primary:hover,
+.automation-console__secondary:hover,
+.automation-console__ghost:hover,
+.automation-console__icon-button:hover,
+.automation-console__task:hover {
+  border-color: color-mix(in srgb, var(--brand-primary) 26%, var(--border-default));
+}
+
+.automation-console__task-list {
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+}
+
+.automation-console__task {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
+  text-align: left;
+  color: var(--text-primary);
+}
+
+.automation-console__task--active {
+  border-color: color-mix(in srgb, var(--brand-primary) 34%, var(--border-default));
+  background: color-mix(in srgb, var(--brand-primary) 8%, var(--surface-secondary));
+}
+
+.automation-console__task--disabled {
+  opacity: 0.88;
+}
+
+.automation-console__task--blocked {
+  border-color: color-mix(in srgb, var(--status-warning) 30%, var(--border-default));
+}
+
+.automation-console__task-row,
+.automation-console__task-footer,
+.automation-console__workspace-head,
+.automation-console__lane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.automation-console__task-title {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.automation-console__task-title strong {
+  font-size: 14px;
+}
+
+.automation-console__task-title span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.automation-console__task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.automation-console__inline-flag {
+  font-size: 11px;
+}
+
+.automation-console__workspace {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-height: 0;
+}
+
+.automation-console__workspace-head {
+  padding: 16px 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
+}
+
+.automation-console__workspace-head h2 {
+  font-size: 20px;
+}
+
+.automation-console__workspace-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.automation-console__state-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.automation-console__lane {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
+}
+
+.automation-console__lane-head h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.automation-console__run-list {
+  display: grid;
+  gap: 10px;
+}
+
+.automation-console__run {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-primary) 92%, transparent);
+}
+
+.automation-console__run--blocked {
+  border-color: color-mix(in srgb, var(--status-warning) 30%, var(--border-default));
+}
+
+.automation-console__run-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
   font-size: 13px;
 }
 
-.monitor-content { display: flex; flex-direction: column; padding: var(--spacing-lg); gap: var(--spacing-md); height: 100%; overflow-y: auto; }
-.monitor-header { display: flex; align-items: center; gap: 8px; }
-.monitor-header h3 { font-size: 16px; font-weight: 600; margin: 0; }
-
-.history-section, .logs-section {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-md);
+.automation-console__run-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-.history-section h4, .logs-section h4 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 0 0 var(--spacing-md) 0; }
-
-.logs-section { flex: 1; display: flex; flex-direction: column; min-height: 200px; }
-.logs-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-sm); }
-.log-badge { background: rgba(255,255,255,0.08); color: var(--text-muted); font-size: 10px; padding: 2px 8px; border-radius: 4px; font-family: monospace; }
-
-.log-terminal {
-  flex: 1;
-  background: #040404;
-  border-radius: 6px;
-  padding: 12px;
-  font-family: 'Courier New', monospace;
+.automation-console__terminal {
+  min-height: 180px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #0c1016;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-family: var(--font-family-mono);
   font-size: 12px;
-  overflow-y: auto;
-  border: 1px solid rgba(255,255,255,0.05);
+  line-height: 1.8;
 }
 
-.log-line { color: var(--brand-primary); opacity: 0.75; line-height: 1.8; }
-.empty-sub { font-size: 12px; color: var(--text-muted); text-align: center; padding: 16px 0; }
+.automation-console__terminal-line {
+  color: var(--brand-primary);
+  white-space: pre-wrap;
+}
 
-/* 抽屉 */
-.drawer-overlay {
-  position: absolute;
+.automation-console__terminal-line--muted {
+  color: var(--text-muted);
+}
+
+.automation-console__terminal-line--blocked {
+  color: var(--status-warning);
+}
+
+.automation-console__config {
+  display: grid;
+  gap: 10px;
+}
+
+.automation-console__config-row {
+  display: grid;
+  gap: 6px;
+}
+
+.automation-console__config-row span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.automation-console__config-row strong,
+.automation-console__config-row pre {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-primary) 92%, transparent);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.automation-console__detail-empty,
+.automation-console__empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 36px 24px;
+  border: 1px dashed var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
+  text-align: center;
+}
+
+.automation-console__empty--inline {
+  padding: 24px 18px;
+}
+
+.automation-console__empty-icon {
+  font-size: 40px;
+  color: var(--brand-primary);
+}
+
+.automation-console__empty h2,
+.automation-console__detail-empty h2 {
+  font-size: 16px;
+}
+
+.automation-console__drawer {
+  position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  z-index: 20;
   display: flex;
   justify-content: flex-end;
-  z-index: 100;
+  background: rgba(0, 0, 0, 0.52);
 }
-.drawer { width: 380px; background: var(--bg-elevated); border-left: 1px solid var(--border-default); display: flex; flex-direction: column; height: 100%; }
-.drawer-header { display: flex; align-items: center; justify-content: space-between; padding: var(--spacing-md) var(--spacing-lg); border-bottom: 1px solid var(--border-default); }
-.drawer-header h2 { font-size: 16px; font-weight: 600; margin: 0; }
-.drawer-body { flex: 1; overflow-y: auto; padding: var(--spacing-lg); }
-.drawer-footer { display: flex; gap: var(--spacing-sm); justify-content: flex-end; margin-top: var(--spacing-xl); }
 
-.form-group { margin-bottom: var(--spacing-md); }
-.form-group label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
-.form-group input, .form-group select {
+.automation-console__drawer-panel {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  width: min(440px, 100%);
+  height: 100%;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border-default);
+}
+
+.automation-console__drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.automation-console__drawer-body {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px 18px;
+  overflow-y: auto;
+}
+
+.automation-console__field {
+  display: grid;
+  gap: 8px;
+}
+
+.automation-console__field span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.automation-console__field input,
+.automation-console__field select,
+.automation-console__field textarea {
   width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
   background: var(--bg-card);
-  border: 1px solid var(--border-default);
-  padding: 9px var(--spacing-sm);
-  border-radius: var(--radius-sm);
   color: var(--text-primary);
-  font-size: 13px;
-  outline: none;
-  box-sizing: border-box;
+  font: inherit;
 }
-.form-group input:focus, .form-group select:focus { border-color: var(--brand-primary); }
 
-/* 按钮 */
-.btn-primary {
-  display: flex; align-items: center; gap: 5px;
-  background: var(--brand-primary); color: #000; border: none;
-  padding: 7px 14px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 700; cursor: pointer;
+.automation-console__field textarea {
+  resize: vertical;
 }
-.btn-secondary {
-  display: flex; align-items: center; gap: 5px;
-  background: var(--bg-card); color: var(--text-primary);
-  border: 1px solid var(--border-default);
-  padding: 7px 14px; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer;
+
+.automation-console__drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 6px;
 }
-.btn-icon {
-  background: transparent; border: none; color: var(--text-secondary);
-  cursor: pointer; padding: 4px; display: flex; align-items: center;
+
+.automation-console__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1180px) {
+  .automation-console__body {
+    grid-template-columns: 1fr;
+  }
+
+  .automation-console__metrics,
+  .automation-console__state-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .automation-console {
+    padding-inline: 16px;
+  }
+
+  .automation-console__metrics,
+  .automation-console__state-row {
+    grid-template-columns: 1fr;
+  }
+
+  .automation-console__task-row,
+  .automation-console__task-footer,
+  .automation-console__workspace-head,
+  .automation-console__lane-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>

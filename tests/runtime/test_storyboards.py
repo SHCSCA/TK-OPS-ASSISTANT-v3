@@ -93,3 +93,70 @@ def test_storyboard_generation_uses_current_script_and_persists_versions(runtime
     assert saved_payload['currentVersion']['revision'] == 2
     assert saved_payload['currentVersion']['source'] == 'manual'
     assert saved_payload['currentVersion']['scenes'][0]['summary'] == 'Manual summary'
+
+
+def test_storyboard_shot_crud_templates_and_sync_from_script(runtime_app) -> None:
+    runtime_app.state.ai_text_generation_service = FakeAITextGenerationService(
+        runtime_app.state.ai_job_repository
+    )
+    client = TestClient(runtime_app)
+
+    project_response = client.post(
+        '/api/dashboard/projects',
+        json={'name': 'Storyboard Shot Project', 'description': 'Storyboard shots'},
+    )
+    project_id = project_response.json()['data']['id']
+
+    script_response = client.put(
+        f'/api/scripts/projects/{project_id}/document',
+        json={'content': 'Hook\nProblem\nSolution\nCTA'},
+    )
+    assert script_response.status_code == 200
+
+    sync_response = client.post(f'/api/storyboards/projects/{project_id}/sync-from-script')
+    assert sync_response.status_code == 200
+    synced_payload = sync_response.json()['data']
+    assert synced_payload['currentVersion']['revision'] == 1
+    assert len(synced_payload['currentVersion']['scenes']) == 4
+
+    templates_response = client.get('/api/storyboards/templates')
+    assert templates_response.status_code == 200
+    templates_payload = templates_response.json()['data']
+    assert len(templates_payload) >= 1
+
+    create_response = client.post(
+        f'/api/storyboards/projects/{project_id}/shots',
+        json={
+            'title': '追加镜头',
+            'summary': '补一段新的镜头说明',
+            'visualPrompt': '补充一个更强的画面指令',
+        },
+    )
+    assert create_response.status_code == 200
+    created_payload = create_response.json()['data']
+    assert created_payload['currentVersion']['revision'] == 2
+    created_scene = created_payload['currentVersion']['scenes'][-1]
+    assert created_scene['title'] == '追加镜头'
+
+    shot_id = created_scene['sceneId']
+    update_response = client.patch(
+        f'/api/storyboards/projects/{project_id}/shots/{shot_id}',
+        json={
+            'title': '追加镜头-更新',
+            'summary': '更新后的镜头说明',
+            'visualPrompt': '更新后的画面指令',
+        },
+    )
+    assert update_response.status_code == 200
+    updated_payload = update_response.json()['data']
+    assert updated_payload['currentVersion']['revision'] == 3
+    updated_scene = [
+        item for item in updated_payload['currentVersion']['scenes'] if item['sceneId'] == shot_id
+    ][0]
+    assert updated_scene['title'] == '追加镜头-更新'
+
+    delete_response = client.delete(f'/api/storyboards/projects/{project_id}/shots/{shot_id}')
+    assert delete_response.status_code == 200
+    deleted_payload = delete_response.json()['data']
+    assert deleted_payload['currentVersion']['revision'] == 4
+    assert all(item['sceneId'] != shot_id for item in deleted_payload['currentVersion']['scenes'])

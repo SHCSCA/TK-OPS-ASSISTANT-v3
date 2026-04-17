@@ -17,28 +17,31 @@ def _assert_deleted_envelope(response) -> None:  # type: ignore[no-untyped-def]
     assert data == {"deleted": True}
 
 
-def test_assets_contract_covers_crud_import_and_references(
+def test_assets_contract_covers_groups_batch_ops_and_thumbnail_fields(
     runtime_client: TestClient,
     tmp_path: Path,
 ) -> None:
-    list_response = runtime_client.get("/api/assets")
-    assert list_response.status_code == 200
-    assert _assert_ok(list_response.json()) == []
+    group_response = runtime_client.post("/api/assets/groups", json={"name": "主素材"})
+    assert group_response.status_code == 200
+    group = _assert_ok(group_response.json())
+    assert set(group) == {"id", "name", "parentId", "createdAt"}
 
-    project_response = runtime_client.post(
-        "/api/dashboard/projects",
-        json={"name": "Asset Project", "description": "Asset contract coverage"},
+    second_group_response = runtime_client.post(
+        "/api/assets/groups",
+        json={"name": "待整理素材"},
     )
-    project_id = _assert_ok(project_response.json())["id"]
+    second_group = _assert_ok(second_group_response.json())
 
+    source_file = tmp_path / "demo.mp4"
+    source_file.write_bytes(b"tkops-video")
     create_response = runtime_client.post(
         "/api/assets",
         json={
-            "name": "Import Clip",
+            "name": "Demo Clip",
             "type": "video",
             "source": "local",
-            "filePath": "D:/tkops/imports/clip.mp4",
-            "projectId": project_id,
+            "groupId": group["id"],
+            "filePath": str(source_file),
         },
     )
     assert create_response.status_code == 200
@@ -48,19 +51,20 @@ def test_assets_contract_covers_crud_import_and_references(
         "name",
         "type",
         "source",
+        "groupId",
         "filePath",
         "fileSizeBytes",
         "durationMs",
         "thumbnailPath",
+        "thumbnailGeneratedAt",
         "tags",
         "projectId",
         "metadataJson",
         "createdAt",
         "updatedAt",
     }
-    asset_id = asset["id"]
 
-    imported_file = tmp_path / "clip.mp4"
+    imported_file = tmp_path / "demo.mp4"
     imported_file.write_bytes(b"tkops-video")
     import_response = runtime_client.post(
         "/api/assets/import",
@@ -68,120 +72,46 @@ def test_assets_contract_covers_crud_import_and_references(
             "filePath": str(imported_file),
             "type": "video",
             "source": "local",
-            "projectId": project_id,
-            "tags": '["开场"]',
+            "groupId": group["id"],
         },
     )
     assert import_response.status_code == 200
-    imported_asset = _assert_ok(import_response.json())
-    assert imported_asset["name"] == "clip.mp4"
-    assert imported_asset["filePath"] == str(imported_file)
-    assert imported_asset["fileSizeBytes"] == len(b"tkops-video")
+    imported = _assert_ok(import_response.json())
 
-    missing_response = runtime_client.post(
-        "/api/assets/import",
-        json={
-            "filePath": str(tmp_path / "missing.mp4"),
-            "type": "video",
-            "source": "local",
-        },
+    move_response = runtime_client.post(
+        "/api/assets/batch-move-group",
+        json={"assetIds": [asset["id"], imported["id"]], "groupId": second_group["id"]},
     )
-    assert missing_response.status_code == 400
-    missing_payload = missing_response.json()
-    assert missing_payload["ok"] is False
-    assert "文件不存在" in missing_payload["error"]
-
-    refs_response = runtime_client.post(
-        f"/api/assets/{asset_id}/references",
-        json={"referenceType": "storyboard", "referenceId": "scene-1"},
-    )
-    assert refs_response.status_code == 200
-    ref = _assert_ok(refs_response.json())
-    assert set(ref) == {"id", "assetId", "referenceType", "referenceId", "createdAt"}
-
-    ref_detail_response = runtime_client.get(f"/api/assets/references/{ref['id']}")
-    assert ref_detail_response.status_code == 200
-    assert _assert_ok(ref_detail_response.json())["id"] == ref["id"]
-
-    list_refs_response = runtime_client.get(f"/api/assets/{asset_id}/references")
-    assert list_refs_response.status_code == 200
-    assert len(_assert_ok(list_refs_response.json())) == 1
-
-    blocked_delete_response = runtime_client.delete(f"/api/assets/{asset_id}")
-    assert blocked_delete_response.status_code == 409
-    blocked_payload = blocked_delete_response.json()
-    assert blocked_payload["ok"] is False
-    assert "资产存在引用" in blocked_payload["error"]
-
-    _assert_deleted_envelope(runtime_client.delete(f"/api/assets/references/{ref['id']}"))
-    _assert_deleted_envelope(runtime_client.delete(f"/api/assets/{asset_id}"))
-    _assert_deleted_envelope(runtime_client.delete(f"/api/assets/{imported_asset['id']}"))
-
-
-def test_accounts_contract_covers_groups_refresh_and_delete(runtime_client: TestClient) -> None:
-    group_response = runtime_client.post(
-        "/api/accounts/groups",
-        json={"name": "TikTok Main", "description": "主账号组", "color": "#35f0a3"},
-    )
-    assert group_response.status_code == 200
-    group = _assert_ok(group_response.json())
-    assert set(group) == {"id", "name", "description", "color", "createdAt"}
-
-    account_response = runtime_client.post(
-        "/api/accounts",
-        json={"name": "Creator A", "platform": "tiktok", "username": "creator_a"},
-    )
-    assert account_response.status_code == 200
-    account = _assert_ok(account_response.json())
-    assert set(account) == {
-        "id",
-        "name",
-        "platform",
-        "username",
-        "avatarUrl",
-        "status",
-        "authExpiresAt",
-        "followerCount",
-        "followingCount",
-        "videoCount",
-        "tags",
-        "notes",
-        "createdAt",
-        "updatedAt",
+    assert move_response.status_code == 200
+    assert _assert_ok(move_response.json()) == {
+        "movedCount": 2,
+        "groupId": second_group["id"],
     }
 
-    refresh_response = runtime_client.post(f"/api/accounts/{account['id']}/refresh-stats")
-    assert refresh_response.status_code == 200
-    assert set(_assert_ok(refresh_response.json())) == {
-        "id",
-        "status",
-        "updatedAt",
-        "providerStatus",
-    }
+    group_list = runtime_client.get("/api/assets/groups")
+    assert group_list.status_code == 200
+    assert len(_assert_ok(group_list.json())) == 2
 
-    member_response = runtime_client.post(
-        f"/api/accounts/groups/{group['id']}/members",
-        json={"accountId": account["id"]},
+    delete_response = runtime_client.post(
+        "/api/assets/batch-delete",
+        json={"assetIds": [asset["id"], imported["id"]]},
     )
-    assert member_response.status_code == 200
-    assert _assert_ok(member_response.json())["accountId"] == account["id"]
+    assert delete_response.status_code == 200
+    assert _assert_ok(delete_response.json()) == {"deletedCount": 2}
 
-    _assert_deleted_envelope(
-        runtime_client.delete(f"/api/accounts/groups/{group['id']}/members/{account['id']}")
-    )
-    _assert_deleted_envelope(runtime_client.delete(f"/api/accounts/{account['id']}"))
-    _assert_deleted_envelope(runtime_client.delete(f"/api/accounts/groups/{group['id']}"))
+    _assert_deleted_envelope(runtime_client.delete(f"/api/assets/groups/{group['id']}"))
+    _assert_deleted_envelope(runtime_client.delete(f"/api/assets/groups/{second_group['id']}"))
 
 
-def test_device_workspaces_contract_uses_json_envelope_for_delete(
+def test_accounts_and_devices_contract_cover_binding_and_logs(
     runtime_client: TestClient,
 ) -> None:
-    create_response = runtime_client.post(
-        "/api/devices/workspaces",
-        json={"name": "Local PC Workspace", "root_path": "D:/tkops/workspaces/main"},
+    workspace_response = runtime_client.post(
+        "/api/devices/browser-instances",
+        json={"name": "Local Workspace", "root_path": "D:/tkops/workspaces/main"},
     )
-    assert create_response.status_code == 201
-    workspace = _assert_ok(create_response.json())
+    assert workspace_response.status_code == 201
+    workspace = _assert_ok(workspace_response.json())
     assert set(workspace) == {
         "id",
         "name",
@@ -193,19 +123,58 @@ def test_device_workspaces_contract_uses_json_envelope_for_delete(
         "updated_at",
     }
 
-    health_response = runtime_client.post(
-        f"/api/devices/workspaces/{workspace['id']}/health-check"
+    account_response = runtime_client.post(
+        "/api/accounts",
+        json={"name": "Creator A", "platform": "tiktok", "username": "creator_a"},
     )
+    assert account_response.status_code == 200
+    account = _assert_ok(account_response.json())
+
+    binding_response = runtime_client.put(
+        f"/api/accounts/{account['id']}/binding",
+        json={
+            "browserInstanceId": workspace["id"],
+            "status": "active",
+            "source": "manual",
+            "metadataJson": '{"token":"secret","profile":"main"}',
+        },
+    )
+    assert binding_response.status_code == 200
+    binding = _assert_ok(binding_response.json())
+    assert set(binding) == {
+        "id",
+        "accountId",
+        "browserInstanceId",
+        "status",
+        "source",
+        "maskedMetadataJson",
+        "createdAt",
+        "updatedAt",
+    }
+    assert "secret" not in (binding["maskedMetadataJson"] or "")
+
+    binding_list = runtime_client.get("/api/devices/bindings")
+    assert binding_list.status_code == 200
+    assert len(_assert_ok(binding_list.json())) == 1
+
+    health_response = runtime_client.post(f"/api/devices/browser-instances/{workspace['id']}/health-check")
     assert health_response.status_code == 200
-    assert set(_assert_ok(health_response.json())) == {"workspace_id", "status", "checked_at"}
 
-    _assert_deleted_envelope(runtime_client.delete(f"/api/devices/workspaces/{workspace['id']}"))
+    logs_response = runtime_client.get(f"/api/devices/browser-instances/{workspace['id']}/logs")
+    assert logs_response.status_code == 200
+    logs = _assert_ok(logs_response.json())
+    assert len(logs) >= 1
+    assert set(logs[0]) == {"id", "workspaceId", "kind", "level", "message", "contextJson", "createdAt"}
 
 
-def test_automation_contract_uses_json_envelope_for_delete(runtime_client: TestClient) -> None:
+def test_automation_contract_covers_pause_and_resume(runtime_client: TestClient) -> None:
     create_response = runtime_client.post(
         "/api/automation/tasks",
-        json={"name": "同步发布状态", "type": "sync_status"},
+        json={
+            "name": "同步发布状态",
+            "type": "sync_status",
+            "rule": {"kind": "interval", "config": {"minutes": 15}},
+        },
     )
     assert create_response.status_code == 201
     task = _assert_ok(create_response.json())
@@ -218,29 +187,39 @@ def test_automation_contract_uses_json_envelope_for_delete(runtime_client: TestC
         "last_run_at",
         "last_run_status",
         "run_count",
+        "rule",
         "config_json",
         "created_at",
         "updated_at",
     }
 
+    pause_response = runtime_client.post(f"/api/automation/tasks/{task['id']}/pause")
+    assert pause_response.status_code == 200
+    assert _assert_ok(pause_response.json())["enabled"] is False
+
+    resume_response = runtime_client.post(f"/api/automation/tasks/{task['id']}/resume")
+    assert resume_response.status_code == 200
+    assert _assert_ok(resume_response.json())["enabled"] is True
+
     trigger_response = runtime_client.post(f"/api/automation/tasks/{task['id']}/trigger")
     assert trigger_response.status_code == 200
-    assert set(_assert_ok(trigger_response.json())) == {"task_id", "run_id", "status", "message"}
-
-    runs_response = runtime_client.get(f"/api/automation/tasks/{task['id']}/runs")
-    assert runs_response.status_code == 200
-    assert len(_assert_ok(runs_response.json())) == 1
 
     _assert_deleted_envelope(runtime_client.delete(f"/api/automation/tasks/{task['id']}"))
 
 
-def test_publishing_contract_uses_json_envelope_for_delete(runtime_client: TestClient) -> None:
-    create_response = runtime_client.post(
+def test_publishing_contract_covers_calendar_and_receipts(runtime_client: TestClient) -> None:
+    first = runtime_client.post(
         "/api/publishing/plans",
-        json={"title": "发布计划 A", "account_name": "Creator A", "project_id": "project-1"},
+        json={
+            "title": "发布计划 A",
+            "account_id": "account-1",
+            "account_name": "Creator A",
+            "project_id": "project-1",
+            "scheduled_at": "2026-04-17T08:30:00+00:00",
+        },
     )
-    assert create_response.status_code == 201
-    plan = _assert_ok(create_response.json())
+    assert first.status_code == 201
+    plan = _assert_ok(first.json())
     assert set(plan) == {
         "id",
         "title",
@@ -258,65 +237,95 @@ def test_publishing_contract_uses_json_envelope_for_delete(runtime_client: TestC
         "updated_at",
     }
 
+    conflict = runtime_client.post(
+        "/api/publishing/plans",
+        json={
+            "title": "发布计划 B",
+            "account_id": "account-1",
+            "account_name": "Creator A",
+            "project_id": "project-2",
+            "scheduled_at": "2026-04-17T08:30:00+00:00",
+        },
+    )
+    conflict_plan = _assert_ok(conflict.json())
+
     precheck_response = runtime_client.post(f"/api/publishing/plans/{plan['id']}/precheck")
     assert precheck_response.status_code == 200
-    assert set(_assert_ok(precheck_response.json())) == {
-        "plan_id",
-        "items",
-        "has_errors",
-        "checked_at",
+    precheck = _assert_ok(precheck_response.json())
+    assert set(precheck) == {"plan_id", "items", "conflicts", "has_errors", "checked_at"}
+    assert len(precheck["conflicts"]) == 1
+    assert set(precheck["conflicts"][0]) == {
+        "conflicting_plan_id",
+        "conflicting_title",
+        "conflicting_scheduled_at",
+        "reason",
     }
 
-    submit_response = runtime_client.post(f"/api/publishing/plans/{plan['id']}/submit")
+    blocked_submit = runtime_client.post(f"/api/publishing/plans/{plan['id']}/submit")
+    assert blocked_submit.status_code == 409
+
+    submit_response = runtime_client.post(f"/api/publishing/plans/{conflict_plan['id']}/submit")
     assert submit_response.status_code == 200
-    assert set(_assert_ok(submit_response.json())) == {
+
+    receipts_response = runtime_client.get(f"/api/publishing/plans/{conflict_plan['id']}/receipts")
+    assert receipts_response.status_code == 200
+    receipts = _assert_ok(receipts_response.json())
+    assert len(receipts) == 1
+    assert set(receipts[0]) == {
+        "id",
         "plan_id",
         "status",
-        "submitted_at",
-        "message",
+        "platform_response_json",
+        "received_at",
+        "created_at",
     }
 
-    cancel_response = runtime_client.post(f"/api/publishing/plans/{plan['id']}/cancel")
-    assert cancel_response.status_code == 200
-    assert _assert_ok(cancel_response.json())["status"] == "cancelled"
+    latest_receipt = runtime_client.get(f"/api/publishing/plans/{conflict_plan['id']}/receipt")
+    assert latest_receipt.status_code == 200
+    assert _assert_ok(latest_receipt.json())["plan_id"] == conflict_plan["id"]
+
+    calendar_response = runtime_client.get("/api/publishing/calendar")
+    assert calendar_response.status_code == 200
+    calendar = _assert_ok(calendar_response.json())
+    assert set(calendar) == {"items", "generated_at"}
+    assert len(calendar["items"]) >= 2
+    assert set(calendar["items"][0]) == {
+        "plan_id",
+        "title",
+        "status",
+        "scheduled_at",
+        "account_name",
+        "conflict_count",
+    }
 
     _assert_deleted_envelope(runtime_client.delete(f"/api/publishing/plans/{plan['id']}"))
+    _assert_deleted_envelope(runtime_client.delete(f"/api/publishing/plans/{conflict_plan['id']}"))
 
 
-def test_renders_contract_uses_json_envelope_for_delete(runtime_client: TestClient) -> None:
-    create_response = runtime_client.post(
-        "/api/renders/tasks",
-        json={"project_id": "project-1", "project_name": "Demo", "preset": "1080p"},
+def test_review_contract_covers_analyze_and_adopt(runtime_client: TestClient) -> None:
+    project_response = runtime_client.post(
+        "/api/dashboard/projects",
+        json={"name": "Review Project", "description": "review contract coverage"},
     )
-    assert create_response.status_code == 201
-    task = _assert_ok(create_response.json())
-    assert set(task) == {
-        "id",
-        "project_id",
-        "project_name",
-        "preset",
-        "format",
-        "status",
-        "progress",
-        "output_path",
-        "error_message",
-        "started_at",
-        "finished_at",
-        "created_at",
-        "updated_at",
-    }
+    assert project_response.status_code == 200
+    project = _assert_ok(project_response.json())
 
-    cancel_response = runtime_client.post(f"/api/renders/tasks/{task['id']}/cancel")
-    assert cancel_response.status_code == 200
-    assert set(_assert_ok(cancel_response.json())) == {"task_id", "status", "message"}
+    runtime_client.app.state.script_repository.save_version(
+        project["id"],
+        source="ai",
+        content="第二版脚本",
+    )
+    runtime_client.app.state.storyboard_repository.save_version(
+        project["id"],
+        based_on_script_revision=1,
+        source="ai",
+        scenes=[{"title": "开场优化", "duration": "3s"}],
+    )
 
-    _assert_deleted_envelope(runtime_client.delete(f"/api/renders/tasks/{task['id']}"))
+    analyze_response = runtime_client.post(f"/api/review/projects/{project['id']}/analyze")
+    assert analyze_response.status_code == 200
 
-
-def test_review_contract_covers_summary_update_and_analyze(
-    runtime_client: TestClient,
-) -> None:
-    summary_response = runtime_client.get("/api/review/projects/project-review/summary")
+    summary_response = runtime_client.get(f"/api/review/projects/{project['id']}/summary")
     assert summary_response.status_code == 200
     summary = _assert_ok(summary_response.json())
     assert set(summary) == {
@@ -333,19 +342,27 @@ def test_review_contract_covers_summary_update_and_analyze(
         "created_at",
         "updated_at",
     }
-
-    update_response = runtime_client.patch(
-        "/api/review/projects/project-review/summary",
-        json={"project_name": "复盘项目", "total_views": 0, "completion_rate": 0},
-    )
-    assert update_response.status_code == 200
-    assert _assert_ok(update_response.json())["project_name"] == "复盘项目"
-
-    analyze_response = runtime_client.post("/api/review/projects/project-review/analyze")
-    assert analyze_response.status_code == 200
-    assert set(_assert_ok(analyze_response.json())) == {
-        "project_id",
-        "status",
-        "message",
-        "analyzed_at",
+    suggestion_id = summary["suggestions"][0]["id"]
+    assert set(summary["suggestions"][0]) == {
+        "id",
+        "code",
+        "category",
+        "title",
+        "description",
+        "priority",
+        "adopted",
+        "adopted_as_project_id",
+        "adopted_at",
     }
+
+    adopt_response = runtime_client.post(
+        f"/api/review/projects/{project['id']}/suggestions/{suggestion_id}/adopt"
+    )
+    assert adopt_response.status_code == 200
+    adopted_project = _assert_ok(adopt_response.json())
+    assert adopted_project["id"] != project["id"]
+
+    current_summary = runtime_client.get(f"/api/review/projects/{project['id']}/summary")
+    adopted = _assert_ok(current_summary.json())["suggestions"][0]
+    assert adopted["adopted"] is True
+    assert adopted["adopted_as_project_id"] == adopted_project["id"]

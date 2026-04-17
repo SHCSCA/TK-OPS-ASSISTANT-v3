@@ -45,4 +45,6 @@ def test_alembic_upgrade_creates_core_operational_tables(
         "automation_tasks",
         "publish_plans",
         "render_tasks",
+        "prompt_templates",
+        "video_stage_runs",
     }.issubset(tables)

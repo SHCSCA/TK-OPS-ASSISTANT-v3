@@ -1,13 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  RuntimeRequestError,
   fetchAICapabilitySupportMatrix,
   fetchAIProviderCatalog,
   fetchAIProviderModels,
-  refreshAIProviderModels
+  refreshAIProviderModels,
+  updateRuntimeConfig
 } from "@/app/runtime-client";
 
-import { createRouteAwareFetch, okJsonResponse, runtimeFixtures } from "./runtime-helpers";
+import {
+  createRouteAwareFetch,
+  errorJsonResponse,
+  okJsonResponse,
+  runtimeFixtures
+} from "./runtime-helpers";
 
 describe("AI 与系统设置 Runtime client", () => {
   afterEach(() => {
@@ -55,5 +62,32 @@ describe("AI 与系统设置 Runtime client", () => {
       { path: "/api/settings/ai-capabilities/support-matrix", method: "GET" },
       { path: "/api/settings/ai-providers/openai/models/refresh", method: "POST" }
     ]);
+  });
+
+  it("把英文校验失败文案归一为中文错误", async () => {
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method) => {
+        if (path === "/api/settings/config" && method === "PUT") {
+          return errorJsonResponse(422, "Request validation failed", "req-settings");
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    await expect(
+      updateRuntimeConfig({
+        ...runtimeFixtures.config,
+        runtime: {
+          ...runtimeFixtures.config.runtime,
+          workspaceRoot: ""
+        }
+      })
+    ).rejects.toMatchObject({
+      name: "RuntimeRequestError",
+      message: "请求参数校验失败，请检查输入后重试。",
+      requestId: "req-settings",
+      status: 422
+    } satisfies Partial<RuntimeRequestError>);
   });
 });

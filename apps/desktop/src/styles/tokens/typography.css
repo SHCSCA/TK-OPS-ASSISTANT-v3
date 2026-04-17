@@ -1,0 +1,29 @@
+:root {
+  --font-family-sans: "Inter", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  --font-family-mono: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, monospace;
+  --font-display-xl: 40px;
+  --font-display-lg: 32px;
+  --font-display-md: 24px;
+  --font-title-lg: 20px;
+  --font-title-md: 16px;
+  --font-title-sm: 14px;
+  --font-body-lg: 15px;
+  --font-body-md: 14px;
+  --font-body-sm: 13px;
+  --font-caption: 12px;
+  --font-mono-md: 13px;
+  --line-display-xl: 48px;
+  --line-display-lg: 40px;
+  --line-display-md: 32px;
+  --line-title-lg: 28px;
+  --line-title-md: 24px;
+  --line-title-sm: 20px;
+  --line-body-lg: 24px;
+  --line-body-md: 22px;
+  --line-body-sm: 20px;
+  --line-caption: 16px;
+
+  /* 兼容旧变量 */
+  --font-base: var(--font-family-sans);
+  --font-mono: var(--font-family-mono);
+}

@@ -1,21 +1,49 @@
 <template>
-  <section class="subtitle-preview-stage" data-testid="subtitle-preview-stage">
-    <div class="stage-kicker">字幕校对台</div>
-    <h2>{{ title }}</h2>
-    <p class="stage-copy">{{ stageCopy }}</p>
+  <section class="panel-shell" data-testid="subtitle-preview-stage">
+    <div class="stage-copy">
+      <span class="stage-copy__kicker">字幕校对台</span>
+      <h2>{{ title }}</h2>
+      <p>{{ stageCopy }}</p>
+    </div>
+
+    <div class="stage-meta">
+      <span class="stage-meta__chip">{{ selectedTrack?.language ?? "zh-CN" }}</span>
+      <span class="stage-meta__chip">{{ selectedTrack?.source ?? "script" }}</span>
+      <span class="stage-meta__chip">{{ styleConfig.preset }}</span>
+    </div>
 
     <div class="preview-frame" :class="{ 'preview-frame--busy': status === 'aligning' }">
       <div class="safe-area">
         <span class="preview-label">预览画面</span>
         <p class="subtitle-overlay" :style="overlayStyle">
-          {{ activeSegment?.text ?? "选中字幕段后在这里预览叠字效果" }}
+          {{ activeSegment?.text ?? "选中字幕段后，这里会展示叠字效果。" }}
         </p>
       </div>
     </div>
 
-    <div class="stage-status" :class="`stage-status--${status}`">
-      <strong>{{ statusLabel }}</strong>
-      <span>{{ generationMessage || statusMessage }}</span>
+    <div class="detail-surface">
+      <div class="detail-surface__row">
+        <strong>{{ statusLabel }}</strong>
+        <span>{{ statusMessage }}</span>
+      </div>
+      <dl v-if="selectedTrack" class="detail-grid">
+        <div>
+          <dt>字幕来源</dt>
+          <dd>{{ selectedTrack.source }}</dd>
+        </div>
+        <div>
+          <dt>语言</dt>
+          <dd>{{ selectedTrack.language }}</dd>
+        </div>
+        <div>
+          <dt>创建时间</dt>
+          <dd>{{ formatDate(selectedTrack.createdAt) }}</dd>
+        </div>
+        <div>
+          <dt>轨道状态</dt>
+          <dd>{{ selectedTrack.status }}</dd>
+        </div>
+      </dl>
     </div>
   </section>
 </template>
@@ -30,55 +58,84 @@ const props = defineProps<{
   activeSegment: SubtitleSegmentDto | null;
   generationMessage: string | null;
   selectedTrack: SubtitleTrackDto | null;
+  stateMessage: string;
   status: SubtitleAlignmentStatus;
   styleConfig: SubtitleStyleDto;
 }>();
 
 const title = computed(() => {
-  if (props.status === "aligning") return "正在创建字幕草稿";
-  if (props.status === "blocked") return "待配置 Provider";
-  return "校对字幕段落和叠字位置";
+  if (props.status === "aligning") return "正在生成字幕草稿。";
+  if (props.status === "blocked") return "字幕对齐能力被阻断。";
+  if (props.status === "error") return "字幕工作台需要处理错误。";
+  if (!props.selectedTrack) return "等待真实字幕版本。";
+  return "脚本文本和字幕段已经接通。";
 });
 
 const stageCopy = computed(() => {
-  if (props.selectedTrack) {
-    return `当前版本 ${props.selectedTrack.id}，来源 ${props.selectedTrack.source}，语言 ${props.selectedTrack.language}。`;
-  }
-  return "读取项目脚本后，可以生成真实字幕草稿并逐段校正。";
+  const segmentText = props.activeSegment?.text ?? "选择字幕段后，这里会显示当前叠字上下文。";
+  const trackText = props.selectedTrack
+    ? `${props.selectedTrack.source} · ${props.selectedTrack.language}`
+    : "当前没有选中的字幕版本。";
+  return `${segmentText} 当前轨道：${trackText}`;
 });
 
 const statusLabel = computed(() => {
   if (props.status === "loading") return "读取中";
-  if (props.status === "aligning") return "生成中";
-  if (props.status === "blocked") return "待配置 Provider";
+  if (props.status === "aligning") return "对齐中";
+  if (props.status === "blocked") return "阻断";
   if (props.status === "saving") return "保存中";
-  if (props.status === "error") return "需要处理";
-  return "准备就绪";
+  if (props.status === "error") return "错误";
+  if (!props.selectedTrack) return "空态";
+  return "可用";
 });
 
 const statusMessage = computed(() => {
-  if (props.status === "aligning") return "正在把脚本文本整理为字幕轨草稿记录。";
-  if (props.status === "blocked") return "尚未配置可用字幕对齐 Provider，字幕草稿已保存，可继续人工校对。";
-  if (props.status === "saving") return "正在保存字幕段落和样式校正。";
-  if (props.status === "error") return "请根据页面提示修正后重试。";
-  return "字幕预览仅展示叠字效果，不伪造真实视频播放或精准时间码。";
+  if (props.status === "loading") return "正在读取脚本文本、字幕版本和样式草稿。";
+  if (props.status === "aligning") return "正在把脚本文本整理为字幕草稿，不会提前写入假时间码。";
+  if (props.status === "blocked") {
+    return props.generationMessage || props.stateMessage;
+  }
+  if (props.status === "saving") return "正在保存字幕段和样式校正。";
+  if (props.status === "error") return props.stateMessage;
+  if (!props.selectedTrack) {
+    return "真实时间码尚未生成，先创建字幕版本。";
+  }
+  return props.stateMessage;
 });
 
 const overlayStyle = computed(() => ({
   background: props.styleConfig.background,
   color: props.styleConfig.textColor,
   fontSize: `${props.styleConfig.fontSize}px`,
-  top: props.styleConfig.position === "top" ? "16%" : props.styleConfig.position === "center" ? "50%" : "auto",
+  top:
+    props.styleConfig.position === "top"
+      ? "16%"
+      : props.styleConfig.position === "center"
+        ? "50%"
+        : "auto",
   bottom: props.styleConfig.position === "bottom" ? "14%" : "auto",
-  transform: props.styleConfig.position === "center" ? "translate(-50%, -50%)" : "translateX(-50%)"
+  transform:
+    props.styleConfig.position === "center" ? "translate(-50%, -50%)" : "translateX(-50%)"
 }));
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "short",
+    hour12: false,
+    timeStyle: "short"
+  }).format(date);
+}
 </script>
 
 <style scoped>
-.subtitle-preview-stage {
+.panel-shell {
   display: grid;
-  align-content: center;
-  gap: 18px;
+  gap: 16px;
   min-height: 0;
   border: 1px solid var(--border-default);
   border-radius: 8px;
@@ -89,10 +146,15 @@ const overlayStyle = computed(() => ({
   overflow: hidden;
 }
 
-.stage-kicker {
+.stage-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.stage-copy__kicker {
   color: var(--brand-primary);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 h2 {
@@ -102,11 +164,31 @@ h2 {
   line-height: 1.2;
 }
 
-.stage-copy {
+.stage-copy p {
   margin: 0;
+  max-width: 760px;
   color: var(--text-secondary);
   font-size: 15px;
   line-height: 1.75;
+}
+
+.stage-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stage-meta__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .preview-frame {
@@ -123,7 +205,12 @@ h2 {
 .preview-frame--busy::after {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--brand-primary) 24%, transparent), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--brand-primary) 24%, transparent),
+    transparent
+  );
   content: "";
   animation: subtitle-scan 1.2s ease-in-out infinite;
 }
@@ -155,27 +242,52 @@ h2 {
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
 }
 
-.stage-status {
+.detail-surface {
   display: grid;
-  gap: 4px;
+  gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: var(--bg-card);
+}
+
+.detail-surface__row {
+  display: grid;
+  gap: 4px;
+}
+
+.detail-surface__row strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.detail-surface__row span {
   color: var(--text-secondary);
   font-size: 13px;
+  line-height: 1.6;
 }
 
-.stage-status strong {
-  color: var(--text-primary);
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.stage-status--blocked strong {
-  color: var(--warning, #b7791f);
+.detail-grid div {
+  display: grid;
+  gap: 4px;
 }
 
-.stage-status--error strong {
-  color: var(--danger, #dc2626);
+.detail-grid dt {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.detail-grid dd {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
 }
 
 @keyframes subtitle-scan {

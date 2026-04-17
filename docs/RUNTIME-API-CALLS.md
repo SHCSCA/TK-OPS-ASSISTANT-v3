@@ -4,6 +4,56 @@
 > 任何新增、删除、重命名、字段调整、状态语义调整或调用入口调整，都必须在同一次变更中更新本文件。
 > 编码约定：本文档和相关中文产品文档统一使用 UTF-8 无 BOM 保存；读取、生成、校验脚本必须显式按 UTF-8 处理，避免中文文案在 PowerShell、测试输出或 IDE 中出现乱码。
 
+## 0. 状态图例与覆盖度总览(2026-04-17 快照)
+
+> 本节回答："本文档当前已经登记到哪一步,哪些 Runtime 实际接口还没进入文档"。详细缺口与未来排期请看 `docs/BACKEND-REQUIREMENTS-2026-04-17.md`。
+
+### 0.1 状态图例
+
+| 标记 | 含义 |
+| --- | --- |
+| ✅ | 已完成：Route + Service + Schema + 前端调用 + Contract Test + 本文档 全部就绪 |
+| 🚧 | 开发中：Route 已实现但本文档未覆盖,或前端尚未对接,或测试未补齐 |
+| 📋 | 待开发：完全缺失,需走 plan/spec → 实现 → 文档 → 测试 全链路 |
+
+### 0.2 模块覆盖度总览
+
+| 模块 | 真实路由数 | 本文档覆盖 | 状态 | 备注 |
+| --- | ---: | ---: | --- | --- |
+| M01 License | 2 | 0 | 🚧 | 已落地但未在本文件登记;指纹接口待开发 |
+| M02 Dashboard | 4 | 0 | 🚧 | 已落地但未登记;sparkline/quick-jump 待开发 |
+| M03 Scripts | 4 | 0 | 🚧 | 已落地但未登记;变体/版本待开发 |
+| M04 Storyboards | 3 | 0 | 🚧 | 已落地但未登记;Shot CRUD 待开发 |
+| **M05 Workspace** | 4 | 4 | ✅ | 见 §4 |
+| M06 Video Decon | 3 | 0 | 🚧 | 仅 import/list/delete,未登记;阶段接口待开发 |
+| **M07 Voice** | 5 | 5 | ✅ | 见 §5 |
+| **M08 Subtitles** | 5 | 5 | ✅ | 见 §6 |
+| **M09 Assets** | 10 | 8 | 🚧 | 见 §7;refs/{id} 子接口待登记 |
+| M10 Accounts | 13 | 0 | 🚧 | 全部 13 个端点已实现但未登记 |
+| M11 Devices | 6 | 0 | 🚧 | workspaces CRUD + health-check 已实现未登记 |
+| M12 Automation | 7 | 0 | 🚧 | tasks CRUD + trigger + runs 已实现未登记 |
+| M13 Publishing | 8 | 0 | 🚧 | plans CRUD + precheck/submit/cancel 已实现未登记 |
+| M14 Renders | 6 | 0 | 🚧 | tasks CRUD + cancel 已实现未登记 |
+| M15 Review | 3 | 0 | 🚧 | summary/analyze 已实现未登记 |
+| **M16 Settings** | 9 | 9 | ✅ | 见 §8 |
+| Tasks/WS | 4 | 1 | 🚧 | tasks 列表/cancel 实现但未统一 TaskBus;ws 通道存在 |
+| **§1 跨页基础设施** | 0 | 0 | 📋 | 自动保存/上传/分页/撤销/审计 全部待开发(见 BACKEND-REQUIREMENTS §1.8 ~ §1.13) |
+| **合计** | **96** | **32 (33%)** | — | — |
+
+### 0.3 截至本快照的关键事实
+
+- **5 个模块**(M05/M07/M08/M09/M16)已经走完"实现 → 文档 → 前端 → 测试"四步,可作为"完整模板"参考
+- **11 个模块**(M01/M02/M03/M04/M06/M10/M11/M12/M13/M14/M15)的接口已经存在,但本文档未登记;前端 client/store/test 也未对应,**这是当前最大的债**
+- **跨页基础设施**(§1.8 自动保存 / §1.9 分片上传 / §1.10 分页 / §1.11 撤销重做 / §1.12 个人化 / §1.13 审计备份)目前完全未实现
+
+### 0.4 阅读本文档时的注意点
+
+- 本文档下文每一节(§4 ~ §8)只覆盖 ✅ 已完成模块。如需查阅 🚧 与 📋 状态接口,请到 `docs/BACKEND-REQUIREMENTS-2026-04-17.md` § 2 模块矩阵
+- 当一个 🚧 模块完成"补登记"后,会从本节表格删除并新增到下文章节,同时本节"覆盖"列 +N
+- 任何接口变更必须**同时**更新:本节统计表 + 对应章节 + 后端代码 + 前端 client + contract test
+
+---
+
 ## 1. 使用规则
 
 - 唯一性：不要再为单个模块创建并行 API 文档。模块计划、spec、测试说明可以引用本文件，但不能复制出另一套接口真源。
@@ -61,7 +111,7 @@
 - 后端异常必须记录日志。
 - 404、409、422、500 等错误也必须通过统一信封转换。
 
-## 4. M05 AI 剪辑工作台
+## 4. M05 AI 剪辑工作台 ✅ 已交付
 
 > 2026-04-17 新增：M05-A 只建立项目时间线草稿的真实 Runtime 闭环。工作台不得继续展示页面内静态假轨道、假素材、假视频进度或假 AI 结果。无时间线时返回中性空态；AI 魔法剪入口本批返回 `blocked`，不创建假任务。
 
@@ -167,7 +217,7 @@ AI 魔法剪阻断响应：
 - AI 命令未接入 Provider 时返回 `blocked`，不得创建假 TaskBus 任务。
 - 页面必须通过 `runtime-client.ts` 与 Pinia store 消费，不得直接 `fetch`。
 
-## 5. M07 配音中心
+## 5. M07 配音中心 ✅ 已交付
 
 > 2026-04-16 新增：M07 配音中心第一批只建立真实 Runtime 闭环和 UI 工作台底座。无可用 TTS Provider 时，`POST /api/voice/projects/{project_id}/tracks/generate` 必须创建真实 `VoiceTrack` 记录并返回 `blocked` 状态和中文说明，不得伪造成音频生成成功。页面不得继续使用前端 `setTimeout` 模拟生成，所有调用必须通过 `runtime-client.ts` 和 `voice-studio` store。
 
@@ -300,7 +350,7 @@ AI 魔法剪阻断响应：
 - `segments` 必须来自真实脚本文本切分。
 - 真实 TTS Provider、音频落盘、资产注册和时间线落轨必须作为后续独立计划。
 
-## 6. M08 字幕对齐中心
+## 6. M08 字幕对齐中心 ✅ 已交付
 
 > 2026-04-16 新增：M08 字幕对齐中心第一批只建立真实 Runtime 契约、字幕轨草稿记录和 UI 校对工作台。无可用字幕对齐 Provider 时，`POST /api/subtitles/projects/{project_id}/tracks/generate` 必须创建真实 `SubtitleTrack` 记录并返回 `blocked` 状态和中文说明，不得伪造成自动对齐完成。页面所有字幕读写必须通过 `runtime-client.ts` 和 `subtitle-alignment` store，不得继续使用页面内 `setTimeout`、随机假字幕或 `alert`。
 
@@ -451,7 +501,7 @@ AI 魔法剪阻断响应：
 | `updateSubtitleTrack(trackId, input)` | `apps/desktop/src/app/runtime-client.ts` | `PATCH /api/subtitles/tracks/{track_id}` | `SubtitleTrackDto` | `subtitle-alignment` store、字幕段落、时间码、样式面板 | 保存失败必须显示中文错误 |
 | `deleteSubtitleTrack(trackId)` | `apps/desktop/src/app/runtime-client.ts` | `DELETE /api/subtitles/tracks/{track_id}` | `void` | `subtitle-alignment` store、版本面板 | 删除后必须刷新列表并清空失效选中态 |
 
-## 7. M09 资产中心
+## 7. M09 资产中心 ✅ 已交付
 
 > 2026-04-16 修订：Runtime 启动时会兼容修复旧版 `assets` 表，避免旧本地库缺少 `name`、`type`、`updated_at` 等列导致 `GET /api/assets` 直接 500，也避免旧版 `kind` / `file_name` 非空约束阻断新图片导入。点击“导入资产”必须弹出桌面文件选择器并支持多选；每个被选中的真实本地路径逐个通过 `importAsset(input)` 进入 Runtime。Tauri 主窗口 capability 必须包含 `dialog:allow-open`，否则文件选择器会被运行时权限拒绝；`tauri.conf.json` 必须启用 `app.security.assetProtocol` 并允许用户素材目录，否则 `convertFileSrc(filePath)` 生成的真实预览地址无法在 WebView 中读取。资产中心前端已采用素材墙、批量导入状态、真实本地预览、UTF-8 文档预览和全局右侧抽屉联动；页面不得回退到手动路径输入或图标占位预览。
 
@@ -607,7 +657,7 @@ AI 魔法剪阻断响应：
 
 前端任务总线连接 `ws://127.0.0.1:8000/api/ws`。Runtime 运行环境必须安装 `websockets` 或 `wsproto` 之一；当前项目依赖固定为 `websockets>=14.0,<16.0`。如果缺少该依赖，Uvicorn 会记录 `No supported WebSocket library detected`，升级请求会退化成普通 `GET /api/ws` 并持续返回 404。
 
-## 8. M16 AI 与系统设置
+## 8. M16 AI 与系统设置 ✅ 已交付
 
 > 2026-04-16 新增：AI 与系统设置模块当前后端接口已经形成两个边界：系统配置总线 `/api/settings/*` 与 AI 能力配置 `/api/settings/ai-capabilities/*`。前端页面必须通过 `runtime-client.ts` 和 Pinia store 消费这些接口，不得在页面内直接 fetch。Provider API Key 只允许写入 SecretStore，接口只返回脱敏状态，不返回明文密钥。产品目标是支持多 Provider 与多模型选择；当前 Runtime 已输出多 Provider 注册表，并支持按模型发起真实连通性测试。
 
@@ -1176,7 +1226,30 @@ AI 魔法剪阻断响应：
 | --- | --- | --- | --- |
 | `convertFileSrc(filePath)` | `apps/desktop/src/components/assets/AssetPreview.vue` | 将真实本地视频、图片、文档路径转换为 WebView 可渲染地址；文本类文档读取后按 UTF-8 渲染 | 依赖 Tauri 桌面环境和 `app.security.assetProtocol`；不得用假缩略图替代真实文件预览 |
 
-## 10. 验证命令
+## 10. 待补文档接口清单(🚧 已实现未文档化)
+
+> 以下 11 个模块的 Runtime 路由已落地，但本文件尚未补齐契约描述。每个模块需要补齐的最小骨架:数据对象 → 接口定义 → 错误码 → 前端调用登记 → schema_version。文档化优先级以 `BACKEND-REQUIREMENTS-2026-04-17.md` §0.1.2 为准。
+
+| 模块 | 路由文件 | 实现接口数 | 文档化优先级 | 主要依赖 |
+| --- | --- | --- | --- | --- |
+| M01 仪表盘 | `apps/py-runtime/src/api/routes/dashboard.py` | 4 | P1 | 项目、任务、AI 用量聚合 |
+| M02 项目空间 | `apps/py-runtime/src/api/routes/projects.py` | 8 | P1 | 项目主模型、最近编辑 |
+| M03 脚本中心 | `apps/py-runtime/src/api/routes/scripts.py` | 9 | P1 | Script 实体、AI 文本流 |
+| M04 分镜中心 | `apps/py-runtime/src/api/routes/storyboards.py` | 7 | P1 | Storyboard 实体、镜头排程 |
+| M06 视频拆解中心 | `apps/py-runtime/src/api/routes/decomposition.py` | 6 | P2 | 媒体抽帧、AI 解析 |
+| M10 任务队列 | `apps/py-runtime/src/api/routes/tasks.py` | 7 | P1 | TaskBus、WebSocket |
+| M11 渲染管线 | `apps/py-runtime/src/api/routes/render.py` | 5 | P2 | RenderTask、媒体输出 |
+| M12 发布管理 | `apps/py-runtime/src/api/routes/publishing.py` | 6 | P2 | 平台账号、发布计划 |
+| M13 复盘中心 | `apps/py-runtime/src/api/routes/review.py` | 5 | P3 | 数据回流、AI 摘要 |
+| M14 工作区设置 | `apps/py-runtime/src/api/routes/workspace_settings.py` | 4 | P2 | 工作区目录、个人化 |
+| M15 项目操作 | `apps/py-runtime/src/api/routes/project_actions.py` | 3 | P2 | 项目级动作、备份 |
+
+补齐策略:
+1. 每模块独占一节(`## 11. M01 仪表盘`、`## 12. M02 项目空间` …),沿用 §4-8 的章节结构。
+2. 与 `BACKEND-REQUIREMENTS-2026-04-17.md` §2.x 表格里的 ✅/🚧/📋 状态保持一致;若文档化与实现存在 gap,优先标注 🚧 而非 ✅。
+3. 文档化每完成一节,更新 §0.2 模块覆盖度总览的"文档化"列与百分比。
+
+## 11. 验证命令
 
 接口或调用文档变化后，至少运行：
 

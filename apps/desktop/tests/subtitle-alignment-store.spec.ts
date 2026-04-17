@@ -21,6 +21,7 @@ describe("M08 字幕对齐中心 store", () => {
     await store.load("project-1");
 
     expect(store.status).toBe("ready");
+    expect(store.viewState).toBe("blocked");
     expect(store.paragraphs.map((item) => item.text)).toEqual(["第一段脚本", "第二段脚本"]);
     expect(store.tracks).toHaveLength(1);
     expect(store.selectedTrackId).toBe("subtitle-1");
@@ -36,6 +37,7 @@ describe("M08 字幕对齐中心 store", () => {
 
     expect(result?.track.status).toBe("blocked");
     expect(store.status).toBe("blocked");
+    expect(store.viewState).toBe("blocked");
     expect(store.generationResult?.message).toContain("字幕对齐 Provider");
     expect(store.tracks[0].id).toBe("subtitle-2");
     expect(store.selectedTrackId).toBe("subtitle-2");
@@ -50,7 +52,19 @@ describe("M08 字幕对齐中心 store", () => {
 
     expect(result).toBeNull();
     expect(store.status).toBe("error");
+    expect(store.viewState).toBe("empty");
     expect(store.error?.message).toContain("字幕源文本为空");
+  });
+
+  it("没有脚本文本时加载后进入 empty 视图态", async () => {
+    vi.stubGlobal("fetch", createSubtitleFetch({ emptyScript: true, noTracks: true }));
+
+    const store = useSubtitleAlignmentStore();
+    await store.load("project-1");
+
+    expect(store.status).toBe("empty");
+    expect(store.viewState).toBe("empty");
+    expect(store.tracks).toEqual([]);
   });
 
   it("保存手动校正后的字幕段和样式", async () => {
@@ -65,6 +79,17 @@ describe("M08 字幕对齐中心 store", () => {
     expect(updated?.segments[0].text).toBe("校正后的字幕");
     expect(updated?.style.fontSize).toBe(38);
     expect(store.status).toBe("ready");
+  });
+
+  it("选择字幕版本时拉取版本详情并同步草稿段", async () => {
+    vi.stubGlobal("fetch", createSubtitleFetch({ withTrackDetails: true }));
+
+    const store = useSubtitleAlignmentStore();
+    await store.load("project-1");
+    await store.selectTrack("subtitle-1");
+
+    expect(store.selectedTrack?.segments).toHaveLength(2);
+    expect(store.draftSegments[1]?.text).toBe("第二段脚本");
   });
 
   it("删除字幕版本后刷新列表并清空选中态", async () => {
@@ -93,13 +118,20 @@ describe("M08 字幕对齐中心 store", () => {
   });
 });
 
-function createSubtitleFetch(options: { emptyScript?: boolean } = {}) {
+function createSubtitleFetch(
+  options: { emptyScript?: boolean; noTracks?: boolean; withTrackDetails?: boolean } = {}
+) {
   return createRouteAwareFetch((path, method, init) => {
     if (path === "/api/scripts/projects/project-1/document" && method === "GET") {
       return okJsonResponse(scriptDocument(options.emptyScript ? "" : "第一段脚本\n\n第二段脚本"));
     }
     if (path === "/api/subtitles/projects/project-1/tracks") {
-      return okJsonResponse([subtitleTrack()]);
+      return okJsonResponse(options.noTracks ? [] : [subtitleTrack()]);
+    }
+    if (path === "/api/subtitles/tracks/subtitle-1" && method === "GET") {
+      return okJsonResponse(
+        options.withTrackDetails ? subtitleTrackWithDetails("subtitle-1") : subtitleTrack()
+      );
     }
     if (path === "/api/subtitles/projects/project-1/tracks/generate") {
       return okJsonResponse({
@@ -163,5 +195,29 @@ function subtitleTrack(id = "subtitle-1", text = "第一段脚本", fontSize = 3
     ],
     status: "blocked",
     createdAt: now()
+  };
+}
+
+function subtitleTrackWithDetails(id = "subtitle-1") {
+  return {
+    ...subtitleTrack(id),
+    segments: [
+      {
+        segmentIndex: 0,
+        text: "第一段脚本",
+        startMs: null,
+        endMs: null,
+        confidence: null,
+        locked: false
+      },
+      {
+        segmentIndex: 1,
+        text: "第二段脚本",
+        startMs: null,
+        endMs: null,
+        confidence: null,
+        locked: false
+      }
+    ]
   };
 }

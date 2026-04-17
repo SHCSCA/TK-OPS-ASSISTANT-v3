@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from common.time import utc_now
-from domain.models.publishing import PublishPlan
+from domain.models.publishing import PublishPlan, PublishReceipt
 
 
 class PublishingRepository:
@@ -81,3 +81,46 @@ class PublishingRepository:
             session.refresh(plan)
             session.expunge(plan)
             return plan
+
+    def create_receipt(
+        self,
+        *,
+        plan_id: str,
+        status: str,
+        platform_response_json: str | None = None,
+    ) -> PublishReceipt:
+        with self._session_factory() as session:
+            now = utc_now()
+            receipt = PublishReceipt(
+                plan_id=plan_id,
+                status=status,
+                platform_response_json=platform_response_json,
+                received_at=now,
+                created_at=now,
+            )
+            session.add(receipt)
+            session.commit()
+            session.refresh(receipt)
+            session.expunge(receipt)
+            return receipt
+
+    def list_receipts(self, plan_id: str) -> list[PublishReceipt]:
+        with self._session_factory() as session:
+            receipts = session.scalars(
+                select(PublishReceipt)
+                .where(PublishReceipt.plan_id == plan_id)
+                .order_by(PublishReceipt.received_at.desc(), PublishReceipt.created_at.desc())
+            ).all()
+            session.expunge_all()
+            return list(receipts)
+
+    def get_latest_receipt(self, plan_id: str) -> PublishReceipt | None:
+        with self._session_factory() as session:
+            receipt = session.scalar(
+                select(PublishReceipt)
+                .where(PublishReceipt.plan_id == plan_id)
+                .order_by(PublishReceipt.received_at.desc(), PublishReceipt.created_at.desc())
+            )
+            if receipt is not None:
+                session.expunge(receipt)
+            return receipt

@@ -18,10 +18,10 @@ class FakeGenerationResult:
 
 class FakeAITextGenerationService:
     def __init__(self, jobs: AIJobRepository) -> None:
-        self.calls: list[tuple[str, str]] = []
+        self.calls: list[tuple[str, dict[str, str]]] = []
         self._jobs = jobs
 
-    def generate_text(self, capability_id: str, prompt: str, **kwargs: object) -> FakeGenerationResult:
+    def generate_text(self, capability_id: str, prompt: dict[str, str], **kwargs: object) -> FakeGenerationResult:
         self.calls.append((capability_id, prompt))
         provider = 'openai'
         model = 'gpt-5' if capability_id == 'script_generation' else 'gpt-5-mini'
@@ -32,6 +32,16 @@ class FakeAITextGenerationService:
             model=model,
         )
         self._jobs.mark_succeeded(job.id, duration_ms=12)
+        if 'count' in prompt:
+            count = int(prompt['count'])
+            topic = prompt.get('topic', '标题')
+            return FakeGenerationResult(
+                text='\n'.join(f'{topic} 标题 {index}' for index in range(1, count + 1)),
+                provider=provider,
+                model=model,
+                ai_job_id=job.id,
+                request_id=job.id,
+            )
         if capability_id == 'script_generation':
             return FakeGenerationResult(
                 text='Hook line\nBody line\nCTA line',
@@ -119,3 +129,65 @@ def test_script_generation_and_rewrite_record_ai_jobs(runtime_app) -> None:
     assert rewritten_payload['recentJobs'][0]['capabilityId'] == 'script_rewrite'
     assert fake_service.calls[0][0] == 'script_generation'
     assert fake_service.calls[1][0] == 'script_rewrite'
+
+
+def test_script_versions_title_variants_restore_and_segment_rewrite(runtime_app) -> None:
+    fake_service = FakeAITextGenerationService(runtime_app.state.ai_job_repository)
+    runtime_app.state.ai_text_generation_service = fake_service
+    client = TestClient(runtime_app)
+
+    project_response = client.post(
+        '/api/dashboard/projects',
+        json={'name': 'Script Versions Project', 'description': 'Script version tests'},
+    )
+    project_id = project_response.json()['data']['id']
+
+    first_save = client.put(
+        f'/api/scripts/projects/{project_id}/document',
+        json={'content': 'Draft hook\nDraft body\nDraft CTA'},
+    )
+    assert first_save.status_code == 200
+
+    second_save = client.put(
+        f'/api/scripts/projects/{project_id}/document',
+        json={'content': 'Fresh hook\nFresh body\nFresh CTA'},
+    )
+    assert second_save.status_code == 200
+
+    versions_response = client.get(f'/api/scripts/projects/{project_id}/versions')
+    assert versions_response.status_code == 200
+    versions_payload = versions_response.json()['data']
+    assert [item['revision'] for item in versions_payload] == [2, 1]
+
+    title_response = client.post(
+        f'/api/scripts/projects/{project_id}/title-variants',
+        json={'topic': 'Launch', 'count': 3},
+    )
+    assert title_response.status_code == 200
+    title_payload = title_response.json()['data']
+    assert [item['title'] for item in title_payload] == [
+        'Launch 标题 1',
+        'Launch 标题 2',
+        'Launch 标题 3',
+    ]
+    assert fake_service.calls[-1][0] == 'script_generation'
+    assert fake_service.calls[-1][1]['count'] == '3'
+
+    rewrite_response = client.post(
+        f'/api/scripts/projects/{project_id}/segments/2/rewrite',
+        json={'instructions': '把第二段改得更有号召力'},
+    )
+
+    assert rewrite_response.status_code == 200
+    rewrite_payload = rewrite_response.json()['data']
+    assert rewrite_payload['currentVersion']['revision'] == 3
+    assert rewrite_payload['currentVersion']['content'] == 'Fresh hook\nRewrite body\nFresh CTA'
+
+    restore_response = client.post(f'/api/scripts/projects/{project_id}/restore/1')
+    assert restore_response.status_code == 200
+    restore_payload = restore_response.json()['data']
+    assert restore_payload['currentVersion']['revision'] == 4
+    assert restore_payload['currentVersion']['content'] == 'Draft hook\nDraft body\nDraft CTA'
+
+    final_versions = client.get(f'/api/scripts/projects/{project_id}/versions').json()['data']
+    assert [item['revision'] for item in final_versions] == [4, 3, 2, 1]

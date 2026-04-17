@@ -6,7 +6,7 @@
       <p>同步 Runtime 中的真实文件记录和项目引用。</p>
     </div>
 
-    <div v-else-if="status === 'error'" class="asset-state">
+    <div v-else-if="status === 'error'" class="asset-state asset-state--error">
       <span class="material-symbols-outlined">warning</span>
       <strong>资产列表加载失败</strong>
       <p>{{ error }}</p>
@@ -20,16 +20,24 @@
       <button type="button" @click="$emit('import')">选择本地文件</button>
     </div>
 
-    <TransitionGroup v-else class="asset-wall__grid" name="asset-card-list" tag="div">
-      <AssetCard
-        v-for="asset in assets"
-        :key="asset.id"
-        :asset="asset"
-        :is-selected="selectedId === asset.id"
-        :tags="parseTags(asset)"
-        @select="$emit('select', $event)"
-      />
-    </TransitionGroup>
+    <div v-else class="asset-wall__ready">
+      <div class="asset-wall__summary">
+        <p class="asset-wall__summary-label">资产结果</p>
+        <strong>{{ assets.length }} 个真实资产</strong>
+        <span>选中后会同步打开右侧详情面板并保留引用检查结果。</span>
+      </div>
+
+      <TransitionGroup class="asset-wall__grid" name="asset-card-list" tag="div">
+        <AssetCard
+          v-for="asset in assets"
+          :key="asset.id"
+          :asset="asset"
+          :is-selected="selectedId === asset.id"
+          :tags="parseTags(asset)"
+          @select="$emit('select', $event)"
+        />
+      </TransitionGroup>
+    </div>
   </section>
 </template>
 
@@ -62,7 +70,37 @@ defineEmits<{
 .asset-wall__grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.asset-wall__ready {
+  display: grid;
+  gap: 16px;
+}
+
+.asset-wall__summary {
+  align-items: end;
+  display: grid;
+  gap: 4px;
+}
+
+.asset-wall__summary-label {
+  color: var(--color-text-tertiary, var(--text-tertiary));
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.asset-wall__summary strong {
+  color: var(--color-text-primary, var(--text-primary));
+  font-size: 16px;
+}
+
+.asset-wall__summary span {
+  color: var(--color-text-secondary, var(--text-secondary));
+  font-size: 13px;
 }
 
 .asset-card-list-enter-active,
@@ -80,7 +118,7 @@ defineEmits<{
 
 .asset-state {
   align-items: center;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -91,12 +129,12 @@ defineEmits<{
 }
 
 .asset-state .material-symbols-outlined {
-  color: var(--brand-primary);
+  color: var(--color-brand-primary, var(--brand-primary));
   font-size: 48px;
 }
 
 .asset-state strong {
-  color: var(--text-primary);
+  color: var(--color-text-primary, var(--text-primary));
   font-size: 16px;
 }
 
@@ -107,16 +145,21 @@ defineEmits<{
 }
 
 .asset-state button {
-  background: var(--brand-primary);
-  border: 1px solid var(--brand-primary);
+  background: var(--color-brand-primary, var(--brand-primary));
+  border: 1px solid var(--color-brand-primary, var(--brand-primary));
   border-radius: var(--radius-sm);
-  color: var(--brand-ink);
+  color: var(--color-text-on-brand, var(--brand-ink));
   cursor: pointer;
   font: inherit;
   font-weight: 800;
   height: 36px;
   margin-top: 4px;
   padding: 0 14px;
+}
+
+.asset-state--error button {
+  background: transparent;
+  color: var(--color-text-primary, var(--text-primary));
 }
 
 .asset-state__spinner {

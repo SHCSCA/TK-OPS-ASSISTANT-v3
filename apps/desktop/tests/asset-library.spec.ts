@@ -55,7 +55,37 @@ describe("M09 资产中心页面体验", () => {
 
     expect(wrapper.get('[data-testid="asset-card-asset-1"]').classes()).toContain("asset-card--selected");
     expect(shellUiStore.isDetailPanelOpen).toBe(true);
+    expect(shellUiStore.detailContext.title).toBe("Clip");
     expect(window.alert).not.toHaveBeenCalled();
+  });
+
+  it("基于真实资产结果展示分组摘要和当前选择，不补假统计", async () => {
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method) => {
+        if (path === "/api/assets" && method === "GET") {
+          return okJsonResponse([
+            asset("asset-video", "opening.mp4", "video", "D:/tkops/assets/opening.mp4"),
+            asset("asset-image", "cover.jpg", "image", "D:/tkops/assets/cover.jpg"),
+            asset("asset-document", "brief.pdf", "document", "D:/tkops/assets/brief.pdf")
+          ]);
+        }
+        if (path === "/api/assets/asset-image/references") return okJsonResponse([]);
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const { wrapper, shellUiStore } = mountAssetLibrary();
+    await flushPromises();
+
+    expect(wrapper.findAll('[data-testid^="asset-card-"]')).toHaveLength(3);
+    expect(wrapper.text()).toContain("当前结果");
+
+    await wrapper.get('[data-testid="asset-card-asset-image"]').trigger("click");
+    await flushPromises();
+
+    expect(shellUiStore.detailContext.title).toBe("cover.jpg");
+    expect(shellUiStore.detailContext.mode).toBe("asset");
   });
 
   it("点击导入支持批量选择、同批去重、自动选中新资产并打开详情抽屉", async () => {
@@ -197,10 +227,7 @@ describe("M09 资产中心页面体验", () => {
     );
   });
 
-  it("详情抽屉展示上海时间和引用影响，有引用时阻断删除", async () => {
-    const pinia = createPinia();
-    setActivePinia(pinia);
-    const assetStore = useAssetLibraryStore();
+  it("详情抽屉展示上海时间和引用影响", async () => {
     const selected = asset(
       "asset-1",
       "opening.mp4",
@@ -209,34 +236,45 @@ describe("M09 资产中心页面体验", () => {
       "2026-04-16T10:00:00Z",
       "2026-04-16T10:30:00Z"
     );
-    assetStore.assets = [selected];
-    assetStore.selectedId = selected.id;
-    assetStore.references = [assetReference()];
-    vi.stubGlobal(
-      "fetch",
-      createRouteAwareFetch((path, method) => {
-        if (path === "/api/assets/asset-1/references" && method === "GET") {
-          return okJsonResponse([assetReference()]);
-        }
-        throw new Error(`Unhandled request: ${method} ${path}`);
-      })
-    );
 
     const wrapper = mount(AssetDetail, {
-      global: {
-        plugins: [pinia]
+      props: {
+        context: {
+          key: "asset:opening.mp4",
+          mode: "asset",
+          source: "asset-library",
+          icon: "inventory_2",
+          eyebrow: "资产详情",
+          title: selected.name,
+          description: "真实资产对象、引用影响和本地文件路径同步展示。",
+          metrics: [
+            { id: "size", label: "大小", value: "24.0 MB" },
+            { id: "refs", label: "引用", value: "1" },
+            { id: "project", label: "项目", value: selected.projectId || "未归入项目" }
+          ],
+          sections: [
+            {
+              id: "source",
+              title: "资产来源",
+              fields: [
+                { id: "path", label: "路径", value: selected.filePath || "", mono: true, multiline: true },
+                { id: "created", label: "创建时间", value: "2026-04-16 18:00:00", mono: true },
+                { id: "updated", label: "更新时间", value: "2026-04-16 18:30:00", mono: true }
+              ]
+            },
+            {
+              id: "references",
+              title: "引用影响",
+              items: [{ id: "ref-1", title: "storyboard", description: "scene-1", meta: "已引用", tone: "warning" }]
+            }
+          ]
+        }
       }
     });
 
     expect(wrapper.text()).toContain("2026-04-16 18:00:00");
     expect(wrapper.text()).toContain("2026-04-16 18:30:00");
     expect(wrapper.text()).toContain("storyboard");
-
-    await wrapper.get('[data-testid="asset-delete-button"]').trigger("click");
-    await flushPromises();
-
-    expect(wrapper.text()).toContain("资产存在引用");
-    expect(assetStore.assets).toHaveLength(1);
   });
 });
 

@@ -1,5 +1,8 @@
-﻿import { flushPromises } from "@vue/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { flushPromises } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { useShellUiStore } from "@/stores/shell-ui";
 
 import {
   createRouteAwareFetch,
@@ -9,12 +12,73 @@ import {
 } from "./runtime-helpers";
 
 describe("App shell", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it("renders all formal routes and shows config bus status after bootstrap is complete", async () => {
+  it("持久化壳层状态并同步到本地存储", () => {
+    localStorage.setItem(
+      "tkops-shell-ui",
+      JSON.stringify({
+        theme: "dark",
+        reducedMotion: true,
+        sidebarCollapsed: true,
+        detailPanelOpen: true,
+        detailContext: {
+          key: "route:contextual",
+          mode: "contextual",
+          source: "route",
+          title: "测试上下文",
+          sections: []
+        }
+      })
+    );
+
+    setActivePinia(createPinia());
+    const shellUiStore = useShellUiStore();
+
+    expect(shellUiStore.theme).toBe("dark");
+    expect(shellUiStore.reducedMotion).toBe(true);
+    expect(shellUiStore.sidebarCollapsed).toBe(true);
+    expect(shellUiStore.isDetailPanelOpen).toBe(true);
+    expect(shellUiStore.detailContext.title).toBe("测试上下文");
+
+    shellUiStore.setTheme("light");
+    shellUiStore.setReducedMotion(false);
+    shellUiStore.setSidebarCollapsed(false);
+    shellUiStore.closeDetailPanel();
+
+    expect(JSON.parse(localStorage.getItem("tkops-shell-ui") ?? "{}")).toMatchObject({
+      theme: "light",
+      reducedMotion: false,
+      sidebarCollapsed: false,
+      detailPanelOpen: false
+    });
+  });
+
+  it("renders the app shell with persisted theme and workspace chrome state", async () => {
+    localStorage.setItem(
+      "tkops-shell-ui",
+      JSON.stringify({
+        theme: "dark",
+        reducedMotion: true,
+        sidebarCollapsed: true,
+        detailPanelOpen: true,
+        detailContext: {
+          key: "route:contextual",
+          mode: "contextual",
+          source: "route",
+          title: "测试上下文",
+          sections: []
+        }
+      })
+    );
+
     vi.stubGlobal(
       "fetch",
       createRouteAwareFetch((path) => {
@@ -42,21 +106,25 @@ describe("App shell", () => {
     await flushPromises();
     await flushPromises();
 
+    const shell = wrapper.get(".app-shell");
+
     expect(wrapper.findAll("[data-route-id]")).toHaveLength(15);
     expect(wrapper.text()).toContain("Runtime 在线");
-    // These are now in the detail panel drawer, which is closed by default.
-    // We can either open it or just check the status bar which is visible.
-    expect(wrapper.find(".shell-status-bar").text()).toContain("Runtime 在线");
+    expect(wrapper.find(".app-shell__status").text()).toContain("Runtime 在线");
     expect(wrapper.text()).toContain("本地 AI 视频创作中枢");
     expect(wrapper.text()).not.toContain("鏈");
     expect(wrapper.text()).not.toContain("鍒");
-    expect(wrapper.find(".shell-title-bar").exists()).toBe(true);
-    expect(wrapper.find(".shell-sidebar").exists()).toBe(true);
-    expect(wrapper.find(".shell-detail-panel").exists()).toBe(true);
-    expect(wrapper.find(".shell-status-bar").exists()).toBe(true);
+    expect(shell.attributes("data-theme")).toBe("dark");
+    expect(shell.attributes("data-reduced-motion")).toBe("true");
+    expect(shell.attributes("data-sidebar-collapsed")).toBe("true");
+    expect(shell.attributes("data-detail-open")).toBe("true");
+    expect(wrapper.find(".app-shell__title-bar").exists()).toBe(true);
+    expect(wrapper.find(".app-shell__sidebar").classes()).toContain("is-collapsed");
+    expect(wrapper.find(".app-shell__detail").classes()).toContain("is-open");
+    expect(wrapper.find(".app-shell__status").exists()).toBe(true);
   });
 
-  it("资产中心选择素材后打开全局右侧抽屉并展示资产详情", async () => {
+  it("资产中心选择素材后打开全局右侧详情面板并展示资产详情", async () => {
     vi.stubGlobal(
       "fetch",
       createRouteAwareFetch((path, method) => {
@@ -95,16 +163,16 @@ describe("App shell", () => {
     await flushPromises();
     await flushPromises();
 
-    expect(wrapper.find(".detail-panel-container.is-open").exists()).toBe(false);
+    expect(wrapper.find(".app-shell__detail.is-open").exists()).toBe(false);
 
     await wrapper.get('[data-testid="asset-card-asset-1"]').trigger("click");
     await flushPromises();
 
-    expect(wrapper.find(".detail-panel-container.is-open").exists()).toBe(true);
+    expect(wrapper.find(".app-shell__detail.is-open").exists()).toBe(true);
     expect(wrapper.find(".shell-detail-panel").text()).toContain("资产详情");
     expect(wrapper.find(".shell-detail-panel").text()).toContain("Clip");
-    expect(wrapper.find(".shell-detail-panel").text()).toContain("引用影响范围");
-    expect(wrapper.find(".shell-detail-panel").text()).toContain("storyboard");
+    expect(wrapper.find(".shell-detail-panel").text()).toContain("引用影响");
+    expect(wrapper.find(".shell-detail-panel").text()).toContain("当前资产没有被项目链路引用");
   });
 });
 

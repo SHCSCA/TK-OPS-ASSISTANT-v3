@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -54,6 +56,9 @@ class AutomationRepository:
             session.refresh(task)
             session.expunge(task)
             return task
+
+    def set_enabled(self, task_id: str, enabled: bool) -> AutomationTask | None:
+        return self.update_task(task_id, enabled=enabled)
 
     def delete_task(self, task_id: str) -> bool:
         with self._session_factory() as session:

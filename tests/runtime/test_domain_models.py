@@ -18,6 +18,7 @@ from domain.models import (
     LicenseGrant,
     ImportedVideo,
     Project,
+    PromptTemplate,
     PublishPlan,
     RenderTask,
     ScriptVersion,
@@ -26,6 +27,7 @@ from domain.models import (
     StoryboardVersion,
     SystemConfig,
     Timeline,
+    VideoStageRun,
     VoiceTrack,
     generate_uuid,
 )
@@ -49,6 +51,7 @@ def test_domain_models_match_existing_table_names() -> None:
     assert Project.__tablename__ == "projects"
     assert ScriptVersion.__tablename__ == "script_versions"
     assert StoryboardVersion.__tablename__ == "storyboard_versions"
+    assert PromptTemplate.__tablename__ == "prompt_templates"
     assert AIJobRecord.__tablename__ == "ai_job_records"
     assert AICapabilityConfig.__tablename__ == "ai_capability_configs"
     assert AIProviderSetting.__tablename__ == "ai_provider_settings"
@@ -66,6 +69,7 @@ def test_domain_models_match_existing_table_names() -> None:
     assert RenderTask.__tablename__ == "render_tasks"
     assert SystemConfig.__tablename__ == "system_config"
     assert SessionContext.__tablename__ == "session_context"
+    assert VideoStageRun.__tablename__ == "video_stage_runs"
 
 
 def test_project_columns_match_existing_schema(tmp_path: Path) -> None:
@@ -145,6 +149,43 @@ def test_imported_video_columns_match_target_schema(tmp_path: Path) -> None:
     }
 
 
+def test_prompt_template_columns_match_target_schema(tmp_path: Path) -> None:
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+    Base.metadata.create_all(engine)
+
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("prompt_templates")}
+
+    assert columns == {
+        "id",
+        "kind",
+        "name",
+        "description",
+        "content",
+        "created_at",
+        "updated_at",
+    }
+
+
+def test_video_stage_run_columns_match_target_schema(tmp_path: Path) -> None:
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+    Base.metadata.create_all(engine)
+
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("video_stage_runs")}
+
+    assert columns == {
+        "video_id",
+        "stage_id",
+        "status",
+        "progress_pct",
+        "result_summary",
+        "error_message",
+        "created_at",
+        "updated_at",
+    }
+
+
 def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
     engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
@@ -205,10 +246,12 @@ def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
         "name",
         "type",
         "source",
+        "group_id",
         "file_path",
         "file_size_bytes",
         "duration_ms",
         "thumbnail_path",
+        "thumbnail_generated_at",
         "tags",
         "project_id",
         "metadata_json",

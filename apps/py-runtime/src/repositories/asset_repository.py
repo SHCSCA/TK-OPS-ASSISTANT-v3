@@ -6,7 +6,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from common.time import utc_now_iso
-from domain.models.asset import Asset, AssetReference
+from domain.models.asset import Asset, AssetGroup, AssetReference
 
 log = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ class AssetRepository:
         asset_type: str | None = None,
         source: str | None = None,
         project_id: str | None = None,
+        group_id: str | None = None,
         q: str | None = None,
     ) -> list[Asset]:
         with self._session_factory() as session:
@@ -31,6 +32,8 @@ class AssetRepository:
                 stmt = stmt.where(Asset.source == source)
             if project_id is not None:
                 stmt = stmt.where(Asset.project_id == project_id)
+            if group_id is not None:
+                stmt = stmt.where(Asset.group_id == group_id)
             if q is not None:
                 pattern = f"%{q}%"
                 stmt = stmt.where(
@@ -119,6 +122,83 @@ class AssetRepository:
             session.delete(ref)
             session.commit()
             return True
+
+    # --- Groups ---
+
+    def list_groups(self) -> list[AssetGroup]:
+        with self._session_factory() as session:
+            groups = session.scalars(
+                select(AssetGroup).order_by(AssetGroup.created_at.asc())
+            ).all()
+            session.expunge_all()
+            return list(groups)
+
+    def get_group(self, group_id: str) -> AssetGroup | None:
+        with self._session_factory() as session:
+            group = session.get(AssetGroup, group_id)
+            if group is not None:
+                session.expunge(group)
+            return group
+
+    def create_group(self, group: AssetGroup) -> AssetGroup:
+        with self._session_factory() as session:
+            session.add(group)
+            session.commit()
+            session.refresh(group)
+            session.expunge(group)
+            return group
+
+    def update_group(self, group_id: str, *, changes: dict[str, object]) -> AssetGroup | None:
+        with self._session_factory() as session:
+            group = session.get(AssetGroup, group_id)
+            if group is None:
+                return None
+            for key, value in changes.items():
+                setattr(group, key, value)
+            session.commit()
+            session.refresh(group)
+            session.expunge(group)
+            return group
+
+    def delete_group(self, group_id: str) -> bool:
+        with self._session_factory() as session:
+            group = session.get(AssetGroup, group_id)
+            if group is None:
+                return False
+            session.delete(group)
+            session.commit()
+            return True
+
+    # --- Batch operations ---
+
+    def batch_delete_assets(self, asset_ids: list[str]) -> int:
+        if not asset_ids:
+            return 0
+        with self._session_factory() as session:
+            assets = session.scalars(
+                select(Asset).where(Asset.id.in_(asset_ids))
+            ).all()
+            deleted_count = 0
+            for asset in assets:
+                session.delete(asset)
+                deleted_count += 1
+            session.commit()
+            return deleted_count
+
+    def batch_move_group(self, asset_ids: list[str], group_id: str | None) -> int:
+        if not asset_ids:
+            return 0
+        with self._session_factory() as session:
+            assets = session.scalars(
+                select(Asset).where(Asset.id.in_(asset_ids))
+            ).all()
+            moved_count = 0
+            for asset in assets:
+                asset.group_id = group_id
+                asset.updated_at = _utc_now()
+                moved_count += 1
+            session.commit()
+            return moved_count
 
 
 def _utc_now() -> str:

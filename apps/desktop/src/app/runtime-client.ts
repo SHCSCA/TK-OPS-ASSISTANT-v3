@@ -719,12 +719,12 @@ async function requestRuntime<T>(path: string, init: RequestInit = {}): Promise<
     throw toRuntimeRequestError(
       payload,
       response.status,
-      `Runtime request failed (HTTP ${response.status}).`
+      `Runtime 请求失败（HTTP ${response.status}），请稍后重试。`
     );
   }
 
   if (!payload || !payload.ok) {
-    throw toRuntimeRequestError(payload, response.status, "Runtime request failed.");
+    throw toRuntimeRequestError(payload, response.status, "Runtime 请求失败，请稍后重试。");
   }
 
   return payload.data;
@@ -744,12 +744,49 @@ function toRuntimeRequestError(
   fallbackMessage: string
 ): RuntimeRequestError {
   if (payload && !payload.ok) {
-    return new RuntimeRequestError(payload.error, {
+    return new RuntimeRequestError(normalizeRuntimeErrorMessage(payload.error, status), {
       details: payload.details,
       requestId: payload.requestId,
       status
     });
   }
 
-  return new RuntimeRequestError(fallbackMessage, { status });
+  return new RuntimeRequestError(normalizeRuntimeErrorMessage(fallbackMessage, status), {
+    status
+  });
+}
+
+function normalizeRuntimeErrorMessage(message: string | null | undefined, status: number): string {
+  const normalized = message?.trim();
+
+  if (!normalized) {
+    if (status === 404) {
+      return "请求的 Runtime 接口不存在，请检查服务是否已更新。";
+    }
+    if (status === 422) {
+      return "请求参数校验失败，请检查输入后重试。";
+    }
+    if (status >= 500) {
+      return "Runtime 服务暂时不可用，请稍后重试。";
+    }
+    if (status > 0) {
+      return `Runtime 请求失败（HTTP ${status}），请稍后重试。`;
+    }
+    return "Runtime 请求失败，请稍后重试。";
+  }
+
+  if (normalized === "Request validation failed") {
+    return "请求参数校验失败，请检查输入后重试。";
+  }
+
+  if (
+    normalized === "Runtime request failed." ||
+    normalized.startsWith("Runtime request failed (HTTP")
+  ) {
+    return status > 0
+      ? `Runtime 请求失败（HTTP ${status}），请稍后重试。`
+      : "Runtime 请求失败，请稍后重试。";
+  }
+
+  return normalized;
 }

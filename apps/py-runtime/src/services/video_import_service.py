@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from domain.models import ImportedVideo
 from domain.models.base import generate_uuid
 from repositories.imported_video_repository import ImportedVideoRepository
+from repositories.video_deconstruction_repository import VideoDeconstructionRepository
 from services.task_manager import TaskManager, task_manager as default_task_manager
 from tasks.video_tasks import process_video_import_task
 
@@ -17,9 +18,11 @@ class VideoImportService:
         self,
         *,
         repository: ImportedVideoRepository,
+        stage_repository: VideoDeconstructionRepository | None = None,
         task_manager: TaskManager | None = None,
     ) -> None:
         self._repository = repository
+        self._stage_repository = stage_repository
         self._task_manager = task_manager or default_task_manager
 
     def import_video(self, *, project_id: str, file_path: str) -> dict[str, object]:
@@ -57,6 +60,7 @@ class VideoImportService:
                 video_id=video_id,
                 file_path=str(path),
                 repository=self._repository,
+                stage_repository=self._stage_repository,
                 progress_callback=progress_callback,
             )
 

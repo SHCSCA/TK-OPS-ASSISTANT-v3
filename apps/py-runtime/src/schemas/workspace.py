@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import BaseModel, Field
+
+
+class TimelineResolutionDto(BaseModel):
+    width: int = Field(ge=1)
+    height: int = Field(ge=1)
 
 
 class TimelineClipDto(BaseModel):
@@ -16,6 +19,9 @@ class TimelineClipDto(BaseModel):
     inPointMs: int = Field(default=0, ge=0)
     outPointMs: int | None = Field(default=None, ge=0)
     status: str = "ready"
+    prompt: str | None = None
+    resolution: TimelineResolutionDto | None = None
+    editableFields: list[str] = Field(default_factory=list)
 
 
 class TimelineTrackDto(BaseModel):
@@ -55,6 +61,60 @@ class WorkspaceTimelineResultDto(BaseModel):
     message: str
 
 
+class WorkspaceClipDetailDto(BaseModel):
+    id: str
+    timelineId: str
+    trackId: str
+    trackKind: str
+    trackName: str
+    sourceType: str
+    sourceId: str | None = None
+    label: str
+    prompt: str | None = None
+    resolution: TimelineResolutionDto | None = None
+    editableFields: list[str] = Field(default_factory=list)
+    startMs: int = Field(ge=0)
+    durationMs: int = Field(ge=0)
+    inPointMs: int = Field(default=0, ge=0)
+    outPointMs: int | None = Field(default=None, ge=0)
+    status: str = "ready"
+
+
+class ClipMoveInput(BaseModel):
+    targetTrackId: str
+    startMs: int = Field(ge=0)
+
+
+class ClipTrimInput(BaseModel):
+    startMs: int | None = Field(default=None, ge=0)
+    durationMs: int | None = Field(default=None, ge=0)
+    inPointMs: int | None = Field(default=None, ge=0)
+    outPointMs: int | None = Field(default=None, ge=0)
+
+
+class ClipReplaceInput(BaseModel):
+    sourceType: str
+    sourceId: str | None = None
+    label: str
+    prompt: str | None = None
+    resolution: TimelineResolutionDto | None = None
+    editableFields: list[str] = Field(default_factory=list)
+
+
+class TimelinePreviewDto(BaseModel):
+    timelineId: str
+    status: str
+    message: str
+    previewUrl: str | None = None
+
+
+class TimelinePrecheckDto(BaseModel):
+    timelineId: str
+    status: str
+    message: str
+    issues: list[str] = Field(default_factory=list)
+
+
 class WorkspaceAICommandInput(BaseModel):
     timelineId: str | None = None
     capabilityId: str
@@ -62,6 +122,6 @@ class WorkspaceAICommandInput(BaseModel):
 
 
 class WorkspaceAICommandResultDto(BaseModel):
-    status: Literal["blocked"]
+    status: str
     task: dict[str, object] | None = None
     message: str

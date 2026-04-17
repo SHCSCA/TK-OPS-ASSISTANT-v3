@@ -45,6 +45,18 @@ def update_task(
     return ok_response(task.model_dump(mode="json"))
 
 
+@router.post("/{task_id}/pause")
+def pause_task(task_id: str, request: Request) -> dict[str, object]:
+    task = _svc(request).pause_task(task_id)
+    return ok_response(task.model_dump(mode="json"))
+
+
+@router.post("/{task_id}/resume")
+def resume_task(task_id: str, request: Request) -> dict[str, object]:
+    task = _svc(request).resume_task(task_id)
+    return ok_response(task.model_dump(mode="json"))
+
+
 @router.delete("/{task_id}")
 def delete_task(task_id: str, request: Request) -> dict[str, object]:
     _svc(request).delete_task(task_id)

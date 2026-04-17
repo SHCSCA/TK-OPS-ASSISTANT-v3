@@ -21,3 +21,14 @@ class ImportedVideoDto(BaseModel):
     status: str
     errorMessage: str | None = None
     createdAt: str
+
+
+class VideoStageDto(BaseModel):
+    stageId: str
+    label: str
+    status: str
+    progressPct: int
+    resultSummary: str | None = None
+    errorMessage: str | None = None
+    updatedAt: str | None = None
+    canRerun: bool

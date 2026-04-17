@@ -24,6 +24,9 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
   it("资产与账号 store 在成功时维护列表、选择态和错误态", async () => {
     const fetchMock = createRouteAwareFetch((path, method) => {
       if (path === "/api/assets" && method === "GET") return okJsonResponse([asset()]);
+      if (path === "/api/assets/asset-1" && method === "GET") {
+        return okJsonResponse(asset("asset-1", null, "D:/tkops/assets/clip.mp4"));
+      }
       if (path === "/api/assets/asset-1/references") return okJsonResponse([assetReference()]);
       if (path === "/api/assets/asset-1" && method === "DELETE") return okJsonResponse(undefined);
       if (path === "/api/accounts" && method === "GET") return okJsonResponse([account()]);
@@ -47,19 +50,23 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
     const assets = useAssetLibraryStore();
     await assets.load();
     expect(assets.status).toBe("ready");
+    expect(assets.viewState).toBe("ready");
     expect(assets.error).toBeNull();
     expect(assets.assets).toHaveLength(1);
 
     await assets.select("asset-1");
+    expect(assets.selectedAsset?.filePath).toBe("D:/tkops/assets/clip.mp4");
     expect(assets.references).toHaveLength(1);
 
     await assets.delete("asset-1");
     expect(assets.assets).toHaveLength(0);
     expect(assets.selectedId).toBeNull();
+    expect(assets.viewState).toBe("empty");
 
     const accounts = useAccountManagementStore();
     await accounts.load();
     expect(accounts.status).toBe("ready");
+    expect(accounts.viewState).toBe("ready");
     expect(accounts.error).toBeNull();
     expect(accounts.accounts).toHaveLength(1);
     expect(accounts.groups).toHaveLength(1);
@@ -119,26 +126,32 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
 
     const devices = useDeviceWorkspacesStore();
     await devices.loadWorkspaces();
+    expect(devices.viewState).toBe("ready");
     await devices.addWorkspace({ name: "Backup", root_path: "D:/tkops/workspaces/backup" });
     await devices.updateWorkspace("ws-1", { status: "offline" });
     await devices.checkHealth("ws-1");
     expect(devices.workspaces[0].id).toBe("ws-1");
     expect(devices.lastHealthCheck?.status).toBe("healthy");
+    expect(devices.healthCheckState).toBe("ready");
 
     const automation = useAutomationStore();
     await automation.loadTasks();
+    expect(automation.viewState).toBe("ready");
     await automation.addTask({ name: "同步状态", type: "sync" });
     await automation.updateTask("auto-1", { enabled: false });
     await automation.triggerTask("auto-1");
     expect(automation.runsByTaskId["auto-1"]).toHaveLength(1);
+    expect(automation.triggerState).toBe("ready");
     await automation.removeTask("auto-1");
     expect(automation.runsByTaskId["auto-1"]).toBeUndefined();
 
     const publishing = usePublishingStore();
     await publishing.loadPlans();
+    expect(publishing.viewState).toBe("ready");
     await publishing.addPlan({ title: "发布计划" });
     await publishing.updatePlan("plan-1", { status: "ready" });
     await publishing.precheck("plan-1");
+    expect(publishing.workflowState).toBe("ready");
     await publishing.submit("plan-1");
     await publishing.cancel("plan-1");
     await publishing.removePlan("plan-1");
@@ -147,6 +160,7 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
 
     const renders = useRendersStore();
     await renders.loadTasks();
+    expect(renders.viewState).toBe("ready");
     await renders.addTask({ project_id: "project-1" });
     await renders.updateTask("render-1", { progress: 30 });
     await renders.cancel("render-1");
@@ -155,6 +169,7 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
 
     const review = useReviewStore();
     await review.loadSummary("project-1");
+    expect(review.viewState).toBe("ready");
     await review.analyze("project-1");
     await review.updateSummary("project-1", { project_name: "复盘项目" });
     expect(review.summary?.project_name).toBe("复盘项目");
@@ -172,6 +187,7 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
 
     expect(devices.loading).toBe(false);
     expect(devices.error).toBe("设备工作区加载失败");
+    expect(devices.viewState).toBe("error");
   });
   it("资产 store 支持真实导入、标签解析和删除前引用阻断", async () => {
     let references = [assetReference()];
@@ -186,6 +202,9 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
           tags: '["开场"]'
         });
         return okJsonResponse(asset("asset-2", '["开场"]'));
+      }
+      if (path === "/api/assets/asset-1" && method === "GET") {
+        return okJsonResponse(asset("asset-1", null, "D:/tkops/assets/original.mp4"));
       }
       if (path === "/api/assets/asset-1/references") return okJsonResponse(references);
       if (path === "/api/assets/asset-1" && method === "DELETE") {
@@ -214,6 +233,7 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
     const canDelete = await assets.prepareDelete("asset-1");
     expect(canDelete).toBe(false);
     expect(assets.deleteError).toContain("资产存在引用");
+    expect(assets.deleteState).toBe("blocked");
 
     references = [];
     await assets.prepareDelete("asset-1");
@@ -226,8 +246,8 @@ function now() {
   return "2026-04-15T10:00:00Z";
 }
 
-function asset(id = "asset-1", tags: string | null = null) {
-  return { id, name: "Clip", type: "video", source: "local", filePath: null, fileSizeBytes: null, durationMs: null, thumbnailPath: null, tags, projectId: null, metadataJson: null, createdAt: now(), updatedAt: now() };
+function asset(id = "asset-1", tags: string | null = null, filePath: string | null = null) {
+  return { id, name: "Clip", type: "video", source: "local", filePath, fileSizeBytes: null, durationMs: null, thumbnailPath: null, tags, projectId: null, metadataJson: null, createdAt: now(), updatedAt: now() };
 }
 
 function assetReference() {

@@ -6,11 +6,15 @@ from pydantic import BaseModel
 
 
 class ReviewSuggestion(BaseModel):
+    id: str
     code: str
     category: str
     title: str
     description: str
     priority: str
+    adopted: bool = False
+    adopted_as_project_id: str | None = None
+    adopted_at: datetime | None = None
 
 
 class ReviewSummaryUpdateInput(BaseModel):

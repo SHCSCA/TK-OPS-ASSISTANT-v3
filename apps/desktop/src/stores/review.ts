@@ -9,9 +9,10 @@ import type {
   ReviewSummaryDto,
   ReviewSummaryUpdateInput
 } from "@/types/runtime";
+import { toRuntimeErrorMessage } from "@/stores/runtime-store-helpers";
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "复盘数据操作失败";
+  return toRuntimeErrorMessage(error, "复盘数据操作失败，请稍后重试。");
 }
 
 export const useReviewStore = defineStore("review", {
@@ -20,17 +21,27 @@ export const useReviewStore = defineStore("review", {
     lastAnalyzeResult: null as AnalyzeProjectResultDto | null,
     loading: false,
     analyzing: false,
+    status: "idle" as "idle" | "loading" | "empty" | "ready" | "error",
     error: null as string | null
   }),
+  getters: {
+    viewState: (state): "loading" | "empty" | "ready" | "error" => {
+      if (state.loading) return "loading";
+      if (state.status === "error") return "error";
+      return state.summary ? "ready" : "empty";
+    }
+  },
   actions: {
     async loadSummary(projectId: string) {
       this.loading = true;
+      this.status = "loading";
       this.error = null;
       try {
         this.summary = await fetchReviewSummary(projectId);
+        this.status = this.summary ? "ready" : "empty";
       } catch (error) {
+        this.status = "error";
         this.error = getErrorMessage(error);
-        console.error("Failed to load review summary", error);
       } finally {
         this.loading = false;
       }
@@ -44,7 +55,6 @@ export const useReviewStore = defineStore("review", {
         return this.lastAnalyzeResult;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to analyze review project", error);
         return null;
       } finally {
         this.analyzing = false;
@@ -54,10 +64,11 @@ export const useReviewStore = defineStore("review", {
       this.error = null;
       try {
         this.summary = await updateReviewSummary(projectId, input);
+        this.status = this.summary ? "ready" : "empty";
         return this.summary;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to update review summary", error);
+        this.status = "error";
         return null;
       }
     }

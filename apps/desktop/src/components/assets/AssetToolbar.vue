@@ -11,7 +11,7 @@
         <span class="material-symbols-outlined">search</span>
         <input
           :value="searchQuery"
-          type="text"
+          type="search"
           placeholder="搜索资产名称、标签或来源"
           @input="emitSearch"
         />
@@ -46,7 +46,7 @@
         @click="$emit('import')"
       >
         <span class="material-symbols-outlined">add</span>
-        导入资产
+        {{ isImporting ? "导入中" : "导入资产" }}
       </button>
     </div>
   </header>
@@ -88,11 +88,11 @@ const emit = defineEmits<{
 
 <style scoped>
 .asset-toolbar {
-  border-bottom: 1px solid var(--border-default);
+  border-bottom: 1px solid var(--color-border-default, var(--border-default));
   display: grid;
   gap: 18px;
   grid-template-columns: minmax(260px, 1fr) minmax(420px, auto);
-  padding: 20px 24px;
+  padding: 20px 24px 18px;
 }
 
 .asset-toolbar__heading {
@@ -100,7 +100,7 @@ const emit = defineEmits<{
 }
 
 .asset-toolbar__eyebrow {
-  color: var(--brand-primary);
+  color: var(--color-brand-primary, var(--brand-primary));
   display: block;
   font-size: 12px;
   font-weight: 800;
@@ -114,7 +114,7 @@ const emit = defineEmits<{
 }
 
 .asset-toolbar__heading p {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
   font-size: 13px;
   line-height: 1.7;
   margin: 9px 0 0;
@@ -132,8 +132,8 @@ const emit = defineEmits<{
 .asset-toolbar__search,
 .asset-toolbar__sort {
   align-items: center;
-  background: var(--surface-secondary);
-  border: 1px solid var(--border-default);
+  background: var(--color-bg-surface, var(--surface-secondary));
+  border: 1px solid var(--color-border-default, var(--border-default));
   border-radius: var(--radius-sm);
   display: flex;
   height: 38px;
@@ -146,14 +146,14 @@ const emit = defineEmits<{
 }
 
 .asset-toolbar__search .material-symbols-outlined {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
   font-size: 18px;
 }
 
 .asset-toolbar__search input {
   background: transparent;
   border: none;
-  color: var(--text-primary);
+  color: var(--color-text-primary, var(--text-primary));
   font-size: 13px;
   min-width: 0;
   outline: none;
@@ -161,8 +161,8 @@ const emit = defineEmits<{
 }
 
 .asset-toolbar__tabs {
-  background: var(--surface-secondary);
-  border: 1px solid var(--border-default);
+  background: var(--color-bg-surface, var(--surface-secondary));
+  border: 1px solid var(--color-border-default, var(--border-default));
   border-radius: var(--radius-sm);
   display: flex;
   height: 38px;
@@ -180,18 +180,18 @@ const emit = defineEmits<{
 .asset-toolbar__tabs button {
   background: transparent;
   border: none;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
   padding: 0 12px;
 }
 
 .asset-toolbar__tabs button.active,
 .asset-toolbar__tabs button:hover {
-  background: color-mix(in srgb, var(--brand-primary) 14%, transparent);
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 14%, transparent);
+  color: var(--color-text-primary, var(--text-primary));
 }
 
 .asset-toolbar__sort {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
   gap: 7px;
   padding: 0 6px 0 10px;
 }
@@ -204,16 +204,16 @@ const emit = defineEmits<{
 .asset-toolbar__sort select {
   background: transparent;
   border: none;
-  color: var(--text-primary);
+  color: var(--color-text-primary, var(--text-primary));
   height: 30px;
   outline: none;
 }
 
 .asset-toolbar__import {
   align-items: center;
-  background: var(--brand-primary);
-  border: 1px solid var(--brand-primary);
-  color: var(--brand-ink);
+  background: var(--color-brand-primary, var(--brand-primary));
+  border: 1px solid var(--color-brand-primary, var(--brand-primary));
+  color: var(--color-text-on-brand, var(--brand-ink));
   display: flex;
   font-weight: 800;
   gap: 6px;

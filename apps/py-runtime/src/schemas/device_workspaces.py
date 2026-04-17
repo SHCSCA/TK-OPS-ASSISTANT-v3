@@ -31,3 +31,13 @@ class HealthCheckResultDto(BaseModel):
     workspace_id: str
     status: str
     checked_at: datetime
+
+
+class DeviceWorkspaceLogDto(BaseModel):
+    id: str
+    workspaceId: str
+    kind: str
+    level: str
+    message: str
+    contextJson: str | None = None
+    createdAt: datetime

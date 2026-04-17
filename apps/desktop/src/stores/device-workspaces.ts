@@ -12,9 +12,10 @@ import type {
   DeviceWorkspaceUpdateInput,
   HealthCheckResultDto
 } from "@/types/runtime";
+import { resolveCollectionStatus, toRuntimeErrorMessage } from "@/stores/runtime-store-helpers";
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "工作区操作失败";
+  return toRuntimeErrorMessage(error, "工作区操作失败，请稍后重试。");
 }
 
 export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
@@ -22,17 +23,28 @@ export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
     workspaces: [] as DeviceWorkspaceDto[],
     lastHealthCheck: null as HealthCheckResultDto | null,
     loading: false,
+    status: "idle" as "idle" | "loading" | "empty" | "ready" | "error",
+    healthCheckState: "idle" as "idle" | "checking" | "ready" | "error",
     error: null as string | null
   }),
+  getters: {
+    viewState: (state): "loading" | "empty" | "ready" | "error" => {
+      if (state.status === "loading") return "loading";
+      if (state.status === "error") return "error";
+      return state.workspaces.length > 0 ? "ready" : "empty";
+    }
+  },
   actions: {
     async loadWorkspaces() {
       this.loading = true;
+       this.status = "loading";
       this.error = null;
       try {
         this.workspaces = await fetchDeviceWorkspaces();
+        this.status = resolveCollectionStatus(this.workspaces.length);
       } catch (error) {
+        this.status = "error";
         this.error = getErrorMessage(error);
-        console.error("Failed to load device workspaces", error);
       } finally {
         this.loading = false;
       }
@@ -42,10 +54,10 @@ export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
       try {
         const workspace = await createDeviceWorkspace(input);
         this.workspaces.unshift(workspace);
+        this.status = "ready";
         return workspace;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to create device workspace", error);
         return null;
       }
     },
@@ -56,10 +68,10 @@ export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
         this.workspaces = this.workspaces.map((item) =>
           item.id === id ? workspace : item
         );
+        this.status = "ready";
         return workspace;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to update device workspace", error);
         return null;
       }
     },
@@ -68,20 +80,22 @@ export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
       try {
         await deleteDeviceWorkspace(id);
         this.workspaces = this.workspaces.filter((workspace) => workspace.id !== id);
+        this.status = this.workspaces.length > 0 ? "ready" : "empty";
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to delete device workspace", error);
       }
     },
     async checkHealth(id: string) {
       this.error = null;
+      this.healthCheckState = "checking";
       try {
         this.lastHealthCheck = await checkDeviceWorkspaceHealth(id);
         await this.loadWorkspaces();
+        this.healthCheckState = "ready";
         return this.lastHealthCheck;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to check device workspace health", error);
+        this.healthCheckState = "error";
         return null;
       }
     }

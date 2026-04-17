@@ -73,6 +73,10 @@ describe("M05 AI 剪辑工作台页面", () => {
     expect(calls.some((call) => call.path === "/api/workspace/projects/project-1/timeline")).toBe(
       true
     );
+    expect(wrapper.text()).toContain("核心创作中枢");
+    expect(wrapper.text()).toContain("片段来源");
+    expect(wrapper.text()).toContain("预览区");
+    expect(wrapper.text()).toContain("AI 工具条");
     expect(wrapper.text()).toContain("当前项目还没有时间线草稿");
     expect(wrapper.text()).not.toContain("BGM_");
 
@@ -80,6 +84,9 @@ describe("M05 AI 剪辑工作台页面", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("主画面");
+    expect(wrapper.text()).toContain("AI 工具条");
+    expect(wrapper.text()).toContain("运行能力待接通");
+    expect(wrapper.text()).toContain("检查器");
     expect(calls).toContainEqual({
       path: "/api/workspace/projects/project-1/timeline",
       method: "POST",

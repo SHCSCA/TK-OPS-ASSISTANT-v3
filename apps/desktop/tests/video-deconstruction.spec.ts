@@ -16,7 +16,7 @@ describe("Video deconstruction center", () => {
     vi.unstubAllGlobals();
   });
 
-  it("loads imported videos for the current project and renders metadata cards", async () => {
+  it("renders imported video metadata and the blocked roadmap", async () => {
     vi.stubGlobal(
       "fetch",
       createRouteAwareFetch((path) => {
@@ -71,11 +71,13 @@ describe("Video deconstruction center", () => {
     await flushPromises();
 
     expect(wrapper.find('[data-video-page="deconstruction"]').exists()).toBe(true);
-    expect(wrapper.text()).toContain("视频拆解中心");
+    expect(wrapper.text()).toContain("导入真实视频，拆出可回流的素材基线。");
+    expect(wrapper.text()).toContain("导入列表");
+    expect(wrapper.text()).toContain("后续拆解仍需真实链路接入");
     expect(wrapper.text()).toContain("source.mp4");
     expect(wrapper.text()).toContain("1920 × 1080");
     expect(wrapper.text()).toContain("62.4 秒");
-    expect(wrapper.find('[data-action="import-video"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("已就绪");
   });
 
   it("routes video import task updates through TaskBus", async () => {
@@ -147,26 +149,13 @@ describe("Video deconstruction center", () => {
     expect(fetchImportedVideos).toHaveBeenCalledWith("project-video");
   });
 
-  it("renders TaskBus progress for imported videos", async () => {
+  it("disables import entry when no project context is available", async () => {
     vi.resetModules();
     vi.doMock("@/components/common/ProjectContextGuard.vue", () => ({
       default: {
         template: "<slot />"
       }
     }));
-    vi.stubGlobal(
-      "WebSocket",
-      class {
-        static OPEN = 1;
-        readyState = 1;
-        onopen: (() => void) | null = null;
-        constructor() {
-          setTimeout(() => this.onopen?.(), 0);
-        }
-        close() {}
-        send() {}
-      }
-    );
 
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -174,41 +163,8 @@ describe("Video deconstruction center", () => {
       "@/pages/video/VideoDeconstructionCenterPage.vue"
     );
     const { useProjectStore } = await import("@/stores/project");
-    const { useTaskBusStore } = await import("@/stores/task-bus");
-    const { useVideoImportStore } = await import("@/stores/video-import");
 
-    useProjectStore().currentProject = {
-      projectId: "project-video",
-      projectName: "Video Project",
-      status: "active"
-    };
-    useVideoImportStore().videos = [
-      {
-        id: "video-task-1",
-        projectId: "project-video",
-        filePath: "C:/media/task.mp4",
-        fileName: "task.mp4",
-        fileSizeBytes: 2048,
-        durationSeconds: null,
-        width: null,
-        height: null,
-        frameRate: null,
-        codec: null,
-        status: "imported",
-        errorMessage: null,
-        createdAt: "2026-04-13T00:00:00Z"
-      }
-    ];
-    useTaskBusStore().tasks.set("video-task-1", {
-      id: "video-task-1",
-      task_type: "video_import",
-      project_id: "project-video",
-      status: "running",
-      progress: 40,
-      message: "正在解析视频元信息",
-      created_at: "2026-04-13T00:00:00Z",
-      updated_at: "2026-04-13T00:00:01Z"
-    });
+    useProjectStore().currentProject = null;
 
     const wrapper = mount(VideoDeconstructionCenterPage, {
       global: {
@@ -218,7 +174,8 @@ describe("Video deconstruction center", () => {
 
     await flushPromises();
 
-    expect(wrapper.text()).toContain("正在解析视频元信息");
-    expect(wrapper.text()).toContain("40%");
+    expect(wrapper.text()).toContain("导入入口已阻断");
+    expect(wrapper.text()).toContain("当前项目尚未就绪，导入入口被阻断。");
+    expect(wrapper.get('[data-action="import-video"]').attributes("disabled")).toBeDefined();
   });
 });

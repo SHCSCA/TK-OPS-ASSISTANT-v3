@@ -1,5 +1,5 @@
 <template>
-  <section class="settings-console">
+  <section class="settings-console" data-testid="settings-console">
     <SettingsStatusDock
       :config-status-label="configStatusLabel"
       :configured-provider-count="configuredProviderCount"
@@ -12,114 +12,143 @@
       :version-label="store.health?.version ?? '-'"
     />
 
-    <p v-if="store.error" class="settings-page__error">
-      {{ errorSummary }}
-    </p>
-    <p v-if="capabilityStore.error" class="settings-page__error">
-      {{ capabilityErrorSummary }}
-    </p>
+    <div v-if="pageBanner" class="settings-console__banner" :class="`settings-console__banner--${pageBannerTone}`">
+      {{ pageBanner }}
+    </div>
 
     <div class="settings-console__body">
       <SettingsSectionRail :current-section="currentSection" @select="currentSection = $event" />
 
-      <div class="settings-console__workspace">
+      <main class="settings-console__workspace">
         <header class="settings-console__workspace-header">
           <div>
             <p class="detail-panel__label">{{ sectionEyebrow }}</p>
             <h2>{{ sectionTitle }}</h2>
             <p class="workspace-page__summary">{{ sectionSummary }}</p>
           </div>
+          <div class="settings-console__workspace-actions">
+            <span class="settings-console__state-pill">{{ runtimeStatusLabel }}</span>
+            <span class="settings-console__state-pill">{{ configStatusLabel }}</span>
+            <button class="settings-page__button settings-page__button--ghost" type="button" @click="shellUiStore.openDetailPanel()">
+              打开右侧抽屉
+            </button>
+          </div>
         </header>
 
-        <SettingsSystemFormPanel
-          v-if="currentSection === 'system'"
-          :disabled="isDisabled"
-          :form="form"
-          :model-options="defaultProviderModels"
-          :provider-options="capabilityStore.providerCatalog"
-          @pick-directory="handlePickDirectory"
-        />
-
-        <ProviderCatalogPanel
-          v-else-if="currentSection === 'provider'"
-          :health-model="selectedProviderHealthModel"
-          :provider-catalog="capabilityStore.providerCatalog"
-          :provider-draft="selectedProviderDraft"
-          :selected-provider-health="selectedProviderHealth"
-          :selected-provider-id="selectedProviderId"
-          :selected-provider-models="selectedProviderModels"
-          :secret-status="selectedProviderSecretStatus"
-          @check-provider="handleCheckProvider"
-          @refresh-models="handleRefreshProviderModels"
-          @save-provider-secret="handleSaveProviderSecret"
-          @select-provider="selectProvider"
-          @update:health-model="selectedProviderHealthModel = $event"
-        />
-
-        <div v-else-if="currentSection === 'capability'" class="settings-console__capability-layout">
-          <AICapabilityMatrix
-            :capabilities="capabilityForms"
-            :capability-labels="capabilityLabels"
-            :disabled="isCapabilityDisabled"
-            :selected-capability-id="selectedCapabilityId"
-            @select="selectCapability"
+        <section class="settings-console__surface" :data-state="sectionState">
+          <SettingsSystemFormPanel
+            v-if="currentSection === 'system'"
+            :disabled="isDisabled"
+            :form="form"
+            :model-options="defaultProviderModels"
+            :provider-options="capabilityStore.providerCatalog"
+            @pick-directory="handlePickDirectory"
           />
-          <AICapabilityInspector
-            :capability="selectedCapability"
-            :capability-label="selectedCapabilityLabel"
-            :disabled="isCapabilityDisabled"
+
+          <ProviderCatalogPanel
+            v-else-if="currentSection === 'provider'"
+            :disabled="isDisabled"
+            :health-model="selectedProviderHealthModel"
             :provider-catalog="capabilityStore.providerCatalog"
-            :support-item="selectedSupportItem"
+            :provider-draft="selectedProviderDraft"
+            :selected-provider-health="selectedProviderHealth"
+            :selected-provider-id="selectedProviderId"
+            :selected-provider-models="selectedProviderModels"
+            :secret-status="selectedProviderSecretStatus"
+            @check-provider="handleCheckProvider"
+            @refresh-models="handleRefreshProviderModels"
+            @save-provider-secret="handleSaveProviderSecret"
+            @select-provider="selectProvider"
+            @update:health-model="selectedProviderHealthModel = $event"
           />
-        </div>
 
-        <div v-else class="settings-console__diagnostics-placeholder">
-          <section class="command-panel settings-card settings-console__diagnostics-card">
-            <p class="detail-panel__label">诊断抽屉</p>
-            <h2>诊断信息已移入右侧抽屉</h2>
-            <p class="workspace-page__summary">
-              当前主区只保留操作入口，目录、运行边界、Provider 连通性和最近一次测试结果统一放到右侧抽屉。
-            </p>
+          <div v-else-if="currentSection === 'capability'" class="settings-console__capability-layout">
+            <AICapabilityMatrix
+              :capabilities="capabilityForms"
+              :capability-labels="capabilityLabels"
+              :disabled="isCapabilityDisabled"
+              :selected-capability-id="selectedCapabilityId"
+              @select="selectCapability"
+            />
+            <AICapabilityInspector
+              :capability="selectedCapability"
+              :capability-label="selectedCapabilityLabel"
+              :disabled="isCapabilityDisabled"
+              :provider-catalog="capabilityStore.providerCatalog"
+              :support-item="selectedSupportItem"
+            />
+          </div>
 
-            <div class="settings-console__diagnostics-metrics">
-              <div class="detail-panel__metric">
-                <span>已配置 Provider</span>
-                <strong>{{ configuredProviderCount }}/{{ capabilityStore.providerCatalog.length }}</strong>
+          <section v-else class="settings-console__diagnostic-stage">
+            <div class="settings-console__diagnostic-hero">
+              <div>
+                <p class="detail-panel__label">当前运行视图</p>
+                <h3>诊断工作台</h3>
+                <p class="workspace-page__summary">
+                  主区保留运行状态、Provider 连通性和能力矩阵的总览，右侧抽屉继续承载更细的 Runtime / 诊断信息。
+                </p>
               </div>
-              <div class="detail-panel__metric">
-                <span>已启用能力</span>
-                <strong>{{ enabledCapabilityCount }}</strong>
-              </div>
-              <div class="detail-panel__metric">
-                <span>最近同步</span>
-                <strong>{{ lastSyncedLabel }}</strong>
+
+              <div class="settings-console__diagnostic-actions">
+                <button class="settings-page__button" type="button" @click="shellUiStore.openDetailPanel()">
+                  打开诊断抽屉
+                </button>
               </div>
             </div>
 
-            <div class="editor-card__actions">
-              <button
-                class="settings-page__button"
-                type="button"
-                data-action="open-diagnostics-drawer"
-                @click="shellUiStore.openDetailPanel()"
-              >
-                打开右侧抽屉
-              </button>
+            <div class="settings-console__diagnostic-grid">
+              <article class="settings-console__diagnostic-tile">
+                <span>Runtime</span>
+                <strong>{{ runtimeStatusLabel }}</strong>
+                <p>{{ store.health?.service || "未读取" }} / {{ store.health?.version || "-" }}</p>
+              </article>
+              <article class="settings-console__diagnostic-tile">
+                <span>配置同步</span>
+                <strong>{{ configStatusLabel }}</strong>
+                <p>修订号 {{ settings?.revision ?? "-" }}</p>
+              </article>
+              <article class="settings-console__diagnostic-tile">
+                <span>Provider</span>
+                <strong>{{ configuredProviderCount }}/{{ capabilityStore.providerCatalog.length }}</strong>
+                <p>已保存连接凭据</p>
+              </article>
+              <article class="settings-console__diagnostic-tile">
+                <span>能力</span>
+                <strong>{{ enabledCapabilityCount }}</strong>
+                <p>已启用的能力配置</p>
+              </article>
             </div>
           </section>
-        </div>
-      </div>
-    </div>
+        </section>
 
-    <SettingsSaveBar
-      :capability-dirty="capabilityDirty"
-      :is-capability-saving="capabilityStore.status === 'saving'"
-      :is-system-saving="store.status === 'saving'"
-      :system-dirty="systemDirty"
-      :visible="systemDirty || capabilityDirty"
-      @save-capabilities="handleSaveCapabilities"
-      @save-system="handleSave"
-    />
+        <SettingsSaveBar
+          :capability-dirty="capabilityDirty"
+          :is-capability-saving="capabilityStore.status === 'saving'"
+          :is-system-saving="store.status === 'saving'"
+          :system-dirty="systemDirty"
+          :visible="systemDirty || capabilityDirty"
+          @save-capabilities="handleSaveCapabilities"
+          @save-system="handleSave"
+        />
+      </main>
+
+      <section class="settings-console__inspector" data-testid="settings-inline-diagnostics">
+        <SettingsDiagnosticPanel
+          :config-status-label="configStatusLabel"
+          :configured-provider-count="configuredProviderCount"
+          :diagnostics="store.diagnostics"
+          :enabled-capability-count="enabledCapabilityCount"
+          :errors="diagnosticErrors"
+          :last-synced-label="lastSyncedLabel"
+          :license-label="licenseLabel"
+          :provider-count="capabilityStore.providerCatalog.length"
+          :runtime-status-label="runtimeStatusLabel"
+          :section="currentSection"
+          :selected-provider-health="selectedProviderHealth"
+          :selected-provider-label="selectedProviderLabel"
+        />
+      </section>
+    </div>
   </section>
 </template>
 
@@ -130,6 +159,7 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 import AICapabilityInspector from "@/modules/settings/components/AICapabilityInspector.vue";
 import AICapabilityMatrix from "@/modules/settings/components/AICapabilityMatrix.vue";
 import ProviderCatalogPanel from "@/modules/settings/components/ProviderCatalogPanel.vue";
+import SettingsDiagnosticPanel from "@/modules/settings/components/SettingsDiagnosticPanel.vue";
 import SettingsSaveBar from "@/modules/settings/components/SettingsSaveBar.vue";
 import SettingsSectionRail from "@/modules/settings/components/SettingsSectionRail.vue";
 import SettingsStatusDock from "@/modules/settings/components/SettingsStatusDock.vue";
@@ -179,6 +209,12 @@ const capabilityLabels: Record<string, string> = {
 const isDisabled = computed(() => store.status === "saving" || settings.value === null);
 const isCapabilityDisabled = computed(
   () => capabilityStore.status === "loading" || capabilityStore.status === "saving"
+);
+const isHydrating = computed(
+  () =>
+    store.status === "loading" ||
+    capabilityStore.status === "loading" ||
+    licenseStore.status === "loading"
 );
 const configuredProviderCount = computed(
   () => capabilityStore.providerCatalog.filter((provider) => provider.configured).length
@@ -252,39 +288,83 @@ const configStatusLabel = computed(() => {
       return "等待配置";
   }
 });
-const licenseLabel = computed(() => (licenseStore.active ? "已授权" : "待授权"));
+const licenseLabel = computed(() => (licenseStore.active ? "授权已激活" : "授权未激活"));
 const lastSyncedLabel = computed(() => formatDateOnly(store.lastSyncedAt || store.health?.now || ""));
-const errorSummary = computed(() => formatErrorSummary(store.error));
-const capabilityErrorSummary = computed(() => formatErrorSummary(capabilityStore.error));
-const sectionEyebrow = computed(() => {
-  return (
-    {
+const diagnosticErrors = computed(() => {
+  const errors: string[] = [];
+  if (store.error) {
+    errors.push(formatErrorSummary(store.error));
+  }
+  if (capabilityStore.error) {
+    errors.push(formatErrorSummary(capabilityStore.error));
+  }
+  return errors;
+});
+const sectionEyebrow = computed(
+  () =>
+    ({
       system: "系统总线",
       provider: "Provider 与模型",
       capability: "能力策略",
-      diagnostics: "诊断台"
-    }[currentSection.value] ?? "AI 与系统设置"
-  );
+      diagnostics: "诊断工作台"
+    })[currentSection.value] ?? "AI 与系统设置"
+);
+const sectionTitle = computed(
+  () =>
+    ({
+      system: "集中维护 Runtime、路径和默认模型",
+      provider: "管理 Provider 注册表、模型目录和连接凭据",
+      capability: "围绕能力切换 Provider、模型和提示词",
+      diagnostics: "把诊断、状态和错误收拢到右侧抽屉"
+    })[currentSection.value] ?? "AI 与系统设置"
+);
+const sectionSummary = computed(
+  () =>
+    ({
+      system: "运行模式、缓存目录、导出目录和默认 AI 选项都通过配置总线读写，不在页面里单独保存。",
+      provider: "注册表里的 Provider 才能进入这里，模型目录和健康检查全部走真实 Runtime 接口。",
+      capability: "左侧矩阵负责选中能力，右侧 Inspector 负责 Provider、模型和提示词的具体编辑。",
+      diagnostics: "主区保留运行视图，右侧抽屉负责更细的诊断、连通性和错误回显。"
+    })[currentSection.value] ?? ""
+);
+const sectionState = computed(() => {
+  if (currentSection.value === "provider" && selectedProviderCatalogItem.value?.status === "missing_secret") {
+    return "blocked";
+  }
+  if (currentSection.value === "capability" && !selectedSupportItem.value) {
+    return "empty";
+  }
+  if (isHydrating.value) {
+    return "loading";
+  }
+  if (diagnosticErrors.value.length > 0) {
+    return "error";
+  }
+  return "ready";
 });
-const sectionTitle = computed(() => {
-  return (
-    {
-      system: "集中维护 Runtime、目录和默认模型",
-      provider: "管理多 Provider、模型目录与连接凭据",
-      capability: "按能力配置 Provider、模型和提示词",
-      diagnostics: "把诊断和连通性统一收进右侧抽屉"
-    }[currentSection.value] ?? "AI 与系统设置"
-  );
+const pageBanner = computed(() => {
+  if (diagnosticErrors.value.length > 0) {
+    return diagnosticErrors.value.join("；");
+  }
+  if (isHydrating.value) {
+    return "正在读取 Runtime、Provider 和能力矩阵。";
+  }
+  if (!licenseStore.active) {
+    return "当前授权未激活，部分控制项将保持受限。";
+  }
+  return "";
 });
-const sectionSummary = computed(() => {
-  return (
-    {
-      system: "系统配置和默认模型统一通过配置总线保存，不让页面各自写一套本地状态。",
-      provider: "主流商业模型、OpenAI-compatible 和本地模型都通过 Runtime 注册表接入，先选 Provider 再配置细节。",
-      capability: "能力矩阵负责选中对象，右侧 Inspector 负责细节，不再把所有提示词一次性摊开。",
-      diagnostics: "页面主区不再堆系统诊断，右侧抽屉集中显示运行边界、最新测试和当前异常。"
-    }[currentSection.value] ?? ""
-  );
+const pageBannerTone = computed(() => {
+  if (diagnosticErrors.value.length > 0) {
+    return "error";
+  }
+  if (!licenseStore.active) {
+    return "blocked";
+  }
+  if (isHydrating.value) {
+    return "loading";
+  }
+  return "ready";
 });
 const systemDirty = computed(() => {
   if (!settings.value) {
@@ -376,7 +456,12 @@ watch(
 );
 
 watch(
-  () => [selectedProviderId.value, selectedProviderModels.value.map((item) => item.modelId).join("|"), form.ai.provider, form.ai.model],
+  () => [
+    selectedProviderId.value,
+    selectedProviderModels.value.map((item) => item.modelId).join("|"),
+    form.ai.provider,
+    form.ai.model
+  ],
   () => {
     const models = selectedProviderModels.value;
     const current = providerHealthModelDrafts[selectedProviderId.value];
@@ -530,9 +615,7 @@ function ensureProviderDraft(providerId: string, fallbackBaseUrl = ""): {
   return providerDrafts[providerId];
 }
 
-function formatErrorSummary(
-  error: { message: string; requestId: string } | null
-): string {
+function formatErrorSummary(error: { message: string; requestId: string } | null): string {
   if (!error) {
     return "";
   }
@@ -650,10 +733,7 @@ function formatDateOnly(value: string): string {
     return "-";
   }
 
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return date.toLocaleDateString("zh-CN");
 }
 
 async function pickDirectoryPath(currentValue: string): Promise<string> {
@@ -679,23 +759,50 @@ async function pickDirectoryPath(currentValue: string): Promise<string> {
   min-height: 100%;
 }
 
+.settings-console__banner {
+  padding: 12px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
+}
+
+.settings-console__banner--error {
+  color: var(--status-error);
+  border-color: color-mix(in srgb, var(--status-error) 30%, var(--border-default));
+}
+
+.settings-console__banner--blocked {
+  color: var(--status-warning);
+  border-color: color-mix(in srgb, var(--status-warning) 30%, var(--border-default));
+}
+
+.settings-console__banner--loading {
+  border-color: color-mix(in srgb, var(--brand-primary) 24%, var(--border-default));
+}
+
 .settings-console__body {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr) 320px;
   gap: 16px;
   min-height: 0;
 }
 
-.settings-console__workspace {
-  display: grid;
-  align-content: start;
-  gap: 16px;
+.settings-console__workspace,
+.settings-console__inspector {
   min-width: 0;
 }
 
-.settings-console__workspace-header {
+.settings-console__workspace {
   display: grid;
-  gap: 8px;
+  gap: 16px;
+  align-content: start;
+}
+
+.settings-console__workspace-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   padding: 4px 2px 0;
 }
 
@@ -703,30 +810,109 @@ async function pickDirectoryPath(currentValue: string): Promise<string> {
   margin: 0;
 }
 
-.settings-console__capability-layout,
-.settings-console__diagnostics-placeholder,
-.settings-console__diagnostics-metrics {
+.settings-console__workspace-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.settings-console__state-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-secondary) 90%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.settings-console__surface {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.settings-console__surface[data-state="blocked"] {
+  border-color: color-mix(in srgb, var(--status-warning) 24%, var(--border-default));
+}
+
+.settings-console__surface[data-state="error"] {
+  border-color: color-mix(in srgb, var(--status-error) 24%, var(--border-default));
+}
+
+.settings-console__capability-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.82fr) minmax(0, 1.18fr);
+  gap: 16px;
+}
+
+.settings-console__diagnostic-stage {
   display: grid;
   gap: 16px;
 }
 
-.settings-console__capability-layout {
-  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr);
+.settings-console__diagnostic-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
 }
 
-.settings-console__diagnostics-card {
+.settings-console__diagnostic-hero h3 {
+  margin: 0;
+}
+
+.settings-console__diagnostic-grid {
   display: grid;
-  gap: 18px;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.settings-console__diagnostics-metrics {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.settings-console__diagnostic-tile {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
 }
 
-@media (max-width: 1120px) {
+.settings-console__diagnostic-tile span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.settings-console__diagnostic-tile strong {
+  font-size: 18px;
+}
+
+.settings-console__diagnostic-tile p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+@media (max-width: 1280px) {
+  .settings-console__body {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .settings-console__inspector {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 980px) {
   .settings-console__body,
   .settings-console__capability-layout,
-  .settings-console__diagnostics-metrics {
+  .settings-console__diagnostic-grid {
     grid-template-columns: 1fr;
   }
 }

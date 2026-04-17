@@ -12,6 +12,21 @@ class TimelineRepository:
     def __init__(self, *, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
+    def list_all(self) -> list[Timeline]:
+        with self._session_factory() as session:
+            timelines = session.scalars(
+                select(Timeline).order_by(Timeline.updated_at.desc())
+            ).all()
+            session.expunge_all()
+            return list(timelines)
+
+    def get_by_id(self, timeline_id: str) -> Timeline | None:
+        with self._session_factory() as session:
+            timeline = session.get(Timeline, timeline_id)
+            if timeline is not None:
+                session.expunge(timeline)
+            return timeline
+
     def get_current_for_project(self, project_id: str) -> Timeline | None:
         with self._session_factory() as session:
             timeline = session.scalars(

@@ -1,59 +1,44 @@
 <template>
   <div class="editing-status">
-    <div class="timecode-box">
-      <span class="material-symbols-outlined">timer</span>
-      <span class="timecode">00:00:00:00</span>
+    <div class="editing-status__chip">
+      <span class="material-symbols-outlined">edit</span>
+      <span>{{ pageTitle }}</span>
     </div>
-    <div class="save-badge">
-      <span class="dot"></span>
-      <span>自动保存中...</span>
+    <div class="editing-status__meta">
+      <span>{{ projectLabel }}</span>
+      <span>{{ detailOpen ? "详情面板已展开" : "详情面板已收起" }}</span>
     </div>
   </div>
 </template>
 
+<script setup lang="ts">
+defineProps<{
+  detailOpen: boolean;
+  pageTitle: string;
+  projectLabel: string;
+}>();
+</script>
+
 <style scoped>
 .editing-status {
-  display: flex;
   align-items: center;
-  gap: 16px;
+  display: flex;
+  gap: var(--space-3);
 }
 
-.timecode-box {
-  display: flex;
+.editing-status__chip {
   align-items: center;
+  color: var(--color-brand-primary);
+  display: inline-flex;
   gap: 6px;
-  color: var(--brand-primary);
-  font-family: var(--font-mono);
-  font-weight: 700;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-caption);
+  font-weight: 600;
 }
 
-.timecode-box .material-symbols-outlined {
-  font-size: 14px;
-}
-
-.timecode {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.05em;
-}
-
-.save-badge {
+.editing-status__meta {
+  color: var(--color-text-tertiary);
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  color: var(--text-tertiary);
-}
-
-.dot {
-  width: 4px;
-  height: 4px;
-  background: var(--status-success);
-  border-radius: 50%;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  gap: var(--space-2);
 }
 </style>

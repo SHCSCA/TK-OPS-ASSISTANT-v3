@@ -35,6 +35,14 @@ class ScriptRepository:
 
         return [self._to_version(item) for item in versions]
 
+    def get_version(self, project_id: str, revision: int) -> StoredScriptVersion | None:
+        with self._session_factory() as session:
+            version = session.get(ScriptVersion, {"project_id": project_id, "revision": revision})
+            if version is None:
+                return None
+            session.expunge(version)
+        return self._to_version(version)
+
     def save_version(
         self,
         project_id: str,

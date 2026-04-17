@@ -6,14 +6,18 @@ import logging
 from fastapi import HTTPException
 
 from common.time import utc_now
-from domain.models.publishing import PublishPlan
+from domain.models.publishing import PublishPlan, PublishReceipt
 from repositories.publishing_repository import PublishingRepository
 from schemas.publishing import (
+    PrecheckConflictDto,
     PrecheckItemResult,
     PrecheckResultDto,
+    PublishCalendarDto,
+    PublishCalendarItemDto,
     PublishPlanCreateInput,
     PublishPlanDto,
     PublishPlanUpdateInput,
+    PublishReceiptDto,
     SubmitPlanResultDto,
 )
 
@@ -74,49 +78,67 @@ class PublishingService:
             raise HTTPException(status_code=404, detail="发布计划不存在")
 
     def precheck(self, plan_id: str) -> PrecheckResultDto:
-        self._get_plan_model(plan_id)
+        plan = self._get_plan_model(plan_id)
         checked_at = utc_now()
+        conflicts = self._find_conflicts(plan)
         items = [
             PrecheckItemResult(
                 code="account_binding",
                 label="账号绑定",
-                result="pending",
-                message="V1 暂未接入真实账号检查",
+                result="passed" if plan.account_id else "pending",
+                message="已关联账号" if plan.account_id else "请先补充账号绑定",
             ),
             PrecheckItemResult(
                 code="video_asset",
                 label="视频资产",
-                result="pending",
-                message="V1 暂未接入真实资产检查",
+                result="passed" if plan.video_asset_id else "pending",
+                message="已选择视频资产" if plan.video_asset_id else "请先补充视频资产",
             ),
             PrecheckItemResult(
                 code="schedule",
                 label="发布时间",
-                result="pending",
-                message="V1 暂未接入排期冲突检查",
+                result="failed" if conflicts else "passed",
+                message="检测到排期冲突" if conflicts else "排期可用",
             ),
         ]
-        items_json = json.dumps(
-            [item.model_dump(mode="json") for item in items], ensure_ascii=False
-        )
+        payload = {
+            "items": [item.model_dump(mode="json") for item in items],
+            "conflicts": [item.model_dump(mode="json") for item in conflicts],
+            "checkedAt": checked_at.isoformat(),
+            "hasErrors": bool(conflicts),
+        }
         try:
-            self._repository.save_precheck(plan_id, items_json)
+            self._repository.save_precheck(plan_id, json.dumps(payload, ensure_ascii=False))
         except Exception as exc:
             log.exception("保存发布预检结果失败")
             raise HTTPException(status_code=500, detail="保存发布预检结果失败") from exc
         return PrecheckResultDto(
             plan_id=plan_id,
             items=items,
-            has_errors=False,
+            conflicts=conflicts,
+            has_errors=bool(conflicts),
             checked_at=checked_at,
         )
 
     def submit(self, plan_id: str) -> SubmitPlanResultDto:
         plan = self._get_plan_model(plan_id)
         if self._precheck_has_failed(plan.precheck_result_json):
-            raise HTTPException(status_code=409, detail="发布预检存在失败项，无法提交")
+            raise HTTPException(status_code=409, detail="发布预检存在冲突，无法提交")
         try:
             submitted = self._repository.submit_plan(plan_id)
+            submitted_at = submitted.submitted_at if submitted is not None else utc_now()
+            self._repository.create_receipt(
+                plan_id=plan_id,
+                status="submitted",
+                platform_response_json=json.dumps(
+                    {
+                        "planId": plan_id,
+                        "submittedAt": submitted_at,
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                ),
+            )
         except Exception as exc:
             log.exception("提交发布计划失败")
             raise HTTPException(status_code=500, detail="提交发布计划失败") from exc
@@ -139,6 +161,42 @@ class PublishingService:
             raise HTTPException(status_code=404, detail="发布计划不存在")
         return self._to_dto(plan)
 
+    def get_calendar(self) -> PublishCalendarDto:
+        plans = self.list_plans()
+        items = [
+            PublishCalendarItemDto(
+                plan_id=plan.id,
+                title=plan.title,
+                status=plan.status,
+                scheduled_at=plan.scheduled_at,
+                account_name=plan.account_name,
+                conflict_count=self._calendar_conflict_count(plan.id),
+            )
+            for plan in plans
+            if plan.scheduled_at is not None
+        ]
+        return PublishCalendarDto(items=items, generated_at=utc_now())
+
+    def list_receipts(self, plan_id: str) -> list[PublishReceiptDto]:
+        self._get_plan_model(plan_id)
+        try:
+            receipts = self._repository.list_receipts(plan_id)
+        except Exception as exc:
+            log.exception("查询发布回执历史失败")
+            raise HTTPException(status_code=500, detail="查询发布回执历史失败") from exc
+        return [self._to_receipt_dto(receipt) for receipt in receipts]
+
+    def get_latest_receipt(self, plan_id: str) -> PublishReceiptDto:
+        self._get_plan_model(plan_id)
+        try:
+            receipt = self._repository.get_latest_receipt(plan_id)
+        except Exception as exc:
+            log.exception("查询最新发布回执失败")
+            raise HTTPException(status_code=500, detail="查询最新发布回执失败") from exc
+        if receipt is None:
+            raise HTTPException(status_code=404, detail="发布回执不存在")
+        return self._to_receipt_dto(receipt)
+
     def _get_plan_model(self, plan_id: str) -> PublishPlan:
         try:
             plan = self._repository.get_plan(plan_id)
@@ -149,14 +207,54 @@ class PublishingService:
             raise HTTPException(status_code=404, detail="发布计划不存在")
         return plan
 
+    def _find_conflicts(self, plan: PublishPlan) -> list[PrecheckConflictDto]:
+        if plan.scheduled_at is None:
+            return []
+        try:
+            plans = self._repository.list_plans()
+        except Exception as exc:
+            log.exception("查询发布排期冲突失败")
+            raise HTTPException(status_code=500, detail="查询发布排期冲突失败") from exc
+        conflicts: list[PrecheckConflictDto] = []
+        for other in plans:
+            if other.id == plan.id:
+                continue
+            if other.scheduled_at != plan.scheduled_at:
+                continue
+            if plan.account_id is not None and other.account_id != plan.account_id:
+                continue
+            conflicts.append(
+                PrecheckConflictDto(
+                    conflicting_plan_id=other.id,
+                    conflicting_title=other.title,
+                    conflicting_scheduled_at=other.scheduled_at,
+                    reason="同账号同一时间点存在排期冲突",
+                )
+            )
+        return conflicts
+
     def _precheck_has_failed(self, precheck_json: str | None) -> bool:
         if not precheck_json:
             return False
         try:
-            items = json.loads(precheck_json)
+            payload = json.loads(precheck_json)
         except json.JSONDecodeError:
             return True
-        return any(item.get("result") == "failed" for item in items if isinstance(item, dict))
+        conflicts = payload.get("conflicts")
+        if isinstance(conflicts, list) and conflicts:
+            return True
+        items = payload.get("items")
+        if isinstance(items, list):
+            return any(
+                isinstance(item, dict) and item.get("result") == "failed" for item in items
+            )
+        return False
+
+    def _calendar_conflict_count(self, plan_id: str) -> int:
+        plan = self._get_plan_model(plan_id)
+        if plan.scheduled_at is None:
+            return 0
+        return len(self._find_conflicts(plan))
 
     def _to_dto(self, plan: PublishPlan) -> PublishPlanDto:
         return PublishPlanDto(
@@ -174,4 +272,14 @@ class PublishingService:
             precheck_result_json=plan.precheck_result_json,
             created_at=plan.created_at,
             updated_at=plan.updated_at,
+        )
+
+    def _to_receipt_dto(self, receipt: PublishReceipt) -> PublishReceiptDto:
+        return PublishReceiptDto(
+            id=receipt.id,
+            plan_id=receipt.plan_id,
+            status=receipt.status,
+            platform_response_json=receipt.platform_response_json,
+            received_at=receipt.received_at,
+            created_at=receipt.created_at,
         )

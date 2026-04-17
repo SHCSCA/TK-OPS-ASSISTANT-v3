@@ -50,6 +50,10 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     hasTimeline: (state): boolean => state.timeline !== null,
     orderedTracks: (state): WorkspaceTimelineTrackDto[] =>
       [...(state.timeline?.tracks ?? [])].sort((a, b) => a.orderIndex - b.orderIndex),
+    viewState: (state): "loading" | "empty" | "ready" | "error" | "blocked" =>
+      state.status === "idle" || state.status === "loading" || state.status === "saving"
+        ? "loading"
+        : state.status,
     selectedTrack: (state): WorkspaceTimelineTrackDto | null =>
       state.timeline?.tracks.find((track) => track.id === state.selectedTrackId) ?? null,
     selectedClip: (state) => {

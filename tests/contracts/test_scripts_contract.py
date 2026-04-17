@@ -126,3 +126,60 @@ def test_script_rewrite_contract_keeps_json_envelope(runtime_app) -> None:
     assert set(rewrite_payload) == {'ok', 'data'}
     assert rewrite_payload['ok'] is True
     assert set(rewrite_payload['data']) == {'projectId', 'currentVersion', 'versions', 'recentJobs'}
+
+
+def test_script_versions_title_variants_and_segment_rewrite_contract(runtime_app) -> None:
+    runtime_app.state.ai_text_generation_service = FakeAITextGenerationService(
+        runtime_app.state.ai_job_repository
+    )
+    client = TestClient(runtime_app)
+
+    create_response = client.post(
+        '/api/dashboard/projects',
+        json={'name': 'Script Extra Contract', 'description': 'Contract coverage'},
+    )
+    project_id = create_response.json()['data']['id']
+    client.put(
+        f'/api/scripts/projects/{project_id}/document',
+        json={'content': 'Draft hook\nDraft body\nDraft CTA'},
+    )
+
+    versions_response = client.get(f'/api/scripts/projects/{project_id}/versions')
+    assert versions_response.status_code == 200
+    versions_payload = versions_response.json()
+    assert set(versions_payload) == {'ok', 'data'}
+    assert isinstance(versions_payload['data'], list)
+    assert set(versions_payload['data'][0]) == {
+        'revision',
+        'source',
+        'content',
+        'provider',
+        'model',
+        'aiJobId',
+        'createdAt',
+    }
+
+    title_response = client.post(
+        f'/api/scripts/projects/{project_id}/title-variants',
+        json={'topic': 'Launch', 'count': 2},
+    )
+    assert title_response.status_code == 200
+    title_payload = title_response.json()
+    assert set(title_payload) == {'ok', 'data'}
+    assert len(title_payload['data']) == 2
+    assert set(title_payload['data'][0]) == {'title'}
+
+    rewrite_response = client.post(
+        f'/api/scripts/projects/{project_id}/segments/2/rewrite',
+        json={'instructions': '更有号召力'},
+    )
+    assert rewrite_response.status_code == 200
+    rewrite_payload = rewrite_response.json()
+    assert set(rewrite_payload) == {'ok', 'data'}
+    assert set(rewrite_payload['data']) == {'projectId', 'currentVersion', 'versions', 'recentJobs'}
+
+    restore_response = client.post(f'/api/scripts/projects/{project_id}/restore/1')
+    assert restore_response.status_code == 200
+    restore_payload = restore_response.json()
+    assert set(restore_payload) == {'ok', 'data'}
+    assert set(restore_payload['data']) == {'projectId', 'currentVersion', 'versions', 'recentJobs'}

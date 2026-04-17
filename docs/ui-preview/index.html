@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TK-OPS · UI 预览原型 v2026.04.17</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" />
+<style>
+/* ============================================================
+   设计令牌（与 docs/UI-BLUEPRINT-2026-04-17.md § 2 对齐）
+   ============================================================ */
+
+:root {
+  /* 基础色板 · Light */
+  --color-bg-canvas: #F7F8FA;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-overlay: rgba(15, 18, 28, 0.48);
+  --color-bg-muted: #F0F2F5;
+  --color-bg-hover: rgba(15, 18, 28, 0.04);
+  --color-bg-active: rgba(0, 151, 167, 0.08);
+  --color-border-subtle: rgba(15, 18, 28, 0.06);
+  --color-border-default: rgba(15, 18, 28, 0.10);
+  --color-border-strong: rgba(15, 18, 28, 0.16);
+
+  --color-text-primary: #0B0D14;
+  --color-text-secondary: #4A5166;
+  --color-text-tertiary: #7D8497;
+  --color-text-on-brand: #FFFFFF;
+  --color-text-inverse: #FFFFFF;
+
+  --color-brand-primary: #0097A7;
+  --color-brand-primary-hover: #00ACC1;
+  --color-brand-primary-active: #00838F;
+  --color-brand-glow: rgba(0, 151, 167, 0.22);
+  --color-brand-secondary: #5E17EB;
+
+  --color-success: #12A670;
+  --color-warning: #D98E00;
+  --color-danger: #D63B45;
+  --color-info: #2E63EB;
+
+  --gradient-ai-primary: linear-gradient(135deg, #0097A7 0%, #5E17EB 100%);
+  --gradient-ai-subtle: linear-gradient(135deg, rgba(0,151,167,0.06) 0%, rgba(94,23,235,0.06) 100%);
+  --gradient-aurora: conic-gradient(from 180deg at 50% 50%, #0097A7 0deg, #5E17EB 120deg, #F7F8FA 240deg, #0097A7 360deg);
+  --gradient-status-bar: linear-gradient(90deg, rgba(0,151,167,0.06) 0%, transparent 50%, rgba(94,23,235,0.06) 100%);
+
+  --shadow-sm: 0 1px 2px 0 rgba(15, 18, 28, 0.04), 0 1px 1px 0 rgba(15, 18, 28, 0.06);
+  --shadow-md: 0 4px 8px -2px rgba(15, 18, 28, 0.06), 0 2px 4px -2px rgba(15, 18, 28, 0.04);
+  --shadow-lg: 0 12px 24px -6px rgba(15, 18, 28, 0.10), 0 4px 8px -4px rgba(15, 18, 28, 0.06);
+  --shadow-glow-brand: 0 0 16px 0 rgba(0, 151, 167, 0.24);
+  --shadow-glow-ai: 0 0 24px 0 rgba(94, 23, 235, 0.16);
+
+  /* 字体 */
+  --font-family-sans: 'Inter', 'HarmonyOS Sans SC', 'PingFang SC', -apple-system, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+
+  /* 间距 */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --space-12: 48px; --space-16: 64px;
+
+  /* 圆角 */
+  --radius-xs: 4px; --radius-sm: 6px; --radius-md: 8px;
+  --radius-lg: 12px; --radius-xl: 16px; --radius-2xl: 24px; --radius-full: 9999px;
+
+  /* 动效 */
+  --motion-instant: 80ms; --motion-fast: 160ms; --motion-default: 240ms;
+  --motion-slow: 400ms; --motion-lazy: 600ms;
+  --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-decelerate: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-accelerate: cubic-bezier(0.4, 0.0, 1.0, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* z-index */
+  --z-sidebar: 20; --z-titlebar: 30; --z-statusbar: 30;
+  --z-dropdown: 100; --z-tooltip: 200;
+  --z-modal-backdrop: 900; --z-modal: 1000; --z-toast: 1100;
+}
+
+[data-theme="dark"] {
+  --color-bg-canvas: #0A0B0F;
+  --color-bg-surface: #12141A;
+  --color-bg-elevated: #1A1D26;
+  --color-bg-overlay: rgba(10, 11, 15, 0.72);
+  --color-bg-muted: #16181F;
+  --color-bg-hover: rgba(255, 255, 255, 0.04);
+  --color-bg-active: rgba(0, 188, 212, 0.10);
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.10);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+
+  --color-text-primary: #EDEFF5;
+  --color-text-secondary: #A8ADBA;
+  --color-text-tertiary: #6B7183;
+  --color-text-on-brand: #FFFFFF;
+  --color-text-inverse: #0B0D14;
+
+  --color-brand-primary: #00BCD4;
+  --color-brand-primary-hover: #26D0E0;
+  --color-brand-primary-active: #00A5BC;
+  --color-brand-glow: rgba(0, 188, 212, 0.38);
+  --color-brand-secondary: #7000FF;
+
+  --color-success: #22D39A;
+  --color-warning: #F5B740;
+  --color-danger: #FF5A63;
+  --color-info: #5B8CFF;
+
+  --gradient-ai-primary: linear-gradient(135deg, #00BCD4 0%, #7000FF 100%);
+  --gradient-ai-subtle: linear-gradient(135deg, rgba(0,188,212,0.12) 0%, rgba(112,0,255,0.12) 100%);
+  --gradient-aurora: conic-gradient(from 180deg at 50% 50%, #00BCD4 0deg, #7000FF 120deg, #0B0D14 240deg, #00BCD4 360deg);
+  --gradient-status-bar: linear-gradient(90deg, rgba(0,188,212,0.12) 0%, transparent 50%, rgba(112,0,255,0.12) 100%);
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px 0 rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 32px 0 rgba(0, 0, 0, 0.6);
+  --shadow-glow-brand: 0 0 24px 0 rgba(0, 188, 212, 0.32);
+  --shadow-glow-ai: 0 0 32px 0 rgba(112, 0, 255, 0.28);
+}
+
+/* 动效降级 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   全局重置与基础
+   ============================================================ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font-family-sans);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    background-color var(--motion-default) var(--ease-standard),
+    color var(--motion-default) var(--ease-standard);
+}
+
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input { font-family: inherit; outline: none; }
+a { color: inherit; text-decoration: none; }
+ul, li { list-style: none; }
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+  font-size: 20px;
+  user-select: none;
+}
+
+/* ============================================================
+   @keyframes · 动效库
+   ============================================================ */
+
+@keyframes ai-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes progress-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes status-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes aurora-rotate {
+  to { transform: rotate(360deg); }
+}
+@keyframes device-heartbeat {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+  50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(34, 211, 154, 0.16); }
+}
+@keyframes exception-breathe {
+  0%, 100% { border-color: var(--color-danger); box-shadow: 0 0 0 0 rgba(255, 90, 99, 0); }
+  50% { border-color: rgba(255, 90, 99, 0.5); box-shadow: 0 0 0 3px rgba(255, 90, 99, 0.12); }
+}
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-slide-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   AppShell · 壳层
+   ============================================================ */
+
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width, 280px) 1fr var(--detail-width, 0px);
+  grid-template-rows: 48px 1fr 28px;
+  grid-template-areas:
+    "title   title   title"
+    "sidebar content detail"
+    "status  status  status";
+  height: 100vh;
+  transition: grid-template-columns var(--motion-default) var(--ease-spring);
+}
+.app-shell[data-sidebar-collapsed="true"] { --sidebar-width: 64px; }
+.app-shell[data-detail-open="true"] { --detail-width: 360px; }
+
+/* ----- Title Bar ----- */
+.title-bar {
+  grid-area: title;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border-subtle);
+  z-index: var(--z-titlebar);
+}
+.title-bar__left { display: flex; align-items: center; gap: var(--space-3); }
+.title-bar__logo {
+  width: 24px; height: 24px;
+  border-radius: var(--radius-sm);
+  background: var(--gradient-ai-primary);
+  box-shadow: var(--shadow-glow-brand);
+}
+.title-bar__brand { font-size: 14px; font-weight: 600; letter-spacing: -0.1px; }
+.title-bar__divider { width: 1px; height: 16px; background: var(--color-border-default); }
+.title-bar__project { color: var(--color-text-secondary); font-size: 13px; }
+
+.title-bar__search {
+  width: 100%; max-width: 480px;
+  height: 32px;
+  padding: 0 var(--space-3) 0 var(--space-10);
+  background: var(--color-bg-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  transition: all var(--motion-fast) var(--ease-standard);
+  position: relative;
+}
+.title-bar__search-wrap { position: relative; flex: 1; max-width: 480px; margin: 0 var(--space-6); }
+.title-bar__search-wrap .material-symbols-outlined {
+  position: absolute; left: 12px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-tertiary);
+  font-size: 16px;
+}
+.title-bar__search-wrap kbd {
+  position: absolute; right: 10px; top: 50%;
+  transform: translateY(-50%);
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: var(--font-family-mono);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xs);
+}
+.title-bar__search:focus {
+  background: var(--color-bg-surface);
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px var(--color-brand-glow);
+}
+
+.title-bar__right { display: flex; align-items: center; gap: var(--space-2); }
+.status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 24px; padding: 0 10px;
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.status-pill__dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--color-success);
+  color: var(--color-success);
+}
+.icon-button {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  transition: all var(--motion-fast) var(--ease-standard);
+}
+.icon-button:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+.icon-button:active { transform: scale(0.94); transition-duration: var(--motion-instant); }
+
+/* ----- Sidebar ----- */
+.sidebar {
+  grid-area: sidebar;
+  display: flex; flex-direction: column;
+  padding: var(--space-4) var(--space-3);
+  gap: var(--space-2);
+  background: var(--color-bg-canvas);
+  border-right: 1px solid var(--color-border-subtle);
+  overflow: hidden;
+  z-index: var(--z-sidebar);
+}
+.sidebar__group-title {
+  height: 24px;
+  padding: 0 var(--space-3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color-text-tertiary);
+  display: flex; align-items: center;
+  margin-top: var(--space-3);
+  white-space: nowrap;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+[data-sidebar-collapsed="true"] .sidebar__group-title { opacity: 0; height: 8px; margin: 0; }
+
+.nav-item {
+  display: flex; align-items: center; gap: var(--space-3);
+  height: 40px; padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: 13px; font-weight: 500;
+  white-space: nowrap;
+  position: relative;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-bounce);
+}
+.nav-item:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+.nav-item:active { transform: scale(0.98); }
+.nav-item[aria-current="page"] {
+  background: var(--color-bg-active);
+  color: var(--color-brand-primary);
+}
+.nav-item[aria-current="page"]::before {
+  content: '';
+  position: absolute; left: -12px; top: 50%;
+  transform: translateY(-50%);
+  width: 3px; height: 20px;
+  border-radius: 0 2px 2px 0;
+  background: var(--color-brand-primary);
+  box-shadow: 0 0 8px var(--color-brand-glow);
+}
+.nav-item__label { transition: opacity var(--motion-fast) var(--ease-standard); }
+[data-sidebar-collapsed="true"] .nav-item { justify-content: center; padding: 0; }
+[data-sidebar-collapsed="true"] .nav-item__label { opacity: 0; width: 0; }
+
+.sidebar__footer {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+.user-card {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  transition: background var(--motion-fast) var(--ease-standard);
+  cursor: pointer;
+}
+.user-card:hover { background: var(--color-bg-muted); }
+.user-card__avatar {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-ai-primary);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 600; font-size: 13px;
+}
+.user-card__meta { flex: 1; min-width: 0; transition: opacity var(--motion-fast) var(--ease-standard); }
+[data-sidebar-collapsed="true"] .user-card__meta { opacity: 0; width: 0; }
+.user-card__name { font-size: 13px; font-weight: 600; }
+.user-card__status { font-size: 11px; color: var(--color-text-tertiary); }
+
+/* ----- Status Bar ----- */
+.status-bar {
+  grid-area: status;
+  position: relative;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-4);
+  background: var(--color-bg-surface);
+  border-top: 1px solid var(--color-border-subtle);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  z-index: var(--z-statusbar);
+}
+.status-bar::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: var(--gradient-status-bar);
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity var(--motion-default) var(--ease-standard);
+}
+.app-shell[data-has-running-task="true"] .status-bar::before {
+  opacity: 1;
+  animation: status-flow 2.4s linear infinite;
+}
+.status-bar__group { display: flex; align-items: center; gap: var(--space-4); }
+.status-bar__item { display: flex; align-items: center; gap: 6px; }
+.status-bar__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-success); }
+
+/* ----- Content Host ----- */
+.content-host {
+  grid-area: content;
+  overflow-y: auto;
+  background: var(--color-bg-canvas);
+}
+
+/* ----- Detail Panel ----- */
+.detail-panel {
+  grid-area: detail;
+  background: var(--color-bg-surface);
+  border-left: 1px solid var(--color-border-subtle);
+  overflow: hidden;
+  overflow-y: auto;
+  transition: width var(--motion-default) var(--ease-spring);
+}
+
+/* ============================================================
+   页面通用结构
+   ============================================================ */
+
+.page { padding: var(--space-6) var(--space-8) var(--space-12); max-width: 1440px; }
+.page-header { padding: var(--space-2) 0 var(--space-6); }
+.page-header__crumb { font-size: 12px; color: var(--color-text-tertiary); margin-bottom: var(--space-2); }
+.page-header__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.page-header__title { font-size: 28px; font-weight: 700; letter-spacing: -0.4px; line-height: 36px; }
+.page-header__subtitle { font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; }
+.page-header__actions { display: flex; gap: var(--space-2); flex-shrink: 0; }
+
+/* ============================================================
+   原子组件
+   ============================================================ */
+
+/* Button · Primary */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px;
+  height: 36px; padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-bounce),
+    box-shadow var(--motion-fast) var(--ease-standard);
+  will-change: transform;
+}
+.btn--primary { background: var(--color-brand-primary); color: var(--color-text-on-brand); }
+.btn--primary:hover { background: var(--color-brand-primary-hover); box-shadow: var(--shadow-glow-brand); }
+.btn--primary:active { background: var(--color-brand-primary-active); transform: scale(0.98); }
+
+.btn--secondary { background: transparent; color: var(--color-text-primary); border: 1px solid var(--color-border-default); }
+.btn--secondary:hover { background: var(--color-bg-hover); border-color: var(--color-border-strong); }
+.btn--secondary:active { transform: scale(0.98); background: var(--color-bg-active); }
+
+.btn--ghost { background: transparent; color: var(--color-text-secondary); padding: 0 var(--space-3); }
+.btn--ghost:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
+
+.btn--ai {
+  background: var(--gradient-ai-primary);
+  background-size: 200% 200%;
+  background-position: 0% 50%;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  transition:
+    background-position var(--motion-default) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-bounce),
+    box-shadow var(--motion-default) var(--ease-standard);
+}
+.btn--ai:hover { background-position: 100% 50%; box-shadow: var(--shadow-glow-ai); }
+.btn--ai:active { transform: scale(0.98); }
+.btn--ai[data-state="running"] { animation: ai-flow 2.4s linear infinite; }
+
+.btn--sm { height: 28px; padding: 0 var(--space-3); font-size: 12px; }
+.btn--lg { height: 44px; padding: 0 var(--space-5); font-size: 14px; }
+
+/* Card */
+.card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  transition:
+    transform var(--motion-fast) var(--ease-spring),
+    box-shadow var(--motion-fast) var(--ease-spring),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+.card[data-interactive="true"] { cursor: pointer; }
+.card[data-interactive="true"]:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-default);
+}
+.card[data-interactive="true"]:active { transform: translateY(0); }
+.card[data-selected="true"] { border-color: var(--color-brand-primary); box-shadow: 0 0 0 1px var(--color-brand-primary); }
+
+/* Chip */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 22px; padding: 0 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px; font-weight: 500;
+  background: var(--color-bg-muted); color: var(--color-text-secondary);
+}
+.chip--brand { background: var(--color-bg-active); color: var(--color-brand-primary); }
+.chip--success { background: rgba(34, 211, 154, 0.12); color: var(--color-success); }
+.chip--warning { background: rgba(245, 183, 64, 0.12); color: var(--color-warning); }
+.chip--danger { background: rgba(255, 90, 99, 0.12); color: var(--color-danger); }
+
+/* Tabs */
+.tab-list { display: flex; gap: var(--space-4); border-bottom: 1px solid var(--color-border-subtle); margin-bottom: var(--space-6); }
+.tab {
+  height: 40px; padding: 0 var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: 13px; font-weight: 600;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--motion-fast) var(--ease-standard), border-color var(--motion-default) var(--ease-spring);
+}
+.tab:hover { color: var(--color-text-primary); }
+.tab[aria-selected="true"] { color: var(--color-brand-primary); border-bottom-color: var(--color-brand-primary); }
+
+/* Progress */
+.progress-track {
+  height: 6px;
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--gradient-ai-primary);
+  background-size: 200% 100%;
+  border-radius: var(--radius-full);
+  transition: width var(--motion-default) var(--ease-standard);
+  animation: progress-flow 1.6s linear infinite;
+}
+.progress-fill[data-state="paused"] { animation: none; opacity: 0.6; }
+
+/* ============================================================
+   页面 · Dashboard
+   ============================================================ */
+
+.dashboard__hero {
+  position: relative;
+  padding: var(--space-8) var(--space-10);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  margin-bottom: var(--space-8);
+  animation: fade-slide-in var(--motion-slow) var(--ease-spring) backwards;
+}
+.dashboard__hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--gradient-ai-subtle);
+  opacity: 0.8;
+  pointer-events: none;
+}
+.dashboard__hero::after {
+  content: '';
+  position: absolute;
+  top: -40%; right: -10%;
+  width: 400px; height: 400px;
+  border-radius: 50%;
+  background: var(--gradient-aurora);
+  filter: blur(80px);
+  opacity: 0.32;
+  animation: aurora-rotate 30s linear infinite;
+  pointer-events: none;
+}
+.dashboard__hero-inner { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); }
+.dashboard__greeting { font-size: 13px; color: var(--color-text-secondary); margin-bottom: var(--space-2); }
+.dashboard__hero-title { font-size: 32px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: var(--space-3); }
+.dashboard__hero-desc { font-size: 14px; color: var(--color-text-secondary); max-width: 520px; line-height: 22px; }
+.dashboard__hero-actions { display: flex; gap: var(--space-3); }
+
+.section { margin-bottom: var(--space-8); }
+.section__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
+.section__title { font-size: 16px; font-weight: 600; }
+.section__action { font-size: 13px; color: var(--color-text-secondary); }
+.section__action:hover { color: var(--color-brand-primary); }
+
+.projects-row {
+  display: flex; gap: var(--space-4);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: var(--space-2);
+}
+.project-card {
+  flex: 0 0 240px;
+  scroll-snap-align: start;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+.project-card__cover {
+  height: 130px;
+  background: linear-gradient(135deg, rgba(0,188,212,0.18), rgba(112,0,255,0.18));
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-text-tertiary);
+  font-size: 11px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.project-card__body { padding: var(--space-4); }
+.project-card__title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.project-card__meta { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--color-text-tertiary); margin-top: var(--space-3); }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+.list-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--color-border-subtle); font-size: 13px; }
+.list-item:last-child { border-bottom: none; }
+.list-item__icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--color-text-tertiary); }
+.list-item__text { flex: 1; color: var(--color-text-primary); }
+.list-item__meta { font-size: 11px; color: var(--color-text-tertiary); }
+
+.exception-card { border-left: 3px solid var(--color-danger); animation: exception-breathe 2.4s ease-in-out infinite; }
+
+.health-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+.health-card__label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: var(--space-2); }
+.health-card__number {
+  font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 32px;
+  font-feature-settings: "tnum";
+  animation: count-up var(--motion-slow) var(--ease-decelerate) backwards;
+}
+.health-card__delta { display: inline-flex; align-items: center; gap: 4px; margin-top: var(--space-3); font-size: 11px; color: var(--color-success); }
+.health-card__sparkline {
+  margin-top: var(--space-3);
+  height: 24px;
+  background:
+    linear-gradient(180deg, transparent 50%, var(--color-bg-muted) 50%),
+    linear-gradient(180deg, rgba(0,188,212,0.16), transparent);
+  border-radius: var(--radius-xs);
+  position: relative;
+}
+
+/* ============================================================
+   页面 · AI 剪辑工作台
+   ============================================================ */
+
+.workspace {
+  padding: 0;
+  max-width: none;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 52px 320px 1fr 40px;
+  grid-template-areas:
+    "top"
+    "preview"
+    "timeline"
+    "aibar";
+}
+.workspace__top {
+  grid-area: top;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-6);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+}
+.workspace__top-left { display: flex; align-items: center; gap: var(--space-3); }
+.workspace__project-name { font-size: 14px; font-weight: 600; }
+.workspace__save-indicator { font-size: 11px; color: var(--color-text-tertiary); }
+.workspace__top-right { display: flex; gap: var(--space-2); }
+
+.workspace__preview {
+  grid-area: preview;
+  display: grid;
+  grid-template-columns: 220px 1fr 160px;
+  background: var(--color-bg-canvas);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.clip-library {
+  border-right: 1px solid var(--color-border-subtle);
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+.clip-library__title { font-size: 11px; font-weight: 600; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: var(--space-3); }
+.clip-library__grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.clip-thumb {
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(135deg, rgba(0,188,212,0.2), rgba(112,0,255,0.2));
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  transition: transform var(--motion-fast) var(--ease-spring), box-shadow var(--motion-fast) var(--ease-spring);
+  cursor: grab;
+}
+.clip-thumb:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--color-brand-primary); }
+.clip-thumb:active { cursor: grabbing; transform: translateY(0); }
+
+.preview-window {
+  display: flex; align-items: center; justify-content: center;
+  background: #000;
+  position: relative;
+}
+.preview-canvas {
+  width: 480px; aspect-ratio: 9 / 16; /* 竖屏参考 */
+  background: linear-gradient(135deg, #1a1d26, #0a0b0f);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.3); font-size: 12px;
+  max-height: 280px;
+}
+
+.preview-controls {
+  padding: var(--space-4);
+  border-left: 1px solid var(--color-border-subtle);
+  display: flex; flex-direction: column; gap: var(--space-3);
+}
+.preview-controls__time { font-family: var(--font-family-mono); font-size: 13px; }
+.transport { display: flex; gap: var(--space-1); }
+.transport .icon-button { width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--color-bg-muted); }
+.transport .icon-button--play { background: var(--color-brand-primary); color: #fff; }
+.transport .icon-button--play:hover { background: var(--color-brand-primary-hover); }
+
+.workspace__timeline {
+  grid-area: timeline;
+  background: var(--color-bg-surface);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.timeline-ruler {
+  display: flex;
+  height: 28px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding-left: 80px;
+  align-items: center;
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  position: sticky; top: 0; z-index: 2;
+  background: var(--color-bg-surface);
+}
+.timeline-ruler__tick { min-width: 100px; border-left: 1px solid var(--color-border-subtle); padding-left: 6px; }
+
+.track { display: flex; height: 56px; border-bottom: 1px solid var(--color-border-subtle); }
+.track__label {
+  width: 80px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 var(--space-3);
+  border-right: 1px solid var(--color-border-subtle);
+  font-size: 11px; font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  background: var(--color-bg-canvas);
+}
+.track__lane { flex: 1; position: relative; }
+.clip {
+  position: absolute;
+  top: 8px; bottom: 8px;
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  padding: 6px 10px;
+  font-size: 11px; font-weight: 500;
+  color: #fff;
+  white-space: nowrap; overflow: hidden;
+  display: flex; align-items: center;
+  transition: transform var(--motion-fast) var(--ease-spring), box-shadow var(--motion-fast) var(--ease-spring);
+  will-change: transform;
+}
+.clip--video {
+  background: linear-gradient(180deg, rgba(0,188,212,0.3), rgba(0,188,212,0.15));
+  border: 1px solid rgba(0,188,212,0.6);
+  color: #EDEFF5;
+}
+.clip--audio {
+  background: linear-gradient(180deg, rgba(34,211,154,0.3), rgba(34,211,154,0.15));
+  border: 1px solid rgba(34,211,154,0.6);
+  color: #EDEFF5;
+}
+.clip--voice {
+  background: linear-gradient(180deg, rgba(112,0,255,0.3), rgba(112,0,255,0.15));
+  border: 1px solid rgba(112,0,255,0.6);
+  color: #EDEFF5;
+}
+.clip--subtitle {
+  background: linear-gradient(180deg, rgba(245,183,64,0.3), rgba(245,183,64,0.15));
+  border: 1px solid rgba(245,183,64,0.6);
+  color: #EDEFF5;
+}
+.clip:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.clip[data-selected="true"] { box-shadow: 0 0 0 2px var(--color-brand-primary), 0 0 16px var(--color-brand-glow); }
+.clip:active { cursor: grabbing; }
+[data-theme="light"] .clip, :root:not([data-theme="dark"]) .clip { color: var(--color-text-primary); }
+
+.workspace__aibar {
+  grid-area: aibar;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 var(--space-6);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+  font-size: 12px;
+}
+.aibar__left { display: flex; gap: var(--space-2); }
+.aibar__right { display: flex; align-items: center; gap: var(--space-3); color: var(--color-text-secondary); }
+
+/* ============================================================
+   Detail Panel 内容
+   ============================================================ */
+
+.detail {
+  padding: var(--space-6);
+}
+.detail__header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.detail__title { font-size: 14px; font-weight: 600; }
+.detail__field { margin-bottom: var(--space-4); }
+.detail__field-label { font-size: 11px; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+.detail__field-value { font-size: 13px; color: var(--color-text-primary); }
+.detail__field-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--space-3);
+  background: var(--color-bg-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  transition: all var(--motion-fast) var(--ease-standard);
+}
+.detail__field-input:focus {
+  background: var(--color-bg-surface);
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px var(--color-brand-glow);
+}
+
+/* ============================================================
+   页面切换器（Demo 控件）
+   ============================================================ */
+.demo-switcher {
+  position: fixed; bottom: 48px; right: 24px;
+  z-index: var(--z-toast);
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  font-size: 12px;
+}
+.demo-switcher__title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-text-tertiary); margin-bottom: 4px; }
+
+/* 响应式 */
+@media (max-width: 1199px) {
+  .app-shell { --detail-width: 0px; }
+  .workspace__preview { grid-template-columns: 180px 1fr 140px; }
+}
+@media (max-width: 959px) {
+  .app-shell { --sidebar-width: 64px; }
+  .dashboard__hero { padding: var(--space-6); }
+  .dashboard__hero-title { font-size: 24px; }
+  .two-col { grid-template-columns: 1fr; }
+  .health-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== AppShell ========== -->
+<div class="app-shell" id="appShell" data-has-running-task="true">
+
+  <!-- Title Bar -->
+  <header class="title-bar">
+    <div class="title-bar__left">
+      <div class="title-bar__logo"></div>
+      <span class="title-bar__brand">TK-OPS</span>
+      <span class="title-bar__divider"></span>
+      <span class="title-bar__project">项目：春日新品种草</span>
+    </div>
+    <div class="title-bar__search-wrap">
+      <span class="material-symbols-outlined">search</span>
+      <input class="title-bar__search" placeholder="搜索项目 / 脚本 / 任务 / 资产" />
+      <kbd>⌘K</kbd>
+    </div>
+    <div class="title-bar__right">
+      <span class="status-pill"><span class="status-pill__dot"></span>AI 正常</span>
+      <span class="status-pill"><span class="status-pill__dot"></span>Runtime 8000</span>
+      <button class="icon-button" id="themeToggle" title="切换主题">
+        <span class="material-symbols-outlined" id="themeIcon">dark_mode</span>
+      </button>
+      <button class="icon-button" title="设置"><span class="material-symbols-outlined">settings</span></button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar__group-title">启动与总览</div>
+    <a class="nav-item" aria-current="page" data-page="dashboard">
+      <span class="material-symbols-outlined">dashboard</span>
+      <span class="nav-item__label">创作总览</span>
+    </a>
+
+    <div class="sidebar__group-title">创作前置</div>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">edit_note</span>
+      <span class="nav-item__label">脚本与选题</span>
+    </a>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">view_agenda</span>
+      <span class="nav-item__label">分镜规划</span>
+    </a>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">movie_edit</span>
+      <span class="nav-item__label">视频拆解</span>
+    </a>
+
+    <div class="sidebar__group-title">创作与媒体</div>
+    <a class="nav-item" data-page="workspace">
+      <span class="material-symbols-outlined">video_settings</span>
+      <span class="nav-item__label">AI 剪辑工作台</span>
+    </a>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">graphic_eq</span>
+      <span class="nav-item__label">配音中心</span>
+    </a>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">closed_caption</span>
+      <span class="nav-item__label">字幕对齐</span>
+    </a>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">folder_open</span>
+      <span class="nav-item__label">资产中心</span>
+    </a>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">output</span>
+      <span class="nav-item__label">渲染与导出</span>
+    </a>
+
+    <div class="sidebar__group-title">执行与治理</div>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">account_circle</span>
+      <span class="nav-item__label">账号管理</span>
+    </a>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">computer</span>
+      <span class="nav-item__label">设备与工作区</span>
+    </a>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">rocket_launch</span>
+      <span class="nav-item__label">自动化执行</span>
+    </a>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">send</span>
+      <span class="nav-item__label">发布中心</span>
+    </a>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">insights</span>
+      <span class="nav-item__label">复盘与优化</span>
+    </a>
+
+    <div class="sidebar__group-title">系统与 AI</div>
+    <a class="nav-item">
+      <span class="material-symbols-outlined">tune</span>
+      <span class="nav-item__label">AI 与系统设置</span>
+    </a>
+
+    <div class="sidebar__footer">
+      <div class="user-card">
+        <div class="user-card__avatar">创</div>
+        <div class="user-card__meta">
+          <div class="user-card__name">创作者</div>
+          <div class="user-card__status">已激活 · 一机一码</div>
+        </div>
+      </div>
+      <button class="nav-item" id="sidebarToggle" style="width:100%;">
+        <span class="material-symbols-outlined" id="sidebarToggleIcon">left_panel_close</span>
+        <span class="nav-item__label">折叠侧栏</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Content Host · Dashboard Page -->
+  <main class="content-host" id="contentHost">
+    <div class="page" data-page-content="dashboard">
+      <div class="page-header">
+        <div class="page-header__crumb">首页 / 创作总览</div>
+        <div class="page-header__row">
+          <div>
+            <h1 class="page-header__title">创作总览</h1>
+            <div class="page-header__subtitle">继续上次的创作，追踪运行状态与阻塞。</div>
+          </div>
+          <div class="page-header__actions">
+            <button class="btn btn--secondary">
+              <span class="material-symbols-outlined">refresh</span>
+              刷新
+            </button>
+            <button class="btn btn--ai">
+              <span class="material-symbols-outlined">add</span>
+              新建项目
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero -->
+      <section class="dashboard__hero">
+        <div class="dashboard__hero-inner">
+          <div>
+            <div class="dashboard__greeting">上午好，创作者</div>
+            <h2 class="dashboard__hero-title">今日还有 3 条待发布，<br />2 条脚本等待你校对。</h2>
+            <p class="dashboard__hero-desc">AI 已完成夜间批量脚本生成，建议优先处理"春日新品种草"的预检。</p>
+          </div>
+          <div class="dashboard__hero-actions">
+            <button class="btn btn--secondary btn--lg">查看任务</button>
+            <button class="btn btn--ai btn--lg" data-state="running">
+              <span class="material-symbols-outlined">auto_awesome</span>
+              继续创作
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 最近工程 -->
+      <section class="section">
+        <div class="section__header">
+          <h3 class="section__title">最近工程</h3>
+          <a class="section__action">查看全部 →</a>
+        </div>
+        <div class="projects-row">
+          <div class="card project-card" data-interactive="true">
+            <div class="project-card__cover">[项目封面]</div>
+            <div class="project-card__body">
+              <div class="project-card__title">春日新品种草 01</div>
+              <span class="chip chip--brand">时间线</span>
+              <div class="project-card__meta"><span>编辑中</span><span>5 分钟前</span></div>
+            </div>
+          </div>
+          <div class="card project-card" data-interactive="true">
+            <div class="project-card__cover">[项目封面]</div>
+            <div class="project-card__body">
+              <div class="project-card__title">4 月主推视频</div>
+              <span class="chip chip--success">已发布</span>
+              <div class="project-card__meta"><span>3 条成品</span><span>2h 前</span></div>
+            </div>
+          </div>
+          <div class="card project-card" data-interactive="true">
+            <div class="project-card__cover">[项目封面]</div>
+            <div class="project-card__body">
+              <div class="project-card__title">拆解重制 · 案例 A</div>
+              <span class="chip chip--warning">渲染中</span>
+              <div class="project-card__meta"><span>67%</span><span>刚刚</span></div>
+            </div>
+          </div>
+          <div class="card project-card" data-interactive="true">
+            <div class="project-card__cover">[项目封面]</div>
+            <div class="project-card__body">
+              <div class="project-card__title">口碑合集 V2</div>
+              <span class="chip">草稿</span>
+              <div class="project-card__meta"><span>脚本阶段</span><span>昨日</span></div>
+            </div>
+          </div>
+          <div class="card project-card" data-interactive="true">
+            <div class="project-card__cover">[项目封面]</div>
+            <div class="project-card__body">
+              <div class="project-card__title">种草短剧 · 03</div>
+              <span class="chip chip--brand">分镜中</span>
+              <div class="project-card__meta"><span>9 个镜头</span><span>2 天前</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 待办 / 异常 -->
+      <section class="section two-col">
+        <div class="card">
+          <div class="section__header" style="margin-bottom: var(--space-3);">
+            <h3 class="section__title">待办（紧急）</h3>
+            <span class="chip chip--brand">4</span>
+          </div>
+          <ul>
+            <li class="list-item">
+              <span class="list-item__icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span></span>
+              <span class="list-item__text">渲染队列预检：春日新品种草</span>
+              <span class="list-item__meta">1h 前</span>
+            </li>
+            <li class="list-item">
+              <span class="list-item__icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span></span>
+              <span class="list-item__text">校对脚本 v3 · 收尾段落</span>
+              <span class="list-item__meta">2h 前</span>
+            </li>
+            <li class="list-item">
+              <span class="list-item__icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span></span>
+              <span class="list-item__text">字幕时间码微调</span>
+              <span class="list-item__meta">3h 前</span>
+            </li>
+            <li class="list-item">
+              <span class="list-item__icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span></span>
+              <span class="list-item__text">发布排期确认</span>
+              <span class="list-item__meta">今天</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card exception-card">
+          <div class="section__header" style="margin-bottom: var(--space-3);">
+            <h3 class="section__title">异常任务</h3>
+            <span class="chip chip--danger">2</span>
+          </div>
+          <ul>
+            <li class="list-item">
+              <span class="list-item__icon" style="color: var(--color-danger);">
+                <span class="material-symbols-outlined" style="font-size:18px;">error</span>
+              </span>
+              <span class="list-item__text">AI Provider 超时（OpenAI）· 已回退到备用</span>
+              <span class="list-item__meta">8m 前</span>
+            </li>
+            <li class="list-item">
+              <span class="list-item__icon" style="color: var(--color-danger);">
+                <span class="material-symbols-outlined" style="font-size:18px;">cloud_off</span>
+              </span>
+              <span class="list-item__text">设备 PC-03 离线</span>
+              <span class="list-item__meta">1h 前</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 健康面板 -->
+      <section class="section">
+        <div class="section__header">
+          <h3 class="section__title">系统健康</h3>
+        </div>
+        <div class="health-row">
+          <div class="card">
+            <div class="health-card__label">AI Provider 平均响应</div>
+            <div class="health-card__number">128<span style="font-size:16px;color:var(--color-text-tertiary);"> ms</span></div>
+            <div class="health-card__sparkline"></div>
+            <div class="health-card__delta">
+              <span class="material-symbols-outlined" style="font-size:14px;">trending_down</span>
+              较昨日下降 12%
+            </div>
+          </div>
+          <div class="card">
+            <div class="health-card__label">渲染队列</div>
+            <div class="health-card__number">3<span style="font-size:16px;color:var(--color-text-tertiary);"> 运行 / 2 排队</span></div>
+            <div style="margin-top: var(--space-3);"><div class="progress-track"><div class="progress-fill" style="width:67%;"></div></div></div>
+            <div class="health-card__delta" style="color: var(--color-text-secondary);">
+              <span class="material-symbols-outlined" style="font-size:14px;">schedule</span>
+              预计 8 分钟清空
+            </div>
+          </div>
+          <div class="card">
+            <div class="health-card__label">今日发布成功</div>
+            <div class="health-card__number">5<span style="font-size:16px;color:var(--color-text-tertiary);"> / 7</span></div>
+            <div class="health-card__sparkline"></div>
+            <div class="health-card__delta">
+              <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>
+              成功率 71%
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 工作台页面（初始隐藏） -->
+    <div class="workspace" data-page-content="workspace" hidden>
+      <div class="workspace__top">
+        <div class="workspace__top-left">
+          <span class="material-symbols-outlined" style="color: var(--color-brand-primary);">movie</span>
+          <span class="workspace__project-name">春日新品种草 01</span>
+          <span class="workspace__save-indicator">· 已保存 · 刚刚</span>
+        </div>
+        <div class="workspace__top-right">
+          <button class="btn btn--secondary btn--sm">
+            <span class="material-symbols-outlined">play_arrow</span>
+            预览
+          </button>
+          <button class="btn btn--secondary btn--sm">渲染</button>
+          <button class="btn btn--ai btn--sm">
+            <span class="material-symbols-outlined">auto_awesome</span>
+            导出
+          </button>
+        </div>
+      </div>
+
+      <div class="workspace__preview">
+        <div class="clip-library">
+          <div class="clip-library__title">片段库（8）</div>
+          <div class="clip-library__grid">
+            <div class="clip-thumb"></div>
+            <div class="clip-thumb"></div>
+            <div class="clip-thumb"></div>
+            <div class="clip-thumb"></div>
+            <div class="clip-thumb"></div>
+            <div class="clip-thumb"></div>
+            <div class="clip-thumb"></div>
+            <div class="clip-thumb"></div>
+          </div>
+        </div>
+        <div class="preview-window">
+          <div class="preview-canvas">[ 竖屏预览 9:16 ]</div>
+        </div>
+        <div class="preview-controls">
+          <div class="preview-controls__time">00:08.240 / 00:45.000</div>
+          <div class="transport">
+            <button class="icon-button"><span class="material-symbols-outlined">fast_rewind</span></button>
+            <button class="icon-button icon-button--play"><span class="material-symbols-outlined">play_arrow</span></button>
+            <button class="icon-button"><span class="material-symbols-outlined">fast_forward</span></button>
+          </div>
+          <div style="font-size:11px; color: var(--color-text-tertiary);">播放速度 1.0×</div>
+        </div>
+      </div>
+
+      <div class="workspace__timeline">
+        <div class="timeline-ruler">
+          <div class="timeline-ruler__tick">00:00</div>
+          <div class="timeline-ruler__tick">00:05</div>
+          <div class="timeline-ruler__tick">00:10</div>
+          <div class="timeline-ruler__tick">00:15</div>
+          <div class="timeline-ruler__tick">00:20</div>
+          <div class="timeline-ruler__tick">00:25</div>
+          <div class="timeline-ruler__tick">00:30</div>
+          <div class="timeline-ruler__tick">00:35</div>
+          <div class="timeline-ruler__tick">00:40</div>
+        </div>
+        <div class="track">
+          <div class="track__label">视频</div>
+          <div class="track__lane">
+            <div class="clip clip--video" data-selected="true" style="left: 0px; width: 180px;">镜头 1 · AI 生成</div>
+            <div class="clip clip--video" style="left: 190px; width: 140px;">镜头 2</div>
+            <div class="clip clip--video" style="left: 340px; width: 220px;">镜头 3 · AI 生成</div>
+            <div class="clip clip--video" style="left: 570px; width: 160px;">结尾</div>
+          </div>
+        </div>
+        <div class="track">
+          <div class="track__label">音频</div>
+          <div class="track__lane">
+            <div class="clip clip--audio" style="left: 0px; width: 720px;">背景音乐 · 春日轻快</div>
+          </div>
+        </div>
+        <div class="track">
+          <div class="track__label">配音</div>
+          <div class="track__lane">
+            <div class="clip clip--voice" style="left: 10px; width: 170px;">TTS · 引子</div>
+            <div class="clip clip--voice" style="left: 200px; width: 250px;">TTS · 核心</div>
+            <div class="clip clip--voice" style="left: 480px; width: 170px;">TTS · 收尾</div>
+          </div>
+        </div>
+        <div class="track">
+          <div class="track__label">字幕</div>
+          <div class="track__lane">
+            <div class="clip clip--subtitle" style="left: 10px; width: 170px;">"春日上新..."</div>
+            <div class="clip clip--subtitle" style="left: 200px; width: 250px;">"适合所有肌肤..."</div>
+            <div class="clip clip--subtitle" style="left: 480px; width: 170px;">"点击购物车..."</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="workspace__aibar">
+        <div class="aibar__left">
+          <button class="btn btn--ai btn--sm">
+            <span class="material-symbols-outlined">auto_awesome</span>
+            AI 生成镜头
+          </button>
+          <button class="btn btn--ai btn--sm">
+            <span class="material-symbols-outlined">record_voice_over</span>
+            AI 替换旁白
+          </button>
+          <button class="btn btn--ai btn--sm" data-state="running">
+            <span class="material-symbols-outlined">subtitles</span>
+            AI 重对齐字幕
+          </button>
+        </div>
+        <div class="aibar__right">
+          <span class="material-symbols-outlined" style="font-size:14px; animation: spin 1s linear infinite; color: var(--color-brand-primary);">progress_activity</span>
+          运行 2 · 排队 0
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Detail Panel · 选中片段属性 -->
+  <aside class="detail-panel">
+    <div class="detail">
+      <div class="detail__header">
+        <div class="detail__title">镜头属性</div>
+        <button class="icon-button" onclick="toggleDetail()"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="detail__field">
+        <div class="detail__field-label">名称</div>
+        <input class="detail__field-input" value="镜头 1 · AI 生成" />
+      </div>
+      <div class="detail__field">
+        <div class="detail__field-label">时间范围</div>
+        <div class="detail__field-value">00:00.000 – 00:03.600</div>
+      </div>
+      <div class="detail__field">
+        <div class="detail__field-label">来源</div>
+        <div class="detail__field-value">AI 生成 · Runway · 2026-04-17 08:42</div>
+      </div>
+      <div class="detail__field">
+        <div class="detail__field-label">分辨率</div>
+        <div class="detail__field-value">1080 × 1920（竖屏）</div>
+      </div>
+      <div class="detail__field">
+        <div class="detail__field-label">Prompt</div>
+        <textarea class="detail__field-input" style="height: 72px; padding: 8px 12px;">春日场景，少女在樱花树下展示产品，轻柔暖光，特写</textarea>
+      </div>
+      <div class="detail__field" style="display: flex; gap: 8px; margin-top: var(--space-6);">
+        <button class="btn btn--secondary btn--sm" style="flex:1;">替换</button>
+        <button class="btn btn--ai btn--sm" style="flex:1;">
+          <span class="material-symbols-outlined">refresh</span>
+          AI 重新生成
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Status Bar -->
+  <footer class="status-bar">
+    <div class="status-bar__group">
+      <div class="status-bar__item"><span class="status-bar__dot"></span>Runtime 8000 · 正常</div>
+      <div class="status-bar__item">任务 3 运行 / 2 排队</div>
+      <div class="status-bar__item">Provider · OpenAI · 128ms</div>
+    </div>
+    <div class="status-bar__group">
+      <div class="status-bar__item">最后同步 · 2 分钟前</div>
+      <div class="status-bar__item" id="themeIndicator">主题 · Dark</div>
+      <button class="icon-button" style="width:20px;height:20px;" title="打开日志">
+        <span class="material-symbols-outlined" style="font-size:14px;">receipt_long</span>
+      </button>
+    </div>
+  </footer>
+
+</div>
+
+<!-- Demo 控制面板 -->
+<div class="demo-switcher">
+  <div class="demo-switcher__title">预览控制</div>
+  <button class="btn btn--secondary btn--sm" onclick="switchPage('dashboard')" id="btnDashboard">创作总览</button>
+  <button class="btn btn--secondary btn--sm" onclick="switchPage('workspace')" id="btnWorkspace">AI 剪辑工作台</button>
+  <button class="btn btn--secondary btn--sm" onclick="toggleDetail()">切换 Detail Panel</button>
+  <button class="btn btn--secondary btn--sm" onclick="toggleRunning()">切换任务流光</button>
+</div>
+
+<script>
+/* 主题切换 */
+const themeBtn = document.getElementById('themeToggle');
+const themeIcon = document.getElementById('themeIcon');
+const themeIndicator = document.getElementById('themeIndicator');
+themeBtn.addEventListener('click', () => {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  themeIcon.textContent = isDark ? 'dark_mode' : 'light_mode';
+  themeIndicator.textContent = `主题 · ${isDark ? 'Light' : 'Dark'}`;
+});
+
+/* 侧栏折叠 */
+const sidebarBtn = document.getElementById('sidebarToggle');
+const sidebarIcon = document.getElementById('sidebarToggleIcon');
+const shell = document.getElementById('appShell');
+sidebarBtn.addEventListener('click', () => {
+  const collapsed = shell.getAttribute('data-sidebar-collapsed') === 'true';
+  shell.setAttribute('data-sidebar-collapsed', !collapsed);
+  sidebarIcon.textContent = collapsed ? 'left_panel_close' : 'left_panel_open';
+});
+
+/* Detail Panel 切换 */
+window.toggleDetail = function () {
+  const open = shell.getAttribute('data-detail-open') === 'true';
+  shell.setAttribute('data-detail-open', !open);
+};
+// 初始展开（因为工作台默认选中了片段）
+shell.setAttribute('data-detail-open', 'true');
+
+/* 页面切换（Dashboard / Workspace）*/
+window.switchPage = function (page) {
+  const host = document.getElementById('contentHost');
+  host.querySelectorAll('[data-page-content]').forEach(el => {
+    el.hidden = el.getAttribute('data-page-content') !== page;
+  });
+  document.querySelectorAll('.nav-item').forEach(el => {
+    if (el.getAttribute('data-page') === page) {
+      el.setAttribute('aria-current', 'page');
+    } else {
+      el.removeAttribute('aria-current');
+    }
+  });
+  // 工作台不显示 Detail Panel 默认（用户可点击片段开）
+  if (page === 'workspace') {
+    shell.setAttribute('data-detail-open', 'true');
+  } else {
+    shell.setAttribute('data-detail-open', 'false');
+  }
+};
+
+/* 任务流光切换 */
+window.toggleRunning = function () {
+  const running = shell.getAttribute('data-has-running-task') === 'true';
+  shell.setAttribute('data-has-running-task', !running);
+};
+
+/* 导航项点击切换 */
+document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+  el.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchPage(el.getAttribute('data-page'));
+  });
+});
+
+/* 时间线片段点击切换选中 */
+document.querySelectorAll('.clip').forEach(clip => {
+  clip.addEventListener('click', () => {
+    document.querySelectorAll('.clip').forEach(c => c.removeAttribute('data-selected'));
+    clip.setAttribute('data-selected', 'true');
+    shell.setAttribute('data-detail-open', 'true');
+  });
+});
+</script>
+
+</body>
+</html>

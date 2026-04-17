@@ -48,3 +48,21 @@ class ExecutionBinding(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+
+class DeviceWorkspaceLog(Base):
+    __tablename__ = "device_workspace_logs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
+    workspace_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("device_workspaces.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    level: Mapped[str] = mapped_column(String, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    context_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )

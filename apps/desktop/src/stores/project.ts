@@ -1,7 +1,6 @@
 import { defineStore } from "pinia";
 
 import {
-  RuntimeRequestError,
   createDashboardProject,
   fetchDashboardSummary,
   updateCurrentProjectContext
@@ -13,6 +12,7 @@ import type {
   ProjectSummary,
   RuntimeRequestErrorShape
 } from "@/types/runtime";
+import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 
 export type ProjectStoreStatus = "idle" | "loading" | "ready" | "saving" | "error";
 
@@ -31,7 +31,16 @@ export const useProjectStore = defineStore("project", {
     status: "idle"
   }),
   getters: {
-    hasProjectContext: (state) => state.currentProject !== null
+    hasProjectContext: (state) => state.currentProject !== null,
+    viewState: (state): "loading" | "empty" | "ready" | "error" => {
+      if (state.status === "loading" || state.status === "saving") {
+        return "loading";
+      }
+      if (state.status === "error") {
+        return "error";
+      }
+      return state.currentProject || state.recentProjects.length > 0 ? "ready" : "empty";
+    }
   },
   actions: {
     async load(): Promise<void> {
@@ -94,18 +103,8 @@ export const useProjectStore = defineStore("project", {
       this.currentProject = summary.currentProject;
     },
     applyRuntimeError(error: unknown): void {
-      const runtimeError =
-        error instanceof RuntimeRequestError
-          ? error
-          : new RuntimeRequestError("Project request failed.");
-
       this.status = "error";
-      this.error = {
-        details: runtimeError.details,
-        message: runtimeError.message,
-        requestId: runtimeError.requestId,
-        status: runtimeError.status
-      };
+      this.error = toRuntimeErrorShape(error, "项目请求失败，请稍后重试。");
     }
   }
 });
