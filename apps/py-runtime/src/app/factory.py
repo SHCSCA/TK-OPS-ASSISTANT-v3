@@ -29,6 +29,7 @@ from api.routes import (
     tasks_router,
     video_deconstruction_router,
     voice_router,
+    workspace_router,
     ws_router,
 )
 from app.config import load_runtime_config
@@ -51,6 +52,7 @@ from repositories.script_repository import ScriptRepository
 from repositories.storyboard_repository import StoryboardRepository
 from repositories.subtitle_repository import SubtitleRepository
 from repositories.system_config_repository import SystemConfigRepository
+from repositories.timeline_repository import TimelineRepository
 from repositories.voice_repository import VoiceRepository
 from schemas.envelope import error_response
 from services.account_service import AccountService
@@ -73,6 +75,7 @@ from services.subtitle_service import SubtitleService
 from services.task_manager import task_manager
 from services.video_import_service import VideoImportService
 from services.voice_service import VoiceService
+from services.workspace_service import WorkspaceService
 
 
 def create_app() -> FastAPI:
@@ -99,6 +102,7 @@ def create_app() -> FastAPI:
     review_repository = ReviewRepository(session_factory=session_factory)
     voice_repository = VoiceRepository(session_factory=session_factory)
     subtitle_repository = SubtitleRepository(session_factory=session_factory)
+    timeline_repository = TimelineRepository(session_factory=session_factory)
 
     settings_service = SettingsService(
         runtime_config=runtime_config,
@@ -136,6 +140,7 @@ def create_app() -> FastAPI:
     review_service = ReviewService(review_repository)
     voice_service = VoiceService(voice_repository)
     subtitle_service = SubtitleService(subtitle_repository)
+    workspace_service = WorkspaceService(timeline_repository)
     machine_code_service = MachineCodeService()
     license_service = LicenseService(
         runtime_config=runtime_config,
@@ -185,6 +190,7 @@ def create_app() -> FastAPI:
     app.state.review_repository = review_repository
     app.state.voice_repository = voice_repository
     app.state.subtitle_repository = subtitle_repository
+    app.state.timeline_repository = timeline_repository
     app.state.license_service = license_service
     app.state.settings_service = settings_service
     app.state.dashboard_service = dashboard_service
@@ -201,6 +207,7 @@ def create_app() -> FastAPI:
     app.state.review_service = review_service
     app.state.voice_service = voice_service
     app.state.subtitle_service = subtitle_service
+    app.state.workspace_service = workspace_service
     app.state.video_import_service = video_import_service
     app.state.task_manager = task_manager
 
@@ -302,6 +309,7 @@ def create_app() -> FastAPI:
     app.include_router(tasks_router)
     app.include_router(video_deconstruction_router)
     app.include_router(voice_router)
+    app.include_router(workspace_router)
     app.include_router(ws_router)
     log_event(
         'system',

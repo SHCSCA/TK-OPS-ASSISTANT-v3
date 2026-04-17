@@ -18,6 +18,7 @@ from api.routes.subtitles import router as subtitles_router
 from api.routes.tasks import router as tasks_router
 from api.routes.video_deconstruction import router as video_deconstruction_router
 from api.routes.voice import router as voice_router
+from api.routes.workspace import router as workspace_router
 from api.routes.ws import router as ws_router
 
 __all__ = [
@@ -39,5 +40,6 @@ __all__ = [
     'tasks_router',
     'video_deconstruction_router',
     'voice_router',
+    'workspace_router',
     'ws_router',
 ]

@@ -245,6 +245,70 @@ export type StoryboardDocument = {
   recentJobs: AIJobRecord[];
 };
 
+export type WorkspaceTimelineTrackKind = "video" | "audio" | "subtitle";
+
+export type WorkspaceTimelineClipDto = {
+  id: string;
+  trackId: string;
+  sourceType: string;
+  sourceId: string | null;
+  label: string;
+  startMs: number;
+  durationMs: number;
+  inPointMs: number;
+  outPointMs: number | null;
+  status: string;
+};
+
+export type WorkspaceTimelineTrackDto = {
+  id: string;
+  kind: WorkspaceTimelineTrackKind;
+  name: string;
+  orderIndex: number;
+  locked: boolean;
+  muted: boolean;
+  clips: WorkspaceTimelineClipDto[];
+};
+
+export type WorkspaceTimelineDto = {
+  id: string;
+  projectId: string;
+  name: string;
+  status: string;
+  durationSeconds: number | null;
+  source: string;
+  tracks: WorkspaceTimelineTrackDto[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceTimelineResultDto = {
+  timeline: WorkspaceTimelineDto | null;
+  message: string;
+};
+
+export type WorkspaceTimelineCreateInput = {
+  name?: string;
+};
+
+export type WorkspaceTimelineUpdateInput = {
+  name?: string | null;
+  durationSeconds?: number | null;
+  tracks: WorkspaceTimelineTrackDto[];
+};
+
+export type WorkspaceAICommandInput = {
+  timelineId?: string | null;
+  capabilityId: string;
+  parameters?: Record<string, unknown>;
+};
+
+export type WorkspaceAICommandResultDto = {
+  status: "blocked";
+  task: TaskInfo | null;
+  message: string;
+};
+
 export type VoiceTrackStatus = "blocked" | "ready" | "error" | "generating";
 
 export type VoiceProfileDto = {
