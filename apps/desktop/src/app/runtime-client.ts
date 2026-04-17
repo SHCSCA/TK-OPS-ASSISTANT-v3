@@ -16,6 +16,11 @@ import type {
   ScriptDocument,
   StoryboardDocument,
   StoryboardScene,
+  WorkspaceAICommandInput,
+  WorkspaceAICommandResultDto,
+  WorkspaceTimelineCreateInput,
+  WorkspaceTimelineResultDto,
+  WorkspaceTimelineUpdateInput,
   SubtitleTrackDto,
   SubtitleTrackGenerateInput,
   SubtitleTrackGenerateResultDto,
@@ -220,6 +225,51 @@ export async function generateStoryboardDocument(projectId: string): Promise<Sto
   return requestRuntime<StoryboardDocument>(`/api/storyboards/projects/${projectId}/generate`, {
     method: "POST"
   });
+}
+
+// AI editing workspace
+export async function fetchWorkspaceTimeline(
+  projectId: string
+): Promise<WorkspaceTimelineResultDto> {
+  return requestRuntime<WorkspaceTimelineResultDto>(
+    `/api/workspace/projects/${projectId}/timeline`
+  );
+}
+
+export async function createWorkspaceTimeline(
+  projectId: string,
+  input: WorkspaceTimelineCreateInput
+): Promise<WorkspaceTimelineResultDto> {
+  return requestRuntime<WorkspaceTimelineResultDto>(
+    `/api/workspace/projects/${projectId}/timeline`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
+}
+
+export async function updateWorkspaceTimeline(
+  timelineId: string,
+  input: WorkspaceTimelineUpdateInput
+): Promise<WorkspaceTimelineResultDto> {
+  return requestRuntime<WorkspaceTimelineResultDto>(`/api/workspace/timelines/${timelineId}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function runWorkspaceAICommand(
+  projectId: string,
+  input: WorkspaceAICommandInput
+): Promise<WorkspaceAICommandResultDto> {
+  return requestRuntime<WorkspaceAICommandResultDto>(
+    `/api/workspace/projects/${projectId}/ai-commands`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
 }
 
 // Voice studio

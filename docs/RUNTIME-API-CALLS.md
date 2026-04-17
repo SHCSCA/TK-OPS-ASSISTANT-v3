@@ -61,7 +61,113 @@
 - 后端异常必须记录日志。
 - 404、409、422、500 等错误也必须通过统一信封转换。
 
-## 4. M07 配音中心
+## 4. M05 AI 剪辑工作台
+
+> 2026-04-17 新增：M05-A 只建立项目时间线草稿的真实 Runtime 闭环。工作台不得继续展示页面内静态假轨道、假素材、假视频进度或假 AI 结果。无时间线时返回中性空态；AI 魔法剪入口本批返回 `blocked`，不创建假任务。
+
+### 4.1 数据对象
+
+`WorkspaceTimelineClipDto`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `string` | 片段 ID |
+| `trackId` | `string` | 所属轨道 ID |
+| `sourceType` | `string` | `asset`、`imported_video`、`voice_track`、`subtitle_track`、`manual` 等来源 |
+| `sourceId` | `string \| null` | 来源对象 ID |
+| `label` | `string` | 片段显示名称 |
+| `startMs` | `number` | 时间线起点 |
+| `durationMs` | `number` | 片段时长 |
+| `inPointMs` | `number` | 素材入点 |
+| `outPointMs` | `number \| null` | 素材出点 |
+| `status` | `string` | `ready`、`blocked`、`missing_source`、`error` 等状态 |
+
+`WorkspaceTimelineTrackDto`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `string` | 轨道 ID |
+| `kind` | `video \| audio \| subtitle` | 轨道类型 |
+| `name` | `string` | 轨道名称 |
+| `orderIndex` | `number` | 轨道排序 |
+| `locked` | `boolean` | 是否锁定 |
+| `muted` | `boolean` | 是否静音或隐藏 |
+| `clips` | `WorkspaceTimelineClipDto[]` | 片段列表 |
+
+`WorkspaceTimelineDto`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `string` | 时间线 ID |
+| `projectId` | `string` | 项目 ID |
+| `name` | `string` | 时间线名称 |
+| `status` | `draft \| committed` | 时间线状态 |
+| `durationSeconds` | `number \| null` | 当前时间线时长 |
+| `source` | `manual \| imported_video \| generated` | 创建来源 |
+| `tracks` | `WorkspaceTimelineTrackDto[]` | 轨道列表 |
+| `createdAt` | `string` | UTC ISO 时间 |
+| `updatedAt` | `string` | UTC ISO 时间 |
+
+`WorkspaceTimelineResultDto`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `timeline` | `WorkspaceTimelineDto \| null` | 当前项目时间线；没有草稿时为 `null` |
+| `message` | `string` | 中文结果说明 |
+
+`WorkspaceAICommandResultDto`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `status` | `blocked` | 本批固定为阻断态 |
+| `task` | `object \| null` | 本批不创建任务，固定为 `null` |
+| `message` | `string` | 中文阻断说明 |
+
+### 4.2 后端接口与前端调用
+
+| 状态 | 方法 | 路径 | 后端入口 | 前端调用 | 消费方 | 测试 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 当前 | `GET` | `/api/workspace/projects/{project_id}/timeline` | `api/routes/workspace.py:get_project_timeline` | `fetchWorkspaceTimeline(projectId)` | `editing-workspace` store、AI 剪辑工作台页面 | `tests/contracts/test_workspace_runtime_contract.py`、`apps/desktop/tests/runtime-client-workspace.spec.ts` |
+| 当前 | `POST` | `/api/workspace/projects/{project_id}/timeline` | `api/routes/workspace.py:create_project_timeline` | `createWorkspaceTimeline(projectId, input)` | `editing-workspace` store、空态创建入口 | `tests/contracts/test_workspace_runtime_contract.py`、`tests/runtime/test_workspace_service.py` |
+| 当前 | `PATCH` | `/api/workspace/timelines/{timeline_id}` | `api/routes/workspace.py:update_timeline` | `updateWorkspaceTimeline(timelineId, input)` | `editing-workspace` store、保存时间线动作 | `tests/contracts/test_workspace_runtime_contract.py`、`tests/runtime/test_workspace_service.py` |
+| 当前 | `POST` | `/api/workspace/projects/{project_id}/ai-commands` | `api/routes/workspace.py:run_ai_command` | `runWorkspaceAICommand(projectId, input)` | `editing-workspace` store、AI 魔法剪入口 | `tests/contracts/test_workspace_runtime_contract.py`、`tests/runtime/test_workspace_service.py` |
+
+### 4.3 空态与阻断态
+
+无时间线响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "timeline": null,
+    "message": "当前项目还没有时间线草稿。"
+  }
+}
+```
+
+AI 魔法剪阻断响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "status": "blocked",
+    "task": null,
+    "message": "AI 剪辑命令尚未接入 Provider，本阶段仅保存时间线草稿。"
+  }
+}
+```
+
+### 4.4 实现约束
+
+- 本批复用 `timelines.tracks_json`，不新增轨道/片段表。
+- `POST /timeline` 创建真实空草稿，不自动填充示例轨道。
+- `PATCH /timeline` 只接受 `video`、`audio`、`subtitle` 三类轨道。
+- AI 命令未接入 Provider 时返回 `blocked`，不得创建假 TaskBus 任务。
+- 页面必须通过 `runtime-client.ts` 与 Pinia store 消费，不得直接 `fetch`。
+
+## 5. M07 配音中心
 
 > 2026-04-16 新增：M07 配音中心第一批只建立真实 Runtime 闭环和 UI 工作台底座。无可用 TTS Provider 时，`POST /api/voice/projects/{project_id}/tracks/generate` 必须创建真实 `VoiceTrack` 记录并返回 `blocked` 状态和中文说明，不得伪造成音频生成成功。页面不得继续使用前端 `setTimeout` 模拟生成，所有调用必须通过 `runtime-client.ts` 和 `voice-studio` store。
 
@@ -194,7 +300,7 @@
 - `segments` 必须来自真实脚本文本切分。
 - 真实 TTS Provider、音频落盘、资产注册和时间线落轨必须作为后续独立计划。
 
-## 5. M08 字幕对齐中心
+## 6. M08 字幕对齐中心
 
 > 2026-04-16 新增：M08 字幕对齐中心第一批只建立真实 Runtime 契约、字幕轨草稿记录和 UI 校对工作台。无可用字幕对齐 Provider 时，`POST /api/subtitles/projects/{project_id}/tracks/generate` 必须创建真实 `SubtitleTrack` 记录并返回 `blocked` 状态和中文说明，不得伪造成自动对齐完成。页面所有字幕读写必须通过 `runtime-client.ts` 和 `subtitle-alignment` store，不得继续使用页面内 `setTimeout`、随机假字幕或 `alert`。
 
@@ -345,7 +451,7 @@
 | `updateSubtitleTrack(trackId, input)` | `apps/desktop/src/app/runtime-client.ts` | `PATCH /api/subtitles/tracks/{track_id}` | `SubtitleTrackDto` | `subtitle-alignment` store、字幕段落、时间码、样式面板 | 保存失败必须显示中文错误 |
 | `deleteSubtitleTrack(trackId)` | `apps/desktop/src/app/runtime-client.ts` | `DELETE /api/subtitles/tracks/{track_id}` | `void` | `subtitle-alignment` store、版本面板 | 删除后必须刷新列表并清空失效选中态 |
 
-## 6. M09 资产中心
+## 7. M09 资产中心
 
 > 2026-04-16 修订：Runtime 启动时会兼容修复旧版 `assets` 表，避免旧本地库缺少 `name`、`type`、`updated_at` 等列导致 `GET /api/assets` 直接 500，也避免旧版 `kind` / `file_name` 非空约束阻断新图片导入。点击“导入资产”必须弹出桌面文件选择器并支持多选；每个被选中的真实本地路径逐个通过 `importAsset(input)` 进入 Runtime。Tauri 主窗口 capability 必须包含 `dialog:allow-open`，否则文件选择器会被运行时权限拒绝；`tauri.conf.json` 必须启用 `app.security.assetProtocol` 并允许用户素材目录，否则 `convertFileSrc(filePath)` 生成的真实预览地址无法在 WebView 中读取。资产中心前端已采用素材墙、批量导入状态、真实本地预览、UTF-8 文档预览和全局右侧抽屉联动；页面不得回退到手动路径输入或图标占位预览。
 
@@ -501,7 +607,7 @@
 
 前端任务总线连接 `ws://127.0.0.1:8000/api/ws`。Runtime 运行环境必须安装 `websockets` 或 `wsproto` 之一；当前项目依赖固定为 `websockets>=14.0,<16.0`。如果缺少该依赖，Uvicorn 会记录 `No supported WebSocket library detected`，升级请求会退化成普通 `GET /api/ws` 并持续返回 404。
 
-## 7. 前端调用登记表
+## 8. 前端调用登记表
 
 | 函数 | 文件 | Runtime 路径 | 返回类型 | 主要消费方 | 更新要求 |
 | --- | --- | --- | --- | --- | --- |
@@ -511,6 +617,10 @@
 | `importAsset(input)` | `apps/desktop/src/app/runtime-client.ts` | `POST /api/assets/import` | `AssetDto` | `asset-library` store、资产中心页面 | 点击导入必须使用桌面文件选择器多选；只能注册真实本地文件路径，不生成假资产数据 |
 | `fetchAsset(id)` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/assets/{id}` | `AssetDto` | Runtime client、后续资产检查器编辑能力 | 如页面直接消费，必须补页面状态测试 |
 | `updateAsset(id, input)` | `apps/desktop/src/app/runtime-client.ts` | `PATCH /api/assets/{id}` | `AssetDto` | Runtime client、后续资产检查器编辑能力 | 编辑能力开放时必须补 store/page 测试 |
+| `fetchWorkspaceTimeline(projectId)` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/workspace/projects/{project_id}/timeline` | `WorkspaceTimelineResultDto` | `editing-workspace` store、AI 剪辑工作台页面 | 空态不得生成假轨道；必须显示创建草稿入口 |
+| `createWorkspaceTimeline(projectId, input)` | `apps/desktop/src/app/runtime-client.ts` | `POST /api/workspace/projects/{project_id}/timeline` | `WorkspaceTimelineResultDto` | `editing-workspace` store、空态创建入口 | 创建真实空草稿，不自动填充示例轨道 |
+| `updateWorkspaceTimeline(timelineId, input)` | `apps/desktop/src/app/runtime-client.ts` | `PATCH /api/workspace/timelines/{timeline_id}` | `WorkspaceTimelineResultDto` | `editing-workspace` store、保存时间线动作 | 保存失败必须保留前端草稿并显示中文错误 |
+| `runWorkspaceAICommand(projectId, input)` | `apps/desktop/src/app/runtime-client.ts` | `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandResultDto` | `editing-workspace` store、AI 魔法剪入口 | 本批返回 `blocked`，不得显示假任务进度 |
 | `fetchVoiceProfiles()` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/voice/profiles` | `VoiceProfileDto[]` | `voice-studio` store、音色选择组件 | 不得在页面内写死 Provider 音色 |
 | `fetchVoiceTracks(projectId)` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/voice/projects/{project_id}/tracks` | `VoiceTrackDto[]` | `voice-studio` store、配音版本列表 | 列表必须来自真实 Runtime 记录 |
 | `generateVoiceTrack(projectId, input)` | `apps/desktop/src/app/runtime-client.ts` | `POST /api/voice/projects/{project_id}/tracks/generate` | `VoiceTrackGenerateResultDto` | `voice-studio` store、配音中心页面 | 无 TTS Provider 时必须展示 `blocked`，不得假成功 |
@@ -523,7 +633,7 @@
 | --- | --- | --- | --- |
 | `convertFileSrc(filePath)` | `apps/desktop/src/components/assets/AssetPreview.vue` | 将真实本地视频、图片、文档路径转换为 WebView 可渲染地址；文本类文档读取后按 UTF-8 渲染 | 依赖 Tauri 桌面环境和 `app.security.assetProtocol`；不得用假缩略图替代真实文件预览 |
 
-## 8. 验证命令
+## 9. 验证命令
 
 接口或调用文档变化后，至少运行：
 
