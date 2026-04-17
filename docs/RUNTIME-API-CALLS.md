@@ -228,7 +228,7 @@ AI 魔法剪阻断响应：
 | `task` | `object | null` | 本批无真实任务时为 `null` |
 | `message` | `string` | 中文结果说明 |
 
-### 6.2 后端接口与前端调用
+### 4.2 后端接口与前端调用
 
 | 状态 | 方法 | 路径 | 后端入口 | 前端调用 | 消费方 | 测试 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -455,7 +455,7 @@ AI 魔法剪阻断响应：
 
 > 2026-04-16 修订：Runtime 启动时会兼容修复旧版 `assets` 表，避免旧本地库缺少 `name`、`type`、`updated_at` 等列导致 `GET /api/assets` 直接 500，也避免旧版 `kind` / `file_name` 非空约束阻断新图片导入。点击“导入资产”必须弹出桌面文件选择器并支持多选；每个被选中的真实本地路径逐个通过 `importAsset(input)` 进入 Runtime。Tauri 主窗口 capability 必须包含 `dialog:allow-open`，否则文件选择器会被运行时权限拒绝；`tauri.conf.json` 必须启用 `app.security.assetProtocol` 并允许用户素材目录，否则 `convertFileSrc(filePath)` 生成的真实预览地址无法在 WebView 中读取。资产中心前端已采用素材墙、批量导入状态、真实本地预览、UTF-8 文档预览和全局右侧抽屉联动；页面不得回退到手动路径输入或图标占位预览。
 
-### 6.1 数据对象
+### 5.1 数据对象
 
 `AssetDto`
 
@@ -607,10 +607,553 @@ AI 魔法剪阻断响应：
 
 前端任务总线连接 `ws://127.0.0.1:8000/api/ws`。Runtime 运行环境必须安装 `websockets` 或 `wsproto` 之一；当前项目依赖固定为 `websockets>=14.0,<16.0`。如果缺少该依赖，Uvicorn 会记录 `No supported WebSocket library detected`，升级请求会退化成普通 `GET /api/ws` 并持续返回 404。
 
-## 8. 前端调用登记表
+## 8. M16 AI 与系统设置
+
+> 2026-04-16 新增：AI 与系统设置模块当前后端接口已经形成两个边界：系统配置总线 `/api/settings/*` 与 AI 能力配置 `/api/settings/ai-capabilities/*`。前端页面必须通过 `runtime-client.ts` 和 Pinia store 消费这些接口，不得在页面内直接 fetch。Provider API Key 只允许写入 SecretStore，接口只返回脱敏状态，不返回明文密钥。产品目标是支持多 Provider 与多模型选择；当前 Runtime 已输出多 Provider 注册表，并支持按模型发起真实连通性测试。
+
+### 8.1 数据对象
+
+`RuntimeHealthSnapshot`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `service` | `string` | Runtime 服务状态，当前在线时为 `online` |
+| `version` | `string` | Runtime 版本 |
+| `now` | `string` | Runtime 当前 UTC ISO 时间 |
+| `mode` | `string` | 当前运行模式 |
+
+`AppSettings`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `revision` | `number` | 配置修订号，由后端递增 |
+| `runtime.mode` | `string` | Runtime 运行模式 |
+| `runtime.workspaceRoot` | `string` | 本地工作区根目录 |
+| `paths.cacheDir` | `string` | 缓存目录 |
+| `paths.exportDir` | `string` | 导出目录 |
+| `paths.logDir` | `string` | 日志目录 |
+| `logging.level` | `string` | 日志级别，如 `DEBUG`、`INFO`、`WARNING`、`ERROR` |
+| `ai.provider` | `string` | 默认 AI Provider |
+| `ai.model` | `string` | 默认模型 |
+| `ai.voice` | `string` | 默认音色 |
+| `ai.subtitleMode` | `string` | 默认字幕策略 |
+
+`RuntimeDiagnostics`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `databasePath` | `string` | 本地 SQLite 数据库路径 |
+| `logDir` | `string` | 日志目录 |
+| `revision` | `number` | 当前配置修订号 |
+| `mode` | `string` | 当前运行模式 |
+| `healthStatus` | `string` | 当前诊断状态，在线时为 `online` |
+
+`AICapabilityConfig`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `capabilityId` | `string` | 能力 ID，见下方固定枚举 |
+| `enabled` | `boolean` | 能力是否启用 |
+| `provider` | `string` | 能力绑定的 Provider |
+| `model` | `string` | 能力绑定的模型 |
+| `agentRole` | `string` | 能力角色说明 |
+| `systemPrompt` | `string` | 系统提示词 |
+| `userPromptTemplate` | `string` | 用户提示词模板 |
+
+固定能力 ID：
+
+- `script_generation`
+- `script_rewrite`
+- `storyboard_generation`
+- `tts_generation`
+- `subtitle_alignment`
+- `video_generation`
+- `asset_analysis`
+
+`AIProviderSecretStatus`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `provider` | `string` | Provider ID |
+| `label` | `string` | 展示名称 |
+| `configured` | `boolean` | 是否已有可用密钥 |
+| `maskedSecret` | `string` | 脱敏密钥，未配置时为空字符串 |
+| `baseUrl` | `string` | Provider Base URL |
+| `secretSource` | `string` | `secure_store`、`env` 或 `none` |
+| `supportsTextGeneration` | `boolean` | 当前阶段是否已接入文本生成 |
+
+当前密钥写入与同步健康检查已支持 Provider ID：
+
+- `openai`
+- `openai_compatible`
+- `anthropic`
+- `gemini`
+
+当前 Provider 注册表已暴露的 Provider 类型：
+
+- 商业文本与多模态 Provider：OpenAI、Anthropic、Google Gemini、DeepSeek、通义千问/Qwen、月之暗面/Kimi、智谱 GLM、MiniMax、火山/豆包、百度千帆/ERNIE、腾讯混元、xAI、Mistral、Cohere。
+- 聚合与兼容 Provider：OpenRouter、OpenAI-compatible、自建兼容网关。
+- 本地模型 Provider：Ollama、LM Studio、vLLM、LocalAI。
+- 专用媒体 Provider：TTS、字幕对齐、视频生成、资产分析等能力 Provider。
+
+新增 Provider 必须通过 Runtime Provider 注册表和模型目录暴露给前端，不得由页面硬编码。
+
+`AIProviderHealth`
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `provider` | `string` | Provider ID |
+| `status` | `string` | `ready`、`missing_secret`、`misconfigured` 或 `unsupported` |
+| `message` | `string` | 中文可见状态说明 |
+
+`AIProviderSecretInput`
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `apiKey` | `string` | 是 | Provider API Key，只写入 SecretStore，不在响应中返回 |
+| `baseUrl` | `string | null` | 否 | OpenAI-compatible 等 Provider 的 Base URL |
+
+### 8.2 后端接口与前端调用
+
+| 状态 | 方法 | 路径 | 后端入口 | 前端调用 | 消费方 | 测试 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 当前 | `GET` | `/api/settings/health` | `api/routes/settings.py:get_runtime_health` | `fetchRuntimeHealth()` | `config-bus` store、Shell 状态、AI 与系统设置页 | `tests/contracts/test_runtime_health_contract.py`、`tests/runtime/test_settings_health.py`、`apps/desktop/tests/ai-system-settings.spec.ts` |
+| 当前 | `GET` | `/api/settings/config` | `api/routes/settings.py:get_runtime_config` | `fetchRuntimeConfig()` | `config-bus` store、AI 与系统设置页 | `tests/contracts/test_settings_config_contract.py`、`tests/runtime/test_settings_config.py`、`apps/desktop/tests/ai-system-settings.spec.ts` |
+| 当前 | `PUT` | `/api/settings/config` | `api/routes/settings.py:update_runtime_config` | `updateRuntimeConfig(input)` | `config-bus` store、AI 与系统设置页 | `tests/contracts/test_settings_config_contract.py`、`tests/runtime/test_settings_config.py`、`apps/desktop/tests/ai-system-settings.spec.ts` |
+| 当前 | `GET` | `/api/settings/diagnostics` | `api/routes/settings.py:get_runtime_diagnostics` | `fetchRuntimeDiagnostics()` | `config-bus` store、Detail Panel、AI 与系统设置页 | `tests/contracts/test_settings_config_contract.py`、`tests/runtime/test_settings_config.py`、`apps/desktop/tests/ai-system-settings.spec.ts` |
+| 当前 | `GET` | `/api/settings/ai-capabilities` | `api/routes/ai_capabilities.py:get_ai_capability_settings` | `fetchAICapabilitySettings()` | `ai-capability` store、AI 与系统设置页 | `tests/contracts/test_ai_capabilities_contract.py`、`tests/runtime/test_ai_capabilities.py`、`apps/desktop/tests/ai-system-settings.spec.ts` |
+| 当前 | `PUT` | `/api/settings/ai-capabilities` | `api/routes/ai_capabilities.py:update_ai_capability_settings` | `updateAICapabilitySettings(capabilities)` | `ai-capability` store、AI 与系统设置页 | `tests/contracts/test_ai_capabilities_contract.py`、`tests/runtime/test_ai_capabilities.py`、`apps/desktop/tests/ai-system-settings.spec.ts` |
+| 当前 | `PUT` | `/api/settings/ai-capabilities/providers/{provider_id}/secret` | `api/routes/ai_capabilities.py:set_provider_secret` | `updateAIProviderSecret(providerId, input)` | Runtime client 已提供；页面 Provider Secret UI 待接入 | `tests/contracts/test_ai_capabilities_contract.py`、`tests/runtime/test_ai_capabilities.py` |
+| 当前 | `POST` | `/api/settings/ai-capabilities/providers/{provider_id}/health-check` | `api/routes/ai_capabilities.py:check_provider_health` | `checkAIProviderHealth(providerId, input)` | `ai-capability` store、AI 与系统设置页、右侧诊断抽屉 | `tests/contracts/test_ai_capabilities_contract.py`、`tests/runtime/test_ai_capabilities.py`、`apps/desktop/tests/ai-system-settings.spec.ts` |
+
+### 8.3 `GET /api/settings/config`
+
+成功响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "revision": 1,
+    "runtime": {
+      "mode": "test",
+      "workspaceRoot": "C:/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3"
+    },
+    "paths": {
+      "cacheDir": "C:/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/.runtime-data/cache",
+      "exportDir": "C:/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/.runtime-data/exports",
+      "logDir": "C:/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/.runtime-data/logs"
+    },
+    "logging": {
+      "level": "INFO"
+    },
+    "ai": {
+      "provider": "openai",
+      "model": "gpt-5.4",
+      "voice": "alloy",
+      "subtitleMode": "balanced"
+    }
+  }
+}
+```
+
+### 8.4 `PUT /api/settings/config`
+
+请求：
+
+```json
+{
+  "runtime": {
+    "mode": "production",
+    "workspaceRoot": "D:/TK-OPS/workspace"
+  },
+  "paths": {
+    "cacheDir": "D:/TK-OPS/cache",
+    "exportDir": "D:/TK-OPS/exports",
+    "logDir": "D:/TK-OPS/logs"
+  },
+  "logging": {
+    "level": "DEBUG"
+  },
+  "ai": {
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "voice": "nova",
+    "subtitleMode": "precise"
+  }
+}
+```
+
+成功响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "revision": 2,
+    "runtime": {
+      "mode": "production",
+      "workspaceRoot": "D:/TK-OPS/workspace"
+    },
+    "paths": {
+      "cacheDir": "D:/TK-OPS/cache",
+      "exportDir": "D:/TK-OPS/exports",
+      "logDir": "D:/TK-OPS/logs"
+    },
+    "logging": {
+      "level": "DEBUG"
+    },
+    "ai": {
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "voice": "nova",
+      "subtitleMode": "precise"
+    }
+  }
+}
+```
+
+约束：
+
+- 后端会确保 `workspaceRoot`、`cacheDir`、`exportDir`、`logDir` 对应目录存在。
+- 成功更新会写入 `settings.updated` audit log。
+- 页面保存失败时必须保留用户草稿并提供重试。
+
+### 8.5 `GET /api/settings/diagnostics`
+
+成功响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "databasePath": "D:/TK-OPS/runtime.db",
+    "logDir": "D:/TK-OPS/logs",
+    "revision": 2,
+    "mode": "production",
+    "healthStatus": "online"
+  }
+}
+```
+
+约束：
+
+- 诊断接口只返回非敏感字段。
+- 不返回 API Key、环境变量明文或 traceback。
+
+### 8.6 `GET /api/settings/ai-capabilities`
+
+成功响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "capabilities": [
+      {
+        "capabilityId": "script_generation",
+        "enabled": true,
+        "provider": "openai",
+        "model": "gpt-5",
+        "agentRole": "资深短视频脚本策划",
+        "systemPrompt": "围绕用户主题生成高留存、可拍摄的短视频脚本。",
+        "userPromptTemplate": "主题：{{topic}}"
+      }
+    ],
+    "providers": [
+      {
+        "provider": "openai",
+        "label": "OpenAI",
+        "configured": false,
+        "maskedSecret": "",
+        "baseUrl": "https://api.openai.com/v1/responses",
+        "secretSource": "none",
+        "supportsTextGeneration": true
+      }
+    ]
+  }
+}
+```
+
+约束：
+
+- 首次读取时后端会创建 7 个默认能力配置。
+- Provider 列表来自 Runtime 注册表，当前已覆盖商业、聚合、本地和媒体预留 Provider。
+- 响应不得包含 `apiKey` 明文字段。
+
+### 8.7 `PUT /api/settings/ai-capabilities`
+
+请求：
+
+```json
+{
+  "capabilities": [
+    {
+      "capabilityId": "script_generation",
+      "enabled": true,
+      "provider": "openai",
+      "model": "gpt-5.4",
+      "agentRole": "资深短视频脚本策划",
+      "systemPrompt": "围绕用户主题生成高留存、可拍摄的短视频脚本。",
+      "userPromptTemplate": "主题：{{topic}}"
+    },
+    {
+      "capabilityId": "script_rewrite",
+      "enabled": true,
+      "provider": "openai",
+      "model": "gpt-5-mini",
+      "agentRole": "短视频脚本改写编辑",
+      "systemPrompt": "在保持原意的前提下提升脚本节奏、开场和转化效率。",
+      "userPromptTemplate": "原脚本：\n{{script}}\n\n改写要求：{{instructions}}"
+    },
+    {
+      "capabilityId": "storyboard_generation",
+      "enabled": true,
+      "provider": "openai",
+      "model": "gpt-5-mini",
+      "agentRole": "分镜规划导演",
+      "systemPrompt": "把脚本文本拆解为清晰的镜头与视觉提示。",
+      "userPromptTemplate": "脚本内容：\n{{script}}"
+    },
+    {
+      "capabilityId": "tts_generation",
+      "enabled": false,
+      "provider": "openai",
+      "model": "gpt-5-mini",
+      "agentRole": "配音导演",
+      "systemPrompt": "为脚本生成适合配音的语气和节奏说明。",
+      "userPromptTemplate": "脚本内容：\n{{script}}"
+    },
+    {
+      "capabilityId": "subtitle_alignment",
+      "enabled": false,
+      "provider": "openai",
+      "model": "gpt-5-mini",
+      "agentRole": "字幕对齐编辑",
+      "systemPrompt": "让字幕语言和节奏更适合短视频表达。",
+      "userPromptTemplate": "脚本内容：\n{{script}}"
+    },
+    {
+      "capabilityId": "video_generation",
+      "enabled": false,
+      "provider": "openai_compatible",
+      "model": "custom-video",
+      "agentRole": "视频生成导演",
+      "systemPrompt": "把分镜转成可执行的视频生成提示。",
+      "userPromptTemplate": "分镜内容：\n{{storyboard}}"
+    },
+    {
+      "capabilityId": "asset_analysis",
+      "enabled": false,
+      "provider": "gemini",
+      "model": "gemini-2.5-pro",
+      "agentRole": "素材分析师",
+      "systemPrompt": "总结素材内容、价值点和可复用结构。",
+      "userPromptTemplate": "素材内容：\n{{assets}}"
+    }
+  ]
+}
+```
+
+成功响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "capabilities": [
+      {
+        "capabilityId": "script_generation",
+        "enabled": true,
+        "provider": "openai",
+        "model": "gpt-5.4",
+        "agentRole": "资深短视频脚本策划",
+        "systemPrompt": "围绕用户主题生成高留存、可拍摄的短视频脚本。",
+        "userPromptTemplate": "主题：{{topic}}"
+      }
+    ],
+    "providers": [
+      {
+        "provider": "openai",
+        "label": "OpenAI",
+        "configured": false,
+        "maskedSecret": "",
+        "baseUrl": "https://api.openai.com/v1/responses",
+        "secretSource": "none",
+        "supportsTextGeneration": true
+      }
+    ]
+  }
+}
+```
+
+约束：
+
+- 当前后端要求提交完整 7 项能力配置；缺任一能力会返回 400。
+- 页面保存时不能只提交被编辑的一行。
+- `capabilityId` 不允许脱离固定能力集合。
+
+能力配置不完整失败响应：
+
+```json
+{
+  "ok": false,
+  "error": "AI 能力配置不完整。"
+}
+```
+
+### 8.8 `PUT /api/settings/ai-capabilities/providers/{provider_id}/secret`
+
+请求：
+
+```json
+{
+  "apiKey": "sk-live-example",
+  "baseUrl": "https://api.openai.com/v1/responses"
+}
+```
+
+成功响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "provider": "openai",
+    "label": "OpenAI",
+    "configured": true,
+    "maskedSecret": "sk-l****mple",
+    "baseUrl": "https://api.openai.com/v1/responses",
+    "secretSource": "secure_store",
+    "supportsTextGeneration": true
+  }
+}
+```
+
+约束：
+
+- `apiKey` 必须写入 SecretStore。
+- 响应只返回 `maskedSecret`，不得返回明文。
+- `openai_compatible` 必须有可用 Base URL，否则 health-check 会返回 `misconfigured`。
+
+### 8.9 `POST /api/settings/ai-capabilities/providers/{provider_id}/health-check`
+
+请求：
+
+```json
+{
+  "model": "gpt-5.4"
+}
+```
+
+成功响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "provider": "openai",
+    "status": "ready",
+    "message": "OpenAI / gpt-5.4 真实连通性测试通过。",
+    "model": "gpt-5.4",
+    "checkedAt": "2026-04-17T01:20:00Z",
+    "latencyMs": 420
+  }
+}
+```
+
+其他状态：
+
+| `status` | 说明 |
+| --- | --- |
+| `ready` | Provider 已配置，且当前阶段支持文本生成 |
+| `missing_secret` | 未配置 API Key |
+| `misconfigured` | 配置不完整，如 OpenAI-compatible 缺少 Base URL |
+| `offline` | 远端不可达、本地服务未启动或网络异常 |
+| `unsupported` | Provider 已注册，但当前阶段尚未接入文本生成 |
+
+约束：
+
+- 请求中的 `model` 可选；未传时 Runtime 自动回退到该 Provider 的默认可测模型。
+- 健康检查会发起真实 HTTP 探测，不再只做本地配置判断。
+- 返回 `checkedAt`、`latencyMs` 供右侧诊断抽屉和状态提示消费。
+- 错误信息必须保持中文可见，可直接映射到 UI 提示。
+
+### 8.10 当前已知差距
+
+- AI 与系统设置页面已接入 Provider 注册表、模型目录、能力支持矩阵、密钥写入和同步健康检查入口；后续仍需把能力级默认模型保存逻辑接入配置总线。
+- 当前文本模型 Provider 已支持真实连通性探测；媒体 Provider 的专用探测策略仍需按 `tts`、`video_generation`、`asset_analysis` 能力继续扩展。
+- 模型目录当前来自 Runtime 内置注册表，不执行真实远端模型发现；远端刷新接入后必须记录来源、耗时、失败原因和缓存时间。
+- `PUT /api/settings/config` 的 422 validation failure 当前由全局处理返回 `Request validation failed`；最终用户可见文案应在后续实现中收口为中文提示。
+- 本模块当前没有 TaskBus 长任务和 WebSocket 事件。
+
+### 8.11 Provider 注册表与模型目录
+
+本节为当前已实现的同步契约。模型目录为 Runtime 内置初始目录，远端模型发现尚未接入；如果后续刷新访问远端且耗时较长，应升级为 TaskBus 长任务。
+
+接口：
+
+| 状态 | 方法 | 路径 | 用途 |
+| --- | --- | --- | --- |
+| 当前 | `GET` | `/api/settings/ai-providers/catalog` | 返回 Runtime 支持的 Provider 注册表 |
+| 当前 | `GET` | `/api/settings/ai-providers/{provider_id}/models` | 返回指定 Provider 的模型目录 |
+| 当前 | `GET` | `/api/settings/ai-capabilities/support-matrix` | 返回每个 AI 能力可选 Provider 与模型范围 |
+| 当前 | `POST` | `/api/settings/ai-providers/{provider_id}/models/refresh` | 返回内置目录刷新结果；真实远端刷新后应升级为 TaskBus |
+
+`AIProviderCatalogItem`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `provider` | `string` | Provider ID |
+| `label` | `string` | 中文或官方展示名 |
+| `kind` | `string` | `commercial`、`openai_compatible`、`aggregator`、`local`、`media` |
+| `configured` | `boolean` | 是否已配置凭据或本地连接 |
+| `baseUrl` | `string` | 当前 Base URL |
+| `secretSource` | `string` | `secure_store`、`env` 或 `none` |
+| `capabilities` | `string[]` | 支持的能力类型，如 `text_generation`、`vision`、`tts`、`video_generation`、`asset_analysis` |
+| `requiresBaseUrl` | `boolean` | 是否必须配置 Base URL |
+| `supportsModelDiscovery` | `boolean` | 是否支持拉取模型目录 |
+| `status` | `string` | `ready`、`missing_secret`、`misconfigured`、`unsupported`、`offline` |
+
+`AIModelCatalogItem`：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `modelId` | `string` | Provider 侧模型 ID |
+| `displayName` | `string` | UI 展示名称 |
+| `provider` | `string` | 所属 Provider |
+| `capabilityTypes` | `string[]` | 支持的能力类型 |
+| `inputModalities` | `string[]` | `text`、`image`、`audio`、`video` |
+| `outputModalities` | `string[]` | `text`、`image`、`audio`、`video` |
+| `contextWindow` | `number | null` | 上下文长度，未知时为 `null` |
+| `defaultFor` | `string[]` | 推荐默认使用的 TK-OPS 能力 |
+| `enabled` | `boolean` | 当前是否允许被能力配置选择 |
+
+约束：
+
+- 前端模型选择器必须消费 Runtime 模型目录，不得在页面写死模型列表。
+- Runtime 可以内置首批 Provider 元数据，但必须通过注册表服务暴露，并允许后续扩展。
+- 未知 Provider、不可用 Base URL、缺少密钥、远端目录刷新失败都必须返回中文错误信封，不能 500。
+- OpenAI-compatible、OpenRouter、本地模型服务必须允许用户配置 Base URL。
+- 视频生成、TTS、字幕对齐和资产分析 Provider 不能混同为普通文本 Provider，必须按能力类型过滤。
+- 刷新远端模型目录如果超过同步请求可接受时间，应进入 TaskBus，并支持状态查询、失败原因和重试。
+
+## 9. 前端调用登记表
 
 | 函数 | 文件 | Runtime 路径 | 返回类型 | 主要消费方 | 更新要求 |
 | --- | --- | --- | --- | --- | --- |
+| `fetchRuntimeHealth()` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/settings/health` | `RuntimeHealthSnapshot` | `config-bus` store、Shell 状态、AI 与系统设置页 | Runtime 健康字段变化时必须同步类型、store、状态栏和测试 |
+| `fetchRuntimeConfig()` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/settings/config` | `AppSettings` | `config-bus` store、AI 与系统设置页 | 配置字段变化必须同步 `AppSettings`、设置页表单和 contract tests |
+| `updateRuntimeConfig(input)` | `apps/desktop/src/app/runtime-client.ts` | `PUT /api/settings/config` | `AppSettings` | `config-bus` store、AI 与系统设置页 | 保存失败必须保留草稿并展示中文错误 |
+| `fetchRuntimeDiagnostics()` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/settings/diagnostics` | `RuntimeDiagnostics` | `config-bus` store、Detail Panel、AI 与系统设置页 | 不得向前端暴露敏感字段 |
+| `fetchAICapabilitySettings()` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/settings/ai-capabilities` | `AICapabilitySettings` | `ai-capability` store、AI 与系统设置页 | 能力集合、Provider 状态字段变化必须同步类型、store 和测试 |
+| `updateAICapabilitySettings(capabilities)` | `apps/desktop/src/app/runtime-client.ts` | `PUT /api/settings/ai-capabilities` | `AICapabilitySettings` | `ai-capability` store、AI 与系统设置页 | 当前必须提交完整 7 项能力配置，不允许只提交单行 |
+| `updateAIProviderSecret(providerId, input)` | `apps/desktop/src/app/runtime-client.ts` | `PUT /api/settings/ai-capabilities/providers/{provider_id}/secret` | `AIProviderSecretStatus` | Runtime client 已提供；Provider Secret UI 待接入 | 不得展示 API Key 明文，成功后只展示 maskedSecret |
+| `checkAIProviderHealth(providerId, input)` | `apps/desktop/src/app/runtime-client.ts` | `POST /api/settings/ai-capabilities/providers/{provider_id}/health-check` | `AIProviderHealth` | `ai-capability` store、AI 与系统设置页、右侧诊断抽屉 | 必须支持可选 `model` 请求体，并把 `checkedAt`、`latencyMs`、状态映射为中文反馈 |
+| `fetchAIProviderCatalog()` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/settings/ai-providers/catalog` | `AIProviderCatalogItem[]` | `ai-capability` store、Provider 管理 UI | 用于支持主流 Provider 注册表，页面不得硬编码 Provider 列表 |
+| `fetchAIProviderModels(providerId)` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/settings/ai-providers/{provider_id}/models` | `AIModelCatalogItem[]` | `ai-capability` store、模型目录面板 | 页面不得硬编码模型列表；未知 Provider 必须显示中文错误 |
+| `fetchAICapabilitySupportMatrix()` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/settings/ai-capabilities/support-matrix` | `AICapabilitySupportMatrix` | `ai-capability` store、能力级模型选择 | 用于限制每个能力可选模型 |
+| `refreshAIProviderModels(providerId)` | `apps/desktop/src/app/runtime-client.ts` | `POST /api/settings/ai-providers/{provider_id}/models/refresh` | `AIModelCatalogRefreshResult` | `ai-capability` store、模型目录面板 | 当前返回内置目录刷新结果；接入真实远端刷新后必须同步 TaskBus 文档 |
 | `fetchAssets(type?, q?)` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/assets` | `AssetDto[]` | `asset-library` store | 如新增筛选参数，必须同步本文件、类型和测试 |
 | `fetchAssetReferences(id)` | `apps/desktop/src/app/runtime-client.ts` | `GET /api/assets/{id}/references` | `AssetReferenceDto[]` | `asset-library` store | 删除确认依赖该调用 |
 | `deleteAsset(id)` | `apps/desktop/src/app/runtime-client.ts` | `DELETE /api/assets/{id}` | `AssetDeleteResult` | `asset-library` store | 删除前必须先检查引用；后端仍会阻断有引用资产 |
@@ -633,7 +1176,7 @@ AI 魔法剪阻断响应：
 | --- | --- | --- | --- |
 | `convertFileSrc(filePath)` | `apps/desktop/src/components/assets/AssetPreview.vue` | 将真实本地视频、图片、文档路径转换为 WebView 可渲染地址；文本类文档读取后按 UTF-8 渲染 | 依赖 Tauri 桌面环境和 `app.security.assetProtocol`；不得用假缩略图替代真实文件预览 |
 
-## 9. 验证命令
+## 10. 验证命令
 
 接口或调用文档变化后，至少运行：
 

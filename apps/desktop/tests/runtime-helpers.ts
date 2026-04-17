@@ -191,6 +191,24 @@ export const runtimeFixtures = {
         supportsTextGeneration: true
       },
       {
+        provider: "deepseek",
+        label: "DeepSeek",
+        configured: false,
+        maskedSecret: "",
+        baseUrl: "https://api.deepseek.com/v1",
+        secretSource: "none",
+        supportsTextGeneration: true
+      },
+      {
+        provider: "ollama",
+        label: "Ollama",
+        configured: true,
+        maskedSecret: "",
+        baseUrl: "http://127.0.0.1:11434/v1",
+        secretSource: "none",
+        supportsTextGeneration: true
+      },
+      {
         provider: "openai_compatible",
         label: "OpenAI-compatible",
         configured: false,
@@ -216,6 +234,107 @@ export const runtimeFixtures = {
         baseUrl: "https://generativelanguage.googleapis.com/v1beta/models",
         secretSource: "none",
         supportsTextGeneration: false
+      }
+    ]
+  },
+  aiProviderCatalog: [
+    {
+      provider: "openai",
+      label: "OpenAI",
+      kind: "commercial",
+      configured: true,
+      baseUrl: "https://api.openai.com/v1/responses",
+      secretSource: "secure_store",
+      capabilities: ["text_generation", "vision", "tts"],
+      requiresBaseUrl: false,
+      supportsModelDiscovery: false,
+      status: "ready"
+    },
+    {
+      provider: "deepseek",
+      label: "DeepSeek",
+      kind: "commercial",
+      configured: false,
+      baseUrl: "https://api.deepseek.com/v1",
+      secretSource: "none",
+      capabilities: ["text_generation"],
+      requiresBaseUrl: false,
+      supportsModelDiscovery: false,
+      status: "missing_secret"
+    },
+    {
+      provider: "ollama",
+      label: "Ollama",
+      kind: "local",
+      configured: true,
+      baseUrl: "http://127.0.0.1:11434/v1",
+      secretSource: "none",
+      capabilities: ["text_generation", "vision"],
+      requiresBaseUrl: false,
+      supportsModelDiscovery: true,
+      status: "ready"
+    }
+  ],
+  openAIModelCatalog: [
+    {
+      modelId: "gpt-5.4",
+      displayName: "GPT-5.4",
+      provider: "openai",
+      capabilityTypes: ["text_generation", "vision"],
+      inputModalities: ["text", "image"],
+      outputModalities: ["text"],
+      contextWindow: null,
+      defaultFor: ["script_generation"],
+      enabled: true
+    },
+    {
+      modelId: "gpt-5",
+      displayName: "GPT-5",
+      provider: "openai",
+      capabilityTypes: ["text_generation", "vision"],
+      inputModalities: ["text", "image"],
+      outputModalities: ["text"],
+      contextWindow: null,
+      defaultFor: ["script_generation"],
+      enabled: true
+    },
+    {
+      modelId: "gpt-5.4-mini",
+      displayName: "GPT-5.4 Mini",
+      provider: "openai",
+      capabilityTypes: ["text_generation"],
+      inputModalities: ["text"],
+      outputModalities: ["text"],
+      contextWindow: null,
+      defaultFor: ["script_rewrite", "storyboard_generation"],
+      enabled: true
+    }
+  ],
+  aiCapabilitySupportMatrix: {
+    capabilities: [
+      {
+        capabilityId: "script_generation",
+        providers: ["openai", "deepseek", "ollama"],
+        models: [
+          {
+            provider: "openai",
+            modelId: "gpt-5",
+            displayName: "GPT-5",
+            capabilityTypes: ["text_generation", "vision"]
+          },
+          {
+            provider: "openai",
+            modelId: "gpt-5.4",
+            displayName: "GPT-5.4",
+            capabilityTypes: ["text_generation", "vision"]
+          },
+          {
+            provider: "deepseek",
+            modelId: "deepseek-chat",
+            displayName: "DeepSeek Chat",
+            capabilityTypes: ["text_generation"]
+          }
+        ]
       }
     ]
   }
