@@ -5,11 +5,30 @@ from pydantic import BaseModel, Field
 from schemas.scripts import AIJobRecordDto
 
 
+class StoryboardShotDto(BaseModel):
+    sceneId: str
+    title: str
+    summary: str
+    visualPrompt: str
+
+
 class StoryboardSceneDto(BaseModel):
     sceneId: str
     title: str
     summary: str
     visualPrompt: str
+
+
+class StoryboardShotInput(BaseModel):
+    title: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    visualPrompt: str = Field(min_length=1)
+
+
+class StoryboardShotUpdateInput(BaseModel):
+    title: str | None = None
+    summary: str | None = None
+    visualPrompt: str | None = None
 
 
 class StoryboardSaveInput(BaseModel):
@@ -34,3 +53,10 @@ class StoryboardDocumentDto(BaseModel):
     currentVersion: StoryboardVersionDto | None
     versions: list[StoryboardVersionDto]
     recentJobs: list[AIJobRecordDto]
+
+
+class StoryboardTemplateDto(BaseModel):
+    id: str
+    name: str
+    description: str
+    shots: list[StoryboardShotDto]

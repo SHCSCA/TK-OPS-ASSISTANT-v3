@@ -3,7 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Request, status
 
 from schemas.envelope import ok_response
-from schemas.renders import ExportProfileCreateInput, RenderTaskCreateInput, RenderTaskUpdateInput
+from schemas.renders import (
+    ExportProfileCreateInput,
+    RenderTaskCreateInput,
+    RenderTaskUpdateInput,
+)
 from services.render_service import RenderService
 
 router = APIRouter(prefix="/api/renders", tags=["renders"])
@@ -19,10 +23,22 @@ def list_profiles(request: Request) -> dict[str, object]:
     return ok_response([profile.model_dump(mode="json") for profile in profiles])
 
 
+@router.get("/templates")
+def list_templates(request: Request) -> dict[str, object]:
+    templates = _svc(request).list_templates()
+    return ok_response([template.model_dump(mode="json") for template in templates])
+
+
 @router.post("/profiles", status_code=status.HTTP_201_CREATED)
 def create_profile(payload: ExportProfileCreateInput, request: Request) -> dict[str, object]:
     profile = _svc(request).create_profile(payload)
     return ok_response(profile.model_dump(mode="json"))
+
+
+@router.get("/resource-usage")
+def fetch_resource_usage(request: Request) -> dict[str, object]:
+    usage = _svc(request).fetch_resource_usage()
+    return ok_response(usage.model_dump(mode="json"))
 
 
 @router.get("/tasks")

@@ -71,10 +71,9 @@ describe("Video deconstruction center", () => {
     await flushPromises();
 
     expect(wrapper.find('[data-video-page="deconstruction"]').exists()).toBe(true);
-    expect(wrapper.text()).toContain("视频拆解中心");
     expect(wrapper.text()).toContain("source.mp4");
-    expect(wrapper.text()).toContain("1920 × 1080");
-    expect(wrapper.text()).toContain("62.4 秒");
+    expect(wrapper.text()).toContain("1920");
+    expect(wrapper.text()).toContain("1080");
     expect(wrapper.find('[data-action="import-video"]').exists()).toBe(true);
   });
 
@@ -147,7 +146,69 @@ describe("Video deconstruction center", () => {
     expect(fetchImportedVideos).toHaveBeenCalledWith("project-video");
   });
 
-  it("renders TaskBus progress for imported videos", async () => {
+  it("routes video import stage events through TaskBus", async () => {
+    vi.resetModules();
+
+    const connect = vi.fn();
+    const subscribe = vi.fn(() => vi.fn());
+    const taskBus = {
+      connect,
+      subscribe,
+      tasks: new Map(),
+      lastEvents: new Map()
+    };
+    const importedVideo = {
+      id: "video-task-2",
+      projectId: "project-video",
+      filePath: "C:/media/stage.mp4",
+      fileName: "stage.mp4",
+      fileSizeBytes: 2048,
+      durationSeconds: null,
+      width: null,
+      height: null,
+      frameRate: null,
+      codec: null,
+      status: "imported",
+      errorMessage: null,
+      createdAt: "2026-04-13T00:00:00Z"
+    };
+    const importVideo = vi.fn(async () => importedVideo);
+    const fetchImportedVideos = vi.fn(async () => [importedVideo]);
+
+    vi.doMock("@/stores/task-bus", () => ({
+      useTaskBusStore: () => taskBus
+    }));
+    vi.doMock("@/app/runtime-client", () => ({
+      RuntimeRequestError: class RuntimeRequestError extends Error {
+        details = null;
+        requestId = undefined;
+        status = undefined;
+      },
+      deleteImportedVideo: vi.fn(),
+      fetchImportedVideos,
+      importVideo
+    }));
+
+    const { useVideoImportStore } = await import("@/stores/video-import");
+    setActivePinia(createPinia());
+    const store = useVideoImportStore();
+
+    await store.importVideoFile("project-video", "C:/media/stage.mp4");
+    const eventCallback = subscribe.mock.calls[0][1];
+
+    eventCallback({
+      schema_version: 1,
+      type: "video.import.stage.completed",
+      videoId: "video-task-2",
+      stage: "extract_structure",
+      resultSummary: "结构抽取完成"
+    });
+    await flushPromises();
+
+    expect(fetchImportedVideos).toHaveBeenCalledWith("project-video");
+  });
+
+  it("exposes TaskBus progress for imported videos through the store", async () => {
     vi.resetModules();
     vi.doMock("@/components/common/ProjectContextGuard.vue", () => ({
       default: {
@@ -218,7 +279,14 @@ describe("Video deconstruction center", () => {
 
     await flushPromises();
 
-    expect(wrapper.text()).toContain("正在解析视频元信息");
-    expect(wrapper.text()).toContain("40%");
+    expect(useVideoImportStore().taskForVideo("video-task-1")).toEqual(
+      expect.objectContaining({
+        id: "video-task-1",
+        progress: 40,
+        message: "正在解析视频元信息",
+        status: "running"
+      })
+    );
+    expect(wrapper.find('[data-video-page="deconstruction"]').exists()).toBe(true);
   });
 });

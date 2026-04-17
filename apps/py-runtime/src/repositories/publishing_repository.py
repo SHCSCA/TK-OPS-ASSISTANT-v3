@@ -74,7 +74,7 @@ class PublishingRepository:
             plan = session.get(PublishPlan, plan_id)
             if plan is None:
                 return None
-            plan.status = "submitted"
+            plan.status = "submitting"
             plan.submitted_at = utc_now()
             plan.updated_at = plan.submitted_at
             session.commit()
@@ -82,43 +82,45 @@ class PublishingRepository:
             session.expunge(plan)
             return plan
 
-    def get_receipt(self, plan_id: str) -> PublishReceipt | None:
-        with self._session_factory() as session:
-            receipt = session.scalar(
-                select(PublishReceipt).where(PublishReceipt.plan_id == plan_id)
-            )
-            if receipt is not None:
-                session.expunge(receipt)
-            return receipt
-
     def create_receipt(
         self,
         *,
         plan_id: str,
         status: str,
-        external_url: str | None = None,
-        error_message: str | None = None,
+        platform_response_json: str | None = None,
     ) -> PublishReceipt:
         with self._session_factory() as session:
-            receipt = session.scalar(
-                select(PublishReceipt).where(PublishReceipt.plan_id == plan_id)
-            )
             now = utc_now()
-            if receipt is None:
-                receipt = PublishReceipt(
-                    plan_id=plan_id,
-                    status=status,
-                    external_url=external_url,
-                    error_message=error_message,
-                    completed_at=now,
-                )
-                session.add(receipt)
-            else:
-                receipt.status = status
-                receipt.external_url = external_url
-                receipt.error_message = error_message
-                receipt.completed_at = now
+            receipt = PublishReceipt(
+                plan_id=plan_id,
+                status=status,
+                platform_response_json=platform_response_json,
+                received_at=now,
+                created_at=now,
+            )
+            session.add(receipt)
             session.commit()
             session.refresh(receipt)
             session.expunge(receipt)
+            return receipt
+
+    def list_receipts(self, plan_id: str) -> list[PublishReceipt]:
+        with self._session_factory() as session:
+            receipts = session.scalars(
+                select(PublishReceipt)
+                .where(PublishReceipt.plan_id == plan_id)
+                .order_by(PublishReceipt.received_at.desc(), PublishReceipt.created_at.desc())
+            ).all()
+            session.expunge_all()
+            return list(receipts)
+
+    def get_latest_receipt(self, plan_id: str) -> PublishReceipt | None:
+        with self._session_factory() as session:
+            receipt = session.scalar(
+                select(PublishReceipt)
+                .where(PublishReceipt.plan_id == plan_id)
+                .order_by(PublishReceipt.received_at.desc(), PublishReceipt.created_at.desc())
+            )
+            if receipt is not None:
+                session.expunge(receipt)
             return receipt

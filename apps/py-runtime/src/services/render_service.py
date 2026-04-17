@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import shutil
+from datetime import UTC, datetime
+from pathlib import Path
 
 from fastapi import HTTPException
 
@@ -8,12 +13,16 @@ from domain.models.render import ExportProfile, RenderTask
 from repositories.render_repository import RenderRepository
 from schemas.renders import (
     CancelRenderResultDto,
+    DiskUsageSnapshotDto,
     ExportProfileCreateInput,
     ExportProfileDto,
+    RenderResourceUsageDto,
     RenderTaskCreateInput,
     RenderTaskDto,
     RenderTaskUpdateInput,
+    UsageSnapshotDto,
 )
+from services.ws_manager import ws_manager
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +67,8 @@ class RenderService:
             raise HTTPException(status_code=500, detail="更新渲染任务失败") from exc
         if task is None:
             raise HTTPException(status_code=404, detail="渲染任务不存在")
+        if payload.progress is not None:
+            self._broadcast_render_progress(task)
         return self._to_dto(task)
 
     def delete_task(self, task_id: str) -> None:
@@ -89,7 +100,7 @@ class RenderService:
     def retry_task(self, task_id: str) -> RenderTaskDto:
         task = self._get_task_model(task_id)
         if task.status not in {"failed", "cancelled"}:
-            raise HTTPException(status_code=409, detail="只有失败或已取消的任务可以重试")
+            raise HTTPException(status_code=409, detail="只有失败或已取消的任务可以重试。")
         try:
             retried = self._repository.retry_task(task_id)
         except Exception as exc:
@@ -105,13 +116,19 @@ class RenderService:
             if not profiles:
                 profiles = [self._repository.create_profile(self._build_default_profile())]
         except Exception as exc:
-            log.exception("查询导出配置失败")
-            raise HTTPException(status_code=500, detail="查询导出配置失败") from exc
+            log.exception("查询导出模板失败")
+            raise HTTPException(status_code=500, detail="查询导出模板失败") from exc
         return [self._to_profile_dto(profile) for profile in profiles]
 
+    def list_templates(self) -> list[ExportProfileDto]:
+        return self.list_profiles()
+
     def create_profile(self, payload: ExportProfileCreateInput) -> ExportProfileDto:
+        name = payload.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="模板名称不能为空。")
         profile = ExportProfile(
-            name=payload.name.strip(),
+            name=name,
             format=payload.format,
             resolution=payload.resolution,
             fps=payload.fps,
@@ -124,9 +141,67 @@ class RenderService:
         try:
             saved = self._repository.create_profile(profile)
         except Exception as exc:
-            log.exception("创建导出配置失败")
-            raise HTTPException(status_code=500, detail="创建导出配置失败") from exc
+            log.exception("创建导出模板失败")
+            raise HTTPException(status_code=500, detail="创建导出模板失败") from exc
         return self._to_profile_dto(saved)
+
+    def fetch_resource_usage(self) -> RenderResourceUsageDto:
+        cpu = self._fetch_cpu_usage()
+        gpu = UsageSnapshotDto(
+            status="unavailable",
+            usagePct=None,
+            message="当前未接入 GPU 监控助手。",
+        )
+        disk_usage = shutil.disk_usage(Path.cwd())
+        disk = DiskUsageSnapshotDto(
+            status="ready",
+            path=str(Path.cwd()),
+            totalBytes=disk_usage.total,
+            usedBytes=disk_usage.used,
+            freeBytes=disk_usage.free,
+            usagePct=round(disk_usage.used / disk_usage.total * 100, 2)
+            if disk_usage.total
+            else None,
+            message="磁盘占用统计已读取。",
+        )
+        return RenderResourceUsageDto(
+            cpu=cpu,
+            gpu=gpu,
+            disk=disk,
+            collectedAt=datetime.now(UTC),
+        )
+
+    def _fetch_cpu_usage(self) -> UsageSnapshotDto:
+        try:
+            load1, _, _ = os.getloadavg()
+            cpu_count = os.cpu_count() or 1
+            usage_pct = round(min(100.0, load1 / cpu_count * 100.0), 2)
+            return UsageSnapshotDto(
+                status="ready",
+                usagePct=usage_pct,
+                message="CPU 负载已读取。",
+            )
+        except (AttributeError, OSError):
+            return UsageSnapshotDto(
+                status="unavailable",
+                usagePct=None,
+                message="当前未接入 CPU 采样助手。",
+            )
+
+    def _broadcast_render_progress(self, task: RenderTask) -> None:
+        event = {
+            "type": "render.progress",
+            "taskId": task.id,
+            "progressPct": task.progress,
+            "bitrateKbps": None,
+            "outputSec": None,
+        }
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(ws_manager.broadcast(event))
+        else:
+            asyncio.create_task(ws_manager.broadcast(event))
 
     def _get_task_model(self, task_id: str) -> RenderTask:
         try:

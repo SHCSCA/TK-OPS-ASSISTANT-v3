@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from schemas.envelope import ok_response
-from schemas.review import ReviewSuggestionUpdateInput, ReviewSummaryUpdateInput
+from schemas.review import ReviewSummaryUpdateInput
 from services.review_service import ReviewService
 
 router = APIRouter(prefix="/api/review", tags=["review"])
@@ -35,29 +35,45 @@ def update_summary(
     return ok_response(summary.model_dump(mode="json"))
 
 
-@router.get("/projects/{project_id}/suggestions")
-def get_suggestions(project_id: str, request: Request) -> dict[str, object]:
-    suggestions = _svc(request).get_suggestions(project_id)
-    return ok_response([item.model_dump(mode="json") for item in suggestions])
-
-
-@router.post("/projects/{project_id}/suggestions/generate")
-def generate_suggestions(project_id: str, request: Request) -> dict[str, object]:
-    result = _svc(request).generate_suggestions(project_id)
-    return ok_response(result.model_dump(mode="json"))
-
-
-@router.patch("/suggestions/{suggestion_id}")
-def update_suggestion(
+@router.post("/projects/{project_id}/suggestions/{suggestion_id}/adopt")
+def adopt_suggestion(
+    project_id: str,
     suggestion_id: str,
-    payload: ReviewSuggestionUpdateInput,
     request: Request,
 ) -> dict[str, object]:
-    suggestion = _svc(request).update_suggestion(suggestion_id, payload)
-    return ok_response(suggestion.model_dump(mode="json"))
+    project = _svc(request).adopt_suggestion(
+        suggestion_id,
+        project_id=project_id,
+        dashboard_repository=request.app.state.dashboard_repository,
+        script_repository=request.app.state.script_repository,
+        storyboard_repository=request.app.state.storyboard_repository,
+    )
+    return ok_response(project.model_dump(mode="json"))
+
+
+@router.post("/suggestions/{suggestion_id}/adopt")
+def adopt_suggestion_from_current_context(
+    suggestion_id: str,
+    request: Request,
+) -> dict[str, object]:
+    project = _svc(request).adopt_suggestion(
+        suggestion_id,
+        dashboard_repository=request.app.state.dashboard_repository,
+        script_repository=request.app.state.script_repository,
+        storyboard_repository=request.app.state.storyboard_repository,
+    )
+    return ok_response(project.model_dump(mode="json"))
 
 
 @router.post("/suggestions/{suggestion_id}/apply-to-script")
-def apply_suggestion_to_script(suggestion_id: str, request: Request) -> dict[str, object]:
-    result = _svc(request).apply_suggestion_to_script(suggestion_id)
-    return ok_response(result.model_dump(mode="json"))
+def apply_to_script(
+    suggestion_id: str,
+    request: Request,
+) -> dict[str, object]:
+    project = _svc(request).adopt_suggestion(
+        suggestion_id,
+        dashboard_repository=request.app.state.dashboard_repository,
+        script_repository=request.app.state.script_repository,
+        storyboard_repository=request.app.state.storyboard_repository,
+    )
+    return ok_response(project.model_dump(mode="json"))

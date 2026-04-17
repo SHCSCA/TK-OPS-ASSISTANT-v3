@@ -111,6 +111,16 @@ def test_import_asset_after_legacy_kind_schema_repair(tmp_path) -> None:  # type
     assert imported.fileSizeBytes == len(b"real-image-bytes")
 
 
+def test_initialize_domain_schema_creates_asset_group_tables(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+
+    initialize_domain_schema(engine)
+
+    columns = _table_columns(engine, "assets")
+    assert {"group_id", "thumbnail_generated_at"} <= columns
+    assert _table_columns(engine, "asset_groups") >= {"id", "name", "created_at"}
+
+
 def _table_columns(engine, table_name: str) -> set[str]:  # type: ignore[no-untyped-def]
     with engine.connect() as connection:
         rows = connection.execute(text(f"PRAGMA table_info({table_name})")).mappings().all()

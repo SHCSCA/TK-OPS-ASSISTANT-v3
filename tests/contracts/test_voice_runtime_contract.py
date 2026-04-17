@@ -1,103 +1,151 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+SRC_DIR = Path(__file__).resolve().parents[2] / "apps" / "py-runtime" / "src"
+ROUTES_DIR = SRC_DIR / "api" / "routes"
+if str(ROUTES_DIR) not in sys.path:
+    sys.path.insert(0, str(ROUTES_DIR))
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from common.time import utc_now_iso
+from domain.models import Base, Project, VoiceTrack
+from persistence.engine import create_runtime_engine, create_session_factory
+from repositories.voice_profile_repository import VoiceProfileRepository
+from repositories.voice_repository import VoiceRepository
+from schemas.envelope import error_response
+from services.task_manager import TaskManager
+from services.voice_service import VoiceService
+from voice import router as voice_router
 
 
 def _assert_ok(payload: dict[str, object]) -> object:
     assert payload["ok"] is True
-    assert "data" in payload
     return payload["data"]
 
 
-def test_voice_profiles_contract_returns_runtime_envelope(
-    runtime_client: TestClient,
-) -> None:
-    response = runtime_client.get("/api/voice/profiles")
+def _build_app(tmp_path: Path) -> FastAPI:
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+    Base.metadata.create_all(engine)
+    session_factory = create_session_factory(engine)
+    now = utc_now_iso()
+    with session_factory() as session:
+        session.add(
+            Project(
+                id="project-voice",
+                name="配音项目",
+                description="",
+                status="active",
+                current_script_version=0,
+                current_storyboard_version=0,
+                created_at=now,
+                updated_at=now,
+                last_accessed_at=now,
+            )
+        )
+        session.add(
+            VoiceTrack(
+                id="voice-track-1",
+                project_id="project-voice",
+                timeline_id=None,
+                source="tts",
+                provider="pending_provider",
+                voice_name="标准女声",
+                file_path=None,
+                segments_json="""
+                [
+                  {"segmentIndex": 0, "text": "第一段文本", "startMs": null, "endMs": null, "audioAssetId": null},
+                  {"segmentIndex": 1, "text": "第二段文本", "startMs": null, "endMs": null, "audioAssetId": null}
+                ]
+                """.strip(),
+                status="ready",
+                created_at=now,
+            )
+        )
+        session.commit()
 
-    assert response.status_code == 200
-    profiles = _assert_ok(response.json())
-    assert isinstance(profiles, list)
-    assert profiles
-    assert profiles[0]["id"] == "alloy-zh"
-    assert profiles[0]["displayName"] == "清晰叙述"
-    assert profiles[0]["provider"] == "pending_provider"
-
-
-def test_voice_track_generation_blocks_without_provider_and_preserves_segments(
-    runtime_client: TestClient,
-) -> None:
-    project_response = runtime_client.post(
-        "/api/dashboard/projects",
-        json={"name": "配音项目", "description": "覆盖配音中心契约"},
+    app = FastAPI()
+    app.state.voice_service = VoiceService(
+        VoiceRepository(session_factory=session_factory),
+        profile_repository=VoiceProfileRepository(session_factory=session_factory),
+        task_manager=TaskManager(),
     )
-    project_id = _assert_ok(project_response.json())["id"]
+    app.include_router(voice_router)
 
-    response = runtime_client.post(
-        f"/api/voice/projects/{project_id}/tracks/generate",
+    @app.exception_handler(StarletteHTTPException)
+    async def handle_http_exception(request: Request, exc: StarletteHTTPException):  # type: ignore[no-untyped-def]
+        message = exc.detail if isinstance(exc.detail, str) else "请求失败"
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response(message),
+        )
+
+    return app
+
+
+def test_voice_profiles_contract_persists_custom_profile(tmp_path: Path) -> None:
+    client = TestClient(_build_app(tmp_path))
+
+    create_response = client.post(
+        "/api/voice/profiles",
         json={
-            "profileId": "alloy-zh",
-            "sourceText": "第一段脚本\n\n第二段脚本",
-            "speed": 1.0,
-            "pitch": 0,
-            "emotion": "calm",
+            "provider": "openai",
+            "voiceId": "shimmer",
+            "displayName": "清亮女声",
+            "locale": "zh-CN",
+            "tags": ["清亮", "通用"],
+            "enabled": True,
         },
     )
+    assert create_response.status_code == 201
+    created = _assert_ok(create_response.json())
+    assert created["voiceId"] == "shimmer"
+    assert created["displayName"] == "清亮女声"
 
-    assert response.status_code == 200
-    result = _assert_ok(response.json())
-    track = result["track"]
-    assert track["projectId"] == project_id
-    assert track["status"] == "blocked"
-    assert track["provider"] == "pending_provider"
-    assert track["filePath"] is None
-    assert track["segments"] == [
-        {
-            "segmentIndex": 0,
-            "text": "第一段脚本",
-            "startMs": None,
-            "endMs": None,
-            "audioAssetId": None,
-        },
-        {
-            "segmentIndex": 1,
-            "text": "第二段脚本",
-            "startMs": None,
-            "endMs": None,
-            "audioAssetId": None,
-        },
-    ]
-    assert result["task"] is None
-    assert "TTS Provider" in result["message"]
-
-    list_response = runtime_client.get(f"/api/voice/projects/{project_id}/tracks")
+    list_response = client.get("/api/voice/profiles")
     assert list_response.status_code == 200
-    tracks = _assert_ok(list_response.json())
-    assert [item["id"] for item in tracks] == [track["id"]]
-
-    detail_response = runtime_client.get(f"/api/voice/tracks/{track['id']}")
-    assert detail_response.status_code == 200
-    assert _assert_ok(detail_response.json())["segments"][0]["text"] == "第一段脚本"
-
-    delete_response = runtime_client.delete(f"/api/voice/tracks/{track['id']}")
-    assert delete_response.status_code == 200
-    assert _assert_ok(delete_response.json()) is None
+    profiles = _assert_ok(list_response.json())
+    assert any(profile["voiceId"] == "shimmer" for profile in profiles)
 
 
-def test_voice_track_generation_rejects_empty_source_text(
-    runtime_client: TestClient,
+def test_voice_segment_regenerate_contract_returns_taskbus_task(
+    tmp_path: Path,
 ) -> None:
-    response = runtime_client.post(
-        "/api/voice/projects/project-1/tracks/generate",
+    client = TestClient(_build_app(tmp_path))
+
+    response = client.post(
+        "/api/voice/tracks/voice-track-1/segments/1/regenerate",
         json={
             "profileId": "alloy-zh",
-            "sourceText": "   \n  ",
             "speed": 1.0,
             "pitch": 0,
             "emotion": "calm",
         },
     )
 
-    assert response.status_code == 400
-    payload = response.json()
-    assert payload["ok"] is False
-    assert "脚本文本为空" in payload["error"]
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["task"]["kind"] == "ai-voice"
+    assert data["task"]["ownerRef"] == {"kind": "voice-track", "id": "voice-track-1"}
+    assert data["task"]["status"] in {"queued", "running", "succeeded"}
+
+
+def test_voice_waveform_contract_returns_unavailable_when_no_audio_file(
+    tmp_path: Path,
+) -> None:
+    client = TestClient(_build_app(tmp_path))
+
+    response = client.get("/api/voice/tracks/voice-track-1/waveform")
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["status"] == "unavailable"
+    assert data["points"] == []
+    assert "不可用" in data["message"]

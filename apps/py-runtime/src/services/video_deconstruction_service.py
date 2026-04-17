@@ -1,30 +1,34 @@
 from __future__ import annotations
 
-import json
-import logging
-from uuid import uuid4
+import asyncio
+from dataclasses import dataclass
+from pathlib import Path
 
 from fastapi import HTTPException
 
-from common.time import utc_now
-from domain.models.base import generate_uuid
-from domain.models.video_deconstruction import (
-    VideoSegment,
-    VideoStructureExtraction,
-    VideoTranscript,
-)
 from repositories.imported_video_repository import ImportedVideoRepository
-from repositories.script_repository import ScriptRepository
-from repositories.video_deconstruction_repository import VideoDeconstructionRepository
-from schemas.video_deconstruction import (
-    ApplyVideoExtractionResultDto,
-    VideoSegmentDto,
-    VideoStructureExtractionDto,
-    VideoTranscriptDto,
+from repositories.video_deconstruction_repository import (
+    StoredVideoStageRun,
+    VideoDeconstructionRepository,
 )
-from services.dashboard_service import DashboardService
+from schemas.video_deconstruction import ImportedVideoDto, VideoStageDto
+from services.task_manager import TaskInfo, TaskManager, task_manager as default_task_manager
+from services.ws_manager import ws_manager
 
-log = logging.getLogger(__name__)
+
+@dataclass(frozen=True, slots=True)
+class _StageDefinition:
+    stage_id: str
+    label: str
+    rerunnable: bool
+
+
+_STAGES = (
+    _StageDefinition('import', '导入', False),
+    _StageDefinition('transcribe', '转写', True),
+    _StageDefinition('segment', '切段', True),
+    _StageDefinition('extract_structure', '结构抽取', True),
+)
 
 
 class VideoDeconstructionService:
@@ -32,257 +36,155 @@ class VideoDeconstructionService:
         self,
         *,
         imported_video_repository: ImportedVideoRepository,
-        repository: VideoDeconstructionRepository,
-        dashboard_service: DashboardService,
-        script_repository: ScriptRepository,
+        stage_repository: VideoDeconstructionRepository,
+        task_manager: TaskManager | None = None,
     ) -> None:
         self._imported_video_repository = imported_video_repository
-        self._repository = repository
-        self._dashboard_service = dashboard_service
-        self._script_repository = script_repository
+        self._stage_repository = stage_repository
+        self._task_manager = task_manager or default_task_manager
 
-    def start_transcription(self, video_id: str) -> VideoTranscriptDto:
-        self._require_video(video_id)
-        transcript = VideoTranscript(
-            id=generate_uuid(),
-            imported_video_id=video_id,
-            language="zh-CN",
-            text=None,
-            status="pending_provider",
-        )
-        try:
-            saved = self._repository.save_transcript(transcript)
-        except Exception as exc:
-            log.exception("创建视频转写记录失败")
-            raise HTTPException(status_code=500, detail="创建视频转写记录失败") from exc
-        return self._to_transcript_dto(saved)
+    def get_stages(self, video_id: str) -> list[VideoStageDto]:
+        video = self._get_video(video_id)
+        stage_runs = {item.stage_id: item for item in self._stage_repository.list_stage_runs(video_id)}
+        return [
+            self._build_stage_dto(video, stage_definition, stage_runs.get(stage_definition.stage_id))
+            for stage_definition in _STAGES
+        ]
 
-    def get_transcript(self, video_id: str) -> VideoTranscriptDto:
-        self._require_video(video_id)
-        try:
-            transcript = self._repository.get_transcript(video_id)
-        except Exception as exc:
-            log.exception("查询视频转写结果失败")
-            raise HTTPException(status_code=500, detail="查询视频转写结果失败") from exc
-        if transcript is None:
-            raise HTTPException(status_code=404, detail="视频转写结果不存在")
-        return self._to_transcript_dto(transcript)
+    def rerun_stage(self, video_id: str, stage_id: str, *, request_id: str | None = None) -> TaskInfo:
+        stage_definition = self._get_stage_definition(stage_id)
+        if not stage_definition.rerunnable:
+            raise HTTPException(status_code=400, detail='当前阶段不能重跑。')
 
-    def run_segmentation(self, video_id: str) -> list[VideoSegmentDto]:
-        video = self._require_video(video_id)
-        total_ms = max(int((video.duration_seconds or 30) * 1000), 1_000)
-        size_ms = 30_000
-        segment_count = max(1, (total_ms + size_ms - 1) // size_ms)
-        segments: list[VideoSegment] = []
-        for index in range(segment_count):
-            start_ms = index * size_ms
-            end_ms = min(total_ms, start_ms + size_ms)
-            segments.append(
-                VideoSegment(
-                    id=str(uuid4()),
-                    imported_video_id=video_id,
-                    segment_index=index,
-                    start_ms=start_ms,
-                    end_ms=end_ms,
-                    label=_segment_label(index),
-                    transcript_text=None,
-                    metadata_json=None,
+        video = self._get_video(video_id)
+
+        async def _run_stage(progress_callback):
+            await self._emit_stage_event('video.import.stage.started', video_id, stage_id, started_at=_utc_now())
+            self._stage_repository.upsert_stage_run(
+                video_id,
+                stage_id,
+                status='running',
+                progress_pct=0,
+                result_summary=None,
+                error_message=None,
+            )
+            try:
+                await progress_callback(15, f'正在重跑 {stage_definition.label} 阶段')
+                if not Path(video.file_path).is_file():
+                    raise FileNotFoundError(f'视频文件不存在：{video.file_path}')
+
+                await progress_callback(55, f'正在处理 {stage_definition.label} 阶段')
+                summary = f'已完成 {stage_definition.label} 阶段重跑'
+                self._stage_repository.upsert_stage_run(
+                    video_id,
+                    stage_id,
+                    status='succeeded',
+                    progress_pct=100,
+                    result_summary=summary,
+                    error_message=None,
                 )
+                await progress_callback(100, summary)
+                await self._emit_stage_event(
+                    'video.import.stage.completed',
+                    video_id,
+                    stage_id,
+                    result_summary=summary,
+                )
+            except Exception as exc:
+                error_message = str(exc) or '阶段重跑失败'
+                self._stage_repository.upsert_stage_run(
+                    video_id,
+                    stage_id,
+                    status='failed',
+                    progress_pct=0,
+                    result_summary=None,
+                    error_message=error_message,
+                )
+                await self._emit_stage_event(
+                    'video.import.stage.failed',
+                    video_id,
+                    stage_id,
+                    error_message=error_message,
+                )
+                raise
+
+        try:
+            task = self._task_manager.submit(
+                task_type='video-import-stage',
+                coro_factory=_run_stage,
+                project_id=video.project_id,
             )
-        try:
-            saved = self._repository.replace_segments(video_id, segments)
-        except Exception as exc:
-            log.exception("生成视频切段失败")
-            raise HTTPException(status_code=500, detail="生成视频切段失败") from exc
-        return [self._to_segment_dto(item) for item in saved]
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    def list_segments(self, video_id: str) -> list[VideoSegmentDto]:
-        self._require_video(video_id)
-        try:
-            segments = self._repository.list_segments(video_id)
-        except Exception as exc:
-            log.exception("查询视频切段失败")
-            raise HTTPException(status_code=500, detail="查询视频切段失败") from exc
-        return [self._to_segment_dto(item) for item in segments]
+        return task
 
-    def extract_structure(self, video_id: str) -> VideoStructureExtractionDto:
-        self._require_video(video_id)
-        try:
-            transcript = self._repository.get_transcript(video_id)
-            segments = self._repository.list_segments(video_id)
-        except Exception as exc:
-            log.exception("查询视频拆解依赖数据失败")
-            raise HTTPException(status_code=500, detail="查询视频拆解依赖数据失败") from exc
-        if not segments:
-            self.run_segmentation(video_id)
-            segments = self._repository.list_segments(video_id)
+    def _get_stage_definition(self, stage_id: str) -> _StageDefinition:
+        for stage in _STAGES:
+            if stage.stage_id == stage_id:
+                return stage
+        raise HTTPException(status_code=404, detail='阶段不存在。')
 
-        if transcript is None or not transcript.text:
-            structure = VideoStructureExtraction(
-                id=generate_uuid(),
-                imported_video_id=video_id,
-                status="pending_provider",
-                script_json=None,
-                storyboard_json=json.dumps(
-                    [
-                        {
-                            "sceneId": item.id,
-                            "title": item.label or f"segment-{item.segment_index}",
-                            "summary": f"{item.start_ms}-{item.end_ms}",
-                        }
-                        for item in segments
-                    ],
-                    ensure_ascii=False,
-                ),
-            )
-        else:
-            structure = VideoStructureExtraction(
-                id=generate_uuid(),
-                imported_video_id=video_id,
-                status="ready",
-                script_json=json.dumps(
-                    {
-                        "title": "视频拆解脚本草稿",
-                        "sections": [
-                            {
-                                "label": item.label or f"segment-{item.segment_index}",
-                                "startMs": item.start_ms,
-                                "endMs": item.end_ms,
-                                "text": transcript.text,
-                            }
-                            for item in segments
-                        ],
-                    },
-                    ensure_ascii=False,
-                ),
-                storyboard_json=json.dumps(
-                    [
-                        {
-                            "sceneId": item.id,
-                            "title": item.label or f"segment-{item.segment_index}",
-                            "summary": transcript.text,
-                        }
-                        for item in segments
-                    ],
-                    ensure_ascii=False,
-                ),
-            )
-        try:
-            saved = self._repository.save_structure(structure)
-        except Exception as exc:
-            log.exception("生成视频结构提取失败")
-            raise HTTPException(status_code=500, detail="生成视频结构提取失败") from exc
-        return self._to_structure_dto(saved)
-
-    def get_structure(self, video_id: str) -> VideoStructureExtractionDto:
-        self._require_video(video_id)
-        try:
-            structure = self._repository.get_structure_by_video(video_id)
-        except Exception as exc:
-            log.exception("查询视频结构提取失败")
-            raise HTTPException(status_code=500, detail="查询视频结构提取失败") from exc
-        if structure is None:
-            raise HTTPException(status_code=404, detail="视频结构提取结果不存在")
-        return self._to_structure_dto(structure)
-
-    def apply_to_project(self, extraction_id: str) -> ApplyVideoExtractionResultDto:
-        try:
-            extraction = self._repository.get_structure(extraction_id)
-        except Exception as exc:
-            log.exception("查询视频结构提取详情失败")
-            raise HTTPException(status_code=500, detail="查询视频结构提取详情失败") from exc
-        if extraction is None:
-            raise HTTPException(status_code=404, detail="视频结构提取结果不存在")
-        if extraction.status != "ready" or not extraction.script_json:
-            raise HTTPException(status_code=409, detail="请先完成转写和结构提取，再回流到项目。")
-
-        video = self._require_video(extraction.imported_video_id)
-        self._dashboard_service.require_project(video.project_id)
-        script_content = _structure_json_to_script(extraction.script_json)
-        stored = self._script_repository.save_version(
-            video.project_id,
-            source="video_extraction",
-            content=script_content,
-        )
-        self._dashboard_service.update_project_versions(
-            video.project_id,
-            current_script_version=stored.revision,
-        )
-        return ApplyVideoExtractionResultDto(
-            projectId=video.project_id,
-            extractionId=extraction_id,
-            scriptRevision=stored.revision,
-            status="applied",
-            message="视频拆解结果已回流到脚本。",
-        )
-
-    def _require_video(self, video_id: str):
+    def _get_video(self, video_id: str):
         video = self._imported_video_repository.get(video_id)
         if video is None:
-            raise HTTPException(status_code=404, detail="视频记录不存在")
+            raise HTTPException(status_code=404, detail='视频记录不存在。')
         return video
 
-    def _to_transcript_dto(self, transcript: VideoTranscript) -> VideoTranscriptDto:
-        return VideoTranscriptDto(
-            id=transcript.id,
-            videoId=transcript.imported_video_id,
-            language=transcript.language,
-            text=transcript.text,
-            status=transcript.status,
-            createdAt=transcript.created_at,
-            updatedAt=transcript.updated_at,
-        )
-
-    def _to_segment_dto(self, segment: VideoSegment) -> VideoSegmentDto:
-        return VideoSegmentDto(
-            id=segment.id,
-            videoId=segment.imported_video_id,
-            segmentIndex=segment.segment_index,
-            startMs=segment.start_ms,
-            endMs=segment.end_ms,
-            label=segment.label,
-            transcriptText=segment.transcript_text,
-            metadataJson=segment.metadata_json,
-            createdAt=segment.created_at,
-        )
-
-    def _to_structure_dto(
+    def _build_stage_dto(
         self,
-        structure: VideoStructureExtraction,
-    ) -> VideoStructureExtractionDto:
-        return VideoStructureExtractionDto(
-            id=structure.id,
-            videoId=structure.imported_video_id,
-            status=structure.status,
-            scriptJson=structure.script_json,
-            storyboardJson=structure.storyboard_json,
-            createdAt=structure.created_at,
-            updatedAt=structure.updated_at,
+        video,
+        stage_definition: _StageDefinition,
+        stored: StoredVideoStageRun | None,
+    ) -> VideoStageDto:
+        if stage_definition.stage_id == 'import':
+            status, progress_pct, result_summary, error_message, updated_at = _import_stage_state(video)
+        elif stored is None:
+            status, progress_pct, result_summary, error_message, updated_at = (
+                'pending',
+                0,
+                None,
+                None,
+                None,
+            )
+        else:
+            status = stored.status
+            progress_pct = stored.progress_pct
+            result_summary = stored.result_summary
+            error_message = stored.error_message
+            updated_at = stored.updated_at
+
+        return VideoStageDto(
+            stageId=stage_definition.stage_id,
+            label=stage_definition.label,
+            status=status,
+            progressPct=progress_pct,
+            resultSummary=result_summary,
+            errorMessage=error_message,
+            updatedAt=updated_at,
+            canRerun=stage_definition.rerunnable,
         )
 
+    async def _emit_stage_event(self, event_type: str, video_id: str, stage_id: str, **payload: object) -> None:
+        message = {
+            'type': event_type,
+            'videoId': video_id,
+            'stage': stage_id,
+            **payload,
+        }
+        await ws_manager.broadcast(message)
 
-def _segment_label(index: int) -> str:
-    if index == 0:
-        return "intro"
-    if index == 1:
-        return "main"
-    if index == 2:
-        return "cta"
-    return "outro"
+
+def _import_stage_state(video) -> tuple[str, int, str | None, str | None, str]:
+    if video.status == 'error':
+        return 'failed', 0, None, video.error_message, video.created_at
+    if video.status in {'ready', 'imported'}:
+        summary = video.error_message or f'已导入 {video.file_name}'
+        return 'succeeded', 100, summary, None, video.created_at
+    return 'running', 50, None, None, video.created_at
 
 
-def _structure_json_to_script(script_json: str) -> str:
-    try:
-        payload = json.loads(script_json)
-    except json.JSONDecodeError:
-        return script_json
-    title = payload.get("title", "视频拆解脚本")
-    sections = payload.get("sections", [])
-    lines = [str(title)]
-    for item in sections:
-        if not isinstance(item, dict):
-            continue
-        label = item.get("label", "segment")
-        text = item.get("text", "")
-        lines.append(f"\n## {label}\n{text}")
-    return "\n".join(lines).strip()
+def _utc_now() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat().replace('+00:00', 'Z')

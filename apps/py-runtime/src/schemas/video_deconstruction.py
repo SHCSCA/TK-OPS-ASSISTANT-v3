@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from pydantic import BaseModel
 
 
@@ -25,41 +23,12 @@ class ImportedVideoDto(BaseModel):
     createdAt: str
 
 
-class VideoTranscriptDto(BaseModel):
-    id: str
-    videoId: str
-    language: str | None = None
-    text: str | None = None
+class VideoStageDto(BaseModel):
+    stageId: str
+    label: str
     status: str
-    createdAt: datetime
-    updatedAt: datetime
-
-
-class VideoSegmentDto(BaseModel):
-    id: str
-    videoId: str
-    segmentIndex: int
-    startMs: int
-    endMs: int
-    label: str | None = None
-    transcriptText: str | None = None
-    metadataJson: str | None = None
-    createdAt: datetime
-
-
-class VideoStructureExtractionDto(BaseModel):
-    id: str
-    videoId: str
-    status: str
-    scriptJson: str | None = None
-    storyboardJson: str | None = None
-    createdAt: datetime
-    updatedAt: datetime
-
-
-class ApplyVideoExtractionResultDto(BaseModel):
-    projectId: str
-    extractionId: str
-    scriptRevision: int
-    status: str
-    message: str
+    progressPct: int
+    resultSummary: str | None = None
+    errorMessage: str | None = None
+    updatedAt: str | None = None
+    canRerun: bool

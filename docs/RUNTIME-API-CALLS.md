@@ -1,3 +1,5 @@
+> ?????2026-04-17??????? `codex/backend-requirements-2026-04-17` ????????????????????????????
+
 # Runtime API 与前端调用真源
 
 **当前状态（2026-04-17）**: Runtime 已覆盖 `search / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。

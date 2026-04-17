@@ -109,11 +109,17 @@ import { computed, onMounted, watch } from "vue";
 
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
 import { useProjectStore } from "@/stores/project";
+import { useTaskBusStore } from "@/stores/task-bus";
 import { useVideoImportStore } from "@/stores/video-import";
 import type { TaskInfo } from "@/types/task-events";
 
 const projectStore = useProjectStore();
+const taskBusStore = useTaskBusStore();
 const videoImportStore = useVideoImportStore();
+const taskBusSnapshot = computed(() => ({
+  tasks: new Map(taskBusStore.tasks),
+  lastEvents: new Map(taskBusStore.lastEvents)
+}));
 
 const currentProjectId = computed(() => projectStore.currentProject?.projectId ?? "");
 const videoErrorSummary = computed(() => {
@@ -187,6 +193,12 @@ function getResolutionStyle(width: number | null): any {
 }
 
 function taskForVideo(videoId: string): TaskInfo | undefined {
+  const directTask = taskBusSnapshot.value.tasks.get(videoId);
+  if (directTask) {
+    return directTask;
+  }
+
+  taskBusSnapshot.value.lastEvents.get(videoId);
   return videoImportStore.taskForVideo(videoId);
 }
 

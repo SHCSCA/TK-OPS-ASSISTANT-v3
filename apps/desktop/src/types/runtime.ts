@@ -389,6 +389,46 @@ export type ScriptDocument = {
   recentJobs: AIJobRecord[];
 };
 
+export type ScriptTitleVariantDto = {
+  id: string;
+  title: string;
+  adopted: boolean;
+};
+
+export type ScriptTitleVariantsInput = {
+  topic: string;
+  count: number;
+};
+
+export type ScriptSegmentRewriteInput = {
+  instructions: string;
+};
+
+export type ScriptSegmentDto = {
+  id: string;
+  segmentId: string;
+  title: string;
+  content: string;
+};
+
+export type PromptTemplateInput = {
+  kind: string;
+  name: string;
+  template: string;
+};
+
+export type PromptTemplateUpdateInput = Partial<PromptTemplateInput>;
+
+export type PromptTemplateDto = {
+  id: string;
+  kind: string;
+  name: string;
+  template: string;
+  variables: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type StoryboardScene = {
   sceneId: string;
   title: string;
@@ -413,6 +453,28 @@ export type StoryboardDocument = {
   currentVersion: StoryboardVersion | null;
   versions: StoryboardVersion[];
   recentJobs: AIJobRecord[];
+};
+
+export type StoryboardShotInput = {
+  title: string;
+  summary: string;
+  visualPrompt: string;
+};
+
+export type StoryboardShotUpdateInput = Partial<StoryboardShotInput>;
+
+export type StoryboardShotDto = {
+  id: string;
+  title: string;
+  summary: string;
+  visualPrompt: string;
+  orderIndex: number;
+};
+
+export type StoryboardTemplateDto = {
+  id: string;
+  name: string;
+  sceneCount: number;
 };
 
 export type WorkspaceTimelineTrackKind = "video" | "audio" | "subtitle";
@@ -457,6 +519,32 @@ export type WorkspaceTimelineResultDto = {
   message: string;
 };
 
+export type WorkspaceClipDetailDto = WorkspaceTimelineClipDto;
+
+export type MoveWorkspaceClipInput = {
+  targetTrackId: string;
+  startMs: number;
+};
+
+export type TrimWorkspaceClipInput = {
+  inPointMs: number;
+  durationMs: number;
+};
+
+export type ReplaceWorkspaceClipInput = {
+  assetId: string;
+};
+
+export type TimelinePreviewDto = {
+  status: string;
+  previewUrl: string | null;
+};
+
+export type TimelinePrecheckDto = {
+  status: string;
+  issues: Array<Record<string, unknown>>;
+};
+
 export type WorkspaceTimelineCreateInput = {
   name?: string;
 };
@@ -491,6 +579,8 @@ export type VoiceProfileDto = {
   enabled: boolean;
 };
 
+export type VoiceProfileInput = Omit<VoiceProfileDto, "id">;
+
 export type VoiceTrackSegmentDto = {
   segmentIndex: number;
   text: string;
@@ -524,6 +614,15 @@ export type VoiceTrackGenerateResultDto = {
   track: VoiceTrackDto;
   task: TaskInfo | null;
   message: string;
+};
+
+export type VoiceSegmentRegenerateInput = {
+  instructions: string;
+};
+
+export type VoiceWaveformDto = {
+  trackId: string;
+  samples: number[];
 };
 
 export type SubtitleTrackStatus = "blocked" | "ready" | "error" | "aligning";
@@ -572,6 +671,25 @@ export type SubtitleTrackGenerateResultDto = {
   track: SubtitleTrackDto;
   task: TaskInfo | null;
   message: string;
+};
+
+export type SubtitleManualAlignInput = {
+  segments: Array<{
+    segmentIndex: number;
+    startMs: number;
+    endMs: number;
+  }>;
+};
+
+export type SubtitleStyleTemplateDto = {
+  id: string;
+  name: string;
+};
+
+export type SubtitleExportDto = {
+  trackId: string;
+  format: string;
+  filePath: string;
 };
 
 export type AssetDto = {
@@ -624,6 +742,28 @@ export type AssetReferenceDto = {
   createdAt: string;
 };
 
+export type AssetGroupDto = {
+  id: string;
+  name: string;
+  parentId: string | null;
+};
+
+export type AssetGroupInput = {
+  name: string;
+  parentId: string | null;
+};
+
+export type AssetGroupUpdateInput = Partial<AssetGroupInput>;
+
+export type AssetBatchDeleteResultDto = {
+  deletedIds: string[];
+};
+
+export type AssetBatchMoveResultDto = {
+  movedIds: string[];
+  groupId: string;
+};
+
 export type AccountDto = {
   id: string;
   name: string;
@@ -654,6 +794,19 @@ export type AccountCreateInput = {
   platform: string;
   username?: string;
   avatarUrl?: string;
+  status: string;
+};
+
+export type AccountBindingInput = {
+  deviceWorkspaceId: string;
+  browserInstanceId?: string | null;
+};
+
+export type AccountBindingDto = {
+  id: string;
+  accountId: string;
+  deviceWorkspaceId: string;
+  browserInstanceId: string | null;
   status: string;
 };
 
@@ -840,6 +993,11 @@ export type PublishReceiptDto = {
   created_at: string;
 };
 
+export type PublishingCalendarDayDto = {
+  date: string;
+  plans: number;
+};
+
 export type RenderTaskCreateInput = {
   project_id?: string | null;
   project_name?: string | null;
@@ -902,6 +1060,18 @@ export type ExportProfileDto = {
   is_default: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type RenderTemplateDto = {
+  id: string;
+  name: string;
+};
+
+export type RenderResourceUsageDto = {
+  cpuPct: number;
+  memoryPct: number;
+  gpuPct: number | null;
+  diskFreeBytes: number;
 };
 
 export type ReviewSuggestion = {
@@ -999,6 +1169,12 @@ export type VideoStructureExtractionDto = {
   storyboardJson: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type VideoStageDto = {
+  stage: string;
+  status: string;
+  progressPct: number;
 };
 
 export type ApplyVideoExtractionResultDto = {

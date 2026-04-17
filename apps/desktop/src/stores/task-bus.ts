@@ -6,6 +6,7 @@ type TaskEventCallback = (event: TaskEvent) => void;
 
 type TaskBusState = {
   tasks: Map<string, TaskInfo>;
+  lastEvents: Map<string, TaskEvent>;
   connected: boolean;
   _socket: WebSocket | null;
   _subscribers: Map<string, Set<TaskEventCallback>>;
@@ -31,23 +32,123 @@ function resolveWebSocketUrl(): string {
   return url.toString();
 }
 
-function isTaskEvent(value: unknown): value is TaskEvent {
+function isRuntimeEvent(value: unknown): value is TaskEvent {
   if (!value || typeof value !== "object") {
     return false;
   }
 
   const event = value as Partial<TaskEvent>;
-  return (
-    typeof event.type === "string" &&
-    event.type.startsWith("task.") &&
-    typeof event.taskId === "string" &&
-    typeof event.taskType === "string"
-  );
+  return typeof event.schema_version === "number" && typeof event.type === "string";
+}
+
+function inferTaskStatus(event: TaskEvent, existing: TaskInfo | undefined): TaskInfo["status"] {
+  if (event.status) {
+    return event.status;
+  }
+
+  switch (event.type) {
+    case "task.started":
+      return "running";
+    case "task.completed":
+      return "succeeded";
+    case "task.failed":
+      return "failed";
+    case "render.progress":
+      return "running";
+    default:
+      return existing?.status ?? "queued";
+  }
+}
+
+function inferTaskType(event: TaskEvent, existing: TaskInfo | undefined): string {
+  if (event.taskType) {
+    return event.taskType;
+  }
+  if (existing?.task_type) {
+    return existing.task_type;
+  }
+  return event.type.split(".")[0] || "generic";
+}
+
+function inferTaskProgress(event: TaskEvent, existing: TaskInfo | undefined): number {
+  if (typeof event.progressPct === "number") {
+    return event.progressPct;
+  }
+  if (typeof event.progress === "number") {
+    return event.progress;
+  }
+  if (event.type === "task.completed") {
+    return 100;
+  }
+  return existing?.progress ?? 0;
+}
+
+function collectEventKeys(event: TaskEvent): string[] {
+  const keys = new Set<string>();
+  const candidates = [
+    event.taskId,
+    event.videoId,
+    event.jobId,
+    event.trackId,
+    event.accountId,
+    event.workspaceId,
+    event.planId,
+    event.projectId
+  ];
+
+  candidates.forEach((candidate) => {
+    if (typeof candidate === "string" && candidate.length > 0) {
+      keys.add(candidate);
+    }
+  });
+
+  return [...keys];
+}
+
+function buildTaskInfo(event: TaskEvent, existing: TaskInfo | undefined): TaskInfo | null {
+  if (typeof event.taskId !== "string" || event.taskId.length === 0) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const progress = inferTaskProgress(event, existing);
+  const taskType = inferTaskType(event, existing);
+  const status = inferTaskStatus(event, existing);
+  const message =
+    event.message ??
+    existing?.message ??
+    (event.type === "render.progress" ? "任务处理中" : taskType);
+
+  return {
+    ...existing,
+    id: event.taskId,
+    kind: taskType,
+    label: existing?.label ?? message,
+    status,
+    progress,
+    progressPct: progress,
+    startedAt: existing?.startedAt ?? null,
+    finishedAt: existing?.finishedAt ?? null,
+    etaMs: existing?.etaMs ?? null,
+    projectId: event.projectId ?? existing?.projectId ?? null,
+    ownerRef: existing?.ownerRef ?? null,
+    errorCode: event.errorCode ?? existing?.errorCode ?? null,
+    errorMessage: event.errorMessage ?? existing?.errorMessage ?? null,
+    retryable: existing?.retryable ?? false,
+    createdAt: existing?.createdAt ?? existing?.created_at ?? now,
+    updatedAt: now,
+    task_type: taskType,
+    project_id: event.projectId ?? existing?.project_id ?? null,
+    message,
+    created_at: existing?.created_at ?? existing?.createdAt ?? now,
+    updated_at: now
+  };
 }
 
 export const useTaskBusStore = defineStore("task-bus", {
   state: (): TaskBusState => ({
     tasks: new Map<string, TaskInfo>(),
+    lastEvents: new Map<string, TaskEvent>(),
     connected: false,
     _socket: null,
     _subscribers: new Map<string, Set<TaskEventCallback>>(),
@@ -109,50 +210,54 @@ export const useTaskBusStore = defineStore("task-bus", {
       }
     },
 
-    subscribe(taskId: string, callback: TaskEventCallback): () => void {
-      const subscribers = this._subscribers.get(taskId) ?? new Set<TaskEventCallback>();
+    subscribe(key: string, callback: TaskEventCallback): () => void {
+      const subscribers = this._subscribers.get(key) ?? new Set<TaskEventCallback>();
       subscribers.add(callback);
-      this._subscribers.set(taskId, subscribers);
+      this._subscribers.set(key, subscribers);
 
       return () => {
-        this.unsubscribe(taskId, callback);
+        this.unsubscribe(key, callback);
       };
     },
 
-    unsubscribe(taskId: string, callback: TaskEventCallback): void {
-      const subscribers = this._subscribers.get(taskId);
+    unsubscribe(key: string, callback: TaskEventCallback): void {
+      const subscribers = this._subscribers.get(key);
       if (!subscribers) {
         return;
       }
 
       subscribers.delete(callback);
       if (subscribers.size === 0) {
-        this._subscribers.delete(taskId);
+        this._subscribers.delete(key);
       }
     },
 
     _handleMessage(data: string): void {
       try {
         const parsed = JSON.parse(data) as unknown;
-        if (!isTaskEvent(parsed)) {
+        if (!isRuntimeEvent(parsed)) {
           return;
         }
 
-        const now = new Date().toISOString();
-        const existing = this.tasks.get(parsed.taskId);
-        this.tasks.set(parsed.taskId, {
-          id: parsed.taskId,
-          task_type: parsed.taskType,
-          project_id: parsed.projectId,
-          status: parsed.status,
-          progress: parsed.progress,
-          message: parsed.message,
-          created_at: existing?.created_at ?? now,
-          updated_at: now
+        const event = parsed as TaskEvent;
+        const keys = collectEventKeys(event);
+
+        keys.forEach((key) => {
+          this.lastEvents.set(key, event);
         });
 
-        const subscribers = this._subscribers.get(parsed.taskId);
-        subscribers?.forEach((callback) => callback(parsed));
+        const nextTask = buildTaskInfo(
+          event,
+          typeof event.taskId === "string" ? this.tasks.get(event.taskId) : undefined
+        );
+        if (nextTask) {
+          this.tasks.set(nextTask.id, nextTask);
+        }
+
+        keys.forEach((key) => {
+          const subscribers = this._subscribers.get(key);
+          subscribers?.forEach((callback) => callback(event));
+        });
       } catch (error) {
         console.error("解析任务 WebSocket 消息失败:", error);
       }

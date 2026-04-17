@@ -39,12 +39,12 @@ class PublishReceipt(Base):
         String,
         ForeignKey("publish_plans.id", ondelete="CASCADE"),
         nullable=False,
-        unique=True,
     )
-    status: Mapped[str] = mapped_column(String, nullable=False, default="manual_required")
-    external_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    platform_response_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now()
     )

@@ -45,6 +45,31 @@ class SubtitleTrackUpdateInput(BaseModel):
     style: SubtitleStyleDto
 
 
+class SubtitleTrackAlignInput(BaseModel):
+    segments: list[SubtitleSegmentDto]
+
+
+class SubtitleStyleTemplateDto(BaseModel):
+    id: str
+    name: str
+    description: str
+    style: SubtitleStyleDto
+
+
+class SubtitleExportInput(BaseModel):
+    format: Literal["srt", "vtt", "ass"] = "srt"
+
+
+class SubtitleExportDto(BaseModel):
+    trackId: str
+    format: Literal["srt", "vtt", "ass"]
+    fileName: str
+    content: str
+    lineCount: int
+    status: str
+    message: str
+
+
 class SubtitleTrackGenerateResultDto(BaseModel):
     track: SubtitleTrackDto
     task: dict[str, object] | None = None

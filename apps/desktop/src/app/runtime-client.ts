@@ -26,26 +26,56 @@ import type {
   RuntimeHealthSnapshot,
   RuntimeSelfCheckReport,
   ScriptDocument,
+  ScriptSegmentDto,
+  ScriptSegmentRewriteInput,
+  ScriptTitleVariantDto,
+  ScriptTitleVariantsInput,
   StoryboardDocument,
   StoryboardScene,
+  StoryboardShotDto,
+  StoryboardShotInput,
+  StoryboardShotUpdateInput,
+  StoryboardTemplateDto,
+  SubtitleExportDto,
   WorkspaceAICommandInput,
   WorkspaceAICommandResultDto,
+  WorkspaceClipDetailDto,
+  MoveWorkspaceClipInput,
+  ReplaceWorkspaceClipInput,
+  TimelinePreviewDto,
+  TimelinePrecheckDto,
+  TrimWorkspaceClipInput,
   WorkspaceTimelineCreateInput,
   WorkspaceTimelineResultDto,
   WorkspaceTimelineUpdateInput,
+  PromptTemplateDto,
+  PromptTemplateInput,
+  PromptTemplateUpdateInput,
   SubtitleTrackDto,
   SubtitleTrackGenerateInput,
   SubtitleTrackGenerateResultDto,
+  SubtitleManualAlignInput,
+  SubtitleStyleTemplateDto,
   SubtitleTrackUpdateInput,
   VoiceProfileDto,
+  VoiceProfileInput,
+  VoiceSegmentRegenerateInput,
   VoiceTrackDto,
   VoiceTrackGenerateInput,
   VoiceTrackGenerateResultDto,
+  VoiceWaveformDto,
   AssetDeleteResult,
   AssetDto,
+  AssetBatchDeleteResultDto,
+  AssetBatchMoveResultDto,
+  AssetGroupDto,
+  AssetGroupInput,
+  AssetGroupUpdateInput,
   AssetImportInput,
   AssetReferenceDto,
   AssetUpdateInput,
+  AccountBindingDto,
+  AccountBindingInput,
   AccountDto,
   AccountGroupDto,
   AccountCreateInput,
@@ -72,17 +102,21 @@ import type {
   PublishPlanDto,
   PublishReceiptDto,
   PublishPlanUpdateInput,
+  PublishingCalendarDayDto,
   PrecheckResultDto,
   SubmitPlanResultDto,
   ReviewSuggestion,
   ReviewSuggestionUpdateInput,
   RenderTaskCreateInput,
   RenderTaskDto,
+  RenderTemplateDto,
+  RenderResourceUsageDto,
   RenderTaskUpdateInput,
   CancelRenderResultDto,
   ReviewSummaryDto,
   ReviewSummaryUpdateInput,
   AnalyzeProjectResultDto,
+  VideoStageDto,
   VideoSegmentDto,
   VideoStructureExtractionDto,
   VideoTranscriptDto
@@ -322,6 +356,85 @@ export async function rewriteScriptDocument(
   });
 }
 
+export async function generateScriptTitleVariants(
+  projectId: string,
+  input: ScriptTitleVariantsInput
+): Promise<ScriptTitleVariantDto[]> {
+  return requestRuntime<ScriptTitleVariantDto[]>(
+    `/api/scripts/projects/${projectId}/title-variants`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
+}
+
+export async function listScriptVersions(projectId: string): Promise<ScriptDocument["versions"]> {
+  return requestRuntime<ScriptDocument["versions"]>(`/api/scripts/projects/${projectId}/versions`);
+}
+
+export async function restoreScriptVersion(
+  projectId: string,
+  versionId: string
+): Promise<ScriptDocument> {
+  return requestRuntime<ScriptDocument>(
+    `/api/scripts/projects/${projectId}/restore/${versionId}`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function rewriteScriptSegment(
+  projectId: string,
+  segmentId: string,
+  input: ScriptSegmentRewriteInput
+): Promise<ScriptSegmentDto> {
+  return requestRuntime<ScriptSegmentDto>(
+    `/api/scripts/projects/${projectId}/segments/${segmentId}/rewrite`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
+}
+
+export async function listPromptTemplates(kind?: string): Promise<PromptTemplateDto[]> {
+  const params = new URLSearchParams();
+  if (kind) {
+    params.append("kind", kind);
+  }
+  const query = params.toString();
+  return requestRuntime<PromptTemplateDto[]>(
+    `/api/prompt-templates${query ? `?${query}` : ""}`
+  );
+}
+
+export async function createPromptTemplate(
+  input: PromptTemplateInput
+): Promise<PromptTemplateDto> {
+  return requestRuntime<PromptTemplateDto>("/api/prompt-templates", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function updatePromptTemplate(
+  templateId: string,
+  input: PromptTemplateUpdateInput
+): Promise<PromptTemplateDto> {
+  return requestRuntime<PromptTemplateDto>(`/api/prompt-templates/${templateId}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function deletePromptTemplate(templateId: string): Promise<void> {
+  return requestRuntime<void>(`/api/prompt-templates/${templateId}`, {
+    method: "DELETE"
+  });
+}
+
 export async function fetchStoryboardDocument(projectId: string): Promise<StoryboardDocument> {
   return requestRuntime<StoryboardDocument>(`/api/storyboards/projects/${projectId}/document`);
 }
@@ -343,7 +456,100 @@ export async function generateStoryboardDocument(projectId: string): Promise<Sto
   });
 }
 
+export async function createStoryboardShot(
+  projectId: string,
+  input: StoryboardShotInput
+): Promise<StoryboardShotDto> {
+  return requestRuntime<StoryboardShotDto>(`/api/storyboards/projects/${projectId}/shots`, {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function updateStoryboardShot(
+  projectId: string,
+  shotId: string,
+  input: StoryboardShotUpdateInput
+): Promise<StoryboardShotDto> {
+  return requestRuntime<StoryboardShotDto>(
+    `/api/storyboards/projects/${projectId}/shots/${shotId}`,
+    {
+      body: JSON.stringify(input),
+      method: "PATCH"
+    }
+  );
+}
+
+export async function deleteStoryboardShot(projectId: string, shotId: string): Promise<void> {
+  return requestRuntime<void>(`/api/storyboards/projects/${projectId}/shots/${shotId}`, {
+    method: "DELETE"
+  });
+}
+
+export async function listStoryboardTemplates(): Promise<StoryboardTemplateDto[]> {
+  return requestRuntime<StoryboardTemplateDto[]>("/api/storyboards/templates");
+}
+
+export async function syncStoryboardFromScript(
+  projectId: string
+): Promise<StoryboardDocument> {
+  return requestRuntime<StoryboardDocument>(
+    `/api/storyboards/projects/${projectId}/sync-from-script`,
+    {
+      method: "POST"
+    }
+  );
+}
+
 // AI editing workspace
+export async function fetchWorkspaceClip(clipId: string): Promise<WorkspaceClipDetailDto> {
+  return requestRuntime<WorkspaceClipDetailDto>(`/api/workspace/clips/${clipId}`);
+}
+
+export async function moveWorkspaceClip(
+  clipId: string,
+  input: MoveWorkspaceClipInput
+): Promise<WorkspaceTimelineResultDto> {
+  return requestRuntime<WorkspaceTimelineResultDto>(`/api/workspace/clips/${clipId}/move`, {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function trimWorkspaceClip(
+  clipId: string,
+  input: TrimWorkspaceClipInput
+): Promise<WorkspaceTimelineResultDto> {
+  return requestRuntime<WorkspaceTimelineResultDto>(`/api/workspace/clips/${clipId}/trim`, {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function replaceWorkspaceClip(
+  clipId: string,
+  input: ReplaceWorkspaceClipInput
+): Promise<WorkspaceTimelineResultDto> {
+  return requestRuntime<WorkspaceTimelineResultDto>(`/api/workspace/clips/${clipId}/replace`, {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function fetchTimelinePreview(
+  timelineId: string
+): Promise<TimelinePreviewDto> {
+  return requestRuntime<TimelinePreviewDto>(`/api/workspace/timelines/${timelineId}/preview`);
+}
+
+export async function precheckTimeline(
+  timelineId: string
+): Promise<TimelinePrecheckDto> {
+  return requestRuntime<TimelinePrecheckDto>(`/api/workspace/timelines/${timelineId}/precheck`, {
+    method: "POST"
+  });
+}
+
 export async function fetchWorkspaceTimeline(
   projectId: string
 ): Promise<WorkspaceTimelineResultDto> {
@@ -393,6 +599,15 @@ export async function fetchVoiceProfiles(): Promise<VoiceProfileDto[]> {
   return requestRuntime<VoiceProfileDto[]>("/api/voice/profiles");
 }
 
+export async function createVoiceProfile(
+  input: VoiceProfileInput
+): Promise<VoiceProfileDto> {
+  return requestRuntime<VoiceProfileDto>("/api/voice/profiles", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
 export async function fetchVoiceTracks(projectId: string): Promise<VoiceTrackDto[]> {
   return requestRuntime<VoiceTrackDto[]>(`/api/voice/projects/${projectId}/tracks`);
 }
@@ -412,6 +627,26 @@ export async function generateVoiceTrack(
 
 export async function fetchVoiceTrack(trackId: string): Promise<VoiceTrackDto> {
   return requestRuntime<VoiceTrackDto>(`/api/voice/tracks/${trackId}`);
+}
+
+export async function regenerateVoiceSegment(
+  trackId: string,
+  segmentId: string,
+  input: VoiceSegmentRegenerateInput
+): Promise<TaskInfo> {
+  return normalizeTaskInfo(
+    await requestRuntime<TaskInfo>(
+      `/api/voice/tracks/${trackId}/segments/${segmentId}/regenerate`,
+      {
+        body: JSON.stringify(input),
+        method: "POST"
+      }
+    )
+  );
+}
+
+export async function fetchVoiceWaveform(trackId: string): Promise<VoiceWaveformDto> {
+  return requestRuntime<VoiceWaveformDto>(`/api/voice/tracks/${trackId}/waveform`);
 }
 
 export async function deleteVoiceTrack(trackId: string): Promise<void> {
@@ -440,6 +675,30 @@ export async function generateSubtitleTrack(
 
 export async function fetchSubtitleTrack(trackId: string): Promise<SubtitleTrackDto> {
   return requestRuntime<SubtitleTrackDto>(`/api/subtitles/tracks/${trackId}`);
+}
+
+export async function alignSubtitleTrack(
+  trackId: string,
+  input: SubtitleManualAlignInput
+): Promise<SubtitleTrackDto> {
+  return requestRuntime<SubtitleTrackDto>(`/api/subtitles/tracks/${trackId}/align`, {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function listSubtitleStyleTemplates(): Promise<SubtitleStyleTemplateDto[]> {
+  return requestRuntime<SubtitleStyleTemplateDto[]>("/api/subtitles/style-templates");
+}
+
+export async function exportSubtitleTrack(
+  trackId: string,
+  format: string
+): Promise<SubtitleExportDto> {
+  return requestRuntime<SubtitleExportDto>(`/api/subtitles/tracks/${trackId}/export`, {
+    body: JSON.stringify({ format }),
+    method: "POST"
+  });
 }
 
 export async function updateSubtitleTrack(
@@ -517,6 +776,52 @@ export async function fetchAssetReferences(id: string): Promise<AssetReferenceDt
   return requestRuntime<AssetReferenceDto[]>(`/api/assets/${id}/references`);
 }
 
+export async function listAssetGroups(): Promise<AssetGroupDto[]> {
+  return requestRuntime<AssetGroupDto[]>("/api/assets/groups");
+}
+
+export async function createAssetGroup(input: AssetGroupInput): Promise<AssetGroupDto> {
+  return requestRuntime<AssetGroupDto>("/api/assets/groups", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function updateAssetGroup(
+  groupId: string,
+  input: AssetGroupUpdateInput
+): Promise<AssetGroupDto> {
+  return requestRuntime<AssetGroupDto>(`/api/assets/groups/${groupId}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function deleteAssetGroup(groupId: string): Promise<void> {
+  return requestRuntime<void>(`/api/assets/groups/${groupId}`, {
+    method: "DELETE"
+  });
+}
+
+export async function batchDeleteAssets(
+  assetIds: string[]
+): Promise<AssetBatchDeleteResultDto> {
+  return requestRuntime<AssetBatchDeleteResultDto>("/api/assets/batch-delete", {
+    body: JSON.stringify({ assetIds }),
+    method: "POST"
+  });
+}
+
+export async function batchMoveAssetsToGroup(
+  assetIds: string[],
+  groupId: string
+): Promise<AssetBatchMoveResultDto> {
+  return requestRuntime<AssetBatchMoveResultDto>("/api/assets/batch-move-group", {
+    body: JSON.stringify({ assetIds, groupId }),
+    method: "POST"
+  });
+}
+
 // Accounts
 export async function fetchAccounts(groupId?: string, status?: string, q?: string): Promise<AccountDto[]> {
   const params = new URLSearchParams();
@@ -553,6 +858,16 @@ export async function refreshAccountStats(id: string): Promise<void> {
 export async function runAccountStatusCheck(id: string): Promise<void> {
   return requestRuntime<void>(`/api/accounts/${id}/status-check`, {
     method: "POST"
+  });
+}
+
+export async function setAccountBinding(
+  accountId: string,
+  input: AccountBindingInput
+): Promise<AccountBindingDto> {
+  return requestRuntime<AccountBindingDto>(`/api/accounts/${accountId}/binding`, {
+    body: JSON.stringify(input),
+    method: "PUT"
   });
 }
 
@@ -623,6 +938,18 @@ export async function fetchAutomationRunLogs(id: string): Promise<AutomationTask
   return requestRuntime<AutomationTaskRunLogsDto>(`/api/automation/runs/${id}/logs`);
 }
 
+export async function pauseAutomationTask(id: string): Promise<AutomationTaskDto> {
+  return requestRuntime<AutomationTaskDto>(`/api/automation/tasks/${id}/pause`, {
+    method: "POST"
+  });
+}
+
+export async function resumeAutomationTask(id: string): Promise<AutomationTaskDto> {
+  return requestRuntime<AutomationTaskDto>(`/api/automation/tasks/${id}/resume`, {
+    method: "POST"
+  });
+}
+
 // Device workspaces
 export async function fetchDeviceWorkspaces(): Promise<DeviceWorkspaceDto[]> {
   return requestRuntime<DeviceWorkspaceDto[]>("/api/devices/workspaces");
@@ -661,6 +988,20 @@ export async function checkDeviceWorkspaceHealth(id: string): Promise<HealthChec
   return requestRuntime<HealthCheckResultDto>(`/api/devices/workspaces/${id}/health-check`, {
     method: "POST"
   });
+}
+
+export async function fetchWorkspaceLogs(
+  workspaceId: string,
+  cursor?: string
+): Promise<LogPageDto> {
+  const params = new URLSearchParams();
+  if (cursor) {
+    params.append("cursor", cursor);
+  }
+  const query = params.toString();
+  return requestRuntime<LogPageDto>(
+    `/api/devices/workspaces/${workspaceId}/logs${query ? `?${query}` : ""}`
+  );
 }
 
 export async function fetchBrowserInstances(
@@ -776,6 +1117,20 @@ export async function fetchPublishReceipt(id: string): Promise<PublishReceiptDto
   return requestRuntime<PublishReceiptDto>(`/api/publishing/plans/${id}/receipt`);
 }
 
+export async function fetchPublishingCalendar(
+  from: string,
+  to: string
+): Promise<PublishingCalendarDayDto[]> {
+  const params = new URLSearchParams({ from, to });
+  return requestRuntime<PublishingCalendarDayDto[]>(
+    `/api/publishing/calendar?${params.toString()}`
+  );
+}
+
+export async function fetchPublishReceipts(id: string): Promise<PublishReceiptDto[]> {
+  return requestRuntime<PublishReceiptDto[]>(`/api/publishing/plans/${id}/receipts`);
+}
+
 // Renders
 export async function fetchRenderTasks(status?: string): Promise<RenderTaskDto[]> {
   const params = new URLSearchParams();
@@ -836,6 +1191,14 @@ export async function retryRenderTask(id: string): Promise<RenderTaskDto> {
   });
 }
 
+export async function listRenderTemplates(): Promise<RenderTemplateDto[]> {
+  return requestRuntime<RenderTemplateDto[]>("/api/renders/templates");
+}
+
+export async function fetchRenderResourceUsage(): Promise<RenderResourceUsageDto> {
+  return requestRuntime<RenderResourceUsageDto>("/api/renders/resource-usage");
+}
+
 // Review
 export async function fetchReviewSummary(projectId: string): Promise<ReviewSummaryDto> {
   return requestRuntime<ReviewSummaryDto>(`/api/review/projects/${projectId}/summary`);
@@ -893,6 +1256,18 @@ export async function applyReviewSuggestionToScript(
   );
 }
 
+export async function adoptReviewSuggestion(
+  projectId: string,
+  suggestionId: string
+): Promise<DashboardSummary["recentProjects"][number]> {
+  return requestRuntime<DashboardSummary["recentProjects"][number]>(
+    `/api/review/projects/${projectId}/suggestions/${suggestionId}/adopt`,
+    {
+      method: "POST"
+    }
+  );
+}
+
 export async function startVideoTranscription(videoId: string): Promise<VideoTranscriptDto> {
   return requestRuntime<VideoTranscriptDto>(
     `/api/video-deconstruction/videos/${videoId}/transcribe`,
@@ -920,6 +1295,21 @@ export async function runVideoSegmentation(videoId: string): Promise<VideoSegmen
 export async function fetchVideoSegments(videoId: string): Promise<VideoSegmentDto[]> {
   return requestRuntime<VideoSegmentDto[]>(
     `/api/video-deconstruction/videos/${videoId}/segments`
+  );
+}
+
+export async function fetchVideoStages(videoId: string): Promise<VideoStageDto[]> {
+  return requestRuntime<VideoStageDto[]>(`/api/video-deconstruction/videos/${videoId}/stages`);
+}
+
+export async function rerunVideoStage(videoId: string, stageId: string): Promise<TaskInfo> {
+  return normalizeTaskInfo(
+    await requestRuntime<TaskInfo>(
+      `/api/video-deconstruction/videos/${videoId}/stages/${stageId}/rerun`,
+      {
+        method: "POST"
+      }
+    )
   );
 }
 

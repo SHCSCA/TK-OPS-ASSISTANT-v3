@@ -77,3 +77,21 @@ class AccountGroupDto(BaseModel):
 
 class AccountGroupMemberCreateInput(BaseModel):
     accountId: str
+
+
+class AccountBindingUpsertInput(BaseModel):
+    browserInstanceId: str
+    status: str = "active"
+    source: str | None = None
+    metadataJson: str | None = None
+
+
+class AccountBindingDto(BaseModel):
+    id: str
+    accountId: str
+    browserInstanceId: str
+    status: str
+    source: str | None = None
+    maskedMetadataJson: str | None = None
+    createdAt: str
+    updatedAt: str

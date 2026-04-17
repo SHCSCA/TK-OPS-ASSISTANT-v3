@@ -3,7 +3,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from schemas.envelope import ok_response
-from schemas.subtitles import SubtitleTrackGenerateInput, SubtitleTrackUpdateInput
+from schemas.subtitles import (
+    SubtitleExportInput,
+    SubtitleTrackAlignInput,
+    SubtitleTrackGenerateInput,
+    SubtitleTrackUpdateInput,
+)
 from services.subtitle_service import SubtitleService
 
 router = APIRouter(prefix="/api/subtitles", tags=["subtitles"])
@@ -27,6 +32,32 @@ def generate_track(
 ) -> dict[str, object]:
     result = _svc(request).generate_track(project_id, payload)
     return ok_response(result.model_dump(mode="json"))
+
+
+@router.get("/style-templates")
+def list_style_templates(request: Request) -> dict[str, object]:
+    templates = _svc(request).list_style_templates()
+    return ok_response([template.model_dump(mode="json") for template in templates])
+
+
+@router.post("/tracks/{track_id}/align")
+def align_track(
+    track_id: str,
+    payload: SubtitleTrackAlignInput,
+    request: Request,
+) -> dict[str, object]:
+    track = _svc(request).align_track(track_id, payload)
+    return ok_response(track.model_dump(mode="json"))
+
+
+@router.post("/tracks/{track_id}/export")
+def export_track(
+    track_id: str,
+    payload: SubtitleExportInput,
+    request: Request,
+) -> dict[str, object]:
+    export = _svc(request).export_track(track_id, payload)
+    return ok_response(export.model_dump(mode="json"))
 
 
 @router.get("/tracks/{track_id}")

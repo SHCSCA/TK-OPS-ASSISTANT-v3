@@ -3,7 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from schemas.envelope import ok_response
-from schemas.video_deconstruction import ImportVideoInput, ImportedVideoDto
+from schemas.video_deconstruction import (
+    ImportVideoInput,
+    ImportedVideoDto,
+    VideoStageDto,
+)
 from services.video_deconstruction_service import VideoDeconstructionService
 from services.video_import_service import VideoImportService
 
@@ -52,43 +56,30 @@ def delete_video(video_id: str, request: Request) -> dict[str, object]:
     return ok_response(None)
 
 
-@router.post("/videos/{video_id}/transcribe")
-def start_transcription(video_id: str, request: Request) -> dict[str, object]:
-    transcript = get_video_deconstruction_service(request).start_transcription(video_id)
-    return ok_response(transcript.model_dump(mode="json"))
+@router.get("/videos/{video_id}/stages")
+def list_video_stages(video_id: str, request: Request) -> dict[str, object]:
+    stages = get_video_deconstruction_service(request).get_stages(video_id)
+    return ok_response([stage.model_dump(mode="json") for stage in stages])
 
 
-@router.get("/videos/{video_id}/transcript")
-def get_transcript(video_id: str, request: Request) -> dict[str, object]:
-    transcript = get_video_deconstruction_service(request).get_transcript(video_id)
-    return ok_response(transcript.model_dump(mode="json"))
+@router.post("/videos/{video_id}/stages/{stage_id}/rerun")
+async def rerun_video_stage(video_id: str, stage_id: str, request: Request) -> dict[str, object]:
+    task = get_video_deconstruction_service(request).rerun_stage(
+        video_id,
+        stage_id,
+        request_id=getattr(request.state, "request_id", None),
+    )
+    return ok_response(_task_to_payload(task))
 
 
-@router.post("/videos/{video_id}/segment")
-def run_segmentation(video_id: str, request: Request) -> dict[str, object]:
-    segments = get_video_deconstruction_service(request).run_segmentation(video_id)
-    return ok_response([item.model_dump(mode="json") for item in segments])
-
-
-@router.get("/videos/{video_id}/segments")
-def list_segments(video_id: str, request: Request) -> dict[str, object]:
-    segments = get_video_deconstruction_service(request).list_segments(video_id)
-    return ok_response([item.model_dump(mode="json") for item in segments])
-
-
-@router.post("/videos/{video_id}/extract-structure")
-def extract_structure(video_id: str, request: Request) -> dict[str, object]:
-    extraction = get_video_deconstruction_service(request).extract_structure(video_id)
-    return ok_response(extraction.model_dump(mode="json"))
-
-
-@router.get("/videos/{video_id}/structure")
-def get_structure(video_id: str, request: Request) -> dict[str, object]:
-    extraction = get_video_deconstruction_service(request).get_structure(video_id)
-    return ok_response(extraction.model_dump(mode="json"))
-
-
-@router.post("/extractions/{extraction_id}/apply-to-project")
-def apply_to_project(extraction_id: str, request: Request) -> dict[str, object]:
-    result = get_video_deconstruction_service(request).apply_to_project(extraction_id)
-    return ok_response(result.model_dump(mode="json"))
+def _task_to_payload(task) -> dict[str, object]:
+    return {
+        "id": task.id,
+        "taskType": task.task_type,
+        "projectId": task.project_id,
+        "status": task.status,
+        "progress": task.progress,
+        "message": task.message,
+        "createdAt": task.created_at,
+        "updatedAt": task.updated_at,
+    }

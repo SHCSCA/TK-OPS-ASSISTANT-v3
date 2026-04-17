@@ -13,15 +13,13 @@ from domain.models import (
     Asset,
     AutomationTask,
     Base,
-    BrowserInstance,
     DeviceWorkspace,
     ExecutionBinding,
-    ExportProfile,
     LicenseGrant,
     ImportedVideo,
     Project,
+    PromptTemplate,
     PublishPlan,
-    PublishReceipt,
     RenderTask,
     ScriptVersion,
     SessionContext,
@@ -29,9 +27,7 @@ from domain.models import (
     StoryboardVersion,
     SystemConfig,
     Timeline,
-    VideoSegment,
-    VideoStructureExtraction,
-    VideoTranscript,
+    VideoStageRun,
     VoiceTrack,
     generate_uuid,
 )
@@ -55,6 +51,7 @@ def test_domain_models_match_existing_table_names() -> None:
     assert Project.__tablename__ == "projects"
     assert ScriptVersion.__tablename__ == "script_versions"
     assert StoryboardVersion.__tablename__ == "storyboard_versions"
+    assert PromptTemplate.__tablename__ == "prompt_templates"
     assert AIJobRecord.__tablename__ == "ai_job_records"
     assert AICapabilityConfig.__tablename__ == "ai_capability_configs"
     assert AIProviderSetting.__tablename__ == "ai_provider_settings"
@@ -66,18 +63,13 @@ def test_domain_models_match_existing_table_names() -> None:
     assert Asset.__tablename__ == "assets"
     assert Account.__tablename__ == "accounts"
     assert DeviceWorkspace.__tablename__ == "device_workspaces"
-    assert BrowserInstance.__tablename__ == "browser_instances"
     assert ExecutionBinding.__tablename__ == "execution_bindings"
     assert AutomationTask.__tablename__ == "automation_tasks"
     assert PublishPlan.__tablename__ == "publish_plans"
-    assert PublishReceipt.__tablename__ == "publish_receipts"
     assert RenderTask.__tablename__ == "render_tasks"
-    assert ExportProfile.__tablename__ == "export_profiles"
-    assert VideoTranscript.__tablename__ == "video_transcripts"
-    assert VideoSegment.__tablename__ == "video_segments"
-    assert VideoStructureExtraction.__tablename__ == "video_structure_extractions"
     assert SystemConfig.__tablename__ == "system_config"
     assert SessionContext.__tablename__ == "session_context"
+    assert VideoStageRun.__tablename__ == "video_stage_runs"
 
 
 def test_project_columns_match_existing_schema(tmp_path: Path) -> None:
@@ -157,6 +149,43 @@ def test_imported_video_columns_match_target_schema(tmp_path: Path) -> None:
     }
 
 
+def test_prompt_template_columns_match_target_schema(tmp_path: Path) -> None:
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+    Base.metadata.create_all(engine)
+
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("prompt_templates")}
+
+    assert columns == {
+        "id",
+        "kind",
+        "name",
+        "description",
+        "content",
+        "created_at",
+        "updated_at",
+    }
+
+
+def test_video_stage_run_columns_match_target_schema(tmp_path: Path) -> None:
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+    Base.metadata.create_all(engine)
+
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("video_stage_runs")}
+
+    assert columns == {
+        "video_id",
+        "stage_id",
+        "status",
+        "progress_pct",
+        "result_summary",
+        "error_message",
+        "created_at",
+        "updated_at",
+    }
+
+
 def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
     engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
@@ -169,19 +198,13 @@ def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
             "voice_tracks",
             "subtitle_tracks",
             "assets",
-        "accounts",
-        "device_workspaces",
-        "browser_instances",
-        "execution_bindings",
-        "automation_tasks",
-        "publish_plans",
-        "publish_receipts",
-        "render_tasks",
-        "export_profiles",
-        "video_transcripts",
-        "video_segments",
-        "video_structure_extractions",
-    )
+            "accounts",
+            "device_workspaces",
+            "execution_bindings",
+            "automation_tasks",
+            "publish_plans",
+            "render_tasks",
+        )
     }
 
     assert table_columns["timelines"] == {
@@ -223,10 +246,12 @@ def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
         "name",
         "type",
         "source",
+        "group_id",
         "file_path",
         "file_size_bytes",
         "duration_ms",
         "thumbnail_path",
+        "thumbnail_generated_at",
         "tags",
         "project_id",
         "metadata_json",
@@ -259,22 +284,10 @@ def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
         "created_at",
         "updated_at",
     }
-    assert table_columns["browser_instances"] == {
-        "id",
-        "workspace_id",
-        "name",
-        "profile_path",
-        "browser_type",
-        "status",
-        "last_seen_at",
-        "created_at",
-        "updated_at",
-    }
     assert table_columns["execution_bindings"] == {
         "id",
         "account_id",
         "device_workspace_id",
-        "browser_instance_id",
         "status",
         "source",
         "metadata_json",
@@ -310,15 +323,6 @@ def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
         "created_at",
         "updated_at",
     }
-    assert table_columns["publish_receipts"] == {
-        "id",
-        "plan_id",
-        "status",
-        "external_url",
-        "error_message",
-        "completed_at",
-        "created_at",
-    }
     assert table_columns["render_tasks"] == {
         "id",
         "project_id",
@@ -331,49 +335,6 @@ def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
         "error_message",
         "started_at",
         "finished_at",
-        "created_at",
-        "updated_at",
-    }
-    assert table_columns["export_profiles"] == {
-        "id",
-        "name",
-        "format",
-        "resolution",
-        "fps",
-        "video_bitrate",
-        "audio_policy",
-        "subtitle_policy",
-        "config_json",
-        "is_default",
-        "created_at",
-        "updated_at",
-    }
-    assert table_columns["video_transcripts"] == {
-        "id",
-        "imported_video_id",
-        "language",
-        "text",
-        "status",
-        "created_at",
-        "updated_at",
-    }
-    assert table_columns["video_segments"] == {
-        "id",
-        "imported_video_id",
-        "segment_index",
-        "start_ms",
-        "end_ms",
-        "label",
-        "transcript_text",
-        "metadata_json",
-        "created_at",
-    }
-    assert table_columns["video_structure_extractions"] == {
-        "id",
-        "imported_video_id",
-        "status",
-        "script_json",
-        "storyboard_json",
         "created_at",
         "updated_at",
     }

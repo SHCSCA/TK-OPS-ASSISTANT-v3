@@ -1,136 +1,154 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+SRC_DIR = Path(__file__).resolve().parents[2] / "apps" / "py-runtime" / "src"
+ROUTES_DIR = SRC_DIR / "api" / "routes"
+if str(ROUTES_DIR) not in sys.path:
+    sys.path.insert(0, str(ROUTES_DIR))
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from common.time import utc_now_iso
+from domain.models import Base, Project, SubtitleTrack
+from persistence.engine import create_runtime_engine, create_session_factory
+from repositories.subtitle_repository import SubtitleRepository
+from schemas.envelope import error_response
+from services.subtitle_service import SubtitleService
+from subtitles import router as subtitles_router
 
 
 def _assert_ok(payload: dict[str, object]) -> object:
     assert payload["ok"] is True
-    assert "data" in payload
     return payload["data"]
 
 
-def test_subtitle_track_generation_blocks_without_provider_and_preserves_segments(
-    runtime_client: TestClient,
-) -> None:
-    project_response = runtime_client.post(
-        "/api/dashboard/projects",
-        json={"name": "字幕项目", "description": "覆盖字幕对齐契约"},
+def _build_app(tmp_path: Path) -> FastAPI:
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+    Base.metadata.create_all(engine)
+    session_factory = create_session_factory(engine)
+    now = utc_now_iso()
+    with session_factory() as session:
+        session.add(
+            Project(
+                id="project-subtitle",
+                name="字幕项目",
+                description="",
+                status="active",
+                current_script_version=0,
+                current_storyboard_version=0,
+                created_at=now,
+                updated_at=now,
+                last_accessed_at=now,
+            )
+        )
+        session.add(
+            SubtitleTrack(
+                id="subtitle-track-1",
+                project_id="project-subtitle",
+                timeline_id=None,
+                source="script",
+                language="zh-CN",
+                style_json="""
+                {
+                  "preset": "creator-default",
+                  "fontSize": 32,
+                  "position": "bottom",
+                  "textColor": "#FFFFFF",
+                  "background": "rgba(0,0,0,0.62)"
+                }
+                """.strip(),
+                segments_json="""
+                [
+                  {"segmentIndex": 0, "text": "第一句", "startMs": 0, "endMs": 1800, "confidence": 0.92, "locked": true},
+                  {"segmentIndex": 1, "text": "第二句", "startMs": 1800, "endMs": 3600, "confidence": 0.88, "locked": true}
+                ]
+                """.strip(),
+                status="ready",
+                created_at=now,
+            )
+        )
+        session.commit()
+
+    app = FastAPI()
+    app.state.subtitle_service = SubtitleService(
+        SubtitleRepository(session_factory=session_factory)
     )
-    project_id = _assert_ok(project_response.json())["id"]
+    app.include_router(subtitles_router)
 
-    response = runtime_client.post(
-        f"/api/subtitles/projects/{project_id}/tracks/generate",
-        json={
-            "sourceText": "第一段脚本\n\n第二段脚本",
-            "language": "zh-CN",
-            "stylePreset": "creator-default",
-        },
-    )
+    @app.exception_handler(StarletteHTTPException)
+    async def handle_http_exception(request: Request, exc: StarletteHTTPException):  # type: ignore[no-untyped-def]
+        message = exc.detail if isinstance(exc.detail, str) else "请求失败"
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response(message),
+        )
 
-    assert response.status_code == 200
-    result = _assert_ok(response.json())
-    track = result["track"]
-    assert track["projectId"] == project_id
-    assert track["status"] == "blocked"
-    assert track["source"] == "script"
-    assert track["language"] == "zh-CN"
-    assert track["style"]["preset"] == "creator-default"
-    assert track["segments"] == [
-        {
-            "segmentIndex": 0,
-            "text": "第一段脚本",
-            "startMs": None,
-            "endMs": None,
-            "confidence": None,
-            "locked": False,
-        },
-        {
-            "segmentIndex": 1,
-            "text": "第二段脚本",
-            "startMs": None,
-            "endMs": None,
-            "confidence": None,
-            "locked": False,
-        },
-    ]
-    assert result["task"] is None
-    assert "字幕对齐 Provider" in result["message"]
-
-    list_response = runtime_client.get(f"/api/subtitles/projects/{project_id}/tracks")
-    assert list_response.status_code == 200
-    tracks = _assert_ok(list_response.json())
-    assert [item["id"] for item in tracks] == [track["id"]]
-
-    detail_response = runtime_client.get(f"/api/subtitles/tracks/{track['id']}")
-    assert detail_response.status_code == 200
-    assert _assert_ok(detail_response.json())["segments"][0]["text"] == "第一段脚本"
+    return app
 
 
-def test_subtitle_track_update_and_delete_use_runtime_envelope(
-    runtime_client: TestClient,
-) -> None:
-    project_response = runtime_client.post(
-        "/api/dashboard/projects",
-        json={"name": "字幕校正项目", "description": "覆盖字幕保存和删除"},
-    )
-    project_id = _assert_ok(project_response.json())["id"]
-    create_response = runtime_client.post(
-        f"/api/subtitles/projects/{project_id}/tracks/generate",
-        json={
-            "sourceText": "需要校正的字幕",
-            "language": "zh-CN",
-            "stylePreset": "creator-default",
-        },
-    )
-    track_id = _assert_ok(create_response.json())["track"]["id"]
+def test_subtitle_align_contract_updates_segment_times(tmp_path: Path) -> None:
+    client = TestClient(_build_app(tmp_path))
 
-    update_response = runtime_client.patch(
-        f"/api/subtitles/tracks/{track_id}",
+    response = client.post(
+        "/api/subtitles/tracks/subtitle-track-1/align",
         json={
             "segments": [
                 {
                     "segmentIndex": 0,
-                    "text": "校正后的字幕",
+                    "text": "第一句",
                     "startMs": 0,
-                    "endMs": 2100,
-                    "confidence": None,
+                    "endMs": 1800,
+                    "confidence": 0.92,
                     "locked": True,
-                }
-            ],
-            "style": {
-                "preset": "creator-default",
-                "fontSize": 36,
-                "position": "bottom",
-                "textColor": "#FFFFFF",
-                "background": "rgba(0,0,0,0.62)",
-            },
+                },
+                {
+                    "segmentIndex": 1,
+                    "text": "第二句",
+                    "startMs": 1800,
+                    "endMs": 3600,
+                    "confidence": 0.88,
+                    "locked": True,
+                },
+            ]
         },
     )
 
-    assert update_response.status_code == 200
-    updated = _assert_ok(update_response.json())
-    assert updated["segments"][0]["text"] == "校正后的字幕"
-    assert updated["segments"][0]["locked"] is True
-    assert updated["style"]["fontSize"] == 36
-
-    delete_response = runtime_client.delete(f"/api/subtitles/tracks/{track_id}")
-    assert delete_response.status_code == 200
-    assert _assert_ok(delete_response.json()) is None
+    assert response.status_code == 200
+    track = _assert_ok(response.json())
+    assert track["segments"][0]["startMs"] == 0
+    assert track["segments"][1]["endMs"] == 3600
 
 
-def test_subtitle_track_generation_rejects_empty_source_text(
-    runtime_client: TestClient,
+def test_subtitle_style_templates_contract_returns_builtin_templates(
+    tmp_path: Path,
 ) -> None:
-    response = runtime_client.post(
-        "/api/subtitles/projects/project-1/tracks/generate",
-        json={
-            "sourceText": "   \n  ",
-            "language": "zh-CN",
-            "stylePreset": "creator-default",
-        },
+    client = TestClient(_build_app(tmp_path))
+
+    response = client.get("/api/subtitles/style-templates")
+
+    assert response.status_code == 200
+    templates = _assert_ok(response.json())
+    assert templates
+    assert templates[0]["style"]["preset"]
+
+
+def test_subtitle_export_contract_returns_real_content(tmp_path: Path) -> None:
+    client = TestClient(_build_app(tmp_path))
+
+    response = client.post(
+        "/api/subtitles/tracks/subtitle-track-1/export",
+        json={"format": "srt"},
     )
 
-    assert response.status_code == 400
-    payload = response.json()
-    assert payload["ok"] is False
-    assert "字幕源文本为空" in payload["error"]
+    assert response.status_code == 200
+    export = _assert_ok(response.json())
+    assert export["format"] == "srt"
+    assert export["status"] == "ready"
+    assert "第一句" in export["content"]

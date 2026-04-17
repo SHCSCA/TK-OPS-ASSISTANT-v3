@@ -16,6 +16,7 @@ export type VideoImportStatus = "idle" | "loading" | "ready" | "importing" | "er
 type VideoImportState = {
   error: RuntimeRequestErrorShape | null;
   status: VideoImportStatus;
+  taskSnapshots: Record<string, TaskInfo>;
   videos: ImportedVideo[];
   _taskUnsubscribers: Record<string, () => void>;
 };
@@ -24,12 +25,14 @@ export const useVideoImportStore = defineStore("video-import", {
   state: (): VideoImportState => ({
     error: null,
     status: "idle",
+    taskSnapshots: {},
     videos: [],
     _taskUnsubscribers: {}
   }),
   actions: {
     initializeWebSocket(): void {
       useTaskBusStore().connect();
+      this.syncTaskSnapshots();
     },
     async loadVideos(projectId: string): Promise<void> {
       this.status = "loading";
@@ -37,6 +40,7 @@ export const useVideoImportStore = defineStore("video-import", {
 
       try {
         this.videos = await fetchImportedVideos(projectId);
+        this.syncTaskSnapshots();
         this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error, "加载视频列表失败。");
@@ -49,6 +53,7 @@ export const useVideoImportStore = defineStore("video-import", {
       try {
         const video = await importVideo(projectId, filePath);
         this.videos = [video, ...this.videos.filter((item) => item.id !== video.id)];
+        this.syncTaskSnapshots();
         this.watchVideoTask(projectId, video.id);
         this.status = "ready";
         return video;
@@ -64,22 +69,34 @@ export const useVideoImportStore = defineStore("video-import", {
         await deleteImportedVideo(videoId);
         this.unwatchVideoTask(videoId);
         this.videos = this.videos.filter((item) => item.id !== videoId);
+        this.syncTaskSnapshot(videoId);
       } catch (error) {
         this.applyRuntimeError(error, "删除视频失败。");
       }
     },
     taskForVideo(videoId: string): TaskInfo | undefined {
-      return useTaskBusStore().tasks.get(videoId);
+      const snapshot = this.taskSnapshots[videoId];
+      if (snapshot) {
+        return snapshot;
+      }
+
+      const taskBusStore = useTaskBusStore();
+      const task = taskBusStore.tasks.get(videoId);
+      if (task) {
+        return task;
+      }
+
+      const lastEvent = taskBusStore.lastEvents?.get(videoId);
+      return lastEvent ? deriveTaskInfoFromVideoEvent(videoId, lastEvent) : undefined;
     },
     watchVideoTask(projectId: string, videoId: string): void {
       this.unwatchVideoTask(videoId);
+      this.syncTaskSnapshot(videoId);
       this._taskUnsubscribers[videoId] = useTaskBusStore().subscribe(
         videoId,
         (event: TaskEvent) => {
-          if (
-            event.taskType !== "video_import" ||
-            !["task.completed", "task.failed"].includes(event.type)
-          ) {
+          this.syncTaskSnapshot(videoId, event);
+          if (!shouldRefreshVideoList(event)) {
             return;
           }
 
@@ -95,6 +112,30 @@ export const useVideoImportStore = defineStore("video-import", {
 
       unsubscribe();
       delete this._taskUnsubscribers[videoId];
+    },
+    syncTaskSnapshots(): void {
+      this.videos.forEach((video) => {
+        this.syncTaskSnapshot(video.id);
+      });
+    },
+    syncTaskSnapshot(videoId: string, event?: TaskEvent): void {
+      const taskBusStore = useTaskBusStore();
+      const task =
+        taskBusStore.tasks.get(videoId) ??
+        (event ? deriveTaskInfoFromVideoEvent(videoId, event) : undefined) ??
+        deriveTaskInfoFromVideoEvent(videoId, taskBusStore.lastEvents?.get(videoId));
+
+      if (task) {
+        this.taskSnapshots = {
+          ...this.taskSnapshots,
+          [videoId]: task
+        };
+        return;
+      }
+
+      const nextSnapshots = { ...this.taskSnapshots };
+      delete nextSnapshots[videoId];
+      this.taskSnapshots = nextSnapshots;
     },
     applyRuntimeError(error: unknown, fallbackMessage: string): void {
       const runtimeError =
@@ -112,3 +153,102 @@ export const useVideoImportStore = defineStore("video-import", {
     }
   }
 });
+
+function shouldRefreshVideoList(event: TaskEvent): boolean {
+  if (
+    event.taskType === "video_import" &&
+    ["task.completed", "task.failed"].includes(event.type)
+  ) {
+    return true;
+  }
+
+  return ["video.import.stage.completed", "video.import.stage.failed"].includes(event.type);
+}
+
+function deriveTaskInfoFromVideoEvent(
+  videoId: string,
+  event: TaskEvent | undefined
+): TaskInfo | undefined {
+  if (!event) {
+    return undefined;
+  }
+
+  if (
+    ![
+      "video.import.stage.started",
+      "video.import.stage.progress",
+      "video.import.stage.completed",
+      "video.import.stage.failed"
+    ].includes(event.type)
+  ) {
+    return undefined;
+  }
+
+  const message =
+    event.message ??
+    deriveStageMessage(event.stage, event.type, event.errorMessage ?? event.errorCode ?? null);
+  const progress =
+    typeof event.progressPct === "number"
+      ? event.progressPct
+      : event.type === "video.import.stage.completed"
+        ? 100
+        : 0;
+  const status =
+    event.type === "video.import.stage.failed"
+      ? "failed"
+      : event.type === "video.import.stage.completed"
+        ? "succeeded"
+        : "running";
+  const timestamp = new Date().toISOString();
+
+  return {
+    id: videoId,
+    kind: "video_import",
+    label: "视频导入",
+    status,
+    progress,
+    progressPct: progress,
+    projectId: event.projectId ?? null,
+    errorCode: event.errorCode ?? null,
+    errorMessage: event.errorMessage ?? null,
+    retryable: event.type === "video.import.stage.failed",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    task_type: "video_import",
+    project_id: event.projectId ?? null,
+    message,
+    created_at: timestamp,
+    updated_at: timestamp
+  };
+}
+
+function deriveStageMessage(
+  stage: string | undefined,
+  eventType: string,
+  errorMessage: string | null
+): string {
+  const label = stageLabel(stage);
+  if (eventType === "video.import.stage.failed") {
+    return errorMessage ? `${label}失败：${errorMessage}` : `${label}失败`;
+  }
+  if (eventType === "video.import.stage.completed") {
+    return `${label}完成`;
+  }
+  if (eventType === "video.import.stage.progress") {
+    return `正在${label}`;
+  }
+  return `${label}已开始`;
+}
+
+function stageLabel(stage: string | undefined): string {
+  switch (stage) {
+    case "transcribe":
+      return "转写";
+    case "segment":
+      return "切段";
+    case "extract_structure":
+      return "结构抽取";
+    default:
+      return "视频处理";
+  }
+}

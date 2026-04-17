@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from uuid import uuid4
 
@@ -7,8 +9,12 @@ from fastapi import HTTPException
 
 from common.time import utc_now_iso
 from domain.models.account import Account, AccountGroup, AccountGroupMember
+from domain.models.device_workspace import ExecutionBinding
 from repositories.account_repository import AccountRepository
+from repositories.device_workspace_repository import DeviceWorkspaceRepository
 from schemas.accounts import (
+    AccountBindingDto,
+    AccountBindingUpsertInput,
     AccountCreateInput,
     AccountDto,
     AccountGroupCreateInput,
@@ -18,13 +24,20 @@ from schemas.accounts import (
     AccountRefreshStatsDto,
     AccountUpdateInput,
 )
+from services.ws_manager import ws_manager
 
 log = logging.getLogger(__name__)
 
 
 class AccountService:
-    def __init__(self, repository: AccountRepository) -> None:
+    def __init__(
+        self,
+        repository: AccountRepository,
+        *,
+        binding_repository: DeviceWorkspaceRepository | None = None,
+    ) -> None:
         self._repository = repository
+        self._binding_repository = binding_repository
 
     def list_accounts(
         self,
@@ -44,7 +57,7 @@ class AccountService:
         except Exception as exc:
             log.exception("查询账号列表失败")
             raise HTTPException(status_code=500, detail="查询账号列表失败") from exc
-        return [self._to_dto(a) for a in accounts]
+        return [self._to_dto(account) for account in accounts]
 
     def create_account(self, payload: AccountCreateInput) -> AccountDto:
         now = _utc_now()
@@ -82,6 +95,7 @@ class AccountService:
         return self._to_dto(account)
 
     def update_account(self, account_id: str, payload: AccountUpdateInput) -> AccountDto:
+        current = self._get_account_model(account_id)
         changes: dict[str, object] = {}
         if payload.name is not None:
             changes["name"] = payload.name.strip()
@@ -112,6 +126,17 @@ class AccountService:
             raise HTTPException(status_code=500, detail="更新账号失败") from exc
         if account is None:
             raise HTTPException(status_code=404, detail="账号不存在")
+
+        if current.status != account.status:
+            self._broadcast_event(
+                {
+                    "type": "account.status.changed",
+                    "accountId": account.id,
+                    "status": account.status,
+                    "previousStatus": current.status,
+                    "updatedAt": account.updated_at,
+                }
+            )
         return self._to_dto(account)
 
     def delete_account(self, account_id: str) -> dict[str, bool]:
@@ -139,6 +164,47 @@ class AccountService:
             providerStatus="pending_provider",
         )
 
+    def upsert_binding(
+        self,
+        account_id: str,
+        payload: AccountBindingUpsertInput,
+    ) -> AccountBindingDto:
+        self._get_account_model(account_id)
+        self._require_binding_repository()
+        self._require_workspace(payload.browserInstanceId)
+        try:
+            binding = self._binding_repository.upsert_binding(
+                account_id=account_id,
+                browser_instance_id=payload.browserInstanceId,
+                status=payload.status,
+                source=payload.source,
+                metadata_json=payload.metadataJson,
+            )
+        except Exception as exc:
+            log.exception("更新账号绑定失败")
+            raise HTTPException(status_code=500, detail="更新账号绑定失败") from exc
+        return self._to_binding_dto(binding)
+
+    def get_binding(self, account_id: str) -> AccountBindingDto:
+        self._require_binding_repository()
+        try:
+            binding = self._binding_repository.get_binding_for_account(account_id)
+        except Exception as exc:
+            log.exception("查询账号绑定失败")
+            raise HTTPException(status_code=500, detail="查询账号绑定失败") from exc
+        if binding is None:
+            raise HTTPException(status_code=404, detail="账号绑定不存在")
+        return self._to_binding_dto(binding)
+
+    def list_bindings(self) -> list[AccountBindingDto]:
+        self._require_binding_repository()
+        try:
+            bindings = self._binding_repository.list_bindings()
+        except Exception as exc:
+            log.exception("查询绑定列表失败")
+            raise HTTPException(status_code=500, detail="查询绑定列表失败") from exc
+        return [self._to_binding_dto(binding) for binding in bindings]
+
     # --- Groups ---
 
     def list_groups(self) -> list[AccountGroupDto]:
@@ -147,7 +213,7 @@ class AccountService:
         except Exception as exc:
             log.exception("查询账号分组失败")
             raise HTTPException(status_code=500, detail="查询账号分组失败") from exc
-        return [self._to_group_dto(g) for g in groups]
+        return [self._to_group_dto(group) for group in groups]
 
     def create_group(self, payload: AccountGroupCreateInput) -> AccountGroupDto:
         group = AccountGroup(
@@ -198,7 +264,7 @@ class AccountService:
         except Exception as exc:
             log.exception("查询分组成员失败")
             raise HTTPException(status_code=500, detail="查询分组成员失败") from exc
-        return [self._to_dto(m) for m in members]
+        return [self._to_dto(member) for member in members]
 
     def add_group_member(self, group_id: str, payload: AccountGroupMemberCreateInput) -> dict[str, object]:
         self._require_group(group_id)
@@ -232,6 +298,16 @@ class AccountService:
             raise HTTPException(status_code=404, detail="成员不存在")
         return {"deleted": True}
 
+    def _get_account_model(self, account_id: str) -> Account:
+        try:
+            account = self._repository.get_account(account_id)
+        except Exception as exc:
+            log.exception("查询账号失败")
+            raise HTTPException(status_code=500, detail="查询账号失败") from exc
+        if account is None:
+            raise HTTPException(status_code=404, detail="账号不存在")
+        return account
+
     def _require_group(self, group_id: str) -> None:
         try:
             group = self._repository.get_group(group_id)
@@ -240,6 +316,23 @@ class AccountService:
             raise HTTPException(status_code=500, detail="查询账号分组失败") from exc
         if group is None:
             raise HTTPException(status_code=404, detail="账号分组不存在")
+
+    def _require_binding_repository(self) -> None:
+        if self._binding_repository is None:
+            raise HTTPException(status_code=500, detail="账号绑定仓储未初始化")
+
+    def _require_workspace(self, workspace_id: str) -> None:
+        self._require_binding_repository()
+        workspace = self._binding_repository.get_workspace(workspace_id)
+        if workspace is None:
+            raise HTTPException(status_code=404, detail="浏览器实例不存在")
+
+    def _broadcast_event(self, event: dict[str, object]) -> None:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        asyncio.create_task(ws_manager.broadcast(event))
 
     def _to_dto(self, account: Account) -> AccountDto:
         return AccountDto(
@@ -267,6 +360,44 @@ class AccountService:
             color=group.color,
             createdAt=group.created_at,
         )
+
+    def _to_binding_dto(self, binding: ExecutionBinding) -> AccountBindingDto:
+        return AccountBindingDto(
+            id=binding.id,
+            accountId=binding.account_id,
+            browserInstanceId=binding.device_workspace_id,
+            status=binding.status,
+            source=binding.source,
+            maskedMetadataJson=_mask_sensitive_json(binding.metadata_json),
+            createdAt=binding.created_at.isoformat() if hasattr(binding.created_at, "isoformat") else str(binding.created_at),
+            updatedAt=binding.updated_at.isoformat() if hasattr(binding.updated_at, "isoformat") else str(binding.updated_at),
+        )
+
+
+def _mask_sensitive_json(metadata_json: str | None) -> str | None:
+    if metadata_json is None:
+        return None
+    try:
+        parsed = json.loads(metadata_json)
+    except json.JSONDecodeError:
+        return metadata_json
+    masked = _mask_value(parsed)
+    return json.dumps(masked, ensure_ascii=False)
+
+
+def _mask_value(value: object) -> object:
+    if isinstance(value, dict):
+        masked: dict[str, object] = {}
+        for key, item in value.items():
+            lowered = key.lower()
+            if any(token in lowered for token in ("cookie", "token", "secret", "password", "session")):
+                masked[key] = "masked"
+            else:
+                masked[key] = _mask_value(item)
+        return masked
+    if isinstance(value, list):
+        return [_mask_value(item) for item in value]
+    return value
 
 
 def _utc_now() -> str:

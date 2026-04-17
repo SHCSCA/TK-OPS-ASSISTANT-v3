@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -8,7 +9,15 @@ from fastapi import HTTPException
 from repositories.ai_job_repository import AIJobRepository, StoredAIJobRecord
 from repositories.storyboard_repository import StoryboardRepository, StoredStoryboardVersion
 from schemas.scripts import AIJobRecordDto
-from schemas.storyboards import StoryboardDocumentDto, StoryboardSceneDto, StoryboardVersionDto
+from schemas.storyboards import (
+    StoryboardDocumentDto,
+    StoryboardSceneDto,
+    StoryboardShotDto,
+    StoryboardShotInput,
+    StoryboardShotUpdateInput,
+    StoryboardTemplateDto,
+    StoryboardVersionDto,
+)
 from services.ai_text_generation_service import AITextGenerationService
 from services.dashboard_service import DashboardService
 from services.script_service import ScriptService
@@ -32,7 +41,9 @@ class StoryboardService:
     def get_document(self, project_id: str) -> StoryboardDocumentDto:
         project = self._dashboard_service.require_project(project_id)
         versions = self._repository.list_versions(project_id)
-        based_on_script_revision = versions[0].based_on_script_revision if versions else project.currentScriptVersion
+        based_on_script_revision = (
+            versions[0].based_on_script_revision if versions else project.currentScriptVersion
+        )
         return StoryboardDocumentDto(
             projectId=project.id,
             basedOnScriptRevision=based_on_script_revision,
@@ -66,6 +77,122 @@ class StoryboardService:
             current_storyboard_version=stored.revision,
         )
         return self.get_document(project.id)
+
+    def list_templates(self) -> list[StoryboardTemplateDto]:
+        return [
+            StoryboardTemplateDto(
+                id='hook-problem-solution',
+                name='钩子-问题-解决',
+                description='适合短视频创作的基础三段式分镜模板。',
+                shots=[
+                    StoryboardShotDto(
+                        sceneId='shot-1',
+                        title='开场钩子',
+                        summary='快速抛出冲突或吸引点。',
+                        visualPrompt='强节奏开场，镜头推进。',
+                    ),
+                    StoryboardShotDto(
+                        sceneId='shot-2',
+                        title='问题展开',
+                        summary='明确展示用户痛点。',
+                        visualPrompt='生活化场景，突出问题细节。',
+                    ),
+                    StoryboardShotDto(
+                        sceneId='shot-3',
+                        title='方案收束',
+                        summary='给出解决方式和行动引导。',
+                        visualPrompt='产品或结果画面清晰收束。',
+                    ),
+                ],
+            ),
+            StoryboardTemplateDto(
+                id='before-after-proof',
+                name='前后对比-证明',
+                description='适合演示改造效果、增长结果或效率提升。',
+                shots=[
+                    StoryboardShotDto(
+                        sceneId='shot-1',
+                        title='前态',
+                        summary='先展示旧状态。',
+                        visualPrompt='对比感强的静态场景。',
+                    ),
+                    StoryboardShotDto(
+                        sceneId='shot-2',
+                        title='变化过程',
+                        summary='展示变化的关键步骤。',
+                        visualPrompt='中景推进，强调转变。',
+                    ),
+                    StoryboardShotDto(
+                        sceneId='shot-3',
+                        title='后态',
+                        summary='给出结果与收益。',
+                        visualPrompt='明亮收束画面，突出结果。',
+                    ),
+                ],
+            ),
+        ]
+
+    def sync_from_script(self, project_id: str) -> StoryboardDocumentDto:
+        project = self._dashboard_service.require_project(project_id)
+        script_document = self._script_service.get_document(project.id)
+        if script_document.currentVersion is None:
+            raise HTTPException(status_code=400, detail='请先创建脚本版本，再同步分镜。')
+
+        scenes = _script_to_shots(script_document.currentVersion.content)
+        stored = self._repository.save_version(
+            project.id,
+            based_on_script_revision=script_document.currentVersion.revision,
+            source='sync_from_script',
+            scenes=scenes,
+        )
+        self._dashboard_service.update_project_versions(
+            project.id,
+            current_storyboard_version=stored.revision,
+        )
+        return self.get_document(project.id)
+
+    def create_shot(self, project_id: str, payload: StoryboardShotInput) -> StoryboardDocumentDto:
+        project = self._dashboard_service.require_project(project_id)
+        current_version = self._get_current_version(project.id)
+        shots = self._current_shots(current_version)
+        shots.append(
+            {
+                'sceneId': uuid4().hex,
+                'title': payload.title.strip(),
+                'summary': payload.summary.strip(),
+                'visualPrompt': payload.visualPrompt.strip(),
+            }
+        )
+        return self._save_shots(project.id, current_version, shots, source='shot_create')
+
+    def update_shot(
+        self,
+        project_id: str,
+        shot_id: str,
+        payload: StoryboardShotUpdateInput,
+    ) -> StoryboardDocumentDto:
+        project = self._dashboard_service.require_project(project_id)
+        current_version = self._get_current_version(project.id)
+        shots = self._current_shots(current_version)
+        shot = self._find_shot(shots, shot_id)
+        if shot is None:
+            raise HTTPException(status_code=404, detail='镜头不存在。')
+        if payload.title is not None:
+            shot['title'] = payload.title.strip()
+        if payload.summary is not None:
+            shot['summary'] = payload.summary.strip()
+        if payload.visualPrompt is not None:
+            shot['visualPrompt'] = payload.visualPrompt.strip()
+        return self._save_shots(project.id, current_version, shots, source='shot_update')
+
+    def delete_shot(self, project_id: str, shot_id: str) -> StoryboardDocumentDto:
+        project = self._dashboard_service.require_project(project_id)
+        current_version = self._get_current_version(project.id)
+        shots = self._current_shots(current_version)
+        filtered = [item for item in shots if item.get('sceneId') != shot_id]
+        if len(filtered) == len(shots):
+            raise HTTPException(status_code=404, detail='镜头不存在。')
+        return self._save_shots(project.id, current_version, filtered, source='shot_delete')
 
     def generate(self, project_id: str, *, request_id: str | None = None) -> StoryboardDocumentDto:
         return self.generate_with_service(
@@ -133,6 +260,47 @@ class StoryboardService:
             completedAt=stored.completed_at,
         )
 
+    def _get_current_version(self, project_id: str) -> StoredStoryboardVersion | None:
+        versions = self._repository.list_versions(project_id)
+        return versions[0] if versions else None
+
+    def _current_shots(self, version: StoredStoryboardVersion | None) -> list[dict[str, str]]:
+        if version is None:
+            return []
+        return deepcopy(version.scenes)
+
+    def _find_shot(self, shots: list[dict[str, str]], shot_id: str) -> dict[str, str] | None:
+        for shot in shots:
+            if str(shot.get('sceneId')) == shot_id:
+                return shot
+        return None
+
+    def _save_shots(
+        self,
+        project_id: str,
+        current_version: StoredStoryboardVersion | None,
+        shots: list[dict[str, str]],
+        *,
+        source: str,
+    ) -> StoryboardDocumentDto:
+        project = self._dashboard_service.require_project(project_id)
+        based_on_script_revision = (
+            current_version.based_on_script_revision
+            if current_version is not None
+            else project.current_script_version
+        )
+        stored = self._repository.save_version(
+            project_id,
+            based_on_script_revision=based_on_script_revision,
+            source=source,
+            scenes=shots,
+        )
+        self._dashboard_service.update_project_versions(
+            project_id,
+            current_storyboard_version=stored.revision,
+        )
+        return self.get_document(project_id)
+
 
 def _parse_scenes(raw_text: str) -> list[dict[str, str]]:
     normalized = raw_text.strip()
@@ -146,7 +314,7 @@ def _parse_scenes(raw_text: str) -> list[dict[str, str]]:
         raise HTTPException(status_code=502, detail='分镜 Provider 返回了无效 JSON。') from exc
 
     if not isinstance(payload, list) or not payload:
-        raise HTTPException(status_code=502, detail='分镜 Provider 未返回镜头。')
+        raise HTTPException(status_code=502, detail='分镜 Provider 未返回镜头列表。')
 
     scenes: list[dict[str, str]] = []
     for item in payload:
@@ -164,3 +332,20 @@ def _parse_scenes(raw_text: str) -> list[dict[str, str]]:
     if not scenes:
         raise HTTPException(status_code=502, detail='分镜 Provider 返回了空镜头。')
     return scenes
+
+
+def _script_to_shots(script_content: str) -> list[dict[str, str]]:
+    paragraphs = [
+        line.strip()
+        for line in script_content.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+        if line.strip()
+    ]
+    return [
+        {
+            'sceneId': f'shot-{index}',
+            'title': paragraph[:24] or f'镜头 {index}',
+            'summary': paragraph,
+            'visualPrompt': paragraph,
+        }
+        for index, paragraph in enumerate(paragraphs, start=1)
+    ]

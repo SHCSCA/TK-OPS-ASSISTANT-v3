@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -67,3 +68,26 @@ class ExportProfileDto(BaseModel):
     is_default: bool
     created_at: datetime
     updated_at: datetime
+
+
+class UsageSnapshotDto(BaseModel):
+    status: Literal["ready", "unavailable"]
+    usagePct: float | None = None
+    message: str | None = None
+
+
+class DiskUsageSnapshotDto(BaseModel):
+    status: Literal["ready", "unavailable"]
+    path: str
+    totalBytes: int | None = None
+    usedBytes: int | None = None
+    freeBytes: int | None = None
+    usagePct: float | None = None
+    message: str | None = None
+
+
+class RenderResourceUsageDto(BaseModel):
+    cpu: UsageSnapshotDto
+    gpu: UsageSnapshotDto
+    disk: DiskUsageSnapshotDto
+    collectedAt: datetime

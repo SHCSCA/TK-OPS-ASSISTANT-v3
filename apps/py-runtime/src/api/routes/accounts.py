@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from schemas.accounts import (
+    AccountBindingUpsertInput,
     AccountCreateInput,
     AccountGroupCreateInput,
     AccountGroupMemberCreateInput,
@@ -87,8 +88,18 @@ def get_account(account_id: str, request: Request) -> dict[str, object]:
     return ok_response(account.model_dump(mode="json"))
 
 
+@router.put("/{account_id}/binding")
+def upsert_account_binding(
+    account_id: str,
+    payload: AccountBindingUpsertInput,
+    request: Request,
+) -> dict[str, object]:
+    binding = _svc(request).upsert_binding(account_id, payload)
+    return ok_response(binding.model_dump(mode="json"))
+
+
 @router.patch("/{account_id}")
-def update_account(account_id: str, payload: AccountUpdateInput, request: Request) -> dict[str, object]:
+async def update_account(account_id: str, payload: AccountUpdateInput, request: Request) -> dict[str, object]:
     account = _svc(request).update_account(account_id, payload)
     return ok_response(account.model_dump(mode="json"))
 
@@ -101,11 +112,5 @@ def delete_account(account_id: str, request: Request) -> dict[str, object]:
 
 @router.post("/{account_id}/refresh-stats")
 def refresh_account_stats(account_id: str, request: Request) -> dict[str, object]:
-    result = _svc(request).refresh_stats(account_id)
-    return ok_response(result.model_dump(mode="json"))
-
-
-@router.post("/{account_id}/status-check")
-def status_check(account_id: str, request: Request) -> dict[str, object]:
     result = _svc(request).refresh_stats(account_id)
     return ok_response(result.model_dump(mode="json"))

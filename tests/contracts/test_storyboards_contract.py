@@ -126,3 +126,57 @@ def test_storyboard_document_contracts_use_storyboards_prefix_and_expected_shape
         'versions',
         'recentJobs',
     }
+
+
+def test_storyboard_shots_templates_and_sync_contract(runtime_app) -> None:
+    runtime_app.state.ai_text_generation_service = FakeAITextGenerationService(
+        runtime_app.state.ai_job_repository
+    )
+    client = TestClient(runtime_app)
+
+    create_response = client.post(
+        '/api/dashboard/projects',
+        json={'name': 'Storyboard Extra Contract', 'description': 'Contract coverage'},
+    )
+    project_id = create_response.json()['data']['id']
+    client.put(
+        f'/api/scripts/projects/{project_id}/document',
+        json={'content': 'Hook\nProblem\nSolution\nCTA'},
+    )
+
+    templates_response = client.get('/api/storyboards/templates')
+    assert templates_response.status_code == 200
+    templates_payload = templates_response.json()
+    assert set(templates_payload) == {'ok', 'data'}
+    assert isinstance(templates_payload['data'], list)
+
+    sync_response = client.post(f'/api/storyboards/projects/{project_id}/sync-from-script')
+    assert sync_response.status_code == 200
+    sync_payload = sync_response.json()
+    assert set(sync_payload) == {'ok', 'data'}
+    assert set(sync_payload['data']) == {
+        'projectId',
+        'basedOnScriptRevision',
+        'currentVersion',
+        'versions',
+        'recentJobs',
+    }
+
+    create_shot_response = client.post(
+        f'/api/storyboards/projects/{project_id}/shots',
+        json={
+            'title': '新增镜头',
+            'summary': '镜头说明',
+            'visualPrompt': '画面提示',
+        },
+    )
+    assert create_shot_response.status_code == 200
+    create_shot_payload = create_shot_response.json()
+    assert set(create_shot_payload) == {'ok', 'data'}
+    assert set(create_shot_payload['data']) == {
+        'projectId',
+        'basedOnScriptRevision',
+        'currentVersion',
+        'versions',
+        'recentJobs',
+    }

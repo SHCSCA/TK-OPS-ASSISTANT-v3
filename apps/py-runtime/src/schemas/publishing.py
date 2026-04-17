@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PublishPlanCreateInput(BaseModel):
@@ -45,9 +45,17 @@ class PrecheckItemResult(BaseModel):
     message: str | None = None
 
 
+class PrecheckConflictDto(BaseModel):
+    conflicting_plan_id: str
+    conflicting_title: str
+    conflicting_scheduled_at: datetime | None = None
+    reason: str
+
+
 class PrecheckResultDto(BaseModel):
     plan_id: str
     items: list[PrecheckItemResult]
+    conflicts: list[PrecheckConflictDto] = Field(default_factory=list)
     has_errors: bool
     checked_at: datetime
 
@@ -63,7 +71,20 @@ class PublishReceiptDto(BaseModel):
     id: str
     plan_id: str
     status: str
-    external_url: str | None = None
-    error_message: str | None = None
-    completed_at: datetime | None = None
+    platform_response_json: str | None = None
+    received_at: datetime
     created_at: datetime
+
+
+class PublishCalendarItemDto(BaseModel):
+    plan_id: str
+    title: str
+    status: str
+    scheduled_at: datetime | None = None
+    account_name: str | None = None
+    conflict_count: int = 0
+
+
+class PublishCalendarDto(BaseModel):
+    items: list[PublishCalendarItemDto]
+    generated_at: datetime

@@ -1,108 +1,95 @@
 from __future__ import annotations
 
-from sqlalchemy import delete, select
+from dataclasses import dataclass
+from datetime import UTC, datetime
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from domain.models.video_deconstruction import (
-    VideoSegment,
-    VideoStructureExtraction,
-    VideoTranscript,
-)
+from domain.models import VideoStageRun
+
+
+@dataclass(frozen=True, slots=True)
+class StoredVideoStageRun:
+    video_id: str
+    stage_id: str
+    status: str
+    progress_pct: int
+    result_summary: str | None
+    error_message: str | None
+    created_at: str
+    updated_at: str
 
 
 class VideoDeconstructionRepository:
     def __init__(self, *, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
-    def get_transcript(self, video_id: str) -> VideoTranscript | None:
+    def list_stage_runs(self, video_id: str) -> list[StoredVideoStageRun]:
         with self._session_factory() as session:
-            transcript = session.scalar(
-                select(VideoTranscript).where(VideoTranscript.imported_video_id == video_id)
-            )
-            if transcript is not None:
-                session.expunge(transcript)
-            return transcript
+            rows = session.scalars(
+                select(VideoStageRun)
+                .where(VideoStageRun.video_id == video_id)
+                .order_by(VideoStageRun.stage_id.asc())
+            ).all()
+        return [self._to_stored(item) for item in rows]
 
-    def save_transcript(self, transcript: VideoTranscript) -> VideoTranscript:
+    def get_stage_run(self, video_id: str, stage_id: str) -> StoredVideoStageRun | None:
         with self._session_factory() as session:
-            existing = session.scalar(
-                select(VideoTranscript).where(
-                    VideoTranscript.imported_video_id == transcript.imported_video_id
-                )
-            )
-            if existing is None:
-                session.add(transcript)
-                target = transcript
-            else:
-                existing.language = transcript.language
-                existing.text = transcript.text
-                existing.status = transcript.status
-                target = existing
-            session.commit()
-            session.refresh(target)
-            session.expunge(target)
-            return target
+            row = session.get(VideoStageRun, {'video_id': video_id, 'stage_id': stage_id})
+            if row is None:
+                return None
+            session.expunge(row)
+        return self._to_stored(row)
 
-    def replace_segments(
+    def upsert_stage_run(
         self,
         video_id: str,
-        segments: list[VideoSegment],
-    ) -> list[VideoSegment]:
+        stage_id: str,
+        *,
+        status: str,
+        progress_pct: int,
+        result_summary: str | None = None,
+        error_message: str | None = None,
+    ) -> StoredVideoStageRun:
         with self._session_factory() as session:
-            session.execute(
-                delete(VideoSegment).where(VideoSegment.imported_video_id == video_id)
-            )
-            session.add_all(segments)
-            session.commit()
-            for item in segments:
-                session.refresh(item)
-            session.expunge_all()
-            return list(segments)
-
-    def list_segments(self, video_id: str) -> list[VideoSegment]:
-        with self._session_factory() as session:
-            items = session.scalars(
-                select(VideoSegment)
-                .where(VideoSegment.imported_video_id == video_id)
-                .order_by(VideoSegment.segment_index.asc())
-            ).all()
-            session.expunge_all()
-            return list(items)
-
-    def get_structure_by_video(self, video_id: str) -> VideoStructureExtraction | None:
-        with self._session_factory() as session:
-            structure = session.scalar(
-                select(VideoStructureExtraction).where(
-                    VideoStructureExtraction.imported_video_id == video_id
+            row = session.get(VideoStageRun, {'video_id': video_id, 'stage_id': stage_id})
+            now = _utc_now()
+            if row is None:
+                row = VideoStageRun(
+                    video_id=video_id,
+                    stage_id=stage_id,
+                    status=status,
+                    progress_pct=progress_pct,
+                    result_summary=result_summary,
+                    error_message=error_message,
+                    created_at=now,
+                    updated_at=now,
                 )
-            )
-            if structure is not None:
-                session.expunge(structure)
-            return structure
-
-    def get_structure(self, extraction_id: str) -> VideoStructureExtraction | None:
-        with self._session_factory() as session:
-            structure = session.get(VideoStructureExtraction, extraction_id)
-            if structure is not None:
-                session.expunge(structure)
-            return structure
-
-    def save_structure(self, structure: VideoStructureExtraction) -> VideoStructureExtraction:
-        with self._session_factory() as session:
-            existing = session.scalar(
-                select(VideoStructureExtraction).where(
-                    VideoStructureExtraction.imported_video_id == structure.imported_video_id
-                )
-            )
-            if existing is None:
-                session.add(structure)
-                target = structure
+                session.add(row)
             else:
-                existing.status = structure.status
-                existing.script_json = structure.script_json
-                existing.storyboard_json = structure.storyboard_json
-                target = existing
+                row.status = status
+                row.progress_pct = progress_pct
+                row.result_summary = result_summary
+                row.error_message = error_message
+                row.updated_at = now
             session.commit()
-            session.refresh(target)
-            session.expunge(target)
-            return target
+            session.refresh(row)
+            session.expunge(row)
+        return self._to_stored(row)
+
+    def _to_stored(self, row: VideoStageRun) -> StoredVideoStageRun:
+        return StoredVideoStageRun(
+            video_id=row.video_id,
+            stage_id=row.stage_id,
+            status=row.status,
+            progress_pct=row.progress_pct,
+            result_summary=row.result_summary,
+            error_message=row.error_message,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+
+
+def _utc_now() -> str:
+    return datetime.now(UTC).isoformat().replace('+00:00', 'Z')
