@@ -42,4 +42,4 @@ def set_current_project_context(
     request: Request,
 ) -> dict[str, object]:
     context = get_dashboard_service(request).set_current_project(payload.projectId)
-    return ok_response(context.model_dump(mode='json'))
+    return ok_response(context.model_dump(mode='json') if context else None)

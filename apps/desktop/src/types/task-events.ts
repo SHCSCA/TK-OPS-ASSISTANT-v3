@@ -5,7 +5,13 @@ export type TaskEventType =
   | "task.completed"
   | "task.failed";
 
-export type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+export type TaskStatus =
+  | "queued"
+  | "running"
+  | "blocked"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
 
 export interface TaskEvent {
   schema_version: number;
@@ -20,11 +26,24 @@ export interface TaskEvent {
 
 export interface TaskInfo {
   id: string;
-  task_type: string;
-  project_id: string | null;
   status: TaskStatus;
-  progress: number;
-  message: string;
-  created_at: string;
-  updated_at: string;
+  kind?: string;
+  label?: string;
+  progressPct?: number | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  etaMs?: number | null;
+  projectId?: string | null;
+  ownerRef?: { kind: string; id: string } | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  retryable?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  task_type?: string;
+  project_id?: string | null;
+  progress?: number;
+  message?: string;
+  created_at?: string;
+  updated_at?: string;
 }

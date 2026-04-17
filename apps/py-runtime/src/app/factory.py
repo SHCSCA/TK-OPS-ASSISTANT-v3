@@ -16,12 +16,14 @@ from api.routes import (
     ai_providers_router,
     assets_router,
     automation_router,
+    bootstrap_router,
     dashboard_router,
     device_workspaces_router,
     license_router,
     publishing_router,
     renders_router,
     review_router,
+    search_router,
     scripts_router,
     settings_router,
     storyboards_router,
@@ -56,11 +58,12 @@ from repositories.timeline_repository import TimelineRepository
 from repositories.video_deconstruction_repository import VideoDeconstructionRepository
 from repositories.voice_repository import VoiceRepository
 from schemas.envelope import error_response
+from schemas.error_codes import ErrorCodes
 from services.account_service import AccountService
 from services.asset_service import AssetService
-from services.ai_capability_service import AICapabilityService
 from services.ai_text_generation_service import AITextGenerationService
 from services.automation_service import AutomationService
+from services.broadcasting_ai_capability_service import BroadcastingAICapabilityService
 from services.dashboard_service import DashboardService
 from services.device_workspace_service import DeviceWorkspaceService
 from services.license_activation import OfflineLicenseActivationAdapter
@@ -70,6 +73,7 @@ from services.publishing_service import PublishingService
 from services.render_service import RenderService
 from services.review_service import ReviewService
 from services.script_service import ScriptService
+from services.search_service import SearchService
 from services.settings_service import SettingsService
 from services.storyboard_service import StoryboardService
 from services.subtitle_service import SubtitleService
@@ -115,9 +119,13 @@ def create_app() -> FastAPI:
         on_settings_updated=lambda settings: configure_logging(
             Path(settings.paths.logDir), settings.logging.level
         ),
+        task_manager=task_manager,
     )
     dashboard_service = DashboardService(dashboard_repository)
-    ai_capability_service = AICapabilityService(ai_capability_repository, secret_store)
+    ai_capability_service = BroadcastingAICapabilityService(
+        ai_capability_repository,
+        secret_store,
+    )
     ai_text_generation_service = AITextGenerationService(
         ai_capability_service,
         ai_job_repository,
@@ -156,6 +164,10 @@ def create_app() -> FastAPI:
     voice_service = VoiceService(voice_repository)
     subtitle_service = SubtitleService(subtitle_repository)
     workspace_service = WorkspaceService(timeline_repository)
+    search_service = SearchService(
+        session_factory=session_factory,
+        task_manager=task_manager,
+    )
     machine_code_service = MachineCodeService()
     license_service = LicenseService(
         runtime_config=runtime_config,
@@ -226,6 +238,7 @@ def create_app() -> FastAPI:
     app.state.subtitle_service = subtitle_service
     app.state.workspace_service = workspace_service
     app.state.video_import_service = video_import_service
+    app.state.search_service = search_service
     app.state.task_manager = task_manager
 
     @app.middleware('http')
@@ -264,6 +277,7 @@ def create_app() -> FastAPI:
                 'Request validation failed',
                 request_id=request_id,
                 details=exc.errors(),
+                error_code=ErrorCodes.REQUEST_VALIDATION_FAILED,
             ),
         )
 
@@ -313,12 +327,14 @@ def create_app() -> FastAPI:
     app.include_router(ai_providers_router)
     app.include_router(assets_router)
     app.include_router(automation_router)
+    app.include_router(bootstrap_router)
     app.include_router(dashboard_router)
     app.include_router(device_workspaces_router)
     app.include_router(license_router)
     app.include_router(publishing_router)
     app.include_router(renders_router)
     app.include_router(review_router)
+    app.include_router(search_router)
     app.include_router(scripts_router)
     app.include_router(settings_router)
     app.include_router(storyboards_router)

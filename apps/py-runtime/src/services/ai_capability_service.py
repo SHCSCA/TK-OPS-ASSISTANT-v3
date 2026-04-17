@@ -30,6 +30,7 @@ from schemas.ai_capabilities import (
     AIProviderSecretStatusDto,
     CAPABILITY_IDS,
 )
+from services.ws_manager import ws_manager
 
 log = logging.getLogger(__name__)
 

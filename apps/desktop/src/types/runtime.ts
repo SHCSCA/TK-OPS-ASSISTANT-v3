@@ -1,6 +1,39 @@
 import type { TaskInfo } from "./task-events";
 
 export type RuntimeHealthSnapshot = {
+  runtime: {
+    status: string;
+    port: number;
+    uptimeMs: number;
+    version: string;
+  };
+  aiProvider: {
+    status: string;
+    latencyMs: number | null;
+    providerId: string | null;
+    providerName: string | null;
+    lastChecked: string | null;
+  };
+  renderQueue: {
+    running: number;
+    queued: number;
+    avgWaitMs: number | null;
+  };
+  publishingQueue: {
+    pendingToday: number;
+    failedToday: number;
+  };
+  taskBus: {
+    running: number;
+    queued: number;
+    blocked: number;
+    failed24h: number;
+  };
+  license: {
+    status: string;
+    expiresAt: string | null;
+  };
+  lastSyncAt: string;
   service: string;
   version: string;
   now: string;
@@ -53,6 +86,67 @@ export type RuntimeDiagnostics = {
   healthStatus: string;
 };
 
+export type BootstrapDirectoryReport = {
+  rootDir: string;
+  databasePath: string;
+  status: string;
+  directories: Array<{
+    key: string;
+    label: string;
+    path: string;
+    exists: boolean;
+    writable: boolean;
+    status: string;
+    message: string | null;
+  }>;
+  checkedAt: string;
+};
+
+export type RuntimeSelfCheckReport = {
+  status: string;
+  runtimeVersion: string;
+  checkedAt: string;
+  items: Array<{
+    key: string;
+    label: string;
+    status: string;
+    detail: string;
+    errorCode: string | null;
+    checkedAt: string;
+  }>;
+};
+
+export type LogFilter = {
+  kind?: string;
+  since?: string;
+  level?: string;
+  limit?: number;
+};
+
+export type RuntimeLogEntry = {
+  timestamp: string;
+  level: string;
+  kind: string;
+  requestId: string;
+  message: string;
+  context: Record<string, unknown>;
+};
+
+export type LogPageDto = {
+  items: RuntimeLogEntry[];
+  nextCursor: string | null;
+};
+
+export type DiagnosticsBundleDto = {
+  bundlePath: string;
+  createdAt: string;
+  entries: Array<{
+    name: string;
+    path: string;
+    sizeBytes: number;
+  }>;
+};
+
 export type ProjectSummary = {
   id: string;
   name: string;
@@ -74,11 +168,87 @@ export type CurrentProjectContext = {
 export type DashboardSummary = {
   recentProjects: ProjectSummary[];
   currentProject: CurrentProjectContext | null;
+  greeting: {
+    title: string;
+    subtitle: string;
+  };
+  heroContext: {
+    currentProject: {
+      id: string;
+      name: string;
+      status: string;
+      lastEditedAt: string;
+    } | null;
+    primaryAction: {
+      label: string;
+      action: string;
+      targetProjectId: string | null;
+    };
+    pendingTasks: number;
+    blockingIssues: number;
+  };
+  todos: Array<{
+    id: string;
+    title: string;
+    status: string;
+  }>;
+  exceptions: Array<{
+    id: string;
+    title: string;
+    level: string;
+    message: string;
+  }>;
+  health: {
+    runtimeStatus: string;
+    aiProviderStatus: string;
+    taskBusStatus: string;
+  };
+  generatedAt: string;
 };
 
 export type CreateProjectInput = {
   name: string;
   description: string;
+};
+
+export type GlobalSearchResult = {
+  projects: Array<{
+    id: string;
+    name: string;
+    subtitle: string;
+    updatedAt: string;
+  }>;
+  scripts: Array<{
+    id: string;
+    projectId: string;
+    title: string;
+    snippet: string;
+    updatedAt: string;
+  }>;
+  tasks: Array<{
+    id: string;
+    kind: string;
+    label: string;
+    status: string;
+    updatedAt: string;
+  }>;
+  assets: Array<{
+    id: string;
+    name: string;
+    type: string;
+    thumbnailUrl: string | null;
+    updatedAt: string;
+  }>;
+  accounts: Array<{
+    id: string;
+    name: string;
+    status: string;
+  }>;
+  workspaces: Array<{
+    id: string;
+    name: string;
+    status: string;
+  }>;
 };
 
 export type AICapabilityId =
@@ -849,6 +1019,7 @@ export type RuntimeSuccessEnvelope<T> = {
 export type RuntimeErrorEnvelope = {
   ok: false;
   error: string;
+  error_code?: string;
   requestId?: string;
   details?: unknown;
 };
@@ -859,5 +1030,6 @@ export type RuntimeRequestErrorShape = {
   message: string;
   requestId: string;
   status: number;
+  errorCode?: string;
   details?: unknown;
 };

@@ -1,10 +1,26 @@
-import { mount } from "@vue/test-utils";
+import { mount, type VueWrapper } from "@vue/test-utils";
 import { createPinia } from "pinia";
 import { createMemoryHistory } from "vue-router";
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
 
 import App from "@/App.vue";
 import { createAppRouter } from "@/app/router";
+
+const mountedWrappers: VueWrapper[] = [];
+const cleanupRegisteredKey = "__tkops_runtime_helpers_cleanup_registered__";
+
+function cleanupMountedApps() {
+  while (mountedWrappers.length > 0) {
+    mountedWrappers.pop()?.unmount();
+  }
+}
+
+if (!(globalThis as Record<string, unknown>)[cleanupRegisteredKey]) {
+  (globalThis as Record<string, unknown>)[cleanupRegisteredKey] = true;
+  afterEach(() => {
+    cleanupMountedApps();
+  });
+}
 
 export function okJsonResponse(data: unknown, status = 200) {
   return {
@@ -49,6 +65,39 @@ export const runtimeFixtures = {
     activatedAt: null
   },
   health: {
+    runtime: {
+      status: "online",
+      port: 8000,
+      uptimeMs: 1200,
+      version: "0.1.1"
+    },
+    aiProvider: {
+      status: "configured",
+      latencyMs: null,
+      providerId: "openai",
+      providerName: "OpenAI",
+      lastChecked: null
+    },
+    renderQueue: {
+      running: 0,
+      queued: 0,
+      avgWaitMs: null
+    },
+    publishingQueue: {
+      pendingToday: 0,
+      failedToday: 0
+    },
+    taskBus: {
+      running: 0,
+      queued: 0,
+      blocked: 0,
+      failed24h: 0
+    },
+    license: {
+      status: "missing",
+      expiresAt: null
+    },
+    lastSyncAt: "2026-04-11T10:00:00Z",
     service: "online",
     version: "0.1.1",
     now: "2026-04-11T10:00:00Z",
@@ -112,7 +161,29 @@ export const runtimeFixtures = {
   },
   emptyDashboardSummary: {
     recentProjects: [],
-    currentProject: null
+    currentProject: null,
+    greeting: {
+      title: "上午进度",
+      subtitle: "聚焦当前项目与核心任务。"
+    },
+    heroContext: {
+      currentProject: null,
+      primaryAction: {
+        label: "新建项目",
+        action: "create-project",
+        targetProjectId: null
+      },
+      pendingTasks: 0,
+      blockingIssues: 0
+    },
+    todos: [],
+    exceptions: [],
+    health: {
+      runtimeStatus: "online",
+      aiProviderStatus: "ready",
+      taskBusStatus: "idle"
+    },
+    generatedAt: "2026-04-11T10:00:00Z"
   },
   aiCapabilitySettings: {
     capabilities: [
@@ -352,6 +423,7 @@ export function createRouteAwareFetch(
 }
 
 export async function mountApp(path: string) {
+  cleanupMountedApps();
   const pinia = createPinia();
   const router = createAppRouter(pinia, createMemoryHistory());
   router.push(path);
@@ -362,6 +434,7 @@ export async function mountApp(path: string) {
       plugins: [pinia, router]
     }
   });
+  mountedWrappers.push(wrapper);
 
   return { wrapper, router, pinia };
 }

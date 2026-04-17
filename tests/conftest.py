@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 import sys
 from pathlib import Path
 
@@ -17,6 +18,9 @@ if str(RUNTIME_SRC) not in sys.path:
 def runtime_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("TK_OPS_RUNTIME_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("TK_OPS_RUNTIME_MODE", "test")
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        monkeypatch.setenv("TK_OPS_RUNTIME_PORT", str(sock.getsockname()[1]))
     return tmp_path
 
 

@@ -10,15 +10,21 @@ import type {
   AIProviderSecretStatus,
   AppSettings,
   AppSettingsUpdateInput,
+  BootstrapDirectoryReport,
   CreateProjectInput,
   CurrentProjectContext,
   DashboardSummary,
+  DiagnosticsBundleDto,
+  GlobalSearchResult,
   LicenseActivationInput,
   LicenseStatus,
+  LogFilter,
+  LogPageDto,
   RuntimeDiagnostics,
   RuntimeEnvelope,
   RuntimeRequestErrorShape,
   RuntimeHealthSnapshot,
+  RuntimeSelfCheckReport,
   ScriptDocument,
   StoryboardDocument,
   StoryboardScene,
@@ -92,6 +98,7 @@ function resolveRuntimeBaseUrl(): string {
 
 export class RuntimeRequestError extends Error {
   details: unknown;
+  errorCode: string;
   requestId: string;
   status: number;
 
@@ -99,6 +106,7 @@ export class RuntimeRequestError extends Error {
     super(message);
     this.name = "RuntimeRequestError";
     this.details = shape.details;
+    this.errorCode = shape.errorCode ?? "";
     this.requestId = shape.requestId ?? "";
     this.status = shape.status ?? 0;
   }
@@ -125,6 +133,42 @@ export async function fetchRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
   return requestRuntime<RuntimeDiagnostics>("/api/settings/diagnostics");
 }
 
+export async function initializeDirectories(): Promise<BootstrapDirectoryReport> {
+  return requestRuntime<BootstrapDirectoryReport>("/api/bootstrap/initialize-directories", {
+    method: "POST"
+  });
+}
+
+export async function runtimeSelfCheck(): Promise<RuntimeSelfCheckReport> {
+  return requestRuntime<RuntimeSelfCheckReport>("/api/bootstrap/runtime-selfcheck", {
+    method: "POST"
+  });
+}
+
+export async function fetchRuntimeLogs(filter: LogFilter = {}): Promise<LogPageDto> {
+  const params = new URLSearchParams();
+  if (filter.kind) {
+    params.append("kind", filter.kind);
+  }
+  if (filter.since) {
+    params.append("since", filter.since);
+  }
+  if (filter.level) {
+    params.append("level", filter.level);
+  }
+  if (typeof filter.limit === "number") {
+    params.append("limit", String(filter.limit));
+  }
+  const query = params.toString();
+  return requestRuntime<LogPageDto>(`/api/settings/logs${query ? `?${query}` : ""}`);
+}
+
+export async function exportDiagnosticsBundle(): Promise<DiagnosticsBundleDto> {
+  return requestRuntime<DiagnosticsBundleDto>("/api/settings/diagnostics/export", {
+    method: "POST"
+  });
+}
+
 export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   return requestRuntime<DashboardSummary>("/api/dashboard/summary");
 }
@@ -143,12 +187,28 @@ export async function fetchCurrentProjectContext(): Promise<CurrentProjectContex
 }
 
 export async function updateCurrentProjectContext(
-  projectId: string
-): Promise<CurrentProjectContext> {
-  return requestRuntime<CurrentProjectContext>("/api/dashboard/context", {
+  projectId: string | null
+): Promise<CurrentProjectContext | null> {
+  return requestRuntime<CurrentProjectContext | null>("/api/dashboard/context", {
     body: JSON.stringify({ projectId }),
     method: "PUT"
   });
+}
+
+export async function searchGlobal(
+  q: string,
+  types?: string[],
+  limit?: number
+): Promise<GlobalSearchResult> {
+  const params = new URLSearchParams();
+  params.append("q", q);
+  if (types && types.length > 0) {
+    params.append("types", types.join(","));
+  }
+  if (typeof limit === "number") {
+    params.append("limit", String(limit));
+  }
+  return requestRuntime<GlobalSearchResult>(`/api/search?${params.toString()}`);
 }
 
 export async function fetchLicenseStatus(): Promise<LicenseStatus> {
@@ -894,11 +954,12 @@ export async function applyVideoExtractionToProject(
 }
 
 export async function fetchActiveTasks(): Promise<TaskInfo[]> {
-  return requestRuntime<TaskInfo[]>("/api/tasks");
+  const tasks = await requestRuntime<TaskInfo[]>("/api/tasks");
+  return tasks.map(normalizeTaskInfo);
 }
 
 export async function fetchTaskStatus(taskId: string): Promise<TaskInfo> {
-  return requestRuntime<TaskInfo>(`/api/tasks/${taskId}`);
+  return normalizeTaskInfo(await requestRuntime<TaskInfo>(`/api/tasks/${taskId}`));
 }
 
 export async function cancelTask(
@@ -955,10 +1016,29 @@ function toRuntimeRequestError(
   if (payload && !payload.ok) {
     return new RuntimeRequestError(payload.error, {
       details: payload.details,
+      errorCode: payload.error_code,
       requestId: payload.requestId,
       status
     });
   }
 
   return new RuntimeRequestError(fallbackMessage, { status });
+}
+
+function normalizeTaskInfo(task: TaskInfo): TaskInfo {
+  return {
+    ...task,
+    kind: task.kind ?? task.task_type ?? "generic",
+    label: task.label ?? task.message ?? task.kind ?? task.task_type ?? "任务",
+    progressPct: task.progressPct ?? task.progress ?? 0,
+    projectId: task.projectId ?? task.project_id ?? null,
+    createdAt: task.createdAt ?? task.created_at ?? "",
+    updatedAt: task.updatedAt ?? task.updated_at ?? "",
+    task_type: task.task_type ?? task.kind ?? "generic",
+    project_id: task.project_id ?? task.projectId ?? null,
+    progress: task.progress ?? task.progressPct ?? 0,
+    message: task.message ?? task.label ?? task.kind ?? "任务",
+    created_at: task.created_at ?? task.createdAt ?? "",
+    updated_at: task.updated_at ?? task.updatedAt ?? ""
+  };
 }

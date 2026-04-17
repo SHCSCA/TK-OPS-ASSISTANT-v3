@@ -1,6 +1,6 @@
 # Runtime API 与前端调用真源
 
-**当前状态（2026-04-17）**: Runtime 已覆盖 `license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。
+**当前状态（2026-04-17）**: Runtime 已覆盖 `search / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。
 **接口版本**: V1（统一 JSON 信封，无独立版本号前缀）
 **唯一真源约束**: 后端路由、服务、前端 `runtime-client.ts`、Pinia store、契约测试发生变化时，必须在同一次改动中更新本文件。
 **编码约束**: 本文档必须使用 UTF-8 无 BOM 保存，所有读取、生成、校验脚本都按 UTF-8 处理，避免中文出现乱码。
@@ -26,7 +26,8 @@
 ```json
 {
   "ok": false,
-  "error": "中文可见错误"
+  "error": "中文可见错误",
+  "error_code": "task.conflict"
 }
 ```
 
@@ -42,11 +43,22 @@
 | `422` | 参数校验失败 | 请求体缺字段、字段类型错误、枚举值非法 |
 | `500` | Runtime 内部错误 | 服务层异常；前端只显示中文错误，不暴露 traceback |
 
+| `error_code` | 场景 | 说明 |
+| --- | --- | --- |
+| `request.validation_failed` | 请求体验证失败 | 统一由 `error_response(..., error_code=...)` 返回 |
+| `runtime.not-ready` | Runtime 自检未通过 | 适用于版本、依赖、数据库等启动前检查 |
+| `runtime.port-occupied` | Runtime 端口被占用 | 适用于 `/api/bootstrap/runtime-selfcheck` 的端口检查 |
+| `project.not_found` | 项目不存在 | 适用于 dashboard / script / storyboard 等项目主链 |
+| `task.not_found` | 长任务不存在 | 适用于 `/api/tasks/{task_id}` |
+| `task.conflict` | 长任务不可取消或状态冲突 | 适用于 `/api/tasks/{task_id}/cancel` |
+| `search.query.invalid` | 搜索参数非法 | 预留给 `/api/search` 的查询校验扩展 |
+
 ### 1.3 模块索引
 
 | 模块 | 路由前缀 | 当前前端入口 |
 | --- | --- | --- |
 | 许可证 | `/api/license` | `license.ts`、`BootstrapGate.vue`、`SetupLicenseWizardPage.vue` |
+| 首启初始化 | `/api/bootstrap` | `runtime-client.ts`（`initializeDirectories`、`runtimeSelfCheck`） |
 | 创作总览 | `/api/dashboard` | `fetchDashboardSummary`、`creator-dashboard` 页面 |
 | 脚本与选题中心 | `/api/scripts` | `script-studio.ts`、`ScriptTopicCenterPage.vue` |
 | 分镜规划中心 | `/api/storyboards` | `storyboard.ts`、`StoryboardPlanningCenterPage.vue` |
@@ -62,8 +74,106 @@
 | 渲染与导出中心 | `/api/renders` | `renders.ts`、`RenderExportCenterPage.vue` |
 | 复盘与优化中心 | `/api/review` | `review.ts`、`ReviewOptimizationCenterPage.vue` |
 | AI 与系统设置 | `/api/settings`、`/api/settings/ai-capabilities`、`/api/settings/ai-providers` | `config-bus.ts`、`ai-capability.ts`、`AIAndSystemSettingsPage.vue` |
+| 全局搜索 | `/api/search` | `searchGlobal` |
 | 长任务状态 | `/api/tasks` | `task-bus.ts` |
 | WebSocket | `/api/ws` | `task-bus.ts` WebSocket 订阅 |
+
+### 1.4 全局搜索
+
+**核心返回 DTO**: `GlobalSearchResultDto`
+关键字段：`projects[]`、`scripts[]`、`tasks[]`、`assets[]`、`accounts[]`、`workspaces[]`
+
+| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
+| --- | --- | --- | --- | --- |
+| `GET /api/search` | 查询参数：`q`、`types?`、`limit?` | `GlobalSearchResultDto` | `422`、`500` | `searchGlobal` |
+
+**示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "projects": [
+      {
+        "id": "project-1",
+        "name": "Alpha 项目",
+        "subtitle": "Alpha 描述",
+        "updatedAt": "2026-04-17T12:00:00Z"
+      }
+    ],
+    "scripts": [
+      {
+        "id": "project-1:1",
+        "projectId": "project-1",
+        "title": "Alpha Hook",
+        "snippet": "Alpha Hook 第二行文案",
+        "updatedAt": "2026-04-17T12:00:00Z"
+      }
+    ],
+    "tasks": [],
+    "assets": [],
+    "accounts": [],
+    "workspaces": []
+  }
+}
+```
+
+### 2.1 首启运行时初始化
+
+**核心返回 DTO**: `BootstrapDirectoryReportDto`、`RuntimeSelfCheckReportDto`
+
+| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
+| --- | --- | --- | --- | --- |
+| `POST /api/bootstrap/initialize-directories` | 无；按当前 settings/config 与 runtime data root 创建并校验目录 | `BootstrapDirectoryReportDto`：`rootDir`、`databasePath`、`status`、`directories[]`、`checkedAt` | `500` | `initializeDirectories` |
+| `POST /api/bootstrap/runtime-selfcheck` | 无；执行端口、版本、依赖、数据库聚合自检 | `RuntimeSelfCheckReportDto`：`status`、`runtimeVersion`、`checkedAt`、`items[]` | `500`；单项失败时结果内返回 `runtime.not-ready` / `runtime.port-occupied` | `runtimeSelfCheck` |
+
+**目录初始化示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "rootDir": "C:/TKOPS/.runtime-data",
+    "databasePath": "C:/TKOPS/.runtime-data/runtime.db",
+    "status": "ok",
+    "directories": [
+      {
+        "key": "projects",
+        "label": "项目目录",
+        "path": "C:/TKOPS/.runtime-data/projects",
+        "exists": true,
+        "writable": true,
+        "status": "ok",
+        "message": "目录已就绪"
+      }
+    ],
+    "checkedAt": "2026-04-17T12:00:00Z"
+  }
+}
+```
+
+**自检示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "status": "ok",
+    "runtimeVersion": "0.3.3",
+    "checkedAt": "2026-04-17T12:00:00Z",
+    "items": [
+      {
+        "key": "port",
+        "label": "端口检查",
+        "status": "ok",
+        "detail": "端口 8000 可用。",
+        "errorCode": null,
+        "checkedAt": "2026-04-17T12:00:00Z"
+      }
+    ]
+  }
+}
+```
 
 ---
 
@@ -102,10 +212,10 @@
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/dashboard/summary` | 无 | `DashboardSummaryDto`：`recentProjects[]`、`currentProject` | `500` | `fetchDashboardSummary` |
+| `GET /api/dashboard/summary` | 无 | `DashboardSummaryDto`：`greeting`、`heroContext`、`recentProjects[]`、`todos[]`、`exceptions[]`、`health`、`generatedAt`、`currentProject` | `500` | `fetchDashboardSummary` |
 | `POST /api/dashboard/projects` | `CreateProjectInput`：`name`、`description` | `ProjectSummaryDto` | `422`、`500` | `createDashboardProject` |
 | `GET /api/dashboard/context` | 无 | `CurrentProjectContextDto \| null` | `500` | `fetchCurrentProjectContext` |
-| `PUT /api/dashboard/context` | `SetCurrentProjectInput`：`projectId` | `CurrentProjectContextDto` | `404`、`422` | `updateCurrentProjectContext` |
+| `PUT /api/dashboard/context` | `SetCurrentProjectInput`：`projectId`，支持 `null` 清空当前项目 | `CurrentProjectContextDto \| null` | `404`、`422` | `updateCurrentProjectContext` |
 
 **示例**
 
@@ -113,6 +223,25 @@
 {
   "ok": true,
   "data": {
+    "greeting": {
+      "title": "上午进度",
+      "subtitle": "聚焦当前项目与核心任务。"
+    },
+    "heroContext": {
+      "currentProject": {
+        "id": "project-1",
+        "name": "TikTok 选题 A",
+        "status": "active",
+        "lastEditedAt": "2026-04-17T08:30:00Z"
+      },
+      "primaryAction": {
+        "label": "继续项目",
+        "action": "resume-project",
+        "targetProjectId": "project-1"
+      },
+      "pendingTasks": 0,
+      "blockingIssues": 0
+    },
     "recentProjects": [
       {
         "id": "project-1",
@@ -130,7 +259,15 @@
       "projectId": "project-1",
       "projectName": "TikTok 选题 A",
       "status": "active"
-    }
+    },
+    "todos": [],
+    "exceptions": [],
+    "health": {
+      "runtimeStatus": "online",
+      "aiProviderStatus": "ready",
+      "taskBusStatus": "idle"
+    },
+    "generatedAt": "2026-04-17T08:30:00Z"
   }
 }
 ```
@@ -611,14 +748,16 @@
 
 ### 17.1 Runtime 基础设置
 
-**核心返回 DTO**: `AppSettingsDto`、`RuntimeDiagnosticsDto`
+**核心返回 DTO**: `RuntimeHealthSnapshotDto`、`AppSettingsDto`、`RuntimeDiagnosticsDto`、`RuntimeLogPageDto`、`DiagnosticsBundleDto`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/settings/health` | 无 | 健康状态对象 | `500` | `fetchRuntimeHealth` |
+| `GET /api/settings/health` | 无 | `RuntimeHealthSnapshotDto`：`runtime`、`aiProvider`、`renderQueue`、`publishingQueue`、`taskBus`、`license`、`lastSyncAt` | `500` | `fetchRuntimeHealth` |
 | `GET /api/settings/config` | 无 | `AppSettingsDto`：`runtime`、`paths`、`logging`、`ai`、`revision` | `500` | `fetchRuntimeConfig` |
-| `PUT /api/settings/config` | `AppSettingsUpdateInput`：`runtime.mode/workspaceRoot`、`paths.cacheDir/exportDir/logDir`、`logging.level`、`ai.provider/model/voice/subtitleMode` | `AppSettingsDto` | `422`、`500` | `updateRuntimeConfig` |
+| `PUT /api/settings/config` | `AppSettingsUpdateInput`：`runtime.mode/workspaceRoot`、`paths.cacheDir/exportDir/logDir`、`logging.level`、`ai.provider/model/voice/subtitleMode`；成功后广播 `config.changed` | `AppSettingsDto` | `422`、`500` | `updateRuntimeConfig` |
 | `GET /api/settings/diagnostics` | 无 | `RuntimeDiagnosticsDto`：`databasePath`、`logDir`、`revision`、`mode`、`healthStatus` | `500` | `fetchRuntimeDiagnostics` |
+| `GET /api/settings/logs` | 查询参数：`kind?`、`since?`、`level?`、`limit?`；当前从 `runtime.jsonl` 读取结构化日志 | `RuntimeLogPageDto`：`items[]`、`nextCursor` | `422`、`500` | `fetchRuntimeLogs` |
+| `POST /api/settings/diagnostics/export` | 无；生成当前 settings / health / diagnostics / runtime.jsonl 的诊断包 | `DiagnosticsBundleDto`：`bundlePath`、`createdAt`、`entries[]` | `500` | `exportDiagnosticsBundle` |
 
 ### 17.2 AI 能力配置
 
@@ -627,7 +766,7 @@
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/settings/ai-capabilities` | 无 | `AICapabilitySettingsDto`：`capabilities[]`、`providers[]` | `500` | `fetchAICapabilitySettings` |
-| `PUT /api/settings/ai-capabilities` | `AICapabilityConfigListInput`：`capabilities[]` | `AICapabilitySettingsDto` | `422`、`500` | `updateAICapabilitySettings` |
+| `PUT /api/settings/ai-capabilities` | `AICapabilityConfigListInput`：`capabilities[]`；成功后广播 `ai-capability.changed` | `AICapabilitySettingsDto` | `422`、`500` | `updateAICapabilitySettings` |
 | `GET /api/settings/ai-capabilities/support-matrix` | 无 | `AICapabilitySupportMatrixDto` | `500` | `fetchAICapabilitySupportMatrix` |
 | `PUT /api/settings/ai-capabilities/providers/{provider_id}/secret` | `AIProviderSecretInput`：`apiKey`、`baseUrl?` | `AIProviderSecretStatusDto` | `404`、`422` | `updateAIProviderSecret` |
 | `POST /api/settings/ai-capabilities/providers/{provider_id}/health-check` | `AIProviderHealthCheckInput`：`model?` | `AIProviderHealthDto` | `404`、`422` | `checkAIProviderHealth` |
@@ -642,7 +781,54 @@
 | `GET /api/settings/ai-providers/{provider_id}/models` | 路径参数：`provider_id` | `AIModelCatalogItemDto[]` | `404` | `fetchAIProviderModels` |
 | `POST /api/settings/ai-providers/{provider_id}/models/refresh` | 路径参数：`provider_id` | `AIModelCatalogRefreshResultDto` | `404`、`409` | `refreshAIProviderModels` |
 
-**示例**
+**健康示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "runtime": {
+      "status": "online",
+      "port": 8000,
+      "uptimeMs": 1200,
+      "version": "0.3.3"
+    },
+    "aiProvider": {
+      "status": "configured",
+      "latencyMs": null,
+      "providerId": "openai",
+      "providerName": "OpenAI",
+      "lastChecked": null
+    },
+    "renderQueue": {
+      "running": 0,
+      "queued": 0,
+      "avgWaitMs": null
+    },
+    "publishingQueue": {
+      "pendingToday": 0,
+      "failedToday": 0
+    },
+    "taskBus": {
+      "running": 0,
+      "queued": 0,
+      "blocked": 0,
+      "failed24h": 0
+    },
+    "license": {
+      "status": "missing",
+      "expiresAt": null
+    },
+    "lastSyncAt": "2026-04-17T12:00:00Z",
+    "service": "online",
+    "version": "0.3.3",
+    "now": "2026-04-17T12:00:00Z",
+    "mode": "development"
+  }
+}
+```
+
+**配置示例**
 
 ```json
 {
@@ -675,14 +861,14 @@
 
 ## 18. 长任务状态
 
-**核心返回结构**: `TaskInfo`
-关键字段：`id`、`task_type`、`project_id`、`status`、`progress`、`message`、`created_at`、`updated_at`
+**核心返回结构**: `TaskDto`
+关键字段：`id`、`kind`、`label`、`status`、`progressPct`、`startedAt`、`finishedAt`、`etaMs`、`projectId`、`ownerRef`、`errorCode`、`errorMessage`、`retryable`、`createdAt`、`updatedAt`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/tasks` | 无 | 活跃任务列表 `TaskInfo[]` | `500` | `fetchActiveTasks` |
-| `GET /api/tasks/{task_id}` | 路径参数：`task_id` | `TaskInfo` | `404` | `fetchTaskStatus` |
-| `POST /api/tasks/{task_id}/cancel` | 路径参数：`task_id` | `{ task_id, status, message }` | `404`、`409` | `cancelTask` |
+| `GET /api/tasks` | 查询参数：`type?`、`status?`（逗号分隔） | `TaskDto[]` | `500` | `fetchActiveTasks` |
+| `GET /api/tasks/{task_id}` | 路径参数：`task_id` | `TaskDto` | `404` | `fetchTaskStatus` |
+| `POST /api/tasks/{task_id}/cancel` | 路径参数：`task_id` | `{ task_id, status, message }` | `404`、`409`（`task.conflict`） | `cancelTask` |
 
 **示例**
 
@@ -691,13 +877,23 @@
   "ok": true,
   "data": {
     "id": "task-1",
-    "task_type": "video_import",
-    "project_id": "project-1",
+    "kind": "video-import",
+    "label": "导入视频",
     "status": "running",
-    "progress": 45,
-    "message": "正在读取媒体元数据",
-    "created_at": "2026-04-17T10:30:00Z",
-    "updated_at": "2026-04-17T10:30:10Z"
+    "progressPct": 45,
+    "startedAt": "2026-04-17T10:30:00Z",
+    "finishedAt": null,
+    "etaMs": 120000,
+    "projectId": "project-1",
+    "ownerRef": {
+      "kind": "imported-video",
+      "id": "video-1"
+    },
+    "errorCode": null,
+    "errorMessage": null,
+    "retryable": false,
+    "createdAt": "2026-04-17T10:30:00Z",
+    "updatedAt": "2026-04-17T10:30:10Z"
   }
 }
 ```
@@ -712,7 +908,7 @@
 | --- | --- | --- | --- | --- |
 | `WS /api/ws` | 无；连接建立后用于任务广播与心跳保持 | 服务端主动推送任务事件 | 连接断开时由前端重连 | `task-bus.ts` |
 
-**当前事件格式**
+**当前事件格式（任务类）**
 
 ```json
 {
@@ -727,7 +923,75 @@
 }
 ```
 
-支持的事件类型：`task.started`、`task.progress`、`task.completed`、`task.failed`
+**当前已落地事件类型**
+
+- `task.started`
+- `task.progress`
+- `task.completed`
+- `task.failed`
+- `config.changed`
+- `ai-capability.changed`
+- `context.project.changed`
+
+**非任务事件示例**
+
+```json
+{
+  "schema_version": 1,
+  "type": "config.changed",
+  "payload": {
+    "changedKeys": ["logging.level"],
+    "revision": 2
+  }
+}
+```
+
+**日志分页示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "items": [
+      {
+        "timestamp": "2026-04-17T12:05:00Z",
+        "level": "INFO",
+        "kind": "audit",
+        "requestId": "req-123",
+        "message": "settings.updated",
+        "context": {
+          "revision": 2
+        }
+      }
+    ],
+    "nextCursor": null
+  }
+}
+```
+
+**诊断包示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "bundlePath": "C:/TKOPS/exports/diagnostics/tk-ops-diagnostics-20260417-120500.zip",
+    "createdAt": "2026-04-17T12:05:00Z",
+    "entries": [
+      {
+        "name": "settings.json",
+        "path": "settings.json",
+        "sizeBytes": 420
+      },
+      {
+        "name": "runtime.jsonl",
+        "path": "runtime.jsonl",
+        "sizeBytes": 1024
+      }
+    ]
+  }
+}
+```
 
 ---
 

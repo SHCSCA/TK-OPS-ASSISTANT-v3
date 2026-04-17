@@ -97,7 +97,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, reactive, watch } from "vue";
+import { computed, nextTick, reactive, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import {
@@ -145,6 +145,7 @@ async function handleSave(): Promise<void> {
     return;
   }
 
+  await nextTick();
   await router.replace(resolveRedirectTarget(route.query.redirect));
 }
 

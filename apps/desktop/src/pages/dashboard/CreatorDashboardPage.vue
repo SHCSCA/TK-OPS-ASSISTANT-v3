@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { useConfigBusStore } from "@/stores/config-bus";
@@ -157,7 +157,8 @@ async function handleSelectProject(projectId: string): Promise<void> {
 async function resumeRedirectIfNeeded(): Promise<void> {
   const redirect = resolveRedirectTarget(route.query.redirect);
   if (redirect) {
-    await router.push(redirect);
+    await nextTick();
+    await router.replace(redirect);
   }
 }
 
