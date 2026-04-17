@@ -2,8 +2,10 @@
 
 > 计划来源：`docs/superpowers/plans/2026-04-16-m05-ai-editing-workspace-runtime-ui.md`  
 > `.claude` 蓝图：`.claude/plan/modules/M05-ai-editing-workspace.md`、`.claude/plan/backend/B-M05-ai-editing-workspace.md`  
-> 状态：Draft，等待用户确认后进入实现  
+> 状态：Implemented，已于 2026-04-17 获批执行并合入 `main`
 > 适用流程：`tkops-agent-council` + `tkops-ui-experience-council` + `tkops-runtime-contract-council`
+> 实施结论：本设计对应的 M05-A 已落地，Runtime 已提供 `/api/workspace` 时间线读写与 `blocked` AI command，前端已拆分 page/store/modules/styles 并移除静态假轨道。
+> 验证结论：前端 M05 page/store/runtime-client tests 与 Runtime service/contract 回归已通过，本次主线 build 和全量 tests 已重新验证。
 
 ## 1. 设计目标
 
@@ -52,7 +54,7 @@ QA & Verification Agent：通过。必须覆盖 contract、service、runtime-cli
 
 Independent Reviewer：评分 8.2 / 10。无 P0；P1 风险是页面继续堆进大文件或用假轨道填充视觉，该风险已转为强制拆分和空态要求。
 
-Project Leader：批准进入用户审阅。用户确认后才能进入实现。
+Project Leader：已于 2026-04-17 获批执行，并按本设计完成 M05-A 合流到 `main`。
 
 ## 4. Runtime 契约
 

@@ -12,10 +12,12 @@
 
 ## Status
 
-- 状态：Approved，用户已于 2026-04-17 批准继续。
+- 状态：Implemented，已于 2026-04-17 执行完成并收口到 `main`。
 - 创建时间：2026-04-17。
 - 本计划只覆盖 `main` 收口、未提交改动提交、版本与文档统一、验证与提交。
 - 本计划不覆盖新的业务功能扩展，不新增第 17 页，不改产品定位，不新增假数据。
+- 执行结果：已先提交主干脏工作树为 `58ecc75 chore: sync project status and desktop dev launcher`，再以 merge commit `6133b99` 合并 `codex/m05-ai-editing-workspace-runtime-ui`，并完成版本真源、状态文档与 Runtime 接口文档同步。
+- 验证结果：`npm run version:check`、`npm --prefix apps/desktop run test`、`npm --prefix apps/desktop run build`、`venv\Scripts\python.exe -m pytest tests\runtime tests\contracts -q` 与 `git diff --check` 已通过。
 
 ## Current Facts
 
@@ -240,7 +242,7 @@ Git / 收口：
 - Read: `docs/PROJECT-STATUS.md`
 - Read: `docs/RUNTIME-API-CALLS.md`
 
-- [ ] **Step 1: 列出所有分支与未并分支**
+- [x] **Step 1: 列出所有分支与未并分支**
 
 Run:
 
@@ -255,7 +257,7 @@ Expected:
 - 明确只有哪些分支尚未进 `main`。
 - worktree 中若存在 detached HEAD，只记录事实，不当作 branch 自动 merge。
 
-- [ ] **Step 2: 审查当前工作树**
+- [x] **Step 2: 审查当前工作树**
 
 Run:
 
@@ -269,7 +271,7 @@ Expected:
 
 - 明确每个改动属于启动链路、版本、文档状态或新增脚本。
 
-- [ ] **Step 3: 审查新增未跟踪文件内容**
+- [x] **Step 3: 审查新增未跟踪文件内容**
 
 Run:
 
@@ -298,7 +300,7 @@ Expected:
 - Add if accepted: `scripts/stitch-connect.js`
 - Add if accepted: `scripts/stitch-generate-dashboard.js`
 
-- [ ] **Step 1: 修正当前未提交改动中的明显口径冲突**
+- [x] **Step 1: 修正当前未提交改动中的明显口径冲突**
 
 至少处理：
 
@@ -306,7 +308,7 @@ Expected:
 - `apps/desktop/README.md` 不再保留过时页面状态描述。
 - `CHANGELOG.md` 与本次实际改动内容一致。
 
-- [ ] **Step 2: 运行提交前格式检查**
+- [x] **Step 2: 运行提交前格式检查**
 
 Run:
 
@@ -318,7 +320,7 @@ Expected:
 
 - 无空白和补丁格式错误。
 
-- [ ] **Step 3: 提交当前工作树改动**
+- [x] **Step 3: 提交当前工作树改动**
 
 Run:
 
@@ -337,7 +339,7 @@ Expected:
 
 - Merge target: branch `codex/m05-ai-editing-workspace-runtime-ui`
 
-- [ ] **Step 1: 执行分支合并**
+- [x] **Step 1: 执行分支合并**
 
 Run:
 
@@ -349,7 +351,7 @@ Expected:
 
 - 成功生成 merge commit，或进入可控冲突解决流程。
 
-- [ ] **Step 2: 若冲突，逐文件解决并验证**
+- [x] **Step 2: 本次 merge 无冲突，逐文件解决步骤未触发**
 
 重点核对：
 
@@ -364,7 +366,7 @@ Expected:
 
 - 合并结果遵循当前真源文档与主干现状，不把旧蓝图或实验实现硬塞回运行链路。
 
-- [ ] **Step 3: 确认不存在新的未并分支**
+- [x] **Step 3: 确认不存在新的未并分支**
 
 Run:
 
@@ -390,14 +392,14 @@ Expected:
 - Modify: `docs/PROJECT-STATUS.md`
 - Modify: `docs/RUNTIME-API-CALLS.md`
 
-- [ ] **Step 1: 决定版本号**
+- [x] **Step 1: 决定版本号**
 
 规则：
 
 - 若合并结果包含新的功能面或状态收口，升级到新 patch 版本。
 - 版本只改根 `package.json#version`，再同步镜像文件。
 
-- [ ] **Step 2: 同步版本镜像**
+- [x] **Step 2: 同步版本镜像**
 
 Run:
 
@@ -410,7 +412,7 @@ Expected:
 
 - `version:check` 成功，所有镜像版本一致。
 
-- [ ] **Step 3: 统一状态文档**
+- [x] **Step 3: 统一状态文档**
 
 至少处理：
 
@@ -429,7 +431,7 @@ Expected:
 - Verify only: `tests/`
 - Verify only: `docs/`
 
-- [ ] **Step 1: 跑版本与文档验证**
+- [x] **Step 1: 跑版本与文档验证**
 
 Run:
 
@@ -443,7 +445,7 @@ Expected:
 - 版本一致。
 - 文档 UTF-8 与文本契约通过。
 
-- [ ] **Step 2: 跑前端验证**
+- [x] **Step 2: 跑前端验证**
 
 Run:
 
@@ -456,7 +458,7 @@ Expected:
 
 - 全部通过；若有非阻断 warning，需在最终说明中标注。
 
-- [ ] **Step 3: 跑后端验证**
+- [x] **Step 3: 跑后端验证**
 
 Run:
 
@@ -469,7 +471,7 @@ Expected:
 
 - contracts 与 runtime 测试通过。
 
-- [ ] **Step 4: 跑 Git 收尾检查**
+- [x] **Step 4: 跑 Git 收尾检查**
 
 Run:
 
@@ -483,7 +485,7 @@ Expected:
 - 无 diff 格式错误。
 - `main` 工作树干净。
 
-- [ ] **Step 5: 提交最终收口改动**
+- [x] **Step 5: 提交最终收口改动**
 
 Run:
 

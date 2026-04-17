@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.3 - 2026-04-17
+
+### Main 分支收口
+
+- 将 `codex/m05-ai-editing-workspace-runtime-ui` 合并到 `main`，结束本地主干之外的 M05 工作台并行实现。
+- 提交桌面开发启动链路修正、项目状态文档和 Stitch CLI 辅助脚本，清理 `main` 上的脏工作树。
+
+### M05 AI 剪辑工作台
+
+- 新增 `/api/workspace` 时间线草稿读取、创建、保存和 AI 命令阻断态的 Runtime 契约。
+- 将 AI 剪辑工作台拆分为页面壳、workspace 模块、Pinia store 和样式文件，移除页面内静态假轨道和假 AI 结果。
+
+### 文档与版本统一
+
+- 将根 `README.md`、`apps/desktop/README.md`、`docs/PROJECT-STATUS.md`、`docs/RUNTIME-API-CALLS.md` 统一到合并后的最新状态口径。
+- 根版本真源升级到 `0.3.3`，镜像版本通过同步脚本维护。
+
 ## 0.3.2 - 2026-04-16
 
 ### 开发态启动链路

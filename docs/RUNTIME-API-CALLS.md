@@ -65,7 +65,7 @@
 
 > 2026-04-17 新增：M05-A 只建立项目时间线草稿的真实 Runtime 闭环。工作台不得继续展示页面内静态假轨道、假素材、假视频进度或假 AI 结果。无时间线时返回中性空态；AI 魔法剪入口本批返回 `blocked`，不创建假任务。
 
-### 4.1 数据对象
+### 5.1 数据对象
 
 `WorkspaceTimelineClipDto`
 
@@ -123,7 +123,7 @@
 | `task` | `object \| null` | 本批不创建任务，固定为 `null` |
 | `message` | `string` | 中文阻断说明 |
 
-### 4.2 后端接口与前端调用
+### 5.2 后端接口与前端调用
 
 | 状态 | 方法 | 路径 | 后端入口 | 前端调用 | 消费方 | 测试 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -238,7 +238,7 @@ AI 魔法剪阻断响应：
 | 当前 | `GET` | `/api/voice/tracks/{track_id}` | `api/routes/voice.py:get_track` | `fetchVoiceTrack(trackId)` | `voice-studio` store、版本详情 | `tests/contracts/test_voice_runtime_contract.py`、`apps/desktop/tests/runtime-client-voice.spec.ts` |
 | 当前 | `DELETE` | `/api/voice/tracks/{track_id}` | `api/routes/voice.py:delete_track` | `deleteVoiceTrack(trackId)` | `voice-studio` store、`VoiceVersionPanel.vue` | `tests/contracts/test_voice_runtime_contract.py`、`apps/desktop/tests/voice-studio-store.spec.ts` |
 
-### 4.3 `POST /api/voice/projects/{project_id}/tracks/generate`
+### 5.3 `POST /api/voice/projects/{project_id}/tracks/generate`
 
 请求：
 
@@ -364,7 +364,7 @@ AI 魔法剪阻断响应：
 | `task` | `object \| null` | 本批无真实任务时为 `null` |
 | `message` | `string` | 中文结果说明 |
 
-### 5.2 后端接口与前端调用
+### 6.2 后端接口与前端调用
 
 | 状态 | 方法 | 路径 | 后端入口 | 前端调用 | 消费方 | 测试 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -374,7 +374,7 @@ AI 魔法剪阻断响应：
 | 当前 | `PATCH` | `/api/subtitles/tracks/{track_id}` | `api/routes/subtitles.py:update_track` | `updateSubtitleTrack(trackId, input)` | `subtitle-alignment` store、`SubtitleSegmentList.vue`、`SubtitleTimingPanel.vue`、`SubtitleStylePanel.vue` | `tests/contracts/test_subtitle_runtime_contract.py`、`tests/runtime/test_subtitle_service.py`、`apps/desktop/tests/subtitle-alignment-store.spec.ts` |
 | 当前 | `DELETE` | `/api/subtitles/tracks/{track_id}` | `api/routes/subtitles.py:delete_track` | `deleteSubtitleTrack(trackId)` | `subtitle-alignment` store、`SubtitleVersionPanel.vue` | `tests/contracts/test_subtitle_runtime_contract.py`、`apps/desktop/tests/subtitle-alignment-store.spec.ts` |
 
-### 5.3 `POST /api/subtitles/projects/{project_id}/tracks/generate`
+### 6.3 `POST /api/subtitles/projects/{project_id}/tracks/generate`
 
 请求：
 
@@ -441,7 +441,7 @@ AI 魔法剪阻断响应：
 - 无 Provider 时状态必须为 `blocked`，不能误导为自动对齐完成。
 - 真实字幕对齐 Provider、ASR、SRT/VTT 导入导出、TaskBus 长任务和时间线回写必须作为后续独立计划。
 
-### 5.4 前端调用登记
+### 6.4 前端调用登记
 
 | 函数 | 文件 | Runtime 路径 | 返回类型 | 主要消费方 | 更新要求 |
 | --- | --- | --- | --- | --- | --- |
@@ -455,7 +455,7 @@ AI 魔法剪阻断响应：
 
 > 2026-04-16 修订：Runtime 启动时会兼容修复旧版 `assets` 表，避免旧本地库缺少 `name`、`type`、`updated_at` 等列导致 `GET /api/assets` 直接 500，也避免旧版 `kind` / `file_name` 非空约束阻断新图片导入。点击“导入资产”必须弹出桌面文件选择器并支持多选；每个被选中的真实本地路径逐个通过 `importAsset(input)` 进入 Runtime。Tauri 主窗口 capability 必须包含 `dialog:allow-open`，否则文件选择器会被运行时权限拒绝；`tauri.conf.json` 必须启用 `app.security.assetProtocol` 并允许用户素材目录，否则 `convertFileSrc(filePath)` 生成的真实预览地址无法在 WebView 中读取。资产中心前端已采用素材墙、批量导入状态、真实本地预览、UTF-8 文档预览和全局右侧抽屉联动；页面不得回退到手动路径输入或图标占位预览。
 
-### 5.1 数据对象
+### 7.1 数据对象
 
 `AssetDto`
 
@@ -502,7 +502,7 @@ AI 魔法剪阻断响应：
 | --- | --- | --- |
 | `deleted` | `boolean` | 删除是否完成 |
 
-### 6.2 后端接口与前端调用
+### 7.2 后端接口与前端调用
 
 | 状态 | 方法 | 路径 | 后端入口 | 前端调用 | 消费方 | 测试 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -517,7 +517,7 @@ AI 魔法剪阻断响应：
 | 当前 | `DELETE` | `/api/assets/references/{ref_id}` | `api/routes/assets.py:delete_asset_reference` | 暂无公开页面调用 | 后端测试/后续引用管理 | `tests/contracts/test_runtime_page_modules_contract.py` |
 | 当前 | `GET` | `/api/assets/references/{ref_id}` | `api/routes/assets.py:get_reference` | 暂无公开页面调用 | 后端测试/后续引用管理 | `tests/contracts/test_runtime_page_modules_contract.py` |
 
-### 6.3 `POST /api/assets/import`
+### 7.3 `POST /api/assets/import`
 
 当前已实现接口。
 
@@ -577,7 +577,7 @@ AI 魔法剪阻断响应：
 - 资产预览不使用假缩略图：视频、图片、可嵌入文档优先通过 `@tauri-apps/api/core` 的 `convertFileSrc(filePath)` 渲染真实本地文件；有 `thumbnailPath` 时优先渲染真实缩略图路径。该能力依赖 Tauri `assetProtocol.enable = true`，并且 `scope` 至少覆盖用户常用素材目录。
 - `.txt`、`.md`、`.json`、`.csv`、`.srt` 等文本类文档不得直接交给 iframe 猜测编码；前端必须读取 `convertFileSrc(filePath)` 返回的内容，并按 UTF-8 文本预览渲染。PDF 保持 iframe 嵌入预览。
 
-### 6.4 删除与引用影响范围
+### 7.4 删除与引用影响范围
 
 删除前端流程：
 
@@ -593,7 +593,7 @@ AI 魔法剪阻断响应：
 - 存在引用时返回统一错误信封，中文错误说明引用影响。
 - 删除成功返回 `{ "deleted": true }`。
 
-### 6.5 旧版本地库兼容
+### 7.5 旧版本地库兼容
 
 历史本地库可能已经存在旧版 `assets` 表，字段为 `kind`、`file_name` 等旧命名，缺少当前 `AssetDto` 依赖的 `name`、`type`、`duration_ms`、`thumbnail_path`、`tags`、`updated_at` 等列。Runtime 初始化必须在 `initialize_domain_schema(engine)` 中执行兼容修复：
 
@@ -603,7 +603,7 @@ AI 魔法剪阻断响应：
 - 如旧列 `kind`、`file_name`、`mime_type` 带有非空约束并会阻断新 ORM 插入，允许原地重建 `assets` 表；重建必须保留旧数据和旧列值，不清空用户本地资产。
 - 兼容修复必须由 `tests/runtime/test_asset_schema_migration.py` 覆盖。
 
-### 6.6 TaskBus WebSocket 依赖
+### 7.6 TaskBus WebSocket 依赖
 
 前端任务总线连接 `ws://127.0.0.1:8000/api/ws`。Runtime 运行环境必须安装 `websockets` 或 `wsproto` 之一；当前项目依赖固定为 `websockets>=14.0,<16.0`。如果缺少该依赖，Uvicorn 会记录 `No supported WebSocket library detected`，升级请求会退化成普通 `GET /api/ws` 并持续返回 404。
 
@@ -737,12 +737,12 @@ AI 魔法剪阻断响应：
     "revision": 1,
     "runtime": {
       "mode": "test",
-      "workspaceRoot": "C:/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3"
+      "workspaceRoot": "D:/TK-OPS/workspace"
     },
     "paths": {
-      "cacheDir": "C:/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/.runtime-data/cache",
-      "exportDir": "C:/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/.runtime-data/exports",
-      "logDir": "C:/Users/wz/Desktop/py/TK-OPS-ASSISTANT-v3/.runtime-data/logs"
+      "cacheDir": "D:/TK-OPS/cache",
+      "exportDir": "D:/TK-OPS/exports",
+      "logDir": "D:/TK-OPS/logs"
     },
     "logging": {
       "level": "INFO"

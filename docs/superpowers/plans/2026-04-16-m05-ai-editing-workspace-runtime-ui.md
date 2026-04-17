@@ -12,16 +12,19 @@
 
 ## Status
 
-- 状态：Draft，等待用户确认后进入实现。
+- 状态：Implemented，已于 2026-04-17 合并到 `main`。
 - 创建时间：2026-04-16。
-- 工作分支：`codex/m05-ai-editing-workspace-runtime-ui`。
-- 隔离工作区：`C:\Users\wz\.config\superpowers\worktrees\TK-OPS-ASSISTANT-v3\m05-ai-editing-workspace-runtime-ui`。
+- 工作分支：`codex/m05-ai-editing-workspace-runtime-ui` 已通过 merge commit `6133b99` 合入 `main`。
+- 隔离工作区：`C:\Users\wz\.config\superpowers\worktrees\TK-OPS-ASSISTANT-v3\m05-ai-editing-workspace-runtime-ui`，现保留为历史实施记录。
 - 当前目录 `main` 上存在另一 AI 的 M16 未提交改动；本分支从 `aaf1655 feat: implement M08 subtitle alignment workflow` 创建，未继承 M16 脏改动。
 - 基线验证：
   - `npm --prefix apps/desktop run test`：19 files / 49 tests passed。
   - `apps\py-runtime\venv\Scripts\python.exe -m pytest tests\contracts -q`：32 passed。
   - `apps\py-runtime\venv\Scripts\python.exe -m pytest tests\runtime -q`：79 passed。
 - 环境说明：本 worktree 的 Runtime venv 位于 `apps/py-runtime/venv`，补装了 `pytest-asyncio` 用于运行现有异步测试；不改依赖文件。
+- 实施结果：M05-A 已落地真实时间线草稿读取、创建、保存与 AI `blocked` 返回，页面已拆分为 page/store/modules/styles，主线不再依赖静态假轨道。
+- 主线回归：本次在 `main` 上重新通过前端全量测试、前端构建、`tests/runtime/test_workspace_service.py` 所在 Runtime 回归，以及 `apps/desktop/tests/runtime-client-workspace.spec.ts`、`apps/desktop/tests/editing-workspace-store.spec.ts`、`apps/desktop/tests/ai-editing-workspace-page.spec.ts` 所覆盖的 M05 链路。
+- 剩余边界：真实媒体预览、AI Provider、渲染联动仍在后续阶段，不在 M05-A 内伪造完成态。
 
 ## Current Facts
 
