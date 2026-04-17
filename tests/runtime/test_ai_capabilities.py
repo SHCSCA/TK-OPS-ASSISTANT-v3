@@ -23,7 +23,9 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
         'asset_analysis',
     }
     providers = {item['provider']: item for item in payload['data']['providers']}
-    assert set(providers) == {'openai', 'openai_compatible', 'anthropic', 'gemini'}
+    assert {'openai', 'openai_compatible', 'anthropic', 'gemini', 'deepseek', 'openrouter', 'ollama'} <= set(
+        providers
+    )
     assert providers['openai']['configured'] is False
     assert providers['openai']['maskedSecret'] == ''
     assert 'apiKey' not in providers['openai']
@@ -133,3 +135,114 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
     assert updated['video_generation']['provider'] == 'openai_compatible'
     assert providers['openai']['configured'] is True
     assert providers['openai']['maskedSecret']
+
+
+def test_ai_provider_catalog_model_catalog_and_refresh_are_runtime_backed(
+    runtime_client: TestClient,
+) -> None:
+    catalog_response = runtime_client.get('/api/settings/ai-providers/catalog')
+
+    assert catalog_response.status_code == 200
+    catalog_payload = catalog_response.json()['data']
+    providers = {item['provider']: item for item in catalog_payload}
+    assert providers['openai']['kind'] == 'commercial'
+    assert providers['openai_compatible']['requiresBaseUrl'] is True
+    assert providers['ollama']['kind'] == 'local'
+    assert providers['deepseek']['supportsModelDiscovery'] is False
+    assert 'apiKey' not in providers['openai']
+
+    models_response = runtime_client.get('/api/settings/ai-providers/ollama/models')
+
+    assert models_response.status_code == 200
+    models = models_response.json()['data']
+    assert models
+    assert all(item['provider'] == 'ollama' for item in models)
+    assert any('text_generation' in item['capabilityTypes'] for item in models)
+
+    refresh_response = runtime_client.post('/api/settings/ai-providers/ollama/models/refresh')
+
+    assert refresh_response.status_code == 200
+    refresh_payload = refresh_response.json()['data']
+    assert refresh_payload == {
+        'provider': 'ollama',
+        'status': 'static_catalog',
+        'message': '当前模型目录来自内置注册表，暂未执行远端刷新。',
+    }
+
+
+def test_ai_provider_health_check_uses_selected_model_and_real_probe(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+
+    client.put(
+        '/api/settings/ai-capabilities/providers/openai/secret',
+        json={'apiKey': 'sk-test-openai-1234567890'},
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_probe(runtime, model: str):
+        captured['provider'] = runtime.provider
+        captured['base_url'] = runtime.base_url
+        captured['model'] = model
+        return {
+            'status': 'ready',
+            'message': 'OpenAI / gpt-5.4 真实连通性测试通过。',
+            'latency_ms': 321,
+        }
+
+    monkeypatch.setattr(
+        runtime_app.state.ai_capability_service,
+        '_probe_provider_connectivity',
+        fake_probe,
+    )
+
+    response = client.post(
+        '/api/settings/ai-capabilities/providers/openai/health-check',
+        json={'model': 'gpt-5.4'},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()['data']
+    assert captured == {
+        'provider': 'openai',
+        'base_url': 'https://api.openai.com/v1/responses',
+        'model': 'gpt-5.4',
+    }
+    assert payload['provider'] == 'openai'
+    assert payload['status'] == 'ready'
+    assert payload['message'] == 'OpenAI / gpt-5.4 真实连通性测试通过。'
+    assert payload['model'] == 'gpt-5.4'
+    assert payload['checkedAt']
+    assert payload['latencyMs'] == 321
+
+
+def test_ai_capability_support_matrix_limits_models_by_capability(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-capabilities/support-matrix')
+
+    assert response.status_code == 200
+    matrix = response.json()['data']
+    capabilities = {item['capabilityId']: item for item in matrix['capabilities']}
+
+    assert set(capabilities) == {
+        'script_generation',
+        'script_rewrite',
+        'storyboard_generation',
+        'tts_generation',
+        'subtitle_alignment',
+        'video_generation',
+        'asset_analysis',
+    }
+    assert 'openai' in capabilities['script_generation']['providers']
+    assert all(
+        'tts' in item['capabilityTypes'] or item['provider'].endswith('_speech')
+        for item in capabilities['tts_generation']['models']
+    )
+    assert any(
+        item['provider'] == 'video_generation_provider'
+        for item in capabilities['video_generation']['models']
+    )

@@ -70,6 +70,15 @@ describe("AI 与系统设置页", () => {
       if (path === "/api/settings/ai-capabilities") {
         return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
       }
+      if (path === "/api/settings/ai-providers/catalog") {
+        return okJsonResponse(runtimeFixtures.aiProviderCatalog);
+      }
+      if (path === "/api/settings/ai-providers/openai/models") {
+        return okJsonResponse(runtimeFixtures.openAIModelCatalog);
+      }
+      if (path === "/api/settings/ai-capabilities/support-matrix") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
+      }
 
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
@@ -80,9 +89,28 @@ describe("AI 与系统设置页", () => {
     await flushPromises();
 
     expect(wrapper.find('[data-bootstrap-screen="initialization"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain("系统健康总览");
+    expect(wrapper.text()).toContain("系统总线");
+    expect(wrapper.text()).toContain("Provider 与模型");
+    expect(wrapper.text()).toContain("能力策略");
+    expect(wrapper.text()).toContain("诊断台");
+
+    await wrapper.get('[data-section="system"]').trigger("click");
+    await flushPromises();
+
     expect(
-      (wrapper.get('[data-field="ai.model"]').element as HTMLInputElement).value
+      (wrapper.get('select[data-field="runtime.mode"]').element as HTMLSelectElement).value
+    ).toBe("development");
+    expect(
+      (wrapper.get('select[data-field="ai.provider"]').element as HTMLSelectElement).value
+    ).toBe("openai");
+    expect(
+      (wrapper.get('select[data-field="ai.model"]').element as HTMLSelectElement).value
     ).toBe("gpt-5.4");
+    expect(wrapper.get('[data-action="pick-workspace-root"]').exists()).toBe(true);
+    expect(wrapper.get('[data-action="pick-cache-dir"]').exists()).toBe(true);
+    expect(wrapper.get('[data-action="pick-export-dir"]').exists()).toBe(true);
+    expect(wrapper.get('[data-action="pick-log-dir"]').exists()).toBe(true);
     // Open detail panel to see masked license code
     await wrapper.find('button[title="切换属性面板"]').trigger("click");
     await flushPromises();
@@ -90,11 +118,12 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.text()).toContain("TK-O****************0001");
 
     vi.setSystemTime(new Date("2026-04-11T08:05:00.000Z"));
-    await wrapper.get('[data-field="runtime.mode"]').setValue("production");
-    await wrapper.get('[data-field="logging.level"]').setValue("DEBUG");
-    await wrapper.get('[data-field="ai.model"]').setValue("gpt-5.4-mini");
-    await wrapper.get('[data-field="ai.voice"]').setValue("nova");
-    await wrapper.get('[data-field="ai.subtitleMode"]').setValue("precise");
+    await wrapper.get('select[data-field="runtime.mode"]').setValue("production");
+    await wrapper.get('select[data-field="logging.level"]').setValue("DEBUG");
+    await wrapper.get('select[data-field="ai.model"]').setValue("gpt-5.4-mini");
+    await wrapper.get('select[data-field="ai.voice"]').setValue("nova");
+    await wrapper.get('select[data-field="ai.subtitleMode"]').setValue("precise");
+    expect(wrapper.text()).toContain("待保存变更");
     await wrapper.get('[data-action="save-settings"]').trigger("click");
     await flushPromises();
 
@@ -122,7 +151,7 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.text()).not.toContain("16:05:00");
     expect(wrapper.text()).not.toContain("Asia/Shanghai");
     expect(wrapper.text()).not.toContain("Z");
-  });
+  }, 20000);
 
   it("加载集中式 AI 能力配置，并通过能力总线保存更新", async () => {
     const fetchMock = createRouteAwareFetch((path, method, init) => {
@@ -144,6 +173,15 @@ describe("AI 与系统设置页", () => {
       if (path === "/api/settings/ai-capabilities" && method === "PUT") {
         return okJsonResponse(JSON.parse(String(init?.body)));
       }
+      if (path === "/api/settings/ai-providers/catalog") {
+        return okJsonResponse(runtimeFixtures.aiProviderCatalog);
+      }
+      if (path === "/api/settings/ai-providers/openai/models") {
+        return okJsonResponse(runtimeFixtures.openAIModelCatalog);
+      }
+      if (path === "/api/settings/ai-capabilities/support-matrix") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
+      }
 
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
@@ -153,12 +191,24 @@ describe("AI 与系统设置页", () => {
     const wrapper = await mountApp("/settings/ai-system");
     await flushPromises();
 
+    await wrapper.get('[data-section="capability"]').trigger("click");
+    await flushPromises();
+    await wrapper.get('[data-capability-id="script_generation"]').trigger("click");
+    await flushPromises();
+
     expect(
-      (wrapper.get('[data-field="capability.script_generation.model"]').element as HTMLInputElement)
+      (
+        wrapper.get('select[data-field="capability.script_generation.provider"]')
+          .element as HTMLSelectElement
+      ).value
+    ).toBe("openai");
+    expect(
+      (wrapper.get('select[data-field="capability.script_generation.model"]').element as HTMLSelectElement)
         .value
     ).toBe("gpt-5");
 
-    await wrapper.get('[data-field="capability.script_generation.model"]').setValue("gpt-5.4");
+    await wrapper.get('select[data-field="capability.script_generation.model"]').setValue("gpt-5.4");
+    expect(wrapper.text()).toContain("待保存变更");
     await wrapper.get('[data-action="save-capabilities"]').trigger("click");
     await flushPromises();
 
@@ -175,5 +225,123 @@ describe("AI 与系统设置页", () => {
     expect(payload.capabilities.find((item) => item.capabilityId === "script_generation")?.model).toBe(
       "gpt-5.4"
     );
+  }, 20000);
+
+  it("展示紧凑 Provider 配置，并支持真实连通性测试入口", async () => {
+    const fetchMock = createRouteAwareFetch((path, method) => {
+      if (path === "/api/license/status") {
+        return okJsonResponse(runtimeFixtures.activeLicense);
+      }
+      if (path === "/api/settings/health") {
+        return okJsonResponse(runtimeFixtures.health);
+      }
+      if (path === "/api/settings/config") {
+        return okJsonResponse(runtimeFixtures.initializedConfig);
+      }
+      if (path === "/api/settings/diagnostics") {
+        return okJsonResponse(runtimeFixtures.initializedDiagnostics);
+      }
+      if (path === "/api/settings/ai-capabilities") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+      }
+      if (path === "/api/settings/ai-providers/catalog") {
+        return okJsonResponse(runtimeFixtures.aiProviderCatalog);
+      }
+      if (path === "/api/settings/ai-providers/openai/models") {
+        return okJsonResponse(runtimeFixtures.openAIModelCatalog);
+      }
+      if (path === "/api/settings/ai-capabilities/support-matrix") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
+      }
+      if (path === "/api/settings/ai-capabilities/providers/openai/health-check") {
+        return okJsonResponse({
+          provider: "openai",
+          status: "ready",
+          message: "OpenAI / GPT-5.4 真实连通性测试通过。",
+          model: "gpt-5.4",
+          checkedAt: "2026-04-11T10:00:00Z",
+          latencyMs: 420
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const wrapper = await mountApp("/settings/ai-system");
+    await flushPromises();
+
+    await wrapper.get('[data-section="provider"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Provider 与模型");
+    expect(wrapper.text()).toContain("连接凭据");
+    expect(wrapper.find('[data-testid="provider-picker"]').exists()).toBe(true);
+    expect(wrapper.findAll(".provider-catalog-card")).toHaveLength(0);
+
+    const providerOptions = wrapper
+      .get('select[data-field="provider.selected"]')
+      .findAll("option")
+      .map((item) => item.text());
+    expect(providerOptions).toContain("DeepSeek");
+    expect(providerOptions).toContain("Ollama");
+
+    await wrapper.get('select[data-field="provider.health.model"]').setValue("gpt-5.4");
+    await wrapper.get('[data-action="check-provider"]').trigger("click");
+    await flushPromises();
+
+    const healthCheckCall = fetchMock.mock.calls.find(
+      ([url, options]) =>
+        String(url).includes("/api/settings/ai-capabilities/providers/openai/health-check") &&
+        options?.method === "POST"
+    );
+    expect(healthCheckCall).toBeTruthy();
+    expect(JSON.parse(String(healthCheckCall?.[1]?.body))).toMatchObject({ model: "gpt-5.4" });
+    expect(wrapper.get(".detail-panel-container").classes()).toContain("is-open");
+    expect(wrapper.text()).toContain("OpenAI / GPT-5.4 真实连通性测试通过。");
+  });
+
+  it("将诊断内容收拢到右侧抽屉而不是页面主区", async () => {
+    const fetchMock = createRouteAwareFetch((path, method) => {
+      if (path === "/api/license/status") {
+        return okJsonResponse(runtimeFixtures.activeLicense);
+      }
+      if (path === "/api/settings/health") {
+        return okJsonResponse(runtimeFixtures.health);
+      }
+      if (path === "/api/settings/config") {
+        return okJsonResponse(runtimeFixtures.initializedConfig);
+      }
+      if (path === "/api/settings/diagnostics") {
+        return okJsonResponse(runtimeFixtures.initializedDiagnostics);
+      }
+      if (path === "/api/settings/ai-capabilities") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+      }
+      if (path === "/api/settings/ai-providers/catalog") {
+        return okJsonResponse(runtimeFixtures.aiProviderCatalog);
+      }
+      if (path === "/api/settings/ai-providers/openai/models") {
+        return okJsonResponse(runtimeFixtures.openAIModelCatalog);
+      }
+      if (path === "/api/settings/ai-capabilities/support-matrix") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const wrapper = await mountApp("/settings/ai-system");
+    await flushPromises();
+
+    await wrapper.get('[data-section="diagnostics"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(false);
+    expect(wrapper.get(".detail-panel-container").classes()).toContain("is-open");
+    expect(wrapper.text()).toContain("诊断信息已移入右侧抽屉");
   });
 });

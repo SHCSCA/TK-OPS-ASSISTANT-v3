@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from api.routes.accounts import router as accounts_router
 from api.routes.ai_capabilities import router as ai_capabilities_router
+from api.routes.ai_providers import router as ai_providers_router
 from api.routes.assets import router as assets_router
 from api.routes.automation import router as automation_router
 from api.routes.dashboard import router as dashboard_router
@@ -22,6 +23,7 @@ from api.routes.ws import router as ws_router
 __all__ = [
     'accounts_router',
     'ai_capabilities_router',
+    'ai_providers_router',
     'assets_router',
     'automation_router',
     'dashboard_router',

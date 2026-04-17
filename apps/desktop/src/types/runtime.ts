@@ -114,6 +114,9 @@ export type AIProviderHealth = {
   provider: string;
   status: string;
   message: string;
+  model?: string | null;
+  checkedAt?: string | null;
+  latencyMs?: number | null;
 };
 
 export type AICapabilitySettings = {
@@ -124,6 +127,58 @@ export type AICapabilitySettings = {
 export type AIProviderSecretInput = {
   apiKey: string;
   baseUrl?: string;
+};
+
+export type AIProviderHealthInput = {
+  model?: string;
+};
+
+export type AIProviderCatalogItem = {
+  provider: string;
+  label: string;
+  kind: string;
+  configured: boolean;
+  baseUrl: string;
+  secretSource: string;
+  capabilities: string[];
+  requiresBaseUrl: boolean;
+  supportsModelDiscovery: boolean;
+  status: string;
+};
+
+export type AIModelCatalogItem = {
+  modelId: string;
+  displayName: string;
+  provider: string;
+  capabilityTypes: string[];
+  inputModalities: string[];
+  outputModalities: string[];
+  contextWindow: number | null;
+  defaultFor: string[];
+  enabled: boolean;
+};
+
+export type AICapabilityModelOption = {
+  provider: string;
+  modelId: string;
+  displayName: string;
+  capabilityTypes: string[];
+};
+
+export type AICapabilitySupportItem = {
+  capabilityId: string;
+  providers: string[];
+  models: AICapabilityModelOption[];
+};
+
+export type AICapabilitySupportMatrix = {
+  capabilities: AICapabilitySupportItem[];
+};
+
+export type AIModelCatalogRefreshResult = {
+  provider: string;
+  status: string;
+  message: string;
 };
 
 export type TaskStatus =
@@ -284,7 +339,6 @@ export type SubtitleTrackGenerateResultDto = {
   task: TaskInfo | null;
   message: string;
 };
-
 
 export type AssetDto = {
   id: string;

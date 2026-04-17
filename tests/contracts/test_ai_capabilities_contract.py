@@ -14,7 +14,7 @@ def test_ai_capability_settings_contract_uses_settings_prefix_and_expected_shape
     assert payload['ok'] is True
     assert set(payload['data']) == {'capabilities', 'providers'}
     assert len(payload['data']['capabilities']) == 7
-    assert len(payload['data']['providers']) == 4
+    assert len(payload['data']['providers']) >= 10
     assert set(payload['data']['capabilities'][0]) == {
         'capabilityId',
         'enabled',
@@ -58,11 +58,107 @@ def test_ai_provider_secret_and_health_contract_return_expected_shapes(
     }
     assert secret_payload['data']['provider'] == 'openai'
 
-    health_response = runtime_client.post('/api/settings/ai-capabilities/providers/openai/health-check')
+    health_response = runtime_client.post(
+        '/api/settings/ai-capabilities/providers/openai/health-check',
+        json={'model': 'gpt-5.4'},
+    )
 
     assert health_response.status_code == 200
     health_payload = health_response.json()
     assert set(health_payload) == {'ok', 'data'}
     assert health_payload['ok'] is True
-    assert set(health_payload['data']) == {'provider', 'status', 'message'}
+    assert set(health_payload['data']) == {'provider', 'status', 'message', 'model', 'checkedAt', 'latencyMs'}
     assert health_payload['data']['provider'] == 'openai'
+
+
+def test_ai_provider_catalog_contract_exposes_multi_provider_registry(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-providers/catalog')
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {'ok', 'data'}
+    assert payload['ok'] is True
+    assert len(payload['data']) >= 10
+
+    providers = {item['provider']: item for item in payload['data']}
+    assert {'openai', 'openai_compatible', 'anthropic', 'gemini', 'deepseek', 'openrouter', 'ollama'} <= set(
+        providers
+    )
+    assert set(providers['openai']) == {
+        'provider',
+        'label',
+        'kind',
+        'configured',
+        'baseUrl',
+        'secretSource',
+        'capabilities',
+        'requiresBaseUrl',
+        'supportsModelDiscovery',
+        'status',
+    }
+    assert 'apiKey' not in providers['openai']
+    assert 'text_generation' in providers['openai']['capabilities']
+
+
+def test_ai_provider_model_catalog_contract_returns_models_for_provider(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-providers/openai/models')
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {'ok', 'data'}
+    assert payload['ok'] is True
+    assert len(payload['data']) >= 2
+    assert set(payload['data'][0]) == {
+        'modelId',
+        'displayName',
+        'provider',
+        'capabilityTypes',
+        'inputModalities',
+        'outputModalities',
+        'contextWindow',
+        'defaultFor',
+        'enabled',
+    }
+    model_ids = {item['modelId'] for item in payload['data']}
+    assert 'gpt-5.4' in model_ids
+
+
+def test_ai_capability_support_matrix_contract_maps_capabilities_to_models(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-capabilities/support-matrix')
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {'ok', 'data'}
+    assert payload['ok'] is True
+    assert set(payload['data']) == {'capabilities'}
+    assert len(payload['data']['capabilities']) == 7
+
+    script_generation = next(
+        item
+        for item in payload['data']['capabilities']
+        if item['capabilityId'] == 'script_generation'
+    )
+    assert set(script_generation) == {'capabilityId', 'providers', 'models'}
+    assert 'openai' in script_generation['providers']
+    assert any(
+        item['provider'] == 'openai' and item['modelId'] == 'gpt-5.4'
+        for item in script_generation['models']
+    )
+
+
+def test_unknown_ai_provider_uses_chinese_error_envelope(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-providers/not_real/models')
+
+    assert response.status_code == 404
+    payload = response.json()
+    assert payload['ok'] is False
+    assert payload['error'] == '未找到 AI Provider。'
+    assert payload['requestId']

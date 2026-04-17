@@ -1,0 +1,59 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import {
+  fetchAICapabilitySupportMatrix,
+  fetchAIProviderCatalog,
+  fetchAIProviderModels,
+  refreshAIProviderModels
+} from "@/app/runtime-client";
+
+import { createRouteAwareFetch, okJsonResponse, runtimeFixtures } from "./runtime-helpers";
+
+describe("AI 与系统设置 Runtime client", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("读取 Provider 注册表、模型目录和能力支持矩阵", async () => {
+    const calls: Array<{ method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method) => {
+        calls.push({ path, method });
+        if (path === "/api/settings/ai-providers/catalog") {
+          return okJsonResponse(runtimeFixtures.aiProviderCatalog);
+        }
+        if (path === "/api/settings/ai-providers/openai/models") {
+          return okJsonResponse(runtimeFixtures.openAIModelCatalog);
+        }
+        if (path === "/api/settings/ai-capabilities/support-matrix") {
+          return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
+        }
+        if (path === "/api/settings/ai-providers/openai/models/refresh") {
+          return okJsonResponse({
+            provider: "openai",
+            status: "static_catalog",
+            message: "当前模型目录来自内置注册表，暂未执行远端刷新。"
+          });
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const catalog = await fetchAIProviderCatalog();
+    const models = await fetchAIProviderModels("openai");
+    const matrix = await fetchAICapabilitySupportMatrix();
+    const refreshResult = await refreshAIProviderModels("openai");
+
+    expect(catalog.map((item) => item.provider)).toContain("deepseek");
+    expect(models[0].modelId).toBe("gpt-5.4");
+    expect(matrix.capabilities[0].providers).toContain("ollama");
+    expect(refreshResult.status).toBe("static_catalog");
+    expect(calls).toEqual([
+      { path: "/api/settings/ai-providers/catalog", method: "GET" },
+      { path: "/api/settings/ai-providers/openai/models", method: "GET" },
+      { path: "/api/settings/ai-capabilities/support-matrix", method: "GET" },
+      { path: "/api/settings/ai-providers/openai/models/refresh", method: "POST" }
+    ]);
+  });
+});

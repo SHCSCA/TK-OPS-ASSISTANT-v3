@@ -43,12 +43,67 @@ class AIProviderSecretInput(BaseModel):
     baseUrl: str | None = None
 
 
+class AIProviderHealthCheckInput(BaseModel):
+    model: str | None = None
+
+
 class AIProviderHealthDto(BaseModel):
     provider: str
     status: str
     message: str
+    model: str | None = None
+    checkedAt: str | None = None
+    latencyMs: int | None = None
 
 
 class AICapabilitySettingsDto(BaseModel):
     capabilities: list[AICapabilityConfigDto]
     providers: list[AIProviderSecretStatusDto]
+
+
+class AIProviderCatalogItemDto(BaseModel):
+    provider: str
+    label: str
+    kind: str
+    configured: bool
+    baseUrl: str
+    secretSource: str
+    capabilities: list[str]
+    requiresBaseUrl: bool
+    supportsModelDiscovery: bool
+    status: str
+
+
+class AIModelCatalogItemDto(BaseModel):
+    modelId: str
+    displayName: str
+    provider: str
+    capabilityTypes: list[str]
+    inputModalities: list[str]
+    outputModalities: list[str]
+    contextWindow: int | None
+    defaultFor: list[str]
+    enabled: bool
+
+
+class AICapabilityModelOptionDto(BaseModel):
+    provider: str
+    modelId: str
+    displayName: str
+    capabilityTypes: list[str]
+
+
+class AICapabilitySupportItemDto(BaseModel):
+    capabilityId: str
+    providers: list[str]
+    models: list[AICapabilityModelOptionDto]
+
+
+class AICapabilitySupportMatrixDto(BaseModel):
+    capabilities: list[AICapabilitySupportItemDto]
+
+
+class AIModelCatalogRefreshResultDto(BaseModel):
+    provider: str
+    status: str
+    message: str

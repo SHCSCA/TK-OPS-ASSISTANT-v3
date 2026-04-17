@@ -1,7 +1,13 @@
 import type {
   AICapabilitySettings,
+  AICapabilitySupportMatrix,
+  AIModelCatalogItem,
+  AIModelCatalogRefreshResult,
+  AIProviderCatalogItem,
   AIProviderHealth,
+  AIProviderHealthInput,
   AIProviderSecretInput,
+  AIProviderSecretStatus,
   AppSettings,
   AppSettingsUpdateInput,
   CreateProjectInput,
@@ -151,16 +157,50 @@ export async function updateAICapabilitySettings(
 export async function updateAIProviderSecret(
   providerId: string,
   input: AIProviderSecretInput
-) {
-  return requestRuntime(`/api/settings/ai-capabilities/providers/${providerId}/secret`, {
-    body: JSON.stringify(input),
-    method: "PUT"
-  });
+): Promise<AIProviderSecretStatus> {
+  return requestRuntime<AIProviderSecretStatus>(
+    `/api/settings/ai-capabilities/providers/${providerId}/secret`,
+    {
+      body: JSON.stringify(input),
+      method: "PUT"
+    }
+  );
 }
 
-export async function checkAIProviderHealth(providerId: string): Promise<AIProviderHealth> {
+export async function checkAIProviderHealth(
+  providerId: string,
+  input: AIProviderHealthInput = {}
+): Promise<AIProviderHealth> {
   return requestRuntime<AIProviderHealth>(
     `/api/settings/ai-capabilities/providers/${providerId}/health-check`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
+}
+
+export async function fetchAIProviderCatalog(): Promise<AIProviderCatalogItem[]> {
+  return requestRuntime<AIProviderCatalogItem[]>("/api/settings/ai-providers/catalog");
+}
+
+export async function fetchAIProviderModels(providerId: string): Promise<AIModelCatalogItem[]> {
+  return requestRuntime<AIModelCatalogItem[]>(
+    `/api/settings/ai-providers/${providerId}/models`
+  );
+}
+
+export async function fetchAICapabilitySupportMatrix(): Promise<AICapabilitySupportMatrix> {
+  return requestRuntime<AICapabilitySupportMatrix>(
+    "/api/settings/ai-capabilities/support-matrix"
+  );
+}
+
+export async function refreshAIProviderModels(
+  providerId: string
+): Promise<AIModelCatalogRefreshResult> {
+  return requestRuntime<AIModelCatalogRefreshResult>(
+    `/api/settings/ai-providers/${providerId}/models/refresh`,
     {
       method: "POST"
     }
@@ -291,7 +331,6 @@ export async function deleteSubtitleTrack(trackId: string): Promise<void> {
     method: "DELETE"
   });
 }
-
 
 export async function fetchImportedVideos(projectId: string): Promise<ImportedVideo[]> {
   return requestRuntime<ImportedVideo[]>(
