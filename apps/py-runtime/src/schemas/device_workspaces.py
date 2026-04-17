@@ -31,3 +31,42 @@ class HealthCheckResultDto(BaseModel):
     workspace_id: str
     status: str
     checked_at: datetime
+
+
+class BrowserInstanceCreateInput(BaseModel):
+    workspace_id: str
+    name: str
+    profile_path: str
+    browser_type: str
+
+
+class BrowserInstanceDto(BaseModel):
+    id: str
+    workspace_id: str
+    name: str
+    profile_path: str
+    browser_type: str
+    status: str
+    last_seen_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ExecutionBindingCreateInput(BaseModel):
+    account_id: str
+    device_workspace_id: str
+    browser_instance_id: str | None = None
+    source: str | None = None
+    metadata_json: str | None = None
+
+
+class ExecutionBindingDto(BaseModel):
+    id: str
+    account_id: str
+    device_workspace_id: str
+    browser_instance_id: str | None = None
+    status: str
+    source: str | None = None
+    metadata_json: str | None = None
+    created_at: datetime
+    updated_at: datetime

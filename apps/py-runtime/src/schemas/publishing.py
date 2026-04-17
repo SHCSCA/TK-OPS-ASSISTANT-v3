@@ -57,3 +57,13 @@ class SubmitPlanResultDto(BaseModel):
     status: str
     submitted_at: datetime
     message: str
+
+
+class PublishReceiptDto(BaseModel):
+    id: str
+    plan_id: str
+    status: str
+    external_url: str | None = None
+    error_message: str | None = None
+    completed_at: datetime | None = None
+    created_at: datetime

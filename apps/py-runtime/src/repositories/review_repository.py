@@ -76,3 +76,9 @@ class ReviewRepository:
             session.refresh(summary)
             session.expunge(summary)
             return summary
+
+    def list_summaries(self) -> list[ReviewSummary]:
+        with self._session_factory() as session:
+            items = session.scalars(select(ReviewSummary)).all()
+            session.expunge_all()
+            return list(items)

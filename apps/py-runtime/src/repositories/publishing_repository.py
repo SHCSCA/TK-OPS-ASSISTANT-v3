@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from common.time import utc_now
-from domain.models.publishing import PublishPlan
+from domain.models.publishing import PublishPlan, PublishReceipt
 
 
 class PublishingRepository:
@@ -74,10 +74,51 @@ class PublishingRepository:
             plan = session.get(PublishPlan, plan_id)
             if plan is None:
                 return None
-            plan.status = "submitting"
+            plan.status = "submitted"
             plan.submitted_at = utc_now()
             plan.updated_at = plan.submitted_at
             session.commit()
             session.refresh(plan)
             session.expunge(plan)
             return plan
+
+    def get_receipt(self, plan_id: str) -> PublishReceipt | None:
+        with self._session_factory() as session:
+            receipt = session.scalar(
+                select(PublishReceipt).where(PublishReceipt.plan_id == plan_id)
+            )
+            if receipt is not None:
+                session.expunge(receipt)
+            return receipt
+
+    def create_receipt(
+        self,
+        *,
+        plan_id: str,
+        status: str,
+        external_url: str | None = None,
+        error_message: str | None = None,
+    ) -> PublishReceipt:
+        with self._session_factory() as session:
+            receipt = session.scalar(
+                select(PublishReceipt).where(PublishReceipt.plan_id == plan_id)
+            )
+            now = utc_now()
+            if receipt is None:
+                receipt = PublishReceipt(
+                    plan_id=plan_id,
+                    status=status,
+                    external_url=external_url,
+                    error_message=error_message,
+                    completed_at=now,
+                )
+                session.add(receipt)
+            else:
+                receipt.status = status
+                receipt.external_url = external_url
+                receipt.error_message = error_message
+                receipt.completed_at = now
+            session.commit()
+            session.refresh(receipt)
+            session.expunge(receipt)
+            return receipt

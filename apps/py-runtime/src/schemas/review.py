@@ -6,11 +6,17 @@ from pydantic import BaseModel
 
 
 class ReviewSuggestion(BaseModel):
+    id: str
     code: str
     category: str
     title: str
     description: str
     priority: str
+    status: str
+    actionLabel: str
+    sourceType: str | None = None
+    sourceId: str | None = None
+    createdAt: datetime
 
 
 class ReviewSummaryUpdateInput(BaseModel):
@@ -42,3 +48,23 @@ class AnalyzeProjectResultDto(BaseModel):
     status: str
     message: str
     analyzed_at: datetime
+
+
+class ReviewSuggestionUpdateInput(BaseModel):
+    status: str
+
+
+class GenerateReviewSuggestionsResultDto(BaseModel):
+    project_id: str
+    status: str
+    message: str
+    generated_count: int
+    generated_at: datetime
+
+
+class ApplyReviewSuggestionResultDto(BaseModel):
+    project_id: str
+    suggestion_id: str
+    script_revision: int
+    status: str
+    message: str

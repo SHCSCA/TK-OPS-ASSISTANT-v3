@@ -526,6 +526,12 @@ export type AutomationTaskRunDto = {
   created_at: string;
 };
 
+export type AutomationTaskRunLogsDto = {
+  run_id: string;
+  log_text: string | null;
+  lines: string[];
+};
+
 export type TriggerTaskResultDto = {
   task_id: string;
   run_id: string;
@@ -559,6 +565,45 @@ export type HealthCheckResultDto = {
   workspace_id: string;
   status: string;
   checked_at: string;
+};
+
+export type BrowserInstanceCreateInput = {
+  workspace_id: string;
+  name: string;
+  profile_path: string;
+  browser_type: string;
+};
+
+export type BrowserInstanceDto = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  profile_path: string;
+  browser_type: string;
+  status: string;
+  last_seen_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ExecutionBindingCreateInput = {
+  account_id: string;
+  device_workspace_id: string;
+  browser_instance_id?: string | null;
+  source?: string | null;
+  metadata_json?: string | null;
+};
+
+export type ExecutionBindingDto = {
+  id: string;
+  account_id: string;
+  device_workspace_id: string;
+  browser_instance_id: string | null;
+  status: string;
+  source: string | null;
+  metadata_json: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type PublishPlanCreateInput = {
@@ -615,6 +660,16 @@ export type SubmitPlanResultDto = {
   message: string;
 };
 
+export type PublishReceiptDto = {
+  id: string;
+  plan_id: string;
+  status: string;
+  external_url: string | null;
+  error_message: string | null;
+  completed_at: string | null;
+  created_at: string;
+};
+
 export type RenderTaskCreateInput = {
   project_id?: string | null;
   project_name?: string | null;
@@ -653,12 +708,44 @@ export type CancelRenderResultDto = {
   message: string;
 };
 
+export type ExportProfileCreateInput = {
+  name: string;
+  format?: string;
+  resolution?: string;
+  fps?: number;
+  video_bitrate?: string;
+  audio_policy?: string;
+  subtitle_policy?: string;
+  config_json?: string | null;
+};
+
+export type ExportProfileDto = {
+  id: string;
+  name: string;
+  format: string;
+  resolution: string;
+  fps: number;
+  video_bitrate: string;
+  audio_policy: string;
+  subtitle_policy: string;
+  config_json: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ReviewSuggestion = {
+  id: string;
   code: string;
   category: string;
   title: string;
   description: string;
   priority: string;
+  status: string;
+  actionLabel: string;
+  sourceType: string | null;
+  sourceId: string | null;
+  createdAt: string;
 };
 
 export type ReviewSummaryUpdateInput = {
@@ -690,6 +777,66 @@ export type AnalyzeProjectResultDto = {
   status: string;
   message: string;
   analyzed_at: string;
+};
+
+export type ReviewSuggestionUpdateInput = {
+  status: "pending" | "applied" | "dismissed";
+};
+
+export type GenerateReviewSuggestionsResultDto = {
+  project_id: string;
+  status: string;
+  message: string;
+  generated_count: number;
+  generated_at: string;
+};
+
+export type ApplyReviewSuggestionResultDto = {
+  project_id: string;
+  suggestion_id: string;
+  script_revision: number;
+  status: string;
+  message: string;
+};
+
+export type VideoTranscriptDto = {
+  id: string;
+  videoId: string;
+  language: string | null;
+  text: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type VideoSegmentDto = {
+  id: string;
+  videoId: string;
+  segmentIndex: number;
+  startMs: number;
+  endMs: number;
+  label: string | null;
+  transcriptText: string | null;
+  metadataJson: string | null;
+  createdAt: string;
+};
+
+export type VideoStructureExtractionDto = {
+  id: string;
+  videoId: string;
+  status: string;
+  scriptJson: string | null;
+  storyboardJson: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApplyVideoExtractionResultDto = {
+  projectId: string;
+  extractionId: string;
+  scriptRevision: number;
+  status: string;
+  message: string;
 };
 
 export type { ImportedVideo, ImportedVideoStatus } from "./video";

@@ -103,3 +103,9 @@ def delete_account(account_id: str, request: Request) -> dict[str, object]:
 def refresh_account_stats(account_id: str, request: Request) -> dict[str, object]:
     result = _svc(request).refresh_stats(account_id)
     return ok_response(result.model_dump(mode="json"))
+
+
+@router.post("/{account_id}/status-check")
+def status_check(account_id: str, request: Request) -> dict[str, object]:
+    result = _svc(request).refresh_stats(account_id)
+    return ok_response(result.model_dump(mode="json"))

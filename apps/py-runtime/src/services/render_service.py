@@ -4,10 +4,12 @@ import logging
 
 from fastapi import HTTPException
 
-from domain.models.render import RenderTask
+from domain.models.render import ExportProfile, RenderTask
 from repositories.render_repository import RenderRepository
 from schemas.renders import (
     CancelRenderResultDto,
+    ExportProfileCreateInput,
+    ExportProfileDto,
     RenderTaskCreateInput,
     RenderTaskDto,
     RenderTaskUpdateInput,
@@ -81,8 +83,50 @@ class RenderService:
         return CancelRenderResultDto(
             task_id=task_id,
             status=cancelled.status,
-            message="渲染任务已取消",
+            message="渲染任务已取消。",
         )
+
+    def retry_task(self, task_id: str) -> RenderTaskDto:
+        task = self._get_task_model(task_id)
+        if task.status not in {"failed", "cancelled"}:
+            raise HTTPException(status_code=409, detail="只有失败或已取消的任务可以重试")
+        try:
+            retried = self._repository.retry_task(task_id)
+        except Exception as exc:
+            log.exception("重试渲染任务失败")
+            raise HTTPException(status_code=500, detail="重试渲染任务失败") from exc
+        if retried is None:
+            raise HTTPException(status_code=404, detail="渲染任务不存在")
+        return self._to_dto(retried)
+
+    def list_profiles(self) -> list[ExportProfileDto]:
+        try:
+            profiles = self._repository.list_profiles()
+            if not profiles:
+                profiles = [self._repository.create_profile(self._build_default_profile())]
+        except Exception as exc:
+            log.exception("查询导出配置失败")
+            raise HTTPException(status_code=500, detail="查询导出配置失败") from exc
+        return [self._to_profile_dto(profile) for profile in profiles]
+
+    def create_profile(self, payload: ExportProfileCreateInput) -> ExportProfileDto:
+        profile = ExportProfile(
+            name=payload.name.strip(),
+            format=payload.format,
+            resolution=payload.resolution,
+            fps=payload.fps,
+            video_bitrate=payload.video_bitrate,
+            audio_policy=payload.audio_policy,
+            subtitle_policy=payload.subtitle_policy,
+            config_json=payload.config_json,
+            is_default=False,
+        )
+        try:
+            saved = self._repository.create_profile(profile)
+        except Exception as exc:
+            log.exception("创建导出配置失败")
+            raise HTTPException(status_code=500, detail="创建导出配置失败") from exc
+        return self._to_profile_dto(saved)
 
     def _get_task_model(self, task_id: str) -> RenderTask:
         try:
@@ -93,6 +137,19 @@ class RenderService:
         if task is None:
             raise HTTPException(status_code=404, detail="渲染任务不存在")
         return task
+
+    def _build_default_profile(self) -> ExportProfile:
+        return ExportProfile(
+            name="默认竖屏导出",
+            format="mp4",
+            resolution="1080x1920",
+            fps=30,
+            video_bitrate="8000k",
+            audio_policy="merge_all",
+            subtitle_policy="burn_in",
+            config_json=None,
+            is_default=True,
+        )
 
     def _to_dto(self, task: RenderTask) -> RenderTaskDto:
         return RenderTaskDto(
@@ -109,4 +166,20 @@ class RenderService:
             finished_at=task.finished_at,
             created_at=task.created_at,
             updated_at=task.updated_at,
+        )
+
+    def _to_profile_dto(self, profile: ExportProfile) -> ExportProfileDto:
+        return ExportProfileDto(
+            id=profile.id,
+            name=profile.name,
+            format=profile.format,
+            resolution=profile.resolution,
+            fps=profile.fps,
+            video_bitrate=profile.video_bitrate,
+            audio_policy=profile.audio_policy,
+            subtitle_policy=profile.subtitle_policy,
+            config_json=profile.config_json,
+            is_default=profile.is_default,
+            created_at=profile.created_at,
+            updated_at=profile.updated_at,
         )

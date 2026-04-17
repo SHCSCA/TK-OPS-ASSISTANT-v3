@@ -44,6 +44,12 @@ class AutomationTaskRunDto(BaseModel):
     created_at: datetime
 
 
+class AutomationTaskRunLogsDto(BaseModel):
+    run_id: str
+    log_text: str | None = None
+    lines: list[str]
+
+
 class TriggerTaskResultDto(BaseModel):
     task_id: str
     run_id: str

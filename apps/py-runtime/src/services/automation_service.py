@@ -10,6 +10,7 @@ from schemas.automation import (
     AutomationTaskCreateInput,
     AutomationTaskDto,
     AutomationTaskRunDto,
+    AutomationTaskRunLogsDto,
     AutomationTaskUpdateInput,
     TriggerTaskResultDto,
 )
@@ -102,6 +103,32 @@ class AutomationService:
             raise HTTPException(status_code=500, detail="查询自动化任务运行历史失败") from exc
         return [self._to_run_dto(run) for run in runs]
 
+    def get_run(self, run_id: str) -> AutomationTaskRunDto:
+        run = self._get_run_model(run_id)
+        return self._to_run_dto(run)
+
+    def cancel_run(self, run_id: str) -> AutomationTaskRunDto:
+        run = self._get_run_model(run_id)
+        if run.status not in {"queued", "running"}:
+            raise HTTPException(status_code=409, detail="只有排队中或运行中的任务才可取消")
+        try:
+            cancelled = self._repository.cancel_run(run_id)
+        except Exception as exc:
+            log.exception("取消自动化运行失败")
+            raise HTTPException(status_code=500, detail="取消自动化运行失败") from exc
+        if cancelled is None:
+            raise HTTPException(status_code=404, detail="自动化运行不存在")
+        return self._to_run_dto(cancelled)
+
+    def get_run_logs(self, run_id: str) -> AutomationTaskRunLogsDto:
+        run = self._get_run_model(run_id)
+        log_text = run.log_text or ""
+        return AutomationTaskRunLogsDto(
+            run_id=run.id,
+            log_text=run.log_text,
+            lines=[line for line in log_text.splitlines() if line.strip()],
+        )
+
     def _get_task_model(self, task_id: str) -> AutomationTask:
         try:
             task = self._repository.get_task(task_id)
@@ -111,6 +138,16 @@ class AutomationService:
         if task is None:
             raise HTTPException(status_code=404, detail="自动化任务不存在")
         return task
+
+    def _get_run_model(self, run_id: str) -> AutomationTaskRun:
+        try:
+            run = self._repository.get_run(run_id)
+        except Exception as exc:
+            log.exception("查询自动化运行详情失败")
+            raise HTTPException(status_code=500, detail="查询自动化运行详情失败") from exc
+        if run is None:
+            raise HTTPException(status_code=404, detail="自动化运行不存在")
+        return run
 
     def _to_task_dto(self, task: AutomationTask) -> AutomationTaskDto:
         return AutomationTaskDto(

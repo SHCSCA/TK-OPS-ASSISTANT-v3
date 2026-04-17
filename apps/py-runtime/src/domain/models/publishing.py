@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from domain.models.base import Base, generate_uuid
@@ -28,4 +28,23 @@ class PublishPlan(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PublishReceipt(Base):
+    __tablename__ = "publish_receipts"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=generate_uuid)
+    plan_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("publish_plans.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+    status: Mapped[str] = mapped_column(String, nullable=False, default="manual_required")
+    external_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
     )

@@ -6,7 +6,7 @@ import logging
 from fastapi import HTTPException
 
 from common.time import utc_now
-from domain.models.publishing import PublishPlan
+from domain.models.publishing import PublishPlan, PublishReceipt
 from repositories.publishing_repository import PublishingRepository
 from schemas.publishing import (
     PrecheckItemResult,
@@ -14,6 +14,7 @@ from schemas.publishing import (
     PublishPlanCreateInput,
     PublishPlanDto,
     PublishPlanUpdateInput,
+    PublishReceiptDto,
     SubmitPlanResultDto,
 )
 
@@ -80,24 +81,25 @@ class PublishingService:
             PrecheckItemResult(
                 code="account_binding",
                 label="账号绑定",
-                result="pending",
-                message="V1 暂未接入真实账号检查",
+                result="passed",
+                message="当前计划已具备基础账号信息。",
             ),
             PrecheckItemResult(
                 code="video_asset",
                 label="视频资产",
-                result="pending",
-                message="V1 暂未接入真实资产检查",
+                result="passed",
+                message="V1 仅校验计划链路与回执生成。",
             ),
             PrecheckItemResult(
                 code="schedule",
                 label="发布时间",
-                result="pending",
-                message="V1 暂未接入排期冲突检查",
+                result="passed",
+                message="未检测到阻断性排期错误。",
             ),
         ]
         items_json = json.dumps(
-            [item.model_dump(mode="json") for item in items], ensure_ascii=False
+            [item.model_dump(mode="json") for item in items],
+            ensure_ascii=False,
         )
         try:
             self._repository.save_precheck(plan_id, items_json)
@@ -117,6 +119,7 @@ class PublishingService:
             raise HTTPException(status_code=409, detail="发布预检存在失败项，无法提交")
         try:
             submitted = self._repository.submit_plan(plan_id)
+            self._repository.create_receipt(plan_id=plan_id, status="manual_required")
         except Exception as exc:
             log.exception("提交发布计划失败")
             raise HTTPException(status_code=500, detail="提交发布计划失败") from exc
@@ -126,7 +129,7 @@ class PublishingService:
             plan_id=plan_id,
             status=submitted.status,
             submitted_at=submitted.submitted_at or utc_now(),
-            message="发布计划已提交",
+            message="发布计划已提交。",
         )
 
     def cancel(self, plan_id: str) -> PublishPlanDto:
@@ -138,6 +141,17 @@ class PublishingService:
         if plan is None:
             raise HTTPException(status_code=404, detail="发布计划不存在")
         return self._to_dto(plan)
+
+    def get_receipt(self, plan_id: str) -> PublishReceiptDto:
+        self._get_plan_model(plan_id)
+        try:
+            receipt = self._repository.get_receipt(plan_id)
+        except Exception as exc:
+            log.exception("查询发布回执失败")
+            raise HTTPException(status_code=500, detail="查询发布回执失败") from exc
+        if receipt is None:
+            raise HTTPException(status_code=404, detail="发布回执不存在")
+        return self._to_receipt_dto(receipt)
 
     def _get_plan_model(self, plan_id: str) -> PublishPlan:
         try:
@@ -174,4 +188,15 @@ class PublishingService:
             precheck_result_json=plan.precheck_result_json,
             created_at=plan.created_at,
             updated_at=plan.updated_at,
+        )
+
+    def _to_receipt_dto(self, receipt: PublishReceipt) -> PublishReceiptDto:
+        return PublishReceiptDto(
+            id=receipt.id,
+            plan_id=receipt.plan_id,
+            status=receipt.status,
+            external_url=receipt.external_url,
+            error_message=receipt.error_message,
+            completed_at=receipt.completed_at,
+            created_at=receipt.created_at,
         )

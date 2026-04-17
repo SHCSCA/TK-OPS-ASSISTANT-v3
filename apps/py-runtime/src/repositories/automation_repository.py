@@ -96,3 +96,31 @@ class AutomationRepository:
             ).all()
             session.expunge_all()
             return list(runs)
+
+    def get_run(self, run_id: str) -> AutomationTaskRun | None:
+        with self._session_factory() as session:
+            run = session.get(AutomationTaskRun, run_id)
+            if run is not None:
+                session.expunge(run)
+            return run
+
+    def cancel_run(self, run_id: str) -> AutomationTaskRun | None:
+        with self._session_factory() as session:
+            run = session.get(AutomationTaskRun, run_id)
+            if run is None:
+                return None
+            task = session.get(AutomationTask, run.task_id)
+            now = utc_now()
+            run.status = "cancelled"
+            run.finished_at = now
+            if run.log_text:
+                run.log_text = f"{run.log_text}\n运行已取消。"
+            else:
+                run.log_text = "运行已取消。"
+            if task is not None:
+                task.last_run_status = "cancelled"
+                task.updated_at = now
+            session.commit()
+            session.refresh(run)
+            session.expunge(run)
+            return run

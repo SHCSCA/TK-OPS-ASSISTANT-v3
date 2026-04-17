@@ -1,13 +1,18 @@
 import { defineStore } from "pinia";
 import {
   cancelRenderTask,
+  createExportProfile,
   createRenderTask,
   deleteRenderTask,
+  fetchExportProfiles,
   fetchRenderTasks,
+  retryRenderTask,
   updateRenderTask
 } from "@/app/runtime-client";
 import type {
   CancelRenderResultDto,
+  ExportProfileCreateInput,
+  ExportProfileDto,
   RenderTaskCreateInput,
   RenderTaskDto,
   RenderTaskUpdateInput
@@ -20,6 +25,7 @@ function getErrorMessage(error: unknown): string {
 export const useRendersStore = defineStore("renders", {
   state: () => ({
     tasks: [] as RenderTaskDto[],
+    profiles: [] as ExportProfileDto[],
     lastCancelResult: null as CancelRenderResultDto | null,
     loading: false,
     error: null as string | null
@@ -80,6 +86,41 @@ export const useRendersStore = defineStore("renders", {
       } catch (error) {
         this.error = getErrorMessage(error);
         console.error("Failed to cancel render task", error);
+        return null;
+      }
+    },
+    async loadProfiles() {
+      this.error = null;
+      try {
+        this.profiles = await fetchExportProfiles();
+        return this.profiles;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        console.error("Failed to load export profiles", error);
+        return [];
+      }
+    },
+    async addProfile(input: ExportProfileCreateInput) {
+      this.error = null;
+      try {
+        const profile = await createExportProfile(input);
+        this.profiles.push(profile);
+        return profile;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        console.error("Failed to create export profile", error);
+        return null;
+      }
+    },
+    async retry(id: string) {
+      this.error = null;
+      try {
+        const task = await retryRenderTask(id);
+        this.tasks = this.tasks.map((item) => (item.id === id ? task : item));
+        return task;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        console.error("Failed to retry render task", error);
         return null;
       }
     }

@@ -63,3 +63,9 @@ def submit(plan_id: str, request: Request) -> dict[str, object]:
 def cancel(plan_id: str, request: Request) -> dict[str, object]:
     plan = _svc(request).cancel(plan_id)
     return ok_response(plan.model_dump(mode="json"))
+
+
+@router.get("/{plan_id}/receipt")
+def get_receipt(plan_id: str, request: Request) -> dict[str, object]:
+    receipt = _svc(request).get_receipt(plan_id)
+    return ok_response(receipt.model_dump(mode="json"))

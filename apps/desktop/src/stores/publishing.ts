@@ -4,6 +4,7 @@ import {
   createPublishPlan,
   deletePublishPlan,
   fetchPublishPlans,
+  fetchPublishReceipt,
   runPublishingPrecheck,
   submitPublishPlan,
   updatePublishPlan
@@ -13,6 +14,7 @@ import type {
   PublishPlanCreateInput,
   PublishPlanDto,
   PublishPlanUpdateInput,
+  PublishReceiptDto,
   SubmitPlanResultDto
 } from "@/types/runtime";
 
@@ -23,6 +25,7 @@ function getErrorMessage(error: unknown): string {
 export const usePublishingStore = defineStore("publishing", {
   state: () => ({
     plans: [] as PublishPlanDto[],
+    receiptsByPlanId: {} as Record<string, PublishReceiptDto>,
     precheckResult: null as PrecheckResultDto | null,
     submitResult: null as SubmitPlanResultDto | null,
     loading: false,
@@ -70,6 +73,7 @@ export const usePublishingStore = defineStore("publishing", {
       try {
         await deletePublishPlan(id);
         this.plans = this.plans.filter((plan) => plan.id !== id);
+        delete this.receiptsByPlanId[id];
       } catch (error) {
         this.error = getErrorMessage(error);
         console.error("Failed to delete publish plan", error);
@@ -108,6 +112,18 @@ export const usePublishingStore = defineStore("publishing", {
       } catch (error) {
         this.error = getErrorMessage(error);
         console.error("Failed to cancel publish plan", error);
+        return null;
+      }
+    },
+    async loadReceipt(id: string) {
+      this.error = null;
+      try {
+        const receipt = await fetchPublishReceipt(id);
+        this.receiptsByPlanId[id] = receipt;
+        return receipt;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        console.error("Failed to load publish receipt", error);
         return null;
       }
     }

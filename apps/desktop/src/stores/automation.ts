@@ -1,7 +1,10 @@
 import { defineStore } from "pinia";
 import {
+  cancelAutomationRun,
   createAutomationTask,
   deleteAutomationTask,
+  fetchAutomationRun,
+  fetchAutomationRunLogs,
   fetchAutomationTaskRuns,
   fetchAutomationTasks,
   triggerAutomationTask,
@@ -11,6 +14,7 @@ import type {
   AutomationTaskCreateInput,
   AutomationTaskDto,
   AutomationTaskRunDto,
+  AutomationTaskRunLogsDto,
   AutomationTaskUpdateInput,
   TriggerTaskResultDto
 } from "@/types/runtime";
@@ -23,6 +27,8 @@ export const useAutomationStore = defineStore("automation", {
   state: () => ({
     tasks: [] as AutomationTaskDto[],
     runsByTaskId: {} as Record<string, AutomationTaskRunDto[]>,
+    runDetailsById: {} as Record<string, AutomationTaskRunDto>,
+    runLogsById: {} as Record<string, AutomationTaskRunLogsDto>,
     lastTriggerResult: null as TriggerTaskResultDto | null,
     loading: false,
     error: null as string | null
@@ -97,6 +103,49 @@ export const useAutomationStore = defineStore("automation", {
         this.error = getErrorMessage(error);
         console.error("Failed to load automation task runs", error);
         return [];
+      }
+    },
+    async loadRun(runId: string) {
+      this.error = null;
+      try {
+        const run = await fetchAutomationRun(runId);
+        this.runDetailsById[runId] = run;
+        return run;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        console.error("Failed to load automation run", error);
+        return null;
+      }
+    },
+    async loadRunLogs(runId: string) {
+      this.error = null;
+      try {
+        const logs = await fetchAutomationRunLogs(runId);
+        this.runLogsById[runId] = logs;
+        return logs;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        console.error("Failed to load automation run logs", error);
+        return null;
+      }
+    },
+    async cancelRun(runId: string) {
+      this.error = null;
+      try {
+        const run = await cancelAutomationRun(runId);
+        this.runDetailsById[runId] = run;
+        const list = this.runsByTaskId[run.task_id];
+        if (list) {
+          this.runsByTaskId[run.task_id] = list.map((item) =>
+            item.id === runId ? run : item
+          );
+        }
+        await this.loadTasks();
+        return run;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        console.error("Failed to cancel automation run", error);
+        return null;
       }
     }
   }

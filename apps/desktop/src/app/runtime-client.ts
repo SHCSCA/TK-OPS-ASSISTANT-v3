@@ -43,27 +43,43 @@ import type {
   AccountDto,
   AccountGroupDto,
   AccountCreateInput,
+  ApplyReviewSuggestionResultDto,
+  ApplyVideoExtractionResultDto,
   AutomationTaskCreateInput,
   AutomationTaskDto,
+  AutomationTaskRunLogsDto,
   AutomationTaskRunDto,
   AutomationTaskUpdateInput,
+  BrowserInstanceCreateInput,
+  BrowserInstanceDto,
   TriggerTaskResultDto,
   DeviceWorkspaceCreateInput,
   DeviceWorkspaceDto,
   DeviceWorkspaceUpdateInput,
+  ExecutionBindingCreateInput,
+  ExecutionBindingDto,
+  ExportProfileCreateInput,
+  ExportProfileDto,
+  GenerateReviewSuggestionsResultDto,
   HealthCheckResultDto,
   PublishPlanCreateInput,
   PublishPlanDto,
+  PublishReceiptDto,
   PublishPlanUpdateInput,
   PrecheckResultDto,
   SubmitPlanResultDto,
+  ReviewSuggestion,
+  ReviewSuggestionUpdateInput,
   RenderTaskCreateInput,
   RenderTaskDto,
   RenderTaskUpdateInput,
   CancelRenderResultDto,
   ReviewSummaryDto,
   ReviewSummaryUpdateInput,
-  AnalyzeProjectResultDto
+  AnalyzeProjectResultDto,
+  VideoSegmentDto,
+  VideoStructureExtractionDto,
+  VideoTranscriptDto
 } from "@/types/runtime";
 import type { TaskInfo } from "@/types/task-events";
 import type { ImportedVideo } from "@/types/video";
@@ -474,6 +490,12 @@ export async function refreshAccountStats(id: string): Promise<void> {
   });
 }
 
+export async function runAccountStatusCheck(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/accounts/${id}/status-check`, {
+    method: "POST"
+  });
+}
+
 // Automation
 export async function fetchAutomationTasks(
   status?: string,
@@ -527,6 +549,20 @@ export async function fetchAutomationTaskRuns(id: string): Promise<AutomationTas
   return requestRuntime<AutomationTaskRunDto[]>(`/api/automation/tasks/${id}/runs`);
 }
 
+export async function fetchAutomationRun(id: string): Promise<AutomationTaskRunDto> {
+  return requestRuntime<AutomationTaskRunDto>(`/api/automation/runs/${id}`);
+}
+
+export async function cancelAutomationRun(id: string): Promise<AutomationTaskRunDto> {
+  return requestRuntime<AutomationTaskRunDto>(`/api/automation/runs/${id}/cancel`, {
+    method: "POST"
+  });
+}
+
+export async function fetchAutomationRunLogs(id: string): Promise<AutomationTaskRunLogsDto> {
+  return requestRuntime<AutomationTaskRunLogsDto>(`/api/automation/runs/${id}/logs`);
+}
+
 // Device workspaces
 export async function fetchDeviceWorkspaces(): Promise<DeviceWorkspaceDto[]> {
   return requestRuntime<DeviceWorkspaceDto[]>("/api/devices/workspaces");
@@ -564,6 +600,60 @@ export async function deleteDeviceWorkspace(id: string): Promise<void> {
 export async function checkDeviceWorkspaceHealth(id: string): Promise<HealthCheckResultDto> {
   return requestRuntime<HealthCheckResultDto>(`/api/devices/workspaces/${id}/health-check`, {
     method: "POST"
+  });
+}
+
+export async function fetchBrowserInstances(
+  workspaceId?: string
+): Promise<BrowserInstanceDto[]> {
+  const params = new URLSearchParams();
+  if (workspaceId) params.append("workspace_id", workspaceId);
+  const query = params.toString();
+  return requestRuntime<BrowserInstanceDto[]>(
+    `/api/devices/browser-instances${query ? `?${query}` : ""}`
+  );
+}
+
+export async function createBrowserInstance(
+  input: BrowserInstanceCreateInput
+): Promise<BrowserInstanceDto> {
+  return requestRuntime<BrowserInstanceDto>("/api/devices/browser-instances", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function removeBrowserInstance(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/devices/browser-instances/${id}`, {
+    method: "DELETE"
+  });
+}
+
+export async function fetchExecutionBindings(
+  deviceWorkspaceId?: string,
+  accountId?: string
+): Promise<ExecutionBindingDto[]> {
+  const params = new URLSearchParams();
+  if (deviceWorkspaceId) params.append("device_workspace_id", deviceWorkspaceId);
+  if (accountId) params.append("account_id", accountId);
+  const query = params.toString();
+  return requestRuntime<ExecutionBindingDto[]>(
+    `/api/devices/bindings${query ? `?${query}` : ""}`
+  );
+}
+
+export async function createExecutionBinding(
+  input: ExecutionBindingCreateInput
+): Promise<ExecutionBindingDto> {
+  return requestRuntime<ExecutionBindingDto>("/api/devices/bindings", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function removeExecutionBinding(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/devices/bindings/${id}`, {
+    method: "DELETE"
   });
 }
 
@@ -622,6 +712,10 @@ export async function cancelPublishPlan(id: string): Promise<PublishPlanDto> {
   });
 }
 
+export async function fetchPublishReceipt(id: string): Promise<PublishReceiptDto> {
+  return requestRuntime<PublishReceiptDto>(`/api/publishing/plans/${id}/receipt`);
+}
+
 // Renders
 export async function fetchRenderTasks(status?: string): Promise<RenderTaskDto[]> {
   const params = new URLSearchParams();
@@ -663,6 +757,25 @@ export async function cancelRenderTask(id: string): Promise<CancelRenderResultDt
   });
 }
 
+export async function fetchExportProfiles(): Promise<ExportProfileDto[]> {
+  return requestRuntime<ExportProfileDto[]>("/api/renders/profiles");
+}
+
+export async function createExportProfile(
+  input: ExportProfileCreateInput
+): Promise<ExportProfileDto> {
+  return requestRuntime<ExportProfileDto>("/api/renders/profiles", {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function retryRenderTask(id: string): Promise<RenderTaskDto> {
+  return requestRuntime<RenderTaskDto>(`/api/renders/tasks/${id}/retry`, {
+    method: "POST"
+  });
+}
+
 // Review
 export async function fetchReviewSummary(projectId: string): Promise<ReviewSummaryDto> {
   return requestRuntime<ReviewSummaryDto>(`/api/review/projects/${projectId}/summary`);
@@ -682,6 +795,102 @@ export async function updateReviewSummary(
     body: JSON.stringify(input),
     method: "PATCH"
   });
+}
+
+export async function fetchReviewSuggestions(projectId: string): Promise<ReviewSuggestion[]> {
+  return requestRuntime<ReviewSuggestion[]>(`/api/review/projects/${projectId}/suggestions`);
+}
+
+export async function generateReviewSuggestions(
+  projectId: string
+): Promise<GenerateReviewSuggestionsResultDto> {
+  return requestRuntime<GenerateReviewSuggestionsResultDto>(
+    `/api/review/projects/${projectId}/suggestions/generate`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function updateReviewSuggestion(
+  suggestionId: string,
+  input: ReviewSuggestionUpdateInput
+): Promise<ReviewSuggestion> {
+  return requestRuntime<ReviewSuggestion>(`/api/review/suggestions/${suggestionId}`, {
+    body: JSON.stringify(input),
+    method: "PATCH"
+  });
+}
+
+export async function applyReviewSuggestionToScript(
+  suggestionId: string
+): Promise<ApplyReviewSuggestionResultDto> {
+  return requestRuntime<ApplyReviewSuggestionResultDto>(
+    `/api/review/suggestions/${suggestionId}/apply-to-script`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function startVideoTranscription(videoId: string): Promise<VideoTranscriptDto> {
+  return requestRuntime<VideoTranscriptDto>(
+    `/api/video-deconstruction/videos/${videoId}/transcribe`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function fetchVideoTranscript(videoId: string): Promise<VideoTranscriptDto> {
+  return requestRuntime<VideoTranscriptDto>(
+    `/api/video-deconstruction/videos/${videoId}/transcript`
+  );
+}
+
+export async function runVideoSegmentation(videoId: string): Promise<VideoSegmentDto[]> {
+  return requestRuntime<VideoSegmentDto[]>(
+    `/api/video-deconstruction/videos/${videoId}/segment`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function fetchVideoSegments(videoId: string): Promise<VideoSegmentDto[]> {
+  return requestRuntime<VideoSegmentDto[]>(
+    `/api/video-deconstruction/videos/${videoId}/segments`
+  );
+}
+
+export async function extractVideoStructure(
+  videoId: string
+): Promise<VideoStructureExtractionDto> {
+  return requestRuntime<VideoStructureExtractionDto>(
+    `/api/video-deconstruction/videos/${videoId}/extract-structure`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function fetchVideoStructure(
+  videoId: string
+): Promise<VideoStructureExtractionDto> {
+  return requestRuntime<VideoStructureExtractionDto>(
+    `/api/video-deconstruction/videos/${videoId}/structure`
+  );
+}
+
+export async function applyVideoExtractionToProject(
+  extractionId: string
+): Promise<ApplyVideoExtractionResultDto> {
+  return requestRuntime<ApplyVideoExtractionResultDto>(
+    `/api/video-deconstruction/extractions/${extractionId}/apply-to-project`,
+    {
+      method: "POST"
+    }
+  );
 }
 
 export async function fetchActiveTasks(): Promise<TaskInfo[]> {

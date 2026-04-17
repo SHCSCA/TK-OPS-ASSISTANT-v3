@@ -53,6 +53,7 @@ from repositories.storyboard_repository import StoryboardRepository
 from repositories.subtitle_repository import SubtitleRepository
 from repositories.system_config_repository import SystemConfigRepository
 from repositories.timeline_repository import TimelineRepository
+from repositories.video_deconstruction_repository import VideoDeconstructionRepository
 from repositories.voice_repository import VoiceRepository
 from schemas.envelope import error_response
 from services.account_service import AccountService
@@ -73,6 +74,7 @@ from services.settings_service import SettingsService
 from services.storyboard_service import StoryboardService
 from services.subtitle_service import SubtitleService
 from services.task_manager import task_manager
+from services.video_deconstruction_service import VideoDeconstructionService
 from services.video_import_service import VideoImportService
 from services.voice_service import VoiceService
 from services.workspace_service import WorkspaceService
@@ -100,6 +102,9 @@ def create_app() -> FastAPI:
     publishing_repository = PublishingRepository(session_factory=session_factory)
     render_repository = RenderRepository(session_factory=session_factory)
     review_repository = ReviewRepository(session_factory=session_factory)
+    video_deconstruction_repository = VideoDeconstructionRepository(
+        session_factory=session_factory
+    )
     voice_repository = VoiceRepository(session_factory=session_factory)
     subtitle_repository = SubtitleRepository(session_factory=session_factory)
     timeline_repository = TimelineRepository(session_factory=session_factory)
@@ -137,7 +142,17 @@ def create_app() -> FastAPI:
     automation_service = AutomationService(automation_repository)
     publishing_service = PublishingService(publishing_repository)
     render_service = RenderService(render_repository)
-    review_service = ReviewService(review_repository)
+    review_service = ReviewService(
+        review_repository,
+        dashboard_service,
+        script_repository,
+    )
+    video_deconstruction_service = VideoDeconstructionService(
+        imported_video_repository=imported_video_repository,
+        repository=video_deconstruction_repository,
+        dashboard_service=dashboard_service,
+        script_repository=script_repository,
+    )
     voice_service = VoiceService(voice_repository)
     subtitle_service = SubtitleService(subtitle_repository)
     workspace_service = WorkspaceService(timeline_repository)
@@ -188,6 +203,7 @@ def create_app() -> FastAPI:
     app.state.publishing_repository = publishing_repository
     app.state.render_repository = render_repository
     app.state.review_repository = review_repository
+    app.state.video_deconstruction_repository = video_deconstruction_repository
     app.state.voice_repository = voice_repository
     app.state.subtitle_repository = subtitle_repository
     app.state.timeline_repository = timeline_repository
@@ -205,6 +221,7 @@ def create_app() -> FastAPI:
     app.state.publishing_service = publishing_service
     app.state.render_service = render_service
     app.state.review_service = review_service
+    app.state.video_deconstruction_service = video_deconstruction_service
     app.state.voice_service = voice_service
     app.state.subtitle_service = subtitle_service
     app.state.workspace_service = workspace_service
