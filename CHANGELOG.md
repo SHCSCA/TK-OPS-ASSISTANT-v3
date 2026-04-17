@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.2 - 2026-04-16
+
+### 开发态启动链路
+
+- 统一根 `desktop:tauri:dev` 与 Tauri `beforeDevCommand` 的调用方式，避免开发态命令口径分裂。
+- `npm run app:dev` 新增现有 Runtime / 前端开发服务器复用逻辑，减少 8000 与 1420 端口被占用时的误报。
+
+### 文档状态收口
+
+- 新增 `docs/PROJECT-STATUS.md`，按 16 页结构记录当前实现、Runtime 接线、验收记录和待收口问题。
+- 更新根 `README.md` 当前边界，明确 TaskBus、视频导入、配音中心、资产中心和 M09-M15 Runtime 页面接线已进入阶段性基线。
+- 更新 `apps/desktop/README.md` 当前职责与页面边界，使桌面端说明和项目状态文档保持一致。
+- 标记 Provider Secret UI、真实 OpenAI 调用链路、真实 TTS Provider、字幕对齐、时间线、渲染与发布执行层仍需后续计划推进。
+
+### 验证
+
+- 文档级 UTF-8 读取检查
+- 文档关键术语一致性检查
+
 ## 0.3.1 - 2026-04-15
 
 ### 基础问题收口

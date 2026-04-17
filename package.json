@@ -9,7 +9,7 @@
     "desktop:tauri": "npm --prefix apps/desktop run tauri",
     "runtime:dev": "node scripts/run-runtime-dev.mjs",
     "runtime:seed-dev": "node scripts/seed-runtime-dev.mjs --reset-dev-seed",
-    "desktop:tauri:dev": "npm --prefix apps/desktop exec tauri dev",
+    "desktop:tauri:dev": "npm --prefix apps/desktop run tauri -- dev",
     "app:dev": "node scripts/run-desktop-app.mjs",
     "version:sync": "node scripts/version-sync.mjs",
     "version:check": "node scripts/version-check.mjs"

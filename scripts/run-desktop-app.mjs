@@ -19,6 +19,8 @@ let runtimeProcess = null;
 let tauriProcess = null;
 let shuttingDown = false;
 let runtimeReady = false;
+let reuseRuntime = false;
+let reuseFrontendDevServer = false;
 
 function info(message) {
   console.log(`[app:dev] ${message}`);
@@ -154,6 +156,32 @@ function ensurePortAvailable(port, label) {
   });
 }
 
+function isPortAvailable(port) {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+
+    server.once("error", (portError) => {
+      if (portError.code === "EADDRINUSE") {
+        resolve(false);
+        return;
+      }
+
+      reject(new Error(`无法检查端口 ${port}：${portError.message}`));
+    });
+
+    server.listen(port, "127.0.0.1", () => {
+      server.close((closeError) => {
+        if (closeError) {
+          reject(new Error(`无法完成端口 ${port} 检查：${closeError.message}`));
+          return;
+        }
+
+        resolve(true);
+      });
+    });
+  });
+}
+
 async function waitForRuntimeReady() {
   const startedAt = Date.now();
 
@@ -176,6 +204,15 @@ async function waitForRuntimeReady() {
   }
 
   throw new Error("Runtime 健康检查在 30 秒内未就绪，请确认 8000 端口未被占用，且 Runtime 依赖已安装。");
+}
+
+async function isUrlReady(url) {
+  try {
+    const response = await fetch(url);
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 async function waitForUrlReady(url, timeoutMs, failureMessage) {
@@ -259,41 +296,67 @@ async function run() {
   await ensureSuccess(pythonCommand, ["-c", "import fastapi, uvicorn"], "Python Runtime 依赖缺失，请在 venv 中安装 `./apps/py-runtime[dev]`。");
   await ensureSuccess("cargo", ["--version"], "未找到 cargo，请先安装 Rust 工具链并确认 `cargo` 在 PATH 中。");
   await ensurePathExists(path.join("apps", "desktop", "node_modules"), "未找到 apps/desktop/node_modules，请先执行 `npm --prefix apps/desktop install`。");
-  await ensureNpmSuccess(["--prefix", "apps/desktop", "exec", "tauri", "--version"], "Tauri CLI 不可用，请先执行 `npm --prefix apps/desktop install` 安装桌面端依赖。");
-  await ensurePortAvailable(8000, "Runtime");
-  await ensurePortAvailable(1420, "桌面开发服务器");
+  await ensureNpmSuccess(["--prefix", "apps/desktop", "run", "tauri", "--", "--version"], "Tauri CLI 不可用，请先执行 `npm --prefix apps/desktop install` 安装桌面端依赖。");
 
-  info("正在启动 Python Runtime。");
-  runtimeProcess = spawn(
-    pythonCommand,
-    ["-m", "uvicorn", "main:app", "--app-dir", "apps/py-runtime/src", "--host", "127.0.0.1", "--port", "8000", "--reload"],
-    {
-      cwd: rootDir,
-      stdio: "inherit",
-      windowsHide: false,
-    },
-  );
-  attachCommonChildHandlers(runtimeProcess, "Python Runtime");
+  const runtimePortFree = await isPortAvailable(8000);
+  if (runtimePortFree) {
+    await ensurePortAvailable(8000, "Runtime");
+  } else if (await isUrlReady(runtimeUrl)) {
+    reuseRuntime = true;
+    runtimeReady = true;
+    info("检测到已运行 Runtime，复用现有 8000 服务。");
+  } else {
+    throw new Error("Runtime 端口 8000 已被占用，且健康检查不可用。请释放端口后重试。");
+  }
 
-  runtimeProcess.once("exit", (code, signal) => {
-    if (shuttingDown) {
-      return;
-    }
+  const frontendPortFree = await isPortAvailable(1420);
+  if (frontendPortFree) {
+    await ensurePortAvailable(1420, "桌面开发服务器");
+  } else if (await isUrlReady(desktopDevUrl)) {
+    reuseFrontendDevServer = true;
+    info("检测到已运行前端开发服务器，复用现有 1420 服务。");
+  } else {
+    throw new Error("桌面开发服务器端口 1420 已被占用，且页面不可访问。请释放端口后重试。");
+  }
 
-    if (!runtimeReady) {
-      error(`Python Runtime 在健康检查通过前退出（code=${code ?? "null"}, signal=${signal ?? "null"}）。`);
-    } else {
-      error(`Python Runtime 意外退出（code=${code ?? "null"}, signal=${signal ?? "null"}）。`);
-    }
+  if (!reuseRuntime) {
+    info("正在启动 Python Runtime。");
+    runtimeProcess = spawn(
+      pythonCommand,
+      ["-m", "uvicorn", "main:app", "--app-dir", "apps/py-runtime/src", "--host", "127.0.0.1", "--port", "8000", "--reload"],
+      {
+        cwd: rootDir,
+        stdio: "inherit",
+        windowsHide: false,
+      },
+    );
+    attachCommonChildHandlers(runtimeProcess, "Python Runtime");
 
-    void shutdown(1);
-  });
+    runtimeProcess.once("exit", (code, signal) => {
+      if (shuttingDown) {
+        return;
+      }
 
-  info("正在等待 Runtime 健康检查通过。");
-  await waitForRuntimeReady();
+      if (!runtimeReady) {
+        error(`Python Runtime 在健康检查通过前退出（code=${code ?? "null"}, signal=${signal ?? "null"}）。`);
+      } else {
+        error(`Python Runtime 意外退出（code=${code ?? "null"}, signal=${signal ?? "null"}）。`);
+      }
+
+      void shutdown(1);
+    });
+
+    info("正在等待 Runtime 健康检查通过。");
+    await waitForRuntimeReady();
+  }
+
   info("Runtime 已就绪，正在启动 Tauri 桌面应用。");
+  const tauriArgs = ["--prefix", "apps/desktop", "run", "tauri", "--", "dev"];
+  if (reuseFrontendDevServer) {
+    tauriArgs.push("-c", "{\"build\":{\"beforeDevCommand\":\"\"}}");
+  }
 
-  tauriProcess = spawnNpm(["--prefix", "apps/desktop", "exec", "tauri", "dev"], {
+  tauriProcess = spawnNpm(tauriArgs, {
     cwd: rootDir,
     stdio: "inherit",
     windowsHide: false,

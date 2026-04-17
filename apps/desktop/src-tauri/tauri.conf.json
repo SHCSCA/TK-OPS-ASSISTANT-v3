@@ -4,7 +4,7 @@
   "version": "0.3.2",
   "identifier": "com.tkops.desktop",
   "build": {
-    "beforeDevCommand": "npm --prefix apps/desktop run dev",
+    "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "",
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:1420"
