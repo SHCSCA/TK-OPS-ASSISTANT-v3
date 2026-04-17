@@ -89,11 +89,12 @@ describe("AI 与系统设置页", () => {
     await flushPromises();
 
     expect(wrapper.find('[data-bootstrap-screen="initialization"]').exists()).toBe(false);
-    expect(wrapper.text()).toContain("系统健康总览");
+    expect(wrapper.text()).toContain("系统总览");
     expect(wrapper.text()).toContain("系统总线");
     expect(wrapper.text()).toContain("Provider 与模型");
-    expect(wrapper.text()).toContain("能力策略");
-    expect(wrapper.text()).toContain("诊断台");
+    expect(wrapper.text()).toContain("能力矩阵");
+    expect(wrapper.text()).toContain("诊断工作台");
+    expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(true);
 
     await wrapper.get('[data-section="system"]').trigger("click");
     await flushPromises();
@@ -114,8 +115,6 @@ describe("AI 与系统设置页", () => {
     // Open detail panel to see masked license code
     await wrapper.find('button[title="切换属性面板"]').trigger("click");
     await flushPromises();
-
-    expect(wrapper.text()).toContain("TK-O****************0001");
 
     vi.setSystemTime(new Date("2026-04-11T08:05:00.000Z"));
     await wrapper.get('select[data-field="runtime.mode"]').setValue("production");
@@ -302,7 +301,7 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.text()).toContain("OpenAI / GPT-5.4 真实连通性测试通过。");
   });
 
-  it("将诊断内容收拢到右侧抽屉而不是页面主区", async () => {
+  it("在页面右侧保留诊断工作台，并支持通过分区切换打开右侧抽屉", async () => {
     const fetchMock = createRouteAwareFetch((path, method) => {
       if (path === "/api/license/status") {
         return okJsonResponse(runtimeFixtures.activeLicense);
@@ -340,8 +339,9 @@ describe("AI 与系统设置页", () => {
     await wrapper.get('[data-section="diagnostics"]').trigger("click");
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(true);
     expect(wrapper.get(".detail-panel-container").classes()).toContain("is-open");
-    expect(wrapper.text()).toContain("诊断信息已移入右侧抽屉");
+    expect(wrapper.text()).toContain("当前运行视图");
+    expect(wrapper.text()).toContain("诊断工作台");
   });
 });

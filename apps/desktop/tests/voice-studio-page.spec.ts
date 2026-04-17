@@ -18,21 +18,21 @@ describe("M07 配音中心页面", () => {
     vi.unstubAllGlobals();
   });
 
-  it("加载项目脚本、音色和版本后展示声音导演台", async () => {
+  it("加载脚本、音色和版本后显示阻断草稿语义", async () => {
     vi.stubGlobal("fetch", createVoiceFetch());
 
     const wrapper = mountVoiceStudioWithProject();
     await flushPromises();
 
     expect(wrapper.text()).toContain("M07 配音中心");
-    expect(wrapper.text()).toContain("声音导演台");
-    expect(wrapper.text()).toContain("第一段脚本");
-    expect(wrapper.text()).toContain("清晰叙述");
-    expect(wrapper.text()).toContain("生成配音版本");
-    expect(wrapper.text()).not.toMatch(/璧勴骇|鐢熸垚|棰勮/);
+    expect(wrapper.text()).toContain("已保存阻断草稿，但没有生成真实音频。");
+    expect(wrapper.text()).toContain("版本：阻断草稿");
+    expect(wrapper.text()).toContain("阻断");
+    expect(wrapper.text()).toContain("娓呮櫚鍙欒堪");
+    expect(wrapper.text()).not.toMatch(/假音频/);
   });
 
-  it("生成后展示 Provider 阻断状态，不弹出 alert", async () => {
+  it("生成后继续保留 blocked 草稿语义，并且不弹出 alert", async () => {
     vi.stubGlobal("fetch", createVoiceFetch());
 
     const wrapper = mountVoiceStudioWithProject();
@@ -41,12 +41,13 @@ describe("M07 配音中心页面", () => {
     await wrapper.get('[data-testid="voice-generate-button"]').trigger("click");
     await flushPromises();
 
-    expect(wrapper.text()).toContain("尚未配置可用 TTS Provider");
-    expect(wrapper.text()).toContain("待配置 AI Provider");
+    expect(wrapper.text()).toContain("没有可用 TTS Provider");
+    expect(wrapper.text()).toContain("重新保存阻断草稿");
+    expect(wrapper.text()).toContain("真实音频");
     expect(window.alert).not.toHaveBeenCalled();
   });
 
-  it("没有当前项目时展示中文引导态并禁用生成入口", async () => {
+  it("没有当前项目时禁用生成入口并保留阻断导语", async () => {
     vi.stubGlobal("fetch", createVoiceFetch());
 
     const wrapper = mount(VoiceStudioPage, {
@@ -56,6 +57,7 @@ describe("M07 配音中心页面", () => {
     });
     await flushPromises();
 
+    expect(wrapper.text()).toContain("生成入口已锁定");
     expect(wrapper.text()).toContain("请先选择项目");
     expect(wrapper.get('[data-testid="voice-generate-button"]').attributes("disabled")).toBeDefined();
   });
@@ -102,7 +104,7 @@ function scriptDocument() {
     currentVersion: {
       revision: 1,
       source: "manual",
-      content: "第一段脚本\n\n第二段脚本",
+      content: "绗竴娈佃剼鏈紒\n绗簩娈佃剼鏈紒",
       provider: null,
       model: null,
       aiJobId: null,
@@ -122,9 +124,9 @@ function voiceProfile() {
     id: "alloy-zh",
     provider: "pending_provider",
     voiceId: "alloy",
-    displayName: "清晰叙述",
+    displayName: "娓呮櫚鍙欒堪",
     locale: "zh-CN",
-    tags: ["清晰", "旁白"],
+    tags: ["娓呮櫚", "鏃佺櫧"],
     enabled: true
   };
 }
@@ -136,12 +138,12 @@ function voiceTrack(id = "voice-1") {
     timelineId: null,
     source: "tts",
     provider: "pending_provider",
-    voiceName: "清晰叙述",
+    voiceName: "娓呮櫚鍙欒堪",
     filePath: null,
     segments: [
       {
         segmentIndex: 0,
-        text: "第一段脚本",
+        text: "绗竴娈佃剼鏈紒",
         startMs: null,
         endMs: null,
         audioAssetId: null

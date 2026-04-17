@@ -1,7 +1,11 @@
-﻿import { flushPromises } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
+import { createPinia } from "pinia";
+import { createMemoryHistory, createRouter } from "vue-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { mountApp, okJsonResponse, runtimeFixtures } from "./runtime-helpers";
+import SetupLicenseWizardPage from "@/pages/setup/SetupLicenseWizardPage.vue";
+
+import { createRouteAwareFetch, okJsonResponse, runtimeFixtures } from "./runtime-helpers";
 
 function errorJsonResponse(status: number, error: string, requestId = "req-license") {
   return {
@@ -23,13 +27,61 @@ function createDeferredResponse() {
   return { promise, resolve };
 }
 
-describe("Setup bootstrap flow", () => {
+function createSetupFetch(options: {
+  license?: unknown;
+  config?: unknown;
+  diagnostics?: unknown;
+  configError?: ReturnType<typeof errorJsonResponse>;
+}) {
+  return createRouteAwareFetch((path, method) => {
+    if (path === "/api/license/status" && method === "GET") {
+      return okJsonResponse(options.license ?? runtimeFixtures.activeLicense);
+    }
+    if (path === "/api/settings/health" && method === "GET") {
+      return okJsonResponse(runtimeFixtures.health);
+    }
+    if (path === "/api/settings/config" && method === "GET") {
+      return options.configError ?? okJsonResponse(options.config ?? runtimeFixtures.config);
+    }
+    if (path === "/api/settings/diagnostics" && method === "GET") {
+      return okJsonResponse(options.diagnostics ?? runtimeFixtures.diagnostics);
+    }
+
+    throw new Error(`Unhandled request: ${method} ${path}`);
+  });
+}
+
+async function mountSetupPage() {
+  const pinia = createPinia();
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: "/", component: SetupLicenseWizardPage },
+      { path: "/dashboard", component: { template: "<div />" } },
+      { path: "/settings/ai-system", component: { template: "<div />" } }
+    ]
+  });
+
+  router.push("/");
+  await router.isReady();
+
+  const wrapper = mount(SetupLicenseWizardPage, {
+    global: {
+      plugins: [pinia, router]
+    }
+  });
+
+  return { router, wrapper };
+}
+
+describe("SetupLicenseWizardPage", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
-  it("shows a standalone loading screen while bootstrap requests are pending", async () => {
+  it("在 Runtime 尚未返回时保持加载状态", async () => {
+    const licenseResponse = createDeferredResponse();
     const healthResponse = createDeferredResponse();
     const configResponse = createDeferredResponse();
     const diagnosticsResponse = createDeferredResponse();
@@ -39,164 +91,87 @@ describe("Setup bootstrap flow", () => {
       vi.fn((input: RequestInfo | URL) => {
         const path = new URL(String(input)).pathname;
         if (path === "/api/license/status") {
-          return Promise.resolve(okJsonResponse(runtimeFixtures.restrictedLicense));
+          return Promise.resolve(licenseResponse.promise);
         }
         if (path === "/api/settings/health") {
-          return healthResponse.promise;
+          return Promise.resolve(healthResponse.promise);
         }
         if (path === "/api/settings/config") {
-          return configResponse.promise;
+          return Promise.resolve(configResponse.promise);
         }
         if (path === "/api/settings/diagnostics") {
-          return diagnosticsResponse.promise;
+          return Promise.resolve(diagnosticsResponse.promise);
         }
 
         throw new Error(`Unhandled request: ${path}`);
       })
     );
 
-    const { wrapper } = await mountApp("/setup/license");
+    const { wrapper } = await mountSetupPage();
     await flushPromises();
 
-    expect(wrapper.get('[data-bootstrap-screen="loading"]').text()).toContain("正在准备首启环境");
-    expect(wrapper.find(".title-bar").exists()).toBe(false);
-
-    healthResponse.resolve(okJsonResponse(runtimeFixtures.health));
-    configResponse.resolve(okJsonResponse(runtimeFixtures.config));
-    diagnosticsResponse.resolve(okJsonResponse(runtimeFixtures.diagnostics));
-    await flushPromises();
-    await flushPromises();
-
-    expect(wrapper.find('[data-bootstrap-screen="loading"]').exists()).toBe(false);
-    expect(wrapper.find('[data-bootstrap-screen="license"]').exists()).toBe(true);
+    expect(wrapper.get('[data-setup-state="loading"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("首启");
   });
 
-  it("activates the license, switches to initialization, saves settings, and enters the dashboard", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(okJsonResponse(runtimeFixtures.restrictedLicense))
-      .mockResolvedValueOnce(okJsonResponse(runtimeFixtures.health))
-      .mockResolvedValueOnce(okJsonResponse(runtimeFixtures.config))
-      .mockResolvedValueOnce(okJsonResponse(runtimeFixtures.diagnostics))
-      .mockResolvedValueOnce(
-        okJsonResponse({
-          ...runtimeFixtures.activeLicense,
-          maskedCode: "eyJh****************WJjZA",
-          activatedAt: "2026-04-11T09:10:00Z"
-        })
-      )
-      .mockResolvedValueOnce(
-        okJsonResponse({
-          revision: 2,
-          runtime: {
-            mode: "production",
-            workspaceRoot: "G:/AI/TK-OPS-ASSISTANT-V3"
-          },
-          paths: {
-            cacheDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/cache",
-            exportDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/exports",
-            logDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/logs"
-          },
-          logging: { level: "DEBUG" },
-          ai: {
-            provider: "openai",
-            model: "gpt-5.4-mini",
-            voice: "nova",
-            subtitleMode: "precise"
-          }
-        })
-      )
-      .mockResolvedValueOnce(
-        okJsonResponse({
-          ...runtimeFixtures.health,
-          mode: "production",
-          now: "2026-04-11T09:12:00Z"
-        })
-      )
-      .mockResolvedValueOnce(
-        okJsonResponse({
-          ...runtimeFixtures.diagnostics,
-          revision: 2,
-          mode: "production"
-        })
-      )
-      .mockResolvedValueOnce(okJsonResponse(runtimeFixtures.emptyDashboardSummary));
+  it("在未授权时展示阻断态并保留本机机器码", async () => {
+    vi.stubGlobal("fetch", createSetupFetch({ license: runtimeFixtures.restrictedLicense }));
 
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { wrapper, router } = await mountApp("/setup/license?redirect=%2Fdashboard");
-    await flushPromises();
-
-    expect(wrapper.find('[data-bootstrap-screen="license"]').exists()).toBe(true);
-
-    await wrapper.get('[data-field="activationCode"]').setValue("signed-license-code");
-    await wrapper.get('[data-action="activate-license"]').trigger("click");
-    await flushPromises();
-
-    expect(wrapper.find('[data-bootstrap-screen="initialization"]').exists()).toBe(true);
-
-    await wrapper.get('[data-field="runtime.mode"]').setValue("production");
-    await wrapper.get('[data-field="logging.level"]').setValue("DEBUG");
-    await wrapper.get('[data-field="ai.model"]').setValue("gpt-5.4-mini");
-    await wrapper.get('[data-field="ai.voice"]').setValue("nova");
-    await wrapper.get('[data-field="ai.subtitleMode"]').setValue("precise");
-    await wrapper.get('[data-action="save-bootstrap"]').trigger("click");
+    const { wrapper } = await mountSetupPage();
     await flushPromises();
     await flushPromises();
 
-    const activateCall = fetchMock.mock.calls.find(
-      ([url, options]) =>
-        String(url).includes("/api/license/activate") && options?.method === "POST"
-    );
-    const settingsSaveCall = fetchMock.mock.calls.find(
-      ([url, options]) =>
-        String(url).includes("/api/settings/config") && options?.method === "PUT"
-    );
-
-    expect(activateCall).toBeTruthy();
-    expect(JSON.parse(String(activateCall?.[1]?.body))).toEqual({
-      activationCode: "signed-license-code"
-    });
-    expect(settingsSaveCall).toBeTruthy();
-    expect(JSON.parse(String(settingsSaveCall?.[1]?.body))).toMatchObject({
-      runtime: { mode: "production" },
-      logging: { level: "DEBUG" },
-      ai: {
-        model: "gpt-5.4-mini",
-        voice: "nova",
-        subtitleMode: "precise"
-      }
-    });
-    await vi.waitFor(() => {
-      expect(router.currentRoute.value.fullPath).toBe("/dashboard");
-      expect(wrapper.find(".shell-title-bar").exists()).toBe(true);
-    });
+    expect(wrapper.get('[data-setup-state="blocked"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("待授权");
+    expect(wrapper.text()).toContain(runtimeFixtures.restrictedLicense.machineCode);
+    expect(wrapper.get('[data-field="activationCode"]').attributes("disabled")).toBeUndefined();
   });
 
-  it("shows activation errors with the request id on the standalone license screen", async () => {
+  it("在授权但初始化未完成时展示空态", async () => {
+    vi.stubGlobal("fetch", createSetupFetch({ config: runtimeFixtures.config }));
+
+    const { wrapper } = await mountSetupPage();
+    await flushPromises();
+    await flushPromises();
+
+    expect(wrapper.get('[data-setup-state="empty"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("初始化");
+    expect(wrapper.text()).toContain("继续初始化");
+  });
+
+  it("在授权且初始化完成后展示就绪态", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce(okJsonResponse(runtimeFixtures.restrictedLicense))
-        .mockResolvedValueOnce(okJsonResponse(runtimeFixtures.health))
-        .mockResolvedValueOnce(okJsonResponse(runtimeFixtures.config))
-        .mockResolvedValueOnce(okJsonResponse(runtimeFixtures.diagnostics))
-        .mockResolvedValueOnce(
-          errorJsonResponse(400, "授权码签名校验失败。", "req-license-400")
-        )
+      createSetupFetch({
+        config: runtimeFixtures.initializedConfig,
+        diagnostics: runtimeFixtures.initializedDiagnostics
+      })
     );
 
-    const { wrapper } = await mountApp("/setup/license");
+    const { wrapper } = await mountSetupPage();
+    await flushPromises();
     await flushPromises();
 
-    await wrapper.get('[data-field="activationCode"]').setValue("bad-code");
-    await wrapper.get('[data-action="activate-license"]').trigger("click");
+    expect(wrapper.get('[data-setup-state="ready"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("Runtime");
+    expect(wrapper.get('[data-field="activationCode"]').attributes("disabled")).toBeDefined();
+    expect(wrapper.get('[data-action="open-dashboard"]').exists()).toBe(true);
+  });
+
+  it("在配置读取失败时展示错误态和请求号", async () => {
+    vi.stubGlobal(
+      "fetch",
+      createSetupFetch({
+        configError: errorJsonResponse(500, "初始化配置读取失败。", "req-config-500")
+      })
+    );
+
+    const { wrapper } = await mountSetupPage();
+    await flushPromises();
     await flushPromises();
 
-    expect(wrapper.text()).toContain("授权码签名校验失败。");
-    expect(wrapper.text()).toContain("req-license-400");
-    expect(wrapper.find('[data-bootstrap-screen="license"]').exists()).toBe(true);
+    expect(wrapper.get('[data-setup-state="error"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("初始化配置读取失败。");
+    expect(wrapper.text()).toContain("req-config-500");
   });
 });
-

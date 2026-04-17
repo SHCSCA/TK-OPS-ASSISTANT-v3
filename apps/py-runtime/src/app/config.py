@@ -10,7 +10,6 @@ from pathlib import Path
 class RuntimeConfig:
     version: str
     mode: str
-    port: int
     repo_root: Path
     data_dir: Path
     database_path: Path
@@ -35,7 +34,6 @@ def load_runtime_config() -> RuntimeConfig:
     return RuntimeConfig(
         version=_load_runtime_version(),
         mode=os.getenv("TK_OPS_RUNTIME_MODE", "development").strip() or "development",
-        port=int(os.getenv("TK_OPS_RUNTIME_PORT", "8000")),
         repo_root=repo_root,
         data_dir=data_dir.resolve(),
         database_path=database_path.resolve(),

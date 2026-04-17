@@ -1,10 +1,7 @@
 import { defineStore } from "pinia";
 import {
-  cancelAutomationRun,
   createAutomationTask,
   deleteAutomationTask,
-  fetchAutomationRun,
-  fetchAutomationRunLogs,
   fetchAutomationTaskRuns,
   fetchAutomationTasks,
   triggerAutomationTask,
@@ -14,34 +11,44 @@ import type {
   AutomationTaskCreateInput,
   AutomationTaskDto,
   AutomationTaskRunDto,
-  AutomationTaskRunLogsDto,
   AutomationTaskUpdateInput,
   TriggerTaskResultDto
 } from "@/types/runtime";
+import { resolveCollectionStatus, toRuntimeErrorMessage } from "@/stores/runtime-store-helpers";
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "自动化任务操作失败";
+  return toRuntimeErrorMessage(error, "自动化任务操作失败，请稍后重试。");
 }
 
 export const useAutomationStore = defineStore("automation", {
   state: () => ({
     tasks: [] as AutomationTaskDto[],
     runsByTaskId: {} as Record<string, AutomationTaskRunDto[]>,
-    runDetailsById: {} as Record<string, AutomationTaskRunDto>,
-    runLogsById: {} as Record<string, AutomationTaskRunLogsDto>,
+    runsStatusByTaskId: {} as Record<string, "idle" | "loading" | "ready" | "error">,
     lastTriggerResult: null as TriggerTaskResultDto | null,
     loading: false,
+    status: "idle" as "idle" | "loading" | "empty" | "ready" | "error",
+    triggerState: "idle" as "idle" | "running" | "ready" | "error",
     error: null as string | null
   }),
+  getters: {
+    viewState: (state): "loading" | "empty" | "ready" | "error" => {
+      if (state.status === "loading") return "loading";
+      if (state.status === "error") return "error";
+      return state.tasks.length > 0 ? "ready" : "empty";
+    }
+  },
   actions: {
     async loadTasks(status?: string, type?: string) {
       this.loading = true;
+      this.status = "loading";
       this.error = null;
       try {
         this.tasks = await fetchAutomationTasks(status, type);
+        this.status = resolveCollectionStatus(this.tasks.length);
       } catch (error) {
+        this.status = "error";
         this.error = getErrorMessage(error);
-        console.error("Failed to load automation tasks", error);
       } finally {
         this.loading = false;
       }
@@ -51,10 +58,10 @@ export const useAutomationStore = defineStore("automation", {
       try {
         const task = await createAutomationTask(input);
         this.tasks.unshift(task);
+        this.status = "ready";
         return task;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to create automation task", error);
         return null;
       }
     },
@@ -63,10 +70,10 @@ export const useAutomationStore = defineStore("automation", {
       try {
         const task = await updateAutomationTask(id, input);
         this.tasks = this.tasks.map((item) => (item.id === id ? task : item));
+        this.status = "ready";
         return task;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to update automation task", error);
         return null;
       }
     },
@@ -76,76 +83,38 @@ export const useAutomationStore = defineStore("automation", {
         await deleteAutomationTask(id);
         this.tasks = this.tasks.filter((task) => task.id !== id);
         delete this.runsByTaskId[id];
+        delete this.runsStatusByTaskId[id];
+        this.status = this.tasks.length > 0 ? "ready" : "empty";
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to delete automation task", error);
       }
     },
     async triggerTask(id: string) {
       this.error = null;
+      this.triggerState = "running";
       try {
         this.lastTriggerResult = await triggerAutomationTask(id);
         await this.loadRuns(id);
         await this.loadTasks();
+        this.triggerState = "ready";
         return this.lastTriggerResult;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to trigger automation task", error);
+        this.triggerState = "error";
         return null;
       }
     },
     async loadRuns(id: string) {
       this.error = null;
+      this.runsStatusByTaskId[id] = "loading";
       try {
         this.runsByTaskId[id] = await fetchAutomationTaskRuns(id);
+        this.runsStatusByTaskId[id] = "ready";
         return this.runsByTaskId[id];
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to load automation task runs", error);
+        this.runsStatusByTaskId[id] = "error";
         return [];
-      }
-    },
-    async loadRun(runId: string) {
-      this.error = null;
-      try {
-        const run = await fetchAutomationRun(runId);
-        this.runDetailsById[runId] = run;
-        return run;
-      } catch (error) {
-        this.error = getErrorMessage(error);
-        console.error("Failed to load automation run", error);
-        return null;
-      }
-    },
-    async loadRunLogs(runId: string) {
-      this.error = null;
-      try {
-        const logs = await fetchAutomationRunLogs(runId);
-        this.runLogsById[runId] = logs;
-        return logs;
-      } catch (error) {
-        this.error = getErrorMessage(error);
-        console.error("Failed to load automation run logs", error);
-        return null;
-      }
-    },
-    async cancelRun(runId: string) {
-      this.error = null;
-      try {
-        const run = await cancelAutomationRun(runId);
-        this.runDetailsById[runId] = run;
-        const list = this.runsByTaskId[run.task_id];
-        if (list) {
-          this.runsByTaskId[run.task_id] = list.map((item) =>
-            item.id === runId ? run : item
-          );
-        }
-        await this.loadTasks();
-        return run;
-      } catch (error) {
-        this.error = getErrorMessage(error);
-        console.error("Failed to cancel automation run", error);
-        return null;
       }
     }
   }

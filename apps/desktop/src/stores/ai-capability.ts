@@ -1,18 +1,19 @@
 import { defineStore } from "pinia";
 
 import {
-  RuntimeRequestError,
   checkAIProviderHealth,
   fetchAICapabilitySupportMatrix,
   fetchAICapabilitySettings,
   fetchAIProviderCatalog,
   fetchAIProviderModels,
+  refreshAIProviderModels,
   updateAIProviderSecret,
   updateAICapabilitySettings
 } from "@/app/runtime-client";
 import type {
   AICapabilityConfig,
   AICapabilitySettings,
+  AIModelCatalogRefreshResult,
   AICapabilitySupportMatrix,
   AIModelCatalogItem,
   AIProviderCatalogItem,
@@ -20,6 +21,7 @@ import type {
   AIProviderSecretInput,
   RuntimeRequestErrorShape
 } from "@/types/runtime";
+import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 
 export type AICapabilityStoreStatus = "idle" | "loading" | "ready" | "saving" | "error";
 
@@ -29,6 +31,7 @@ type AICapabilityStoreState = {
   modelCatalogByProvider: Record<string, AIModelCatalogItem[]>;
   providerCatalog: AIProviderCatalogItem[];
   providerHealth: Record<string, AIProviderHealth>;
+  refreshResultByProvider: Record<string, AIModelCatalogRefreshResult>;
   settings: AICapabilitySettings | null;
   status: AICapabilityStoreStatus;
   supportMatrix: AICapabilitySupportMatrix | null;
@@ -41,10 +44,19 @@ export const useAICapabilityStore = defineStore("ai-capability", {
     modelCatalogByProvider: {},
     providerCatalog: [],
     providerHealth: {},
+    refreshResultByProvider: {},
     settings: null,
     status: "idle",
     supportMatrix: null
   }),
+  getters: {
+    viewState: (state): "loading" | "ready" | "error" =>
+      state.status === "error"
+        ? "error"
+        : state.status === "loading" || state.status === "saving"
+          ? "loading"
+          : "ready"
+  },
   actions: {
     async load(): Promise<void> {
       this.status = "loading";
@@ -95,6 +107,19 @@ export const useAICapabilityStore = defineStore("ai-capability", {
           [providerId]: await fetchAIProviderModels(providerId)
         };
         this.status = "ready";
+      } catch (error) {
+        this.applyRuntimeError(error);
+      }
+    },
+    async refreshProviderModels(providerId: string): Promise<void> {
+      this.error = null;
+
+      try {
+        this.refreshResultByProvider = {
+          ...this.refreshResultByProvider,
+          [providerId]: await refreshAIProviderModels(providerId)
+        };
+        await this.loadProviderModels(providerId);
       } catch (error) {
         this.applyRuntimeError(error);
       }
@@ -151,6 +176,9 @@ export const useAICapabilityStore = defineStore("ai-capability", {
           ...this.providerHealth,
           [providerId]: health
         };
+        this.providerCatalog = this.providerCatalog.map((item) =>
+          item.provider === providerId ? { ...item, status: health.status } : item
+        );
         this.lastCheckedProviderId = providerId;
         this.status = "ready";
       } catch (error) {
@@ -158,18 +186,8 @@ export const useAICapabilityStore = defineStore("ai-capability", {
       }
     },
     applyRuntimeError(error: unknown): void {
-      const runtimeError =
-        error instanceof RuntimeRequestError
-          ? error
-          : new RuntimeRequestError("AI capability request failed.");
-
       this.status = "error";
-      this.error = {
-        details: runtimeError.details,
-        message: runtimeError.message,
-        requestId: runtimeError.requestId,
-        status: runtimeError.status
-      };
+      this.error = toRuntimeErrorShape(error, "AI 能力配置请求失败，请稍后重试。");
     }
   }
 });

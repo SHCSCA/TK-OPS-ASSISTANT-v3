@@ -1,44 +1,49 @@
 import { defineStore } from "pinia";
 import {
   cancelRenderTask,
-  createExportProfile,
   createRenderTask,
   deleteRenderTask,
-  fetchExportProfiles,
   fetchRenderTasks,
-  retryRenderTask,
   updateRenderTask
 } from "@/app/runtime-client";
 import type {
   CancelRenderResultDto,
-  ExportProfileCreateInput,
-  ExportProfileDto,
   RenderTaskCreateInput,
   RenderTaskDto,
   RenderTaskUpdateInput
 } from "@/types/runtime";
+import { resolveCollectionStatus, toRuntimeErrorMessage } from "@/stores/runtime-store-helpers";
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "渲染任务操作失败";
+  return toRuntimeErrorMessage(error, "渲染任务操作失败，请稍后重试。");
 }
 
 export const useRendersStore = defineStore("renders", {
   state: () => ({
     tasks: [] as RenderTaskDto[],
-    profiles: [] as ExportProfileDto[],
     lastCancelResult: null as CancelRenderResultDto | null,
     loading: false,
+    status: "idle" as "idle" | "loading" | "empty" | "ready" | "error",
     error: null as string | null
   }),
+  getters: {
+    viewState: (state): "loading" | "empty" | "ready" | "error" => {
+      if (state.status === "loading") return "loading";
+      if (state.status === "error") return "error";
+      return state.tasks.length > 0 ? "ready" : "empty";
+    }
+  },
   actions: {
     async loadTasks(status?: string) {
       this.loading = true;
+      this.status = "loading";
       this.error = null;
       try {
         this.tasks = await fetchRenderTasks(status);
+        this.status = resolveCollectionStatus(this.tasks.length);
       } catch (error) {
+        this.status = "error";
         this.error = getErrorMessage(error);
-        console.error("Failed to load render tasks", error);
       } finally {
         this.loading = false;
       }
@@ -48,10 +53,10 @@ export const useRendersStore = defineStore("renders", {
       try {
         const task = await createRenderTask(input);
         this.tasks.unshift(task);
+        this.status = "ready";
         return task;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to create render task", error);
         return null;
       }
     },
@@ -60,10 +65,10 @@ export const useRendersStore = defineStore("renders", {
       try {
         const task = await updateRenderTask(id, input);
         this.tasks = this.tasks.map((item) => (item.id === id ? task : item));
+        this.status = "ready";
         return task;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to update render task", error);
         return null;
       }
     },
@@ -72,9 +77,9 @@ export const useRendersStore = defineStore("renders", {
       try {
         await deleteRenderTask(id);
         this.tasks = this.tasks.filter((task) => task.id !== id);
+        this.status = this.tasks.length > 0 ? "ready" : "empty";
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to delete render task", error);
       }
     },
     async cancel(id: string) {
@@ -85,42 +90,6 @@ export const useRendersStore = defineStore("renders", {
         return this.lastCancelResult;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to cancel render task", error);
-        return null;
-      }
-    },
-    async loadProfiles() {
-      this.error = null;
-      try {
-        this.profiles = await fetchExportProfiles();
-        return this.profiles;
-      } catch (error) {
-        this.error = getErrorMessage(error);
-        console.error("Failed to load export profiles", error);
-        return [];
-      }
-    },
-    async addProfile(input: ExportProfileCreateInput) {
-      this.error = null;
-      try {
-        const profile = await createExportProfile(input);
-        this.profiles.push(profile);
-        return profile;
-      } catch (error) {
-        this.error = getErrorMessage(error);
-        console.error("Failed to create export profile", error);
-        return null;
-      }
-    },
-    async retry(id: string) {
-      this.error = null;
-      try {
-        const task = await retryRenderTask(id);
-        this.tasks = this.tasks.map((item) => (item.id === id ? task : item));
-        return task;
-      } catch (error) {
-        this.error = getErrorMessage(error);
-        console.error("Failed to retry render task", error);
         return null;
       }
     }

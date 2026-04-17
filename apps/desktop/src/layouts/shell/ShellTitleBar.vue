@@ -1,263 +1,348 @@
 <template>
-  <header class="shell-title-bar" data-tauri-drag-region>
+  <div class="shell-title-bar" data-tauri-drag-region>
     <div class="shell-title-bar__left" data-tauri-drag-region>
-      <!-- 侧边栏折叠按钮 -->
-      <button class="icon-button" @click="handleToggleSidebar" title="收起/展开侧边栏">
-        <span class="material-symbols-outlined icon-size">
-          {{ isCollapsed ? 'menu_open' : 'menu' }}
-        </span>
+      <button
+        aria-label="切换侧边栏"
+        class="shell-title-bar__icon-button"
+        type="button"
+        @click="emit('toggle-sidebar')"
+      >
+        <span class="material-symbols-outlined">{{ isCollapsed ? "menu_open" : "menu" }}</span>
       </button>
 
-      <!-- Logo 与 品牌 -->
       <div class="shell-brand" data-tauri-drag-region>
-        <div class="shell-brand__logo" data-tauri-drag-region>TK</div>
-        <span class="shell-brand__text" data-tauri-drag-region>TK-OPS</span>
-        <span style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;">本地 AI 视频创作中枢</span>
+        <div class="shell-brand__mark" data-tauri-drag-region>TK</div>
+        <div class="shell-brand__copy" data-tauri-drag-region>
+          <strong data-tauri-drag-region>TK-OPS</strong>
+          <span data-tauri-drag-region>本地 AI 视频创作中枢</span>
+        </div>
+      </div>
+
+      <div class="shell-title-bar__project" data-tauri-drag-region>
+        <span class="shell-title-bar__project-label" data-tauri-drag-region>{{ pageTitle }}</span>
+        <strong data-tauri-drag-region>{{ projectLabel }}</strong>
       </div>
     </div>
 
-    <!-- 中间区域留空，作为可拖拽区域 -->
-    <div class="shell-title-bar__center" data-tauri-drag-region></div>
+    <div class="shell-title-bar__search">
+      <Input v-model="searchKeyword" placeholder="搜索项目 / 脚本 / 任务 / 资产">
+        <template #leading>
+          <span class="material-symbols-outlined">search</span>
+        </template>
+        <template #trailing>
+          <kbd class="shell-title-bar__shortcut">Cmd+K</kbd>
+        </template>
+      </Input>
+    </div>
 
-    <div class="shell-title-bar__right">
-      <div class="shell-title-bar__actions">
-        <!-- 系统通知 -->
-        <button class="icon-button notification-btn" title="系统通知">
-          <span class="material-symbols-outlined icon-size">notifications</span>
-          <span class="notification-badge"></span>
+    <div class="shell-title-bar__actions">
+      <Chip :tone="runtimeChipTone" size="sm">
+        <template #leading>
+          <span class="material-symbols-outlined">memory</span>
+        </template>
+        {{ runtimeLabel }}
+      </Chip>
+
+      <Chip :tone="licenseChipTone" size="sm">
+        <template #leading>
+          <span class="material-symbols-outlined">verified</span>
+        </template>
+        {{ licenseLabel }}
+      </Chip>
+
+      <Chip tone="neutral" size="sm">
+        <template #leading>
+          <span class="material-symbols-outlined">auto_awesome</span>
+        </template>
+        {{ aiProviderLabel }}
+      </Chip>
+
+      <button
+        :aria-pressed="detailOpen"
+        aria-label="切换详情面板"
+        class="shell-title-bar__icon-button"
+        title="切换属性面板"
+        type="button"
+        @click="emit('toggle-detail')"
+      >
+        <span class="material-symbols-outlined">right_panel_open</span>
+      </button>
+
+      <button
+        :aria-pressed="reducedMotion"
+        aria-label="切换减弱动效"
+        class="shell-title-bar__icon-button"
+        type="button"
+        @click="emit('toggle-motion')"
+      >
+        <span class="material-symbols-outlined">{{ reducedMotion ? "motion_photos_off" : "animation" }}</span>
+      </button>
+
+      <button
+        :aria-label="theme === 'dark' ? '切换浅色主题' : '切换深色主题'"
+        class="shell-title-bar__icon-button"
+        type="button"
+        @click="emit('toggle-theme')"
+      >
+        <span class="material-symbols-outlined">{{ theme === "dark" ? "light_mode" : "dark_mode" }}</span>
+      </button>
+
+      <div class="shell-window-controls" aria-label="窗口控制">
+        <button class="shell-window-controls__button" title="最小化" type="button" @click="handleMinimize">
+          <span class="material-symbols-outlined">remove</span>
         </button>
-
-        <!-- 侧边抽屉 -->
-        <button class="icon-button" @click="handleToggleDetail" title="切换属性面板">
-          <span class="material-symbols-outlined icon-size">dock_to_left</span>
+        <button class="shell-window-controls__button" title="最大化或还原" type="button" @click="handleToggleMaximize">
+          <span class="material-symbols-outlined">crop_square</span>
         </button>
-
-        <!-- 主题切换 -->
-        <button class="icon-button" @click="handleToggleTheme" title="切换主题">
-          <span class="material-symbols-outlined icon-size">contrast</span>
+        <button class="shell-window-controls__button shell-window-controls__button--close" title="关闭" type="button" @click="handleClose">
+          <span class="material-symbols-outlined">close</span>
         </button>
-
-        <div class="divider"></div>
-
-        <div class="user-profile">
-          <div class="user-profile__avatar">AD</div>
-        </div>
-
-        <div class="divider"></div>
-
-        <!-- 窗口控制 -->
-        <div class="window-controls" aria-label="窗口控制">
-          <button class="win-btn" type="button" title="最小化" @click="handleMinimize">
-            <span class="material-symbols-outlined win-btn-icon">remove</span>
-          </button>
-          <button class="win-btn" type="button" title="最大化/还原" @click="handleToggleMaximize">
-            <span class="material-symbols-outlined win-btn-icon">crop_square</span>
-          </button>
-          <button class="win-btn win-btn--close" type="button" title="关闭" @click="handleClose">
-            <span class="material-symbols-outlined win-btn-icon">close</span>
-          </button>
-        </div>
       </div>
     </div>
-  </header>
+  </div>
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed, ref } from "vue";
+
+import Chip from "@/components/ui/Chip/Chip.vue";
+import Input from "@/components/ui/Input/Input.vue";
+
+const props = defineProps<{
+  aiProviderLabel: string;
+  detailOpen: boolean;
   isCollapsed: boolean;
+  licenseLabel: string;
+  pageTitle: string;
+  projectLabel: string;
+  reducedMotion: boolean;
+  runtimeLabel: string;
+  runtimeTone: "idle" | "loading" | "online" | "offline";
+  theme: "light" | "dark";
 }>();
 
 const emit = defineEmits<{
-  (e: 'toggle-sidebar'): void;
-  (e: 'toggle-theme'): void;
-  (e: 'toggle-detail'): void;
+  (event: "toggle-detail"): void;
+  (event: "toggle-motion"): void;
+  (event: "toggle-sidebar"): void;
+  (event: "toggle-theme"): void;
 }>();
 
-function handleToggleSidebar() {
-  emit('toggle-sidebar');
-}
+const searchKeyword = ref("");
 
-function handleToggleTheme() {
-  emit('toggle-theme');
-}
+const runtimeChipTone = computed(() => {
+  switch (props.runtimeTone) {
+    case "online":
+      return "success";
+    case "offline":
+      return "danger";
+    case "loading":
+      return "warning";
+    default:
+      return "info";
+  }
+});
 
-function handleToggleDetail() {
-  emit('toggle-detail');
-}
+const licenseChipTone = computed(() => (props.licenseLabel.includes("激活") ? "brand" : "warning"));
 
 function handleWindowError(action: string, error: unknown) {
-  console.warn(`[Tauri 模拟] 窗口${action}动作被触发，但在测试/浏览器环境中被忽略。`, error);
+  console.warn(`[Tauri 模拟] ${action} 未在当前环境执行。`, error);
 }
 
 async function handleMinimize() {
   try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().minimize();
-  } catch (e) { handleWindowError('最小化', e); }
+  } catch (error) {
+    handleWindowError("最小化", error);
+  }
 }
 
 async function handleToggleMaximize() {
   try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().toggleMaximize();
-  } catch (e) { handleWindowError('最大化切换', e); }
+  } catch (error) {
+    handleWindowError("最大化切换", error);
+  }
 }
 
 async function handleClose() {
   try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().close();
-  } catch (e) { handleWindowError('关闭', e); }
+  } catch (error) {
+    handleWindowError("关闭", error);
+  }
 }
 </script>
 
 <style scoped>
 .shell-title-bar {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 0 0 16px;
+  background: var(--color-bg-surface);
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: auto minmax(280px, 1fr) auto;
   height: 100%;
+  min-width: 0;
+  padding: 0 var(--space-4);
 }
 
 .shell-title-bar__left,
-.shell-title-bar__right {
-  display: flex;
+.shell-title-bar__actions {
   align-items: center;
-  height: 100%;
-}
-
-.shell-title-bar__center {
-  flex: 1;
-  height: 100%;
-}
-
-.icon-button {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-sm);
-  transition: all var(--motion-fast);
-  margin: 0 2px;
-  position: relative;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
-.icon-button:hover {
-  background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
-  color: var(--brand-primary);
-}
-
-.icon-size {
-  font-size: 22px;
+.shell-title-bar__search {
+  min-width: 0;
 }
 
 .shell-brand {
-  display: flex;
   align-items: center;
+  display: flex;
   gap: 10px;
-  margin-left: 12px;
+  min-width: 0;
 }
 
-.shell-brand__logo {
-  width: 30px;
-  height: 30px;
-  background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
-  border-radius: 8px;
-  display: flex;
+.shell-brand__mark {
   align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 900;
-  font-size: 14px;
-}
-
-.shell-brand__text {
-  font-weight: 900;
-  font-size: 18px;
-  letter-spacing: -0.03em;
-  color: var(--text-primary);
-}
-
-.shell-title-bar__actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 100%;
-}
-
-.divider {
-  width: 1px;
-  height: 20px;
-  background: var(--border-default);
-  margin: 0 8px;
-}
-
-.notification-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 7px;
-  height: 7px;
-  background: var(--status-error);
-  border-radius: 50%;
-  border: 2px solid var(--surface-secondary);
-  box-shadow: 0 0 5px rgba(239, 68, 68, 0.4);
-}
-
-.user-profile {
-  margin: 0 8px;
-}
-
-.user-profile__avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--brand-primary) 15%, transparent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: var(--gradient-ai-primary);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-glow-brand);
+  color: var(--color-text-on-brand);
+  display: inline-flex;
   font-size: 12px;
-  font-weight: 800;
-  color: var(--brand-primary);
-  border: 1px solid color-mix(in srgb, var(--brand-primary) 30%, transparent);
-}
-
-.window-controls {
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-.win-btn {
-  display: flex;
-  align-items: center;
+  font-weight: 700;
+  height: 24px;
   justify-content: center;
-  width: 46px;
-  height: 100%;
+  width: 24px;
+}
+
+.shell-brand__copy {
+  display: grid;
+  gap: 2px;
+}
+
+.shell-brand__copy strong {
+  font-size: var(--font-title-sm);
+  line-height: 1;
+}
+
+.shell-brand__copy span,
+.shell-title-bar__project-label,
+.shell-title-bar__shortcut {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+}
+
+.shell-title-bar__project {
+  border-left: 1px solid var(--color-border-subtle);
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding-left: var(--space-3);
+}
+
+.shell-title-bar__project strong {
+  font-size: var(--font-body-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-title-bar__icon-button,
+.shell-window-controls__button {
+  align-items: center;
+  appearance: none;
   background: transparent;
-  border: none;
-  color: var(--text-secondary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all var(--motion-fast);
+  display: inline-flex;
+  height: 32px;
+  justify-content: center;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-bounce);
+  width: 32px;
 }
 
-.win-btn:hover {
-  background: var(--surface-tertiary);
-  color: var(--text-primary);
+.shell-title-bar__icon-button:hover,
+.shell-window-controls__button:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-primary);
 }
 
-.win-btn--close:hover {
-  background: #e81123;
-  color: #ffffff;
+.shell-title-bar__icon-button:active,
+.shell-window-controls__button:active {
+  transform: scale(0.98);
 }
 
-.win-btn-icon {
-  font-size: 18px;
+.shell-title-bar__icon-button:focus-visible,
+.shell-window-controls__button:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-primary) 20%, transparent);
+  outline: none;
+}
+
+.shell-title-bar__shortcut {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-family-mono);
+  line-height: 1;
+  padding: 3px 6px;
+}
+
+.shell-window-controls {
+  align-items: center;
+  border-left: 1px solid var(--color-border-subtle);
+  display: flex;
+  gap: 4px;
+  margin-left: var(--space-1);
+  padding-left: var(--space-3);
+}
+
+.shell-window-controls__button--close:hover {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-text-on-brand);
+}
+
+@media (max-width: 1320px) {
+  .shell-title-bar {
+    grid-template-columns: auto minmax(220px, 1fr) auto;
+  }
+}
+
+@media (max-width: 1160px) {
+  .shell-title-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .shell-title-bar__search {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .shell-title-bar__project,
+  .shell-title-bar__actions :deep(.ui-chip:nth-of-type(3)) {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .shell-brand__copy span,
+  .shell-title-bar__actions :deep(.ui-chip) {
+    display: none;
+  }
 }
 </style>

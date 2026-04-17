@@ -1,7 +1,6 @@
 ﻿import { defineStore } from "pinia";
 
 import {
-  RuntimeRequestError,
   activateLicense,
   fetchLicenseStatus
 } from "@/app/runtime-client";
@@ -10,6 +9,7 @@ import type {
   LicenseStatus,
   RuntimeRequestErrorShape
 } from "@/types/runtime";
+import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 
 export type LicenseStoreStatus = "idle" | "loading" | "ready" | "submitting" | "error";
 
@@ -34,6 +34,17 @@ function createDefaultLicenseState(): LicenseState {
 
 export const useLicenseStore = defineStore("license", {
   state: (): LicenseState => createDefaultLicenseState(),
+  getters: {
+    viewState: (state): "loading" | "blocked" | "ready" | "error" => {
+      if (state.status === "loading" || state.status === "submitting") {
+        return "loading";
+      }
+      if (state.status === "error") {
+        return "error";
+      }
+      return !state.active && state.restrictedMode ? "blocked" : "ready";
+    }
+  },
   actions: {
     async loadStatus(): Promise<void> {
       this.status = "loading";
@@ -67,18 +78,8 @@ export const useLicenseStore = defineStore("license", {
       this.restrictedMode = status.restrictedMode;
     },
     applyRuntimeError(error: unknown): void {
-      const runtimeError =
-        error instanceof RuntimeRequestError
-          ? error
-          : new RuntimeRequestError("授权请求失败。");
-
       this.status = "error";
-      this.error = {
-        details: runtimeError.details,
-        message: runtimeError.message,
-        requestId: runtimeError.requestId,
-        status: runtimeError.status
-      };
+      this.error = toRuntimeErrorShape(error, "授权请求失败，请稍后重试。");
     }
   }
 });

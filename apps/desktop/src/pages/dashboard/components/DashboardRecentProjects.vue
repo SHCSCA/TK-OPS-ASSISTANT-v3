@@ -28,7 +28,12 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="project in projects" :key="project.id" :data-project-id="project.id">
+          <tr
+            v-for="project in projects"
+            :key="project.id"
+            :data-project-card="project.id"
+            :data-project-id="project.id"
+          >
             <td class="recent-projects-table__name">{{ project.name }}</td>
             <td class="recent-projects-table__desc">{{ project.description || '暂无描述' }}</td>
             <td>

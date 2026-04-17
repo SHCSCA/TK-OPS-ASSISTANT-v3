@@ -1,36 +1,59 @@
 <template>
-  <section class="subtitle-page">
-    <header class="subtitle-toolbar">
-      <div class="toolbar-copy">
-        <span class="page-kicker">M08 字幕对齐中心</span>
-        <h1>字幕对齐中心</h1>
-        <p>把脚本文本整理成可校对、可追踪、可回流时间线的字幕版本。</p>
+  <section class="subtitle-page" data-testid="subtitle-alignment-page">
+    <header class="hero">
+      <div class="hero__copy">
+        <span class="hero__kicker">M08 字幕对齐中心</span>
+        <h1>把脚本文本整理成可校对、可追踪、可回流的字幕版本。</h1>
+        <p>
+          当前只保留真实脚本文本、真实字幕段和真实样式草稿。
+          没有可用字幕对齐 Provider 时，只保存阻断草稿，不会伪造准确时间码。
+        </p>
+        <div class="hero__meta">
+          <span class="pill pill--brand">{{ currentProjectName }}</span>
+          <span class="pill" :data-state="pageStateTone">{{ pageStateLabel }}</span>
+          <span class="pill">{{ store.draftSegments.length }} 段草稿</span>
+          <span class="pill">{{ store.tracks.length }} 条字幕版本</span>
+        </div>
       </div>
 
-      <div class="toolbar-actions">
-        <span class="project-pill">
-          {{ currentProject?.projectName ?? "请先选择项目" }}
-        </span>
+      <div class="hero__actions">
         <button
-          class="primary-action"
+          class="action-button action-button--primary"
           data-testid="subtitle-generate-button"
-          :disabled="!canGenerate"
+          :disabled="generateDisabled"
           type="button"
           @click="handleGenerate"
         >
-          <span class="material-symbols-outlined">
-            {{ store.status === "aligning" ? "sync" : "auto_awesome" }}
-          </span>
-          {{ store.status === "aligning" ? "生成中" : "生成字幕草稿" }}
+          {{ generateButtonLabel }}
+        </button>
+        <button
+          class="action-button action-button--secondary"
+          :disabled="saveDisabled"
+          type="button"
+          @click="handleSave"
+        >
+          {{ saveButtonLabel }}
         </button>
       </div>
     </header>
 
+    <section class="state-banner" :data-state="pageStateTone">
+      <div class="state-banner__body">
+        <strong>{{ bannerTitle }}</strong>
+        <p>{{ bannerMessage }}</p>
+      </div>
+      <div class="state-banner__tags">
+        <span>脚本：{{ scriptStateLabel }}</span>
+        <span>样式：{{ styleStateLabel }}</span>
+        <span>版本：{{ versionStateLabel }}</span>
+      </div>
+    </section>
+
     <div v-if="!currentProject" class="guide-panel">
       <span class="material-symbols-outlined">subtitles_off</span>
       <div>
-        <h2>请先选择项目</h2>
-        <p>字幕对齐中心需要读取当前项目的脚本文本后才能创建字幕草稿。</p>
+        <strong>请先选择项目</strong>
+        <span>字幕对齐中心需要先读取当前项目脚本，才能进入真实草稿和版本工作台。</span>
       </div>
     </div>
 
@@ -39,7 +62,8 @@
         :active-index="store.activeSegmentIndex"
         :error-message="store.error?.message ?? null"
         :segments="store.draftSegments"
-        :status="store.status"
+        :state-message="panelStateMessage"
+        :status="presentationStatus"
         @select="store.selectSegment"
         @update-segment="store.updateDraftSegment"
       />
@@ -48,29 +72,37 @@
         :active-segment="store.activeSegment"
         :generation-message="store.generationResult?.message ?? null"
         :selected-track="store.selectedTrack"
-        :status="store.status"
+        :state-message="panelStateMessage"
+        :status="presentationStatus"
         :style-config="store.style"
       />
 
       <aside class="subtitle-side-rail">
         <SubtitleTimingPanel
+          :locked="timingLocked"
+          :locked-reason="timingLockedReason"
           :segment="store.activeSegment"
           @update-segment="handleActiveSegmentUpdate"
         />
         <SubtitleStylePanel
+          :locked="styleLocked"
+          :locked-reason="styleLockedReason"
           :style-config="store.style"
           @update-style="store.updateStyle"
         />
         <button
           class="save-action"
-          :disabled="!store.selectedTrackId || store.status === 'saving'"
+          :disabled="saveDisabled"
           type="button"
-          @click="store.updateSelectedTrack"
+          @click="handleSave"
         >
-          {{ store.status === "saving" ? "保存中" : "保存字幕校正" }}
+          {{ saveButtonLabel }}
         </button>
         <SubtitleVersionPanel
+          :error-message="store.error?.message ?? null"
           :selected-track-id="store.selectedTrackId"
+          :state-message="panelStateMessage"
+          :status="presentationStatus"
           :tracks="store.tracks"
           @delete="store.deleteTrack"
           @select="store.selectTrack"
@@ -96,149 +128,405 @@ const projectStore = useProjectStore();
 const store = useSubtitleAlignmentStore();
 
 const currentProject = computed(() => projectStore.currentProject);
+const currentProjectId = computed(() => currentProject.value?.projectId ?? "");
+const currentProjectName = computed(() => currentProject.value?.projectName ?? "当前项目未就绪");
+const hasScript = computed(() => store.paragraphs.length > 0);
+const hasSelectedTrack = computed(() => Boolean(store.selectedTrackId));
+const hasBlockedTrack = computed(() => store.selectedTrack?.status === "blocked");
+const presentationStatus = computed(() =>
+  hasBlockedTrack.value && store.status === "ready" ? "blocked" : store.status
+);
 
-const canGenerate = computed(
+const generateDisabled = computed(() => {
+  if (!currentProject.value) return true;
+  if (store.status === "loading" || store.status === "aligning" || store.status === "saving") {
+    return true;
+  }
+  if (store.status === "error") return true;
+  return !hasScript.value;
+});
+
+const saveDisabled = computed(() => {
+  if (!currentProject.value) return true;
+  if (store.status === "loading" || store.status === "saving") return true;
+  if (store.status === "error") return true;
+  return !hasSelectedTrack.value;
+});
+
+const generateButtonLabel = computed(() => {
+  if (!currentProject.value) return "生成入口已锁定";
+  if (store.status === "aligning") return "生成中";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "重新保存阻断草稿";
+  return "生成字幕草稿";
+});
+
+const saveButtonLabel = computed(() => {
+  if (store.status === "saving") return "保存中";
+  if (!hasSelectedTrack.value) return "暂无可保存版本";
+  return "保存字幕校正";
+});
+
+const pageStateTone = computed(() => {
+  if (!currentProject.value) return "blocked";
+  if (store.status === "loading") return "loading";
+  if (store.status === "aligning" || store.status === "saving") return "loading";
+  if (store.status === "error") return "error";
+  if (!hasScript.value) return "empty";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "blocked";
+  return "ready";
+});
+
+const pageStateLabel = computed(() => {
+  if (!currentProject.value) return "blocked";
+  if (store.status === "loading") return "loading";
+  if (store.status === "aligning" || store.status === "saving") return "loading";
+  if (store.status === "error") return "error";
+  if (!hasScript.value) return "empty";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "blocked";
+  return "ready";
+});
+
+const scriptStateLabel = computed(() => {
+  if (store.status === "loading") return "读取中";
+  if (store.status === "error") return "异常";
+  if (!hasScript.value) return "空态";
+  return "已读取";
+});
+
+const styleStateLabel = computed(() => {
+  if (store.status === "loading") return "读取中";
+  if (store.status === "error") return "异常";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "阻断草稿";
+  return "可编辑";
+});
+
+const versionStateLabel = computed(() => {
+  if (store.status === "aligning") return "生成中";
+  if (store.status === "saving") return "保存中";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "阻断草稿";
+  if (store.status === "error") return "异常";
+  if (!store.tracks.length) return "空态";
+  return "已保存";
+});
+
+const bannerTitle = computed(() => {
+  if (!currentProject.value) return "字幕入口被阻断。";
+  if (store.status === "loading") return "正在读取脚本和字幕版本。";
+  if (store.status === "error") return "字幕工作台读取失败。";
+  if (!hasScript.value) return "脚本文本为空，无法生成字幕草稿。";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "已保存阻断草稿，但没有生成真实时间码。";
+  if (store.status === "aligning") return "正在生成字幕草稿。";
+  if (store.status === "saving") return "正在保存字幕校正。";
+  return "脚本、字幕段和样式草稿都已接通。";
+});
+
+const bannerMessage = computed(() => {
+  if (!currentProject.value) {
+    return "先选择真实项目，再读取脚本文本和字幕版本。没有项目上下文时，不创建假字幕和假时间码。";
+  }
+
+  if (store.status === "loading") {
+    return "脚本、字幕草稿和版本记录正在从 Runtime 拉取，当前只显示加载状态。";
+  }
+
+  if (store.status === "error") {
+    return store.error?.message ?? "字幕工作台读取失败，请稍后重试。";
+  }
+
+  if (!hasScript.value) {
+    return "脚本文本为空，先在脚本与选题中心写入内容，再继续做字幕对齐。";
+  }
+
+  if (store.status === "blocked" || hasBlockedTrack.value) {
+    return store.generationResult?.message ?? "没有可用字幕对齐 Provider，当前只保存阻断草稿，不生成准确时间码。";
+  }
+
+  if (store.status === "aligning") {
+    return "正在把脚本文本整理为字幕草稿，不会提前写入假时间码。";
+  }
+
+  if (store.status === "saving") {
+    return "正在保存字幕段和样式校正，保存完成前保持当前状态。";
+  }
+
+  return "字幕段、样式草稿和版本记录都来自真实 Runtime 返回值。";
+});
+
+const panelStateMessage = computed(() => {
+  if (!currentProject.value) return "当前项目未就绪，工作台保持阻断。";
+  if (store.status === "loading") return "正在读取 Runtime 数据。";
+  if (store.status === "error") return store.error?.message ?? "读取失败。";
+  if (!hasScript.value) return "脚本文本为空。";
+  if (store.status === "blocked" || hasBlockedTrack.value) {
+    return store.generationResult?.message ?? "字幕对齐 Provider 未接通，当前版本为阻断草稿。";
+  }
+  if (store.status === "aligning") return "正在生成字幕草稿。";
+  if (store.status === "saving") return "正在保存字幕校正。";
+  return "真实字幕草稿和样式已接通。";
+});
+
+const timingLocked = computed(
   () =>
-    Boolean(currentProject.value) &&
-    store.paragraphs.length > 0 &&
-    store.status !== "loading" &&
-    store.status !== "aligning" &&
-    store.status !== "saving"
+    !currentProject.value ||
+    store.status === "loading" ||
+    store.status === "error" ||
+    !store.activeSegment
+);
+
+const timingLockedReason = computed(() => {
+  if (!currentProject.value) return "请先选择项目。";
+  if (store.status === "loading") return "正在读取脚本和字幕版本。";
+  if (store.status === "error") return store.error?.message ?? "读取失败。";
+  if (!store.activeSegment) return "当前没有可编辑的字幕段。";
+  return "";
+});
+
+const styleLocked = computed(
+  () => !currentProject.value || store.status === "loading" || store.status === "error"
+);
+
+const styleLockedReason = computed(() => {
+  if (!currentProject.value) return "请先选择项目。";
+  if (store.status === "loading") return "正在读取样式草稿。";
+  if (store.status === "error") return store.error?.message ?? "读取失败。";
+  return "";
+});
+
+watch(
+  () => store.draftSegments.length,
+  (count) => {
+    if (count === 0) {
+      store.activeSegmentIndex = 0;
+    } else if (store.activeSegmentIndex >= count) {
+      store.activeSegmentIndex = 0;
+    }
+  }
+);
+
+onMounted(() => {
+  loadProjectSubtitles();
+});
+
+watch(
+  () => currentProject.value?.projectId,
+  () => {
+    loadProjectSubtitles();
+  }
 );
 
 async function loadProjectSubtitles(): Promise<void> {
-  const projectId = currentProject.value?.projectId;
+  const projectId = currentProjectId.value;
   if (!projectId) return;
   await store.load(projectId);
 }
 
 async function handleGenerate(): Promise<void> {
-  if (!canGenerate.value) return;
+  if (generateDisabled.value) return;
   await store.generate();
+}
+
+async function handleSave(): Promise<void> {
+  if (saveDisabled.value) return;
+  await store.updateSelectedTrack();
 }
 
 function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>): void {
   store.updateDraftSegment(store.activeSegmentIndex, patch);
 }
-
-onMounted(loadProjectSubtitles);
-
-watch(
-  () => currentProject.value?.projectId,
-  async (projectId, previousProjectId) => {
-    if (projectId && projectId !== previousProjectId) {
-      await loadProjectSubtitles();
-    }
-  }
-);
 </script>
 
 <style scoped>
 .subtitle-page {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 20px;
+  gap: 16px;
   min-height: 100%;
   padding: 28px;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 10%, transparent), transparent 34%),
+    linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 8%, transparent), transparent 34%),
     var(--bg-base);
   color: var(--text-primary);
-  overflow: hidden;
 }
 
-.subtitle-toolbar {
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+
+.hero__copy {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 20px;
+  gap: 10px;
+  min-width: 0;
 }
 
-.toolbar-copy {
-  display: grid;
-  gap: 8px;
-}
-
-.page-kicker {
+.hero__kicker {
   color: var(--brand-primary);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 h1,
 h2,
+h3,
 p {
   margin: 0;
 }
 
 h1 {
-  font-size: 34px;
-  line-height: 1.1;
+  font-size: 32px;
+  line-height: 1.15;
 }
 
-.toolbar-copy p,
-.guide-panel p {
+.hero__copy p,
+.guide-panel span,
+.state-surface p {
   color: var(--text-secondary);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.7;
 }
 
-.toolbar-actions {
+.hero__meta,
+.state-banner__tags {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.project-pill {
-  max-width: 280px;
-  overflow: hidden;
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: var(--bg-elevated);
+  background: var(--bg-card);
   color: var(--text-secondary);
-  font-size: 13px;
-  padding: 9px 12px;
-  text-overflow: ellipsis;
+  font-size: 12px;
   white-space: nowrap;
 }
 
-.primary-action,
-.save-action {
+.pill--brand {
+  border-color: color-mix(in srgb, var(--brand-primary) 36%, transparent);
+  background: color-mix(in srgb, var(--brand-primary) 10%, var(--bg-card));
+  color: var(--brand-primary);
+}
+
+.pill[data-state="loading"] {
+  border-color: color-mix(in srgb, var(--info) 28%, transparent);
+  background: color-mix(in srgb, var(--info) 12%, var(--bg-card));
+  color: var(--info);
+}
+
+.pill[data-state="blocked"] {
+  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+  background: color-mix(in srgb, var(--warning) 10%, var(--bg-card));
+  color: var(--warning);
+}
+
+.pill[data-state="error"] {
+  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg-card));
+  color: var(--danger);
+}
+
+.pill[data-state="empty"] {
+  border-color: color-mix(in srgb, var(--text-tertiary) 28%, transparent);
+  background: var(--bg-card);
+  color: var(--text-tertiary);
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.action-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   min-height: 40px;
-  border: 0;
+  padding: 0 16px;
   border-radius: 8px;
-  background: var(--brand-primary);
-  color: #061010;
+  border: 1px solid transparent;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 900;
-  padding: 0 16px;
-  transition: opacity 160ms ease, transform 160ms ease;
+  font-weight: 700;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
 }
 
-.primary-action:hover:not(:disabled),
-.save-action:hover:not(:disabled) {
+.action-button:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
-.primary-action:disabled,
-.save-action:disabled {
+.action-button:disabled {
   cursor: not-allowed;
-  opacity: 0.48;
+  opacity: 0.5;
+}
+
+.action-button--primary {
+  background: var(--brand-primary);
+  color: #041414;
+}
+
+.action-button--secondary {
+  border-color: var(--border-default);
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.state-banner {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+
+.state-banner[data-state="blocked"] {
+  border-color: color-mix(in srgb, var(--warning) 32%, transparent);
+}
+
+.state-banner[data-state="error"] {
+  border-color: color-mix(in srgb, var(--danger) 32%, transparent);
+}
+
+.state-banner[data-state="loading"] {
+  border-color: color-mix(in srgb, var(--info) 26%, transparent);
+}
+
+.state-banner[data-state="empty"] {
+  border-color: color-mix(in srgb, var(--text-tertiary) 26%, transparent);
+}
+
+.state-banner__body {
+  display: grid;
+  gap: 4px;
+}
+
+.state-banner__body strong {
+  font-size: 16px;
 }
 
 .guide-panel {
   display: grid;
   grid-template-columns: auto minmax(0, 520px);
-  place-content: center;
   align-items: center;
-  gap: 18px;
-  min-height: 360px;
-  border: 1px dashed var(--border-default);
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--border-default);
   border-radius: 8px;
   background: var(--bg-elevated);
 }
@@ -248,13 +536,15 @@ h1 {
   font-size: 42px;
 }
 
-.guide-panel h2 {
-  font-size: 24px;
+.guide-panel strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 16px;
 }
 
 .subtitle-workbench {
   display: grid;
-  grid-template-columns: minmax(260px, 0.82fr) minmax(420px, 1.5fr) minmax(260px, 0.78fr);
+  grid-template-columns: minmax(260px, 0.88fr) minmax(420px, 1.35fr) minmax(280px, 0.8fr);
   gap: 16px;
   min-height: 0;
 }
@@ -264,64 +554,54 @@ h1 {
   align-content: start;
   gap: 12px;
   min-height: 0;
-  overflow: auto;
 }
 
 .save-action {
   width: 100%;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: var(--brand-primary);
+  color: #041414;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease;
 }
 
-@media (max-width: 1180px) {
-  .subtitle-page {
-    overflow: auto;
-  }
-
-  .subtitle-workbench {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .subtitle-side-rail {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    overflow: visible;
-  }
+.save-action:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
-@media (max-width: 760px) {
+.save-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 1160px) {
   .subtitle-page {
     padding: 20px;
   }
 
-  .subtitle-toolbar {
-    grid-template-columns: 1fr;
-  }
-
-  .toolbar-actions,
-  .subtitle-side-rail {
-    align-items: stretch;
+  .hero {
     flex-direction: column;
-    grid-template-columns: 1fr;
   }
 
-  .project-pill {
-    max-width: none;
+  .subtitle-workbench {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  h1 {
+    font-size: 28px;
   }
 
   .guide-panel {
     grid-template-columns: 1fr;
-    justify-items: start;
-    padding: 24px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .primary-action,
-  .save-action {
-    transition: none;
-  }
-
-  .primary-action:hover:not(:disabled),
-  .save-action:hover:not(:disabled) {
-    transform: none;
   }
 }
 </style>

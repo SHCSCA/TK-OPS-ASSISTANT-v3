@@ -12,19 +12,9 @@ def test_dashboard_summary_contract_uses_dashboard_prefix_and_expected_shape(
     payload = response.json()
     assert set(payload) == {'ok', 'data'}
     assert payload['ok'] is True
-    assert {
-        'greeting',
-        'heroContext',
-        'recentProjects',
-        'todos',
-        'exceptions',
-        'health',
-        'generatedAt',
-    }.issubset(payload['data'])
+    assert set(payload['data']) == {'recentProjects', 'currentProject'}
     assert payload['data']['recentProjects'] == []
-    assert payload['data']['heroContext']['currentProject'] is None
-    assert payload['data']['todos'] == []
-    assert payload['data']['exceptions'] == []
+    assert payload['data']['currentProject'] is None
 
 
 def test_dashboard_project_and_context_contracts_return_expected_shapes(
@@ -65,21 +55,11 @@ def test_dashboard_project_and_context_contracts_return_expected_shapes(
     assert set(context_payload['data']) == {'projectId', 'projectName', 'status'}
     assert context_payload['data']['projectId'] == project_id
 
-    clear_context_response = runtime_client.put(
-        '/api/dashboard/context',
-        json={'projectId': None},
-    )
-
-    assert clear_context_response.status_code == 200
-    clear_context_payload = clear_context_response.json()
-    assert set(clear_context_payload) == {'ok', 'data'}
-    assert clear_context_payload['ok'] is True
-    assert clear_context_payload['data'] is None
-
     read_context_response = runtime_client.get('/api/dashboard/context')
 
     assert read_context_response.status_code == 200
     read_context_payload = read_context_response.json()
     assert set(read_context_payload) == {'ok', 'data'}
     assert read_context_payload['ok'] is True
-    assert read_context_payload['data'] is None
+    assert set(read_context_payload['data']) == {'projectId', 'projectName', 'status'}
+    assert read_context_payload['data']['projectId'] == project_id

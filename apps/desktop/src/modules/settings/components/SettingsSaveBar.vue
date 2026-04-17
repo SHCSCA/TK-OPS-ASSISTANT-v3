@@ -8,23 +8,23 @@
       <div class="settings-save-bar__actions">
         <button
           v-if="systemDirty"
-          class="settings-page__button"
+          class="settings-save-bar__button"
           type="button"
           data-action="save-settings"
           :disabled="isSystemSaving"
           @click="$emit('save-system')"
         >
-          {{ isSystemSaving ? "保存系统配置中" : "保存系统配置" }}
+          {{ isSystemSaving ? "正在保存系统设置" : "保存系统设置" }}
         </button>
         <button
           v-if="capabilityDirty"
-          class="dashboard-list__action"
+          class="settings-save-bar__button settings-save-bar__button--secondary"
           type="button"
           data-action="save-capabilities"
           :disabled="isCapabilitySaving"
           @click="$emit('save-capabilities')"
         >
-          {{ isCapabilitySaving ? "保存能力策略中" : "保存能力策略" }}
+          {{ isCapabilitySaving ? "正在保存能力矩阵" : "保存能力矩阵" }}
         </button>
       </div>
     </section>
@@ -49,12 +49,12 @@ defineEmits<{
 
 const summary = computed(() => {
   if (props.systemDirty && props.capabilityDirty) {
-    return "系统总线和能力策略都有未保存修改。";
+    return "系统设置和能力矩阵都有未保存修改。";
   }
   if (props.systemDirty) {
-    return "系统总线存在未保存修改。";
+    return "系统设置存在未保存修改。";
   }
-  return "能力策略存在未保存修改。";
+  return "能力矩阵存在未保存修改。";
 });
 </script>
 
@@ -68,12 +68,9 @@ const summary = computed(() => {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 18px;
-  border: 1px solid color-mix(in srgb, var(--brand-primary) 28%, var(--border-default));
-  border-radius: 18px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--surface-secondary) 94%, transparent), color-mix(in srgb, var(--surface-tertiary) 92%, transparent)),
-    radial-gradient(circle at top left, color-mix(in srgb, var(--brand-primary) 16%, transparent), transparent 28%);
-  box-shadow: 0 18px 40px rgba(12, 18, 18, 0.16);
+  border: 1px solid color-mix(in srgb, var(--brand-primary) 22%, var(--border-default));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 96%, transparent);
 }
 
 .settings-save-bar__copy {
@@ -89,6 +86,30 @@ const summary = computed(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.settings-save-bar__button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--brand-primary);
+  border-radius: 8px;
+  background: var(--brand-primary);
+  color: #000;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-save-bar__button--secondary {
+  border-color: var(--border-default);
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.settings-save-bar__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .save-bar-enter-active,

@@ -1,42 +1,77 @@
 <template>
   <div class="overview-status">
-    <div class="ai-provider-chip" :class="`ai-provider-chip--${runtimeStatus}`">
-      <span class="material-symbols-outlined provider-icon">memory</span>
-      <span class="ai-chip-text">{{ aiProviderLabel }}</span>
+    <div class="overview-status__chip" :class="`overview-status__chip--${runtimeStatus}`">
+      <span class="material-symbols-outlined">auto_awesome</span>
+      <span>{{ aiProviderLabel }}</span>
+    </div>
+    <div class="overview-status__meta">
+      <span>{{ pageTitle }}</span>
+      <span>{{ pageTypeLabel }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-defineProps<{
-  runtimeStatus: string;
+import { computed } from "vue";
+
+const props = defineProps<{
   aiProviderLabel: string;
+  pageTitle: string;
+  pageType: string;
+  runtimeStatus: string;
 }>();
+
+const pageTypeLabel = computed(() => {
+  switch (props.pageType) {
+    case "wizard":
+      return "首启链路";
+    case "dashboard":
+      return "创作总览";
+    case "workspace":
+      return "工作台";
+    case "editor":
+      return "编辑流";
+    case "queue":
+      return "任务队列";
+    case "settings":
+      return "系统设置";
+    default:
+      return props.pageType;
+  }
+});
 </script>
 
 <style scoped>
-.ai-provider-chip {
-  display: flex;
+.overview-status {
   align-items: center;
+  display: flex;
+  gap: var(--space-3);
+}
+
+.overview-status__chip {
+  align-items: center;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-secondary);
+  display: inline-flex;
   gap: 4px;
   padding: 2px 8px;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  color: var(--text-secondary);
 }
 
-.provider-icon {
-  font-size: 13px;
+.overview-status__chip--online {
+  border-color: color-mix(in srgb, var(--color-success) 28%, var(--color-border-default));
+  color: var(--color-brand-primary);
 }
 
-.ai-provider-chip--online {
-  border-color: color-mix(in srgb, var(--status-success) 30%, var(--border-default));
-  color: var(--brand-primary);
+.overview-status__chip--offline {
+  border-color: color-mix(in srgb, var(--color-danger) 32%, var(--color-border-default));
+  color: var(--color-danger);
 }
 
-.ai-provider-chip--offline {
-  border-color: color-mix(in srgb, var(--status-error) 40%, var(--border-default));
-  color: var(--status-error);
+.overview-status__meta {
+  color: var(--color-text-tertiary);
+  display: flex;
+  gap: var(--space-2);
 }
 </style>

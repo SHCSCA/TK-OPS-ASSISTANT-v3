@@ -1,5 +1,7 @@
 <template>
-  <div class="asset-preview" :class="`asset-preview--${variant}`">
+  <div class="asset-preview" :class="[`asset-preview--${variant}`, `asset-preview--${previewKind}`]">
+    <span class="asset-preview__badge">{{ previewBadge }}</span>
+
     <img
       v-if="previewKind === 'image' && previewUrl"
       :alt="asset.name"
@@ -83,6 +85,19 @@ const fileExtension = computed(() => {
   const name = props.asset.name || props.asset.filePath || "";
   const extension = name.includes(".") ? name.split(".").pop() : "";
   return extension ? extension.toUpperCase() : "DOC";
+});
+
+const previewBadge = computed(() => {
+  switch (previewKind.value) {
+    case "video":
+      return "视频";
+    case "image":
+      return "图片";
+    case "document":
+      return "文档";
+    default:
+      return "文件";
+  }
 });
 
 const previewKind = computed(() => {
@@ -193,10 +208,14 @@ function toPreviewUrl(filePath: string): string {
   align-items: center;
   aspect-ratio: 16 / 10;
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--surface-sunken) 78%, transparent), var(--surface-tertiary));
-  border: 1px solid color-mix(in srgb, var(--border-default) 80%, transparent);
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--color-bg-muted, var(--surface-sunken)) 84%, transparent),
+      var(--color-bg-surface, var(--surface-tertiary))
+    );
+  border: 1px solid color-mix(in srgb, var(--color-border-default, var(--border-default)) 82%, transparent);
   border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
+  color: var(--color-text-tertiary, var(--text-tertiary));
   display: flex;
   justify-content: center;
   overflow: hidden;
@@ -217,7 +236,7 @@ function toPreviewUrl(filePath: string): string {
 }
 
 .asset-preview iframe {
-  background: var(--surface-primary);
+  background: var(--color-bg-surface, var(--surface-primary));
   pointer-events: none;
 }
 
@@ -225,13 +244,17 @@ function toPreviewUrl(filePath: string): string {
 .asset-preview__document,
 .asset-preview__fallback {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-primary) 96%, transparent), var(--surface-secondary));
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-bg-surface, var(--surface-primary)) 96%, transparent),
+      var(--color-bg-surface, var(--surface-secondary))
+    );
   height: 100%;
   width: 100%;
 }
 
 .asset-preview__text {
-  color: var(--text-primary);
+  color: var(--color-text-primary, var(--text-primary));
   display: flex;
   overflow: hidden;
   padding: 12px;
@@ -239,7 +262,7 @@ function toPreviewUrl(filePath: string): string {
 
 .asset-preview__text span {
   align-self: center;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
   font-size: 12px;
   line-height: 1.6;
   text-align: center;
@@ -266,10 +289,10 @@ function toPreviewUrl(filePath: string): string {
 .asset-preview__document span,
 .asset-preview__fallback span {
   align-self: start;
-  background: color-mix(in srgb, var(--brand-primary) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--brand-primary) 35%, transparent);
+  background: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 35%, transparent);
   border-radius: var(--radius-sm);
-  color: var(--brand-primary);
+  color: var(--color-brand-primary, var(--brand-primary));
   font-size: 11px;
   font-weight: 800;
   justify-self: start;
@@ -279,25 +302,43 @@ function toPreviewUrl(filePath: string): string {
 .asset-preview__document strong,
 .asset-preview__fallback strong {
   align-self: end;
-  color: var(--text-primary);
+  color: var(--color-text-primary, var(--text-primary));
   font-size: 13px;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .asset-preview__document em {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
   font-size: 12px;
   font-style: normal;
 }
 
 .asset-preview__document small,
 .asset-preview__fallback small {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary, var(--text-secondary));
   font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.asset-preview__badge {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-bg-overlay, rgba(0, 0, 0, 0.42)) 50%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--color-text-on-brand, #fff);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

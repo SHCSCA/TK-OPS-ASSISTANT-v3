@@ -25,7 +25,7 @@ class StoredProject:
 
 @dataclass(frozen=True, slots=True)
 class StoredProjectContext:
-    project_id: str | None
+    project_id: str
     updated_at: str
 
 
@@ -90,29 +90,11 @@ class DashboardRepository:
 
         return StoredProjectContext(project_id=project_id, updated_at=now)
 
-    def clear_current_project(self) -> StoredProjectContext:
-        now = _utc_now()
-        with self._session_factory() as session:
-            context = session.get(SessionContext, 1)
-            if context is None:
-                context = SessionContext(
-                    id=1,
-                    current_project_id=None,
-                    updated_at=now,
-                )
-                session.add(context)
-            else:
-                context.current_project_id = None
-                context.updated_at = now
-            session.commit()
-
-        return StoredProjectContext(project_id=None, updated_at=now)
-
     def get_current_project_context(self) -> StoredProjectContext | None:
         with self._session_factory() as session:
             context = session.get(SessionContext, 1)
 
-        if context is None:
+        if context is None or context.current_project_id is None:
             return None
 
         return StoredProjectContext(

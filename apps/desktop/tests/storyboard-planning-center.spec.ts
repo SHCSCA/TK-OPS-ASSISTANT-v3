@@ -68,6 +68,22 @@ describe("Storyboard planning center", () => {
       if (path === "/api/storyboards/projects/project-001/document" && method === "GET") {
         return okJsonResponse(cloneValue(storyboardDocument));
       }
+      if (path === "/api/scripts/projects/project-001/document" && method === "GET") {
+        return okJsonResponse({
+          projectId: "project-001",
+          currentVersion: {
+            revision: 1,
+            source: "manual",
+            content: "Hook 场景\nProblem 场景",
+            provider: null,
+            model: null,
+            aiJobId: null,
+            createdAt: "2026-04-11T10:32:00Z"
+          },
+          versions: [],
+          recentJobs: []
+        });
+      }
       if (path === "/api/storyboards/projects/project-001/generate" && method === "POST") {
         storyboardDocument.currentVersion = {
           revision: 1,
@@ -117,17 +133,24 @@ describe("Storyboard planning center", () => {
     const { wrapper } = await mountApp("/storyboards/planning");
     await flushPromises();
 
+    expect(wrapper.find('[data-storyboard-section="script-nav"]').exists()).toBe(true);
+    expect(wrapper.find('[data-storyboard-section="scene-board"]').exists()).toBe(true);
+    expect(wrapper.find('[data-storyboard-section="version-summary"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("分镜工作面");
+    expect(wrapper.text()).toContain("脚本段落导航");
+
     await wrapper.get('[data-action="generate-storyboard"]').trigger("click");
     await flushPromises();
 
     await vi.waitFor(() => {
-      expect(wrapper.findAll(".scene-card")).toHaveLength(2);
-      expect((wrapper.findAll(".scene-card input")[0].element as HTMLInputElement).value).toBe(
+      expect(wrapper.findAll('[data-scene-card]')).toHaveLength(2);
+      expect((wrapper.findAll('[data-scene-card] input')[0].element as HTMLInputElement).value).toBe(
         "Hook"
       );
-      expect((wrapper.findAll(".scene-card input")[1].element as HTMLInputElement).value).toBe(
+      expect((wrapper.findAll('[data-scene-card] input')[1].element as HTMLInputElement).value).toBe(
         "Problem"
       );
+      expect(wrapper.text()).toContain("版本与生成状态");
       expect(wrapper.text()).toContain("gpt-5-mini");
     });
   });

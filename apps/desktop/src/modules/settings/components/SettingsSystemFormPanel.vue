@@ -1,18 +1,24 @@
 <template>
-  <section class="settings-workspace-panel">
-    <div class="editor-card__header">
+  <section class="settings-workspace-panel" data-testid="settings-system-panel">
+    <div class="settings-workspace-panel__header">
       <div>
         <p class="detail-panel__label">系统总线</p>
         <h2>Runtime 与默认项</h2>
         <p class="workspace-page__summary">
-          运行模式、目录和 AI 默认项统一收敛到配置总线，不再让用户逐项手填。
+          运行模式、路径和默认 AI 项都从配置总线读写，不再拆成散落的本地表单。
         </p>
       </div>
+      <span v-if="disabled" class="settings-workspace-panel__state">当前只读</span>
+    </div>
+
+    <div v-if="disabled" class="settings-workspace-panel__notice">
+      当前系统配置暂不可编辑，请等待配置加载或保存结束后再操作。
     </div>
 
     <div class="settings-system-grid">
-      <section class="command-panel settings-card">
-        <h2>Runtime</h2>
+      <section class="settings-card">
+        <h3>Runtime</h3>
+
         <label class="settings-field">
           <span>运行模式</span>
           <select v-model="form.runtime.mode" data-field="runtime.mode" :disabled="disabled">
@@ -21,8 +27,9 @@
             </option>
           </select>
         </label>
+
         <label class="settings-field">
-          <span>工作区目录</span>
+          <span>工作区根目录</span>
           <div class="settings-picker-field">
             <input
               :value="form.runtime.workspaceRoot"
@@ -32,7 +39,7 @@
               :title="form.runtime.workspaceRoot"
             />
             <button
-              class="settings-page__button settings-page__button--ghost"
+              class="settings-workspace-panel__button"
               type="button"
               data-action="pick-workspace-root"
               :disabled="disabled"
@@ -44,8 +51,9 @@
         </label>
       </section>
 
-      <section class="command-panel settings-card">
-        <h2>路径配置</h2>
+      <section class="settings-card">
+        <h3>路径</h3>
+
         <label class="settings-field">
           <span>缓存目录</span>
           <div class="settings-picker-field">
@@ -57,7 +65,7 @@
               :title="form.paths.cacheDir"
             />
             <button
-              class="settings-page__button settings-page__button--ghost"
+              class="settings-workspace-panel__button"
               type="button"
               data-action="pick-cache-dir"
               :disabled="disabled"
@@ -67,6 +75,7 @@
             </button>
           </div>
         </label>
+
         <label class="settings-field">
           <span>导出目录</span>
           <div class="settings-picker-field">
@@ -78,7 +87,7 @@
               :title="form.paths.exportDir"
             />
             <button
-              class="settings-page__button settings-page__button--ghost"
+              class="settings-workspace-panel__button"
               type="button"
               data-action="pick-export-dir"
               :disabled="disabled"
@@ -88,6 +97,7 @@
             </button>
           </div>
         </label>
+
         <label class="settings-field">
           <span>日志目录</span>
           <div class="settings-picker-field">
@@ -99,7 +109,7 @@
               :title="form.paths.logDir"
             />
             <button
-              class="settings-page__button settings-page__button--ghost"
+              class="settings-workspace-panel__button"
               type="button"
               data-action="pick-log-dir"
               :disabled="disabled"
@@ -111,8 +121,8 @@
         </label>
       </section>
 
-      <section class="command-panel settings-card">
-        <h2>日志</h2>
+      <section class="settings-card">
+        <h3>日志</h3>
         <label class="settings-field">
           <span>日志级别</span>
           <select v-model="form.logging.level" data-field="logging.level" :disabled="disabled">
@@ -124,30 +134,29 @@
         </label>
       </section>
 
-      <section class="command-panel settings-card">
-        <h2>AI 默认项</h2>
+      <section class="settings-card">
+        <h3>AI 默认项</h3>
+
         <label class="settings-field">
           <span>默认 Provider</span>
           <select v-model="form.ai.provider" data-field="ai.provider" :disabled="disabled">
             <option value="">请选择 Provider</option>
-            <option
-              v-for="provider in providerOptions"
-              :key="provider.provider"
-              :value="provider.provider"
-            >
+            <option v-for="provider in providerOptions" :key="provider.provider" :value="provider.provider">
               {{ provider.label }}
             </option>
           </select>
         </label>
+
         <label class="settings-field">
           <span>默认模型</span>
           <select v-model="form.ai.model" data-field="ai.model" :disabled="disabled || modelOptions.length === 0">
-            <option value="">{{ modelOptions.length === 0 ? "请先选择 Provider" : "请选择模型" }}</option>
+            <option value="">{{ modelOptions.length === 0 ? "先选择 Provider" : "请选择模型" }}</option>
             <option v-for="model in modelOptions" :key="model.modelId" :value="model.modelId">
               {{ model.displayName }}
             </option>
           </select>
         </label>
+
         <label class="settings-field">
           <span>默认音色</span>
           <select v-model="form.ai.voice" data-field="ai.voice" :disabled="disabled">
@@ -156,6 +165,7 @@
             </option>
           </select>
         </label>
+
         <label class="settings-field">
           <span>字幕模式</span>
           <select v-model="form.ai.subtitleMode" data-field="ai.subtitleMode" :disabled="disabled">
@@ -209,10 +219,72 @@ const subtitleModeOptions = [
   gap: 16px;
 }
 
+.settings-workspace-panel__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.settings-workspace-panel__header h2,
+.settings-card h3 {
+  margin: 0;
+}
+
+.settings-workspace-panel__state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.settings-workspace-panel__notice {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--status-warning) 30%, var(--border-default));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--status-warning) 8%, var(--surface-secondary));
+  color: var(--text-primary);
+}
+
 .settings-system-grid {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
+}
+
+.settings-field {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-field span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.settings-field input,
+.settings-field select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-primary) 96%, transparent);
+  color: var(--text-primary);
+  font: inherit;
 }
 
 .settings-picker-field {
@@ -229,6 +301,24 @@ const subtitleModeOptions = [
   white-space: nowrap;
 }
 
+.settings-workspace-panel__button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.settings-workspace-panel__button:disabled,
+.settings-field input:disabled,
+.settings-field select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 @media (max-width: 920px) {
   .settings-system-grid {
     grid-template-columns: 1fr;
@@ -236,6 +326,10 @@ const subtitleModeOptions = [
 
   .settings-picker-field {
     grid-template-columns: 1fr;
+  }
+
+  .settings-workspace-panel__header {
+    flex-direction: column;
   }
 }
 </style>

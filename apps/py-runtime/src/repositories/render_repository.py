@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from common.time import utc_now
-from domain.models.render import ExportProfile, RenderTask
+from domain.models.render import RenderTask
 
 
 class RenderRepository:
@@ -69,39 +69,3 @@ class RenderRepository:
             session.refresh(task)
             session.expunge(task)
             return task
-
-    def retry_task(self, task_id: str) -> RenderTask | None:
-        with self._session_factory() as session:
-            task = session.get(RenderTask, task_id)
-            if task is None:
-                return None
-            now = utc_now()
-            task.status = "queued"
-            task.progress = 0
-            task.error_message = None
-            task.started_at = None
-            task.finished_at = None
-            task.updated_at = now
-            session.commit()
-            session.refresh(task)
-            session.expunge(task)
-            return task
-
-    def list_profiles(self) -> list[ExportProfile]:
-        with self._session_factory() as session:
-            profiles = session.scalars(
-                select(ExportProfile).order_by(
-                    ExportProfile.is_default.desc(),
-                    ExportProfile.created_at.asc(),
-                )
-            ).all()
-            session.expunge_all()
-            return list(profiles)
-
-    def create_profile(self, profile: ExportProfile) -> ExportProfile:
-        with self._session_factory() as session:
-            session.add(profile)
-            session.commit()
-            session.refresh(profile)
-            session.expunge(profile)
-            return profile

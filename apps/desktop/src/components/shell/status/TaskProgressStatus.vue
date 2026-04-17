@@ -1,45 +1,48 @@
 <template>
   <div class="task-progress-status">
-    <div class="progress-bar">
-      <div class="progress-fill"></div>
-    </div>
-    <span class="progress-label">正在处理后台任务...</span>
+    <Progress indeterminate class="task-progress-status__progress" />
+    <span class="task-progress-status__label">{{ modeLabel }}</span>
   </div>
 </template>
 
+<script setup lang="ts">
+import { computed } from "vue";
+
+import Progress from "@/components/ui/Progress/Progress.vue";
+
+const props = defineProps<{
+  mode: string;
+}>();
+
+const modeLabel = computed(() => {
+  switch (props.mode) {
+    case "rendering":
+      return "渲染任务通道已接管";
+    case "publishing":
+      return "发布任务等待 Runtime 推送";
+    case "review":
+      return "复盘链路等待新事件";
+    default:
+      return "后台任务等待新事件";
+  }
+});
+</script>
+
 <style scoped>
 .task-progress-status {
-  display: flex;
   align-items: center;
-  gap: 12px;
-  width: 240px;
+  display: flex;
+  gap: var(--space-3);
+  min-width: 220px;
 }
 
-.progress-bar {
+.task-progress-status__progress {
   flex: 1;
-  height: 4px;
-  background: var(--surface-sunken);
-  border-radius: 2px;
-  overflow: hidden;
 }
 
-.progress-fill {
-  height: 100%;
-  width: 40%; /* Placeholder */
-  background: linear-gradient(90deg, var(--brand-primary), var(--brand-secondary));
-  background-size: 200% 100%;
-  animation: progress-slide 2s linear infinite;
-  border-radius: 2px;
-}
-
-.progress-label {
-  font-size: 10px;
-  color: var(--text-secondary);
+.task-progress-status__label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-caption);
   white-space: nowrap;
-}
-
-@keyframes progress-slide {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
 }
 </style>

@@ -1,35 +1,35 @@
 <template>
-  <section class="settings-workspace-panel">
-    <div class="editor-card__header">
+  <section class="settings-workspace-panel" data-testid="provider-catalog-panel">
+    <div class="settings-workspace-panel__header">
       <div>
         <p class="detail-panel__label">Provider 与模型</p>
-        <h2>多 AI 接入与能力选用</h2>
+        <h2>接入注册表与连接凭据</h2>
         <p class="workspace-page__summary">
-          Provider 改成紧凑选择式工作流，先选对象，再看模型、凭据和测试结果。
+          这里直接反映 Provider 注册表、模型目录和真实连接状态，不把凭据当作假成功率来展示。
         </p>
       </div>
       <div class="settings-workspace-panel__meta">
-        <span class="page-chip">Provider {{ providerCatalog.length }}</span>
-        <span class="page-chip page-chip--muted">已配置 {{ configuredProviderCount }}</span>
+        <span class="settings-workspace-panel__pill">Provider {{ providerCatalog.length }}</span>
+        <span class="settings-workspace-panel__pill settings-workspace-panel__pill--muted">已配置 {{ configuredProviderCount }}</span>
       </div>
     </div>
 
-    <div v-if="providerCatalog.length === 0" class="empty-state">Provider 注册表尚未加载。</div>
+    <div v-if="providerCatalog.length === 0" class="settings-workspace-panel__empty" data-testid="provider-empty-state">
+      Provider 注册表尚未加载。
+    </div>
+
     <template v-else>
-      <section class="provider-toolbar">
+      <div class="provider-toolbar">
         <label class="settings-field provider-toolbar__selector">
           <span>当前 Provider</span>
           <select
             :value="selectedProviderId"
             data-testid="provider-picker"
             data-field="provider.selected"
+            :disabled="disabled"
             @change="$emit('select-provider', String(($event.target as HTMLSelectElement).value))"
           >
-            <option
-              v-for="provider in providerCatalog"
-              :key="provider.provider"
-              :value="provider.provider"
-            >
+            <option v-for="provider in providerCatalog" :key="provider.provider" :value="provider.provider">
               {{ provider.label }}
             </option>
           </select>
@@ -48,7 +48,7 @@
             <span
               v-for="capability in selectedProvider?.capabilities ?? []"
               :key="capability"
-              class="page-chip page-chip--muted"
+              class="settings-workspace-panel__pill settings-workspace-panel__pill--muted"
             >
               {{ capability }}
             </span>
@@ -58,43 +58,39 @@
             {{ selectedProviderBaseUrl || "等待配置 Base URL" }}
           </p>
         </article>
-      </section>
+      </div>
 
       <div class="provider-workspace-grid">
-        <section class="command-panel settings-card">
-          <div class="editor-card__header">
+        <section class="settings-card">
+          <div class="settings-card__header">
             <div>
               <p class="detail-panel__label">模型目录</p>
-              <h2>{{ selectedProviderLabel }}</h2>
+              <h3>{{ selectedProviderLabel }}</h3>
             </div>
-            <button class="dashboard-list__action" type="button" @click="$emit('refresh-models')">
+            <button class="settings-workspace-panel__button" type="button" :disabled="disabled" @click="$emit('refresh-models')">
               刷新目录
             </button>
           </div>
 
           <label class="settings-field">
-            <span>测试模型</span>
+            <span>健康检查模型</span>
             <select
               :value="healthModel"
               data-field="provider.health.model"
-              :disabled="selectedProviderModels.length === 0"
+              :disabled="disabled || selectedProviderModels.length === 0"
               @change="$emit('update:health-model', String(($event.target as HTMLSelectElement).value))"
             >
               <option value="">
-                {{ selectedProviderModels.length === 0 ? "当前 Provider 暂无模型目录" : "请选择测试模型" }}
+                {{ selectedProviderModels.length === 0 ? "当前 Provider 暂无模型目录" : "请选择健康检查模型" }}
               </option>
-              <option
-                v-for="model in selectedProviderModels"
-                :key="`${model.provider}:${model.modelId}`"
-                :value="model.modelId"
-              >
+              <option v-for="model in selectedProviderModels" :key="`${model.provider}:${model.modelId}`" :value="model.modelId">
                 {{ model.displayName }}
               </option>
             </select>
           </label>
 
-          <div v-if="selectedProviderModels.length === 0" class="empty-state">
-            选择 Provider 后显示可测试模型。
+          <div v-if="selectedProviderModels.length === 0" class="settings-workspace-panel__empty">
+            先连接 Provider，再查看可用模型目录。
           </div>
           <div v-else class="provider-model-list">
             <article
@@ -103,7 +99,7 @@
               class="provider-model-list__item"
             >
               <div class="provider-model-list__copy">
-                <h3>{{ model.displayName }}</h3>
+                <h4>{{ model.displayName }}</h4>
                 <p :title="model.modelId">{{ model.modelId }}</p>
               </div>
               <div class="provider-model-list__meta">
@@ -114,24 +110,25 @@
           </div>
         </section>
 
-        <section class="command-panel settings-card">
-          <div class="editor-card__header">
+        <section class="settings-card">
+          <div class="settings-card__header">
             <div>
               <p class="detail-panel__label">连接凭据</p>
-              <h2>{{ selectedProviderTitle }}</h2>
+              <h3>{{ selectedProviderTitle }}</h3>
             </div>
             <button
-              class="dashboard-list__action"
+              class="settings-workspace-panel__button"
               type="button"
               data-action="check-provider"
+              :disabled="disabled || selectedProviderModels.length === 0"
               @click="$emit('check-provider')"
             >
-              测试连接
+              执行连接检查
             </button>
           </div>
 
           <div class="provider-secret__status" :class="providerHealthTone">
-            <strong>{{ selectedProviderHealth?.status === "ready" ? "连通性正常" : "当前状态" }}</strong>
+            <strong>{{ selectedProviderHealthLabel }}</strong>
             <p>{{ selectedProviderHealth?.message ?? secretStatusSummary }}</p>
           </div>
 
@@ -141,6 +138,7 @@
               v-model="providerDraft.apiKey"
               data-field="provider.secret.apiKey"
               :placeholder="secretPlaceholder"
+              :disabled="disabled"
               type="password"
             />
           </label>
@@ -151,10 +149,11 @@
               data-field="provider.secret.baseUrl"
               :placeholder="selectedProviderBaseUrl"
               :title="providerDraft.baseUrl || selectedProviderBaseUrl"
+              :disabled="disabled"
             />
           </label>
-          <div class="editor-card__actions">
-            <button class="settings-page__button" type="button" @click="$emit('save-provider-secret')">
+          <div class="settings-card__actions">
+            <button class="settings-workspace-panel__button" type="button" :disabled="disabled" @click="$emit('save-provider-secret')">
               保存凭据
             </button>
           </div>
@@ -175,6 +174,7 @@ import type {
 } from "@/types/runtime";
 
 const props = defineProps<{
+  disabled: boolean;
   healthModel: string;
   providerCatalog: AIProviderCatalogItem[];
   providerDraft: { apiKey: string; baseUrl: string };
@@ -205,28 +205,51 @@ const selectedProviderTitle = computed(() =>
   selectedProvider.value ? `${selectedProvider.value.label} 连接凭据` : "连接凭据"
 );
 const selectedProviderBaseUrl = computed(() => selectedProvider.value?.baseUrl ?? "");
+const selectedProviderHealthLabel = computed(() => {
+  switch (props.selectedProviderHealth?.status) {
+    case "ready":
+      return "连接正常";
+    case "missing_secret":
+      return "缺少密钥";
+    case "misconfigured":
+      return "配置不完整";
+    case "offline":
+      return "连接离线";
+    default:
+      return "等待检查";
+  }
+});
 const secretStatusSummary = computed(() => {
   if (props.secretStatus?.configured) {
     return `已保存 ${props.secretStatus.maskedSecret}，来源 ${props.secretStatus.secretSource}。`;
   }
-  return "当前 Provider 尚未保存可用凭据。";
+  return "当前 Provider 还没有可用凭据。";
 });
 const secretPlaceholder = computed(() =>
-  props.secretStatus?.configured ? "已保存密钥；输入新值后覆盖" : "输入 Provider API Key"
+  props.secretStatus?.configured ? "已保存密钥，输入后会覆盖" : "请输入 Provider API Key"
 );
 const providerStatusText = computed(() =>
   selectedProvider.value ? providerStatusLabel(selectedProvider.value.status) : "待选择"
 );
-const providerSummaryTone = computed(() =>
-  selectedProvider.value?.status === "ready" ? "provider-summary--ready" : "provider-summary--idle"
-);
+const providerSummaryTone = computed(() => {
+  switch (selectedProvider.value?.status) {
+    case "ready":
+      return "provider-summary--ready";
+    case "missing_secret":
+    case "misconfigured":
+    case "offline":
+      return "provider-summary--blocked";
+    default:
+      return "provider-summary--idle";
+  }
+});
 const providerHealthTone = computed(() => {
   switch (props.selectedProviderHealth?.status) {
     case "ready":
       return "provider-secret__status--ready";
-    case "offline":
-    case "misconfigured":
     case "missing_secret":
+    case "misconfigured":
+    case "offline":
       return "provider-secret__status--alert";
     default:
       return "";
@@ -236,7 +259,7 @@ const providerHealthTone = computed(() => {
 function providerStatusLabel(status: string): string {
   return (
     {
-      missing_secret: "需要配置密钥",
+      missing_secret: "缺少密钥",
       misconfigured: "配置不完整",
       ready: "已就绪",
       unsupported: "暂未接入",
@@ -247,28 +270,57 @@ function providerStatusLabel(status: string): string {
 </script>
 
 <style scoped>
-.settings-workspace-panel,
-.settings-workspace-panel__meta {
+.settings-workspace-panel {
   display: grid;
   gap: 16px;
+}
+
+.settings-workspace-panel__header,
+.provider-toolbar,
+.provider-workspace-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-workspace-panel__header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
 }
 
 .settings-workspace-panel__meta {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  justify-content: flex-end;
 }
 
-.provider-toolbar,
-.provider-workspace-grid,
-.provider-model-list {
-  display: grid;
-  gap: 14px;
+.settings-workspace-panel__pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.settings-workspace-panel__pill--muted {
+  color: var(--text-secondary);
+}
+
+.settings-workspace-panel__empty {
+  padding: 16px;
+  border: 1px dashed var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
+  color: var(--text-secondary);
 }
 
 .provider-toolbar {
-  align-items: start;
   grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+  align-items: start;
 }
 
 .provider-toolbar__selector {
@@ -279,15 +331,18 @@ function providerStatusLabel(status: string): string {
   display: grid;
   gap: 12px;
   min-width: 0;
-  padding: 18px 20px;
+  padding: 18px;
   border: 1px solid var(--border-default);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
 }
 
 .provider-summary--ready {
   border-color: color-mix(in srgb, var(--status-success) 28%, var(--border-default));
-  background: color-mix(in srgb, var(--status-success) 8%, var(--surface-secondary));
+}
+
+.provider-summary--blocked {
+  border-color: color-mix(in srgb, var(--status-warning) 30%, var(--border-default));
 }
 
 .provider-summary--idle {
@@ -295,38 +350,39 @@ function providerStatusLabel(status: string): string {
 }
 
 .provider-summary__header {
-  align-items: start;
   display: flex;
-  gap: 12px;
   justify-content: space-between;
+  gap: 12px;
+  align-items: start;
 }
 
 .provider-summary__header h3,
-.provider-model-list__item h3 {
+.provider-model-list__item h4 {
   margin: 0;
 }
 
 .provider-summary__header p,
 .provider-model-list__copy p,
 .provider-model-list__meta span {
-  color: var(--text-secondary);
   margin: 0;
+  color: var(--text-secondary);
 }
 
 .provider-summary__status {
   flex-shrink: 0;
-  padding: 4px 10px;
+  min-height: 24px;
+  padding: 0 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-tertiary) 88%, transparent);
+  background: color-mix(in srgb, var(--surface-primary) 92%, transparent);
   color: var(--text-primary);
   font-size: 12px;
-  font-weight: 700;
+  line-height: 24px;
 }
 
 .provider-summary__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .provider-summary__endpoint {
@@ -343,7 +399,70 @@ function providerStatusLabel(status: string): string {
   grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
 }
 
+.settings-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
+}
+
+.settings-card__header,
+.settings-card__actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.settings-card__header h3 {
+  margin: 0;
+}
+
+.settings-field {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-field span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.settings-field input,
+.settings-field select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-primary) 96%, transparent);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.settings-workspace-panel__button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.settings-workspace-panel__button:disabled,
+.settings-field input:disabled,
+.settings-field select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .provider-model-list {
+  display: grid;
+  gap: 10px;
   max-height: 340px;
   overflow-y: auto;
   padding-right: 4px;
@@ -354,8 +473,8 @@ function providerStatusLabel(status: string): string {
   gap: 8px;
   padding: 14px 16px;
   border: 1px solid var(--border-default);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-secondary) 90%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-primary) 96%, transparent);
 }
 
 .provider-model-list__copy,
@@ -374,11 +493,10 @@ function providerStatusLabel(status: string): string {
 .provider-secret__status {
   display: grid;
   gap: 6px;
-  margin-bottom: 14px;
   padding: 12px 14px;
-  border-radius: 12px;
   border: 1px solid var(--border-default);
-  background: color-mix(in srgb, var(--surface-secondary) 88%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 90%, transparent);
 }
 
 .provider-secret__status strong,
@@ -392,17 +510,19 @@ function providerStatusLabel(status: string): string {
 
 .provider-secret__status--ready {
   border-color: color-mix(in srgb, var(--status-success) 30%, var(--border-default));
-  background: color-mix(in srgb, var(--status-success) 10%, var(--surface-secondary));
 }
 
 .provider-secret__status--alert {
   border-color: color-mix(in srgb, var(--status-warning) 30%, var(--border-default));
-  background: color-mix(in srgb, var(--status-warning) 12%, var(--surface-secondary));
 }
 
 @media (max-width: 1120px) {
   .provider-toolbar,
   .provider-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-workspace-panel__header {
     grid-template-columns: 1fr;
   }
 }

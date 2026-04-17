@@ -1,152 +1,223 @@
 <template>
-  <aside class="shell-sidebar" :class="{ 'sidebar--collapsed': isCollapsed }">
+  <aside class="shell-sidebar" :data-collapsed="String(isCollapsed)">
     <nav class="shell-sidebar__nav" aria-label="TK-OPS 页面导航">
-      <section v-for="group in navGroups" :key="group.label">
-        <p v-if="!isCollapsed" class="nav-group__title">{{ group.label }}</p>
-        <div v-else class="nav-group__divider"></div>
+      <section v-for="group in navGroups" :key="group.label" class="shell-sidebar__group">
+        <p class="shell-sidebar__group-title">{{ group.label }}</p>
 
         <template v-for="item in group.items" :key="item.id">
-          <!-- 正常态 -->
           <RouterLink
             v-if="!item.requiresProjectContext || hasProject"
-            :to="item.path"
-            class="shell-nav-link"
-            active-class="nav-link--active"
             :data-route-id="item.id"
             :title="isCollapsed ? item.title : ''"
+            :to="item.path"
+            active-class="is-active"
+            class="shell-nav-link"
           >
             <span class="shell-nav-link__icon material-symbols-outlined">{{ item.icon }}</span>
-            <span v-if="!isCollapsed" class="shell-nav-link__text">{{ item.title }}</span>
+            <span class="shell-nav-link__text">{{ item.title }}</span>
           </RouterLink>
 
-          <!-- 禁用态（无项目时拦截） -->
           <div
             v-else
-            class="shell-nav-link shell-nav-link--disabled"
             :data-route-id="item.id"
-            title="请先在总览选择或创建项目"
+            :title="isCollapsed ? item.title : '请先在创作总览选择项目'"
+            class="shell-nav-link shell-nav-link--disabled"
           >
             <span class="shell-nav-link__icon material-symbols-outlined">{{ item.icon }}</span>
-            <span v-if="!isCollapsed" class="shell-nav-link__text">{{ item.title }}</span>
-            <span v-if="!isCollapsed" class="material-symbols-outlined lock-icon">lock</span>
+            <span class="shell-nav-link__text">{{ item.title }}</span>
           </div>
         </template>
       </section>
     </nav>
 
-    <div class="sidebar-footer" v-show="!isCollapsed">
-      <p>© 2026 TK-OPS v3</p>
-    </div>
+    <footer class="shell-sidebar__footer">
+      <div class="shell-sidebar__workspace-card">
+        <div class="shell-sidebar__workspace-avatar">TK</div>
+        <div class="shell-sidebar__workspace-copy">
+          <span>{{ hasProject ? "当前项目" : "等待项目" }}</span>
+          <strong>{{ projectLabel }}</strong>
+        </div>
+      </div>
+      <span class="shell-sidebar__footer-label">{{ hasProject ? "工作区已连接" : "部分页面保持只读" }}</span>
+    </footer>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
+
 import type { RouteManifestItem } from "@/types/router";
 
 defineProps<{
+  hasProject: boolean;
+  isCollapsed: boolean;
   navGroups: Array<{
     label: string;
     items: RouteManifestItem[];
   }>;
-  isCollapsed: boolean;
-  hasProject: boolean;
+  projectLabel: string;
 }>();
 </script>
 
 <style scoped>
 .shell-sidebar {
-  width: var(--sidebar-width);
-  transition: width var(--motion-base), background var(--motion-base);
+  background: var(--color-bg-canvas);
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
-  overflow-x: hidden;
+  gap: var(--space-2);
   height: 100%;
+  min-width: 0;
+  padding: var(--space-4) var(--space-3);
 }
 
-.sidebar--collapsed {
-  width: 64px !important;
+.shell-sidebar__nav {
+  display: grid;
+  gap: var(--space-4);
+  min-height: 0;
+  overflow: auto;
 }
 
-.nav-group__title {
+.shell-sidebar__group {
+  display: grid;
+  gap: 4px;
+}
+
+.shell-sidebar__group-title {
+  align-items: center;
+  color: var(--color-text-tertiary);
+  display: flex;
   font-size: 11px;
-  font-weight: 800;
-  color: var(--text-tertiary);
-  padding: 16px 20px 8px;
+  font-weight: 600;
+  height: 24px;
+  letter-spacing: 0.8px;
+  margin: var(--space-2) 0 0;
+  padding: 0 var(--space-3);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
   white-space: nowrap;
-}
-
-.nav-group__divider {
-  height: 1px;
-  background: var(--border-default);
-  margin: 16px 14px;
 }
 
 .shell-nav-link {
-  margin: 4px 12px;
-  padding: 0 12px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  display: flex;
   align-items: center;
-  gap: 12px;
-  text-decoration: none;
-  transition: all var(--motion-fast);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 20px minmax(0, 1fr);
+  height: 40px;
+  padding: 0 12px;
   position: relative;
-  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-bounce);
 }
 
-.sidebar--collapsed .shell-nav-link {
-  margin: 4px 10px;
-  padding: 0;
-  justify-content: center;
+.shell-nav-link:hover:not(.shell-nav-link--disabled) {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.shell-nav-link.is-active {
+  background: var(--color-bg-active);
+  border-color: color-mix(in srgb, var(--color-brand-primary) 24%, var(--color-border-default));
+  color: var(--color-brand-primary);
+}
+
+.shell-nav-link.is-active::before {
+  background: var(--color-brand-primary);
+  border-radius: 0 2px 2px 0;
+  box-shadow: var(--shadow-glow-brand);
+  content: "";
+  height: 20px;
+  left: -12px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
 }
 
 .shell-nav-link__icon {
-  font-size: 22px;
-  min-width: 24px;
-  text-align: center;
+  font-size: 20px;
 }
 
 .shell-nav-link__text {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.shell-nav-link:not(.shell-nav-link--disabled):hover {
-  background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
-  color: var(--text-primary);
-  transform: translateX(4px);
-  box-shadow: inset 1px 0 0 var(--brand-primary);
-}
-
-.shell-nav-link.nav-link--active {
-  background: var(--surface-tertiary);
-  color: var(--brand-primary);
-  box-shadow: inset 3px 0 0 var(--brand-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shell-nav-link--disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-  background: transparent;
+  opacity: 0.48;
 }
 
-.lock-icon {
-  font-size: 16px;
-  margin-left: auto;
-  opacity: 0.8;
+.shell-sidebar__footer {
+  border-top: 1px solid var(--color-border-subtle);
+  display: grid;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-3);
 }
 
-.sidebar-footer {
-  padding: 16px;
-  border-top: 1px solid var(--border-default);
-  font-size: 10px;
-  color: var(--text-tertiary);
-  text-align: center;
+.shell-sidebar__workspace-card {
+  align-items: center;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.shell-sidebar__workspace-avatar {
+  align-items: center;
+  background: var(--gradient-ai-primary);
+  border-radius: var(--radius-full);
+  color: var(--color-text-on-brand);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.shell-sidebar__workspace-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.shell-sidebar__workspace-copy span,
+.shell-sidebar__footer-label {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-caption);
+}
+
+.shell-sidebar__workspace-copy strong {
+  font-size: var(--font-body-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-collapsed="true"] .shell-sidebar__group-title,
+[data-collapsed="true"] .shell-nav-link__text,
+[data-collapsed="true"] .shell-sidebar__workspace-copy,
+[data-collapsed="true"] .shell-sidebar__footer-label {
+  display: none;
+}
+
+[data-collapsed="true"] .shell-nav-link {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding: 0;
+}
+
+[data-collapsed="true"] .shell-sidebar__workspace-card {
+  justify-content: center;
+  padding: var(--space-2);
 }
 </style>

@@ -18,20 +18,21 @@ describe("M08 字幕对齐中心页面", () => {
     vi.unstubAllGlobals();
   });
 
-  it("加载项目脚本和字幕版本后展示字幕校对台", async () => {
+  it("加载脚本和字幕版本后显示阻断草稿语义", async () => {
     vi.stubGlobal("fetch", createSubtitleFetch());
 
     const wrapper = mountSubtitlePageWithProject();
     await flushPromises();
 
     expect(wrapper.text()).toContain("M08 字幕对齐中心");
-    expect(wrapper.text()).toContain("字幕校对台");
-    expect(wrapper.text()).toContain("第一段脚本");
-    expect(wrapper.text()).toContain("生成字幕草稿");
-    expect(wrapper.text()).not.toMatch(/鐠у嫶楠噟閻㈢喐鍨殀妫板嫯/);
+    expect(wrapper.text()).toContain("已保存阻断草稿，但没有生成真实时间码。");
+    expect(wrapper.text()).toContain("版本：阻断草稿");
+    expect(wrapper.text()).toContain("阻断草稿");
+    expect(wrapper.text()).toContain("绗竴娈佃剼鏈紒");
+    expect(wrapper.text()).not.toMatch(/假时间码|成功结果/);
   });
 
-  it("生成后展示 Provider 阻断状态且不弹出 alert", async () => {
+  it("生成后继续保留 blocked 草稿语义，并且不弹出 alert", async () => {
     vi.stubGlobal("fetch", createSubtitleFetch());
 
     const wrapper = mountSubtitlePageWithProject();
@@ -40,12 +41,13 @@ describe("M08 字幕对齐中心页面", () => {
     await wrapper.get('[data-testid="subtitle-generate-button"]').trigger("click");
     await flushPromises();
 
-    expect(wrapper.text()).toContain("尚未配置可用字幕对齐 Provider");
-    expect(wrapper.text()).toContain("待配置 Provider");
+    expect(wrapper.text()).toContain("没有可用字幕对齐 Provider");
+    expect(wrapper.text()).toContain("重新保存阻断草稿");
+    expect(wrapper.text()).toContain("真实时间码");
     expect(window.alert).not.toHaveBeenCalled();
   });
 
-  it("没有当前项目时展示中文引导态并禁用生成入口", async () => {
+  it("没有当前项目时禁用生成入口并保留阻断导语", async () => {
     vi.stubGlobal("fetch", createSubtitleFetch());
 
     const wrapper = mount(SubtitleAlignmentCenterPage, {
@@ -55,6 +57,7 @@ describe("M08 字幕对齐中心页面", () => {
     });
     await flushPromises();
 
+    expect(wrapper.text()).toContain("生成入口已锁定");
     expect(wrapper.text()).toContain("请先选择项目");
     expect(wrapper.get('[data-testid="subtitle-generate-button"]').attributes("disabled")).toBeDefined();
   });
@@ -78,7 +81,7 @@ function mountSubtitlePageWithProject() {
 }
 
 function createSubtitleFetch() {
-  return createRouteAwareFetch((path, method) => {
+  return createRouteAwareFetch((path, method, init) => {
     if (path === "/api/scripts/projects/project-1/document" && method === "GET") {
       return okJsonResponse(scriptDocument());
     }
@@ -92,6 +95,10 @@ function createSubtitleFetch() {
         message: "尚未配置可用字幕对齐 Provider，已保存字幕草稿。"
       });
     }
+    if (path === "/api/subtitles/tracks/subtitle-1" && method === "PATCH") {
+      const body = JSON.parse(String(init?.body));
+      return okJsonResponse(subtitleTrack("subtitle-1", body.segments[0].text, body.style.fontSize));
+    }
     throw new Error(`Unhandled request: ${method} ${path}`);
   });
 }
@@ -102,7 +109,7 @@ function scriptDocument() {
     currentVersion: {
       revision: 1,
       source: "manual",
-      content: "第一段脚本\n\n第二段脚本",
+      content: "绗竴娈佃剼鏈紒\n绗簩娈佃剼鏈紒",
       provider: null,
       model: null,
       aiJobId: null,
@@ -117,7 +124,7 @@ function now() {
   return "2026-04-16T10:00:00Z";
 }
 
-function subtitleTrack(id = "subtitle-1") {
+function subtitleTrack(id = "subtitle-1", text = "绗竴娈佃剼鏈紒", fontSize = 32) {
   return {
     id,
     projectId: "project-1",
@@ -126,7 +133,7 @@ function subtitleTrack(id = "subtitle-1") {
     language: "zh-CN",
     style: {
       preset: "creator-default",
-      fontSize: 32,
+      fontSize,
       position: "bottom",
       textColor: "#FFFFFF",
       background: "rgba(0,0,0,0.62)"
@@ -134,7 +141,7 @@ function subtitleTrack(id = "subtitle-1") {
     segments: [
       {
         segmentIndex: 0,
-        text: "第一段脚本",
+        text,
         startMs: null,
         endMs: null,
         confidence: null,

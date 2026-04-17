@@ -1,162 +1,190 @@
 <template>
-  <footer class="shell-status-bar">
-    <div class="status-left">
-      <!-- Runtime 状态 (始终固定) -->
-      <div class="status-item" :title="`Runtime: ${runtimeLabel}`">
-        <span class="runtime-dot" :class="`runtime-dot--${runtimeTone}`"></span>
-        <span class="status-text">{{ runtimeLabel }}</span>
+  <div class="shell-status-bar" :class="{ 'has-activity': hasActivity }">
+    <div class="shell-status-bar__group">
+      <div class="shell-status-bar__runtime" :title="runtimeLabel">
+        <span class="shell-status-bar__dot" :class="`is-${runtimeTone}`" />
+        <span class="shell-status-bar__text">{{ runtimeLabel }}</span>
       </div>
 
-      <div class="divider"></div>
+      <div class="shell-status-bar__divider" />
 
-      <!-- 动态业务状态区 -->
       <transition name="status-fade" mode="out-in">
-        <component
-          :is="activeComponent"
-          v-bind="componentProps"
-        />
+        <component :is="activeComponent" v-bind="componentProps" />
       </transition>
     </div>
 
-    <div class="status-right">
-      <!-- 同步状态 -->
-      <div class="status-item sync-status">
-        <span class="material-symbols-outlined status-icon">cloud_sync</span>
-        <span class="status-text">{{ syncLabel }}</span>
-      </div>
-
-      <div class="divider"></div>
-
-      <!-- 版本号 -->
-      <div class="status-item system-version">
-        <span class="status-text">v0.2.0</span>
-      </div>
+    <div class="shell-status-bar__group shell-status-bar__group--secondary">
+      <span class="shell-status-bar__text">{{ syncLabel }}</span>
+      <div class="shell-status-bar__divider" />
+      <span class="shell-status-bar__text">{{ detailOpen ? "右侧上下文已展开" : "右侧上下文已收起" }}</span>
+      <div class="shell-status-bar__divider" />
+      <span class="shell-status-bar__text">{{ projectLabel }}</span>
     </div>
-  </footer>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import OverviewStatus from '@/components/shell/status/OverviewStatus.vue';
-import EditingStatus from '@/components/shell/status/EditingStatus.vue';
-import TaskProgressStatus from '@/components/shell/status/TaskProgressStatus.vue';
+import { computed } from "vue";
+
+import EditingStatus from "@/components/shell/status/EditingStatus.vue";
+import OverviewStatus from "@/components/shell/status/OverviewStatus.vue";
+import TaskProgressStatus from "@/components/shell/status/TaskProgressStatus.vue";
 
 const props = defineProps<{
-  mode: string;
-  runtimeLabel: string;
-  runtimeTone: string;
-  runtimeStatus: 'online' | 'offline' | 'loading' | 'idle';
   aiProviderLabel: string;
+  detailOpen: boolean;
+  mode: string;
+  pageTitle: string;
+  pageType: string;
+  projectLabel: string;
+  runtimeLabel: string;
+  runtimeStatus: "online" | "offline" | "loading" | "idle";
+  runtimeTone: string;
   syncLabel: string;
 }>();
 
 const activeComponent = computed(() => {
   switch (props.mode) {
-    case 'editing': return EditingStatus;
-    case 'rendering':
-    case 'tasks':
-    case 'publishing': return TaskProgressStatus;
-    default: return OverviewStatus;
+    case "editing":
+      return EditingStatus;
+    case "rendering":
+    case "tasks":
+    case "publishing":
+    case "review":
+      return TaskProgressStatus;
+    default:
+      return OverviewStatus;
   }
 });
 
 const componentProps = computed(() => {
   if (activeComponent.value === OverviewStatus) {
     return {
-      runtimeStatus: props.runtimeStatus,
-      aiProviderLabel: props.aiProviderLabel
+      aiProviderLabel: props.aiProviderLabel,
+      pageTitle: props.pageTitle,
+      pageType: props.pageType,
+      runtimeStatus: props.runtimeStatus
     };
   }
-  return {};
+
+  if (activeComponent.value === EditingStatus) {
+    return {
+      detailOpen: props.detailOpen,
+      pageTitle: props.pageTitle,
+      projectLabel: props.projectLabel
+    };
+  }
+
+  return {
+    mode: props.mode
+  };
 });
+
+const hasActivity = computed(() => ["editing", "rendering", "tasks", "publishing", "review"].includes(props.mode));
 </script>
 
 <style scoped>
 .shell-status-bar {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
+  background: var(--color-bg-surface);
+  display: flex;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-caption);
   height: 100%;
-  padding: 0 16px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-tertiary);
-  background: var(--surface-secondary);
-}
-
-.status-left, .status-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.status-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.status-icon {
-  font-size: 14px;
-}
-
-.status-text {
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-
-.divider {
-  width: 1px;
-  height: 14px;
-  background: var(--border-default);
-}
-
-.runtime-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 0 var(--space-4);
   position: relative;
-  display: inline-block;
 }
 
-.runtime-dot::after {
+.shell-status-bar::before {
+  background: var(--gradient-status-bar);
+  background-size: 200% 100%;
   content: "";
+  height: 1px;
+  left: 0;
+  opacity: 0;
   position: absolute;
-  top: -3px; left: -3px; right: -3px; bottom: -3px;
-  border-radius: 50%;
-  border: 1px solid currentColor;
-  opacity: 0.4;
-  animation: ripple 2s infinite;
+  right: 0;
+  top: 0;
+  transition: opacity var(--motion-default) var(--ease-standard);
 }
 
-@keyframes ripple {
-  0% { transform: scale(1); opacity: 0.4; }
-  100% { transform: scale(2.5); opacity: 0; }
+.shell-status-bar.has-activity::before {
+  animation: status-flow 2.4s linear infinite;
+  opacity: 1;
 }
 
-.runtime-dot--online { background: var(--status-success); color: var(--status-success); }
-.runtime-dot--loading { background: var(--status-warning); color: var(--status-warning); }
-.runtime-dot--offline { background: var(--status-error); color: var(--status-error); }
-.runtime-dot--idle { background: var(--status-info); color: var(--status-info); }
+.shell-status-bar__group {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+}
 
-.system-version {
-  font-weight: 800;
-  color: var(--text-secondary);
+.shell-status-bar__group--secondary {
+  color: var(--color-text-tertiary);
+}
+
+.shell-status-bar__runtime {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.shell-status-bar__dot {
+  border-radius: 999px;
+  flex-shrink: 0;
+  height: 6px;
+  width: 6px;
+}
+
+.shell-status-bar__dot.is-online {
+  background: var(--color-success);
+}
+
+.shell-status-bar__dot.is-offline {
+  background: var(--color-danger);
+}
+
+.shell-status-bar__dot.is-loading {
+  animation: subtle-pulse 1.4s var(--ease-standard) infinite;
+  background: var(--color-warning);
+}
+
+.shell-status-bar__dot.is-idle {
+  background: var(--color-info);
+}
+
+.shell-status-bar__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-status-bar__divider {
+  background: var(--color-border-subtle);
+  height: 12px;
+  width: 1px;
 }
 
 .status-fade-enter-active,
 .status-fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
-.status-fade-enter-from {
-  opacity: 0;
-  transform: translateX(-4px);
-}
-
+.status-fade-enter-from,
 .status-fade-leave-to {
   opacity: 0;
   transform: translateX(4px);
+}
+
+@media (max-width: 860px) {
+  .shell-status-bar__group--secondary {
+    display: none;
+  }
 }
 </style>

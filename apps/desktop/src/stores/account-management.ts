@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia';
 import { fetchAccounts, createAccount, deleteAccount, fetchAccountGroups, refreshAccountStats } from '@/app/runtime-client';
 import type { AccountDto, AccountGroupDto, AccountCreateInput } from '@/types/runtime';
+import { resolveCollectionStatus, toRuntimeErrorMessage } from "@/stores/runtime-store-helpers";
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : '账号操作失败';
+  return toRuntimeErrorMessage(error, '账号操作失败，请稍后重试。');
 }
 
 export const useAccountManagementStore = defineStore('account-management', {
@@ -12,9 +13,16 @@ export const useAccountManagementStore = defineStore('account-management', {
     groups: [] as AccountGroupDto[],
     selectedGroupId: null as string | null,
     showAddModal: false,
-    status: 'idle' as 'idle' | 'loading' | 'ready' | 'error',
+    status: 'idle' as 'idle' | 'loading' | 'empty' | 'ready' | 'error',
     error: null as string | null
   }),
+  getters: {
+    viewState: (state): "loading" | "empty" | "ready" | "error" => {
+      if (state.status === "loading") return "loading";
+      if (state.status === "error") return "error";
+      return state.accounts.length > 0 ? "ready" : "empty";
+    }
+  },
   actions: {
     async load() {
       this.status = 'loading';
@@ -26,11 +34,10 @@ export const useAccountManagementStore = defineStore('account-management', {
         ]);
         this.accounts = accounts;
         this.groups = groups;
-        this.status = 'ready';
+        this.status = resolveCollectionStatus(accounts.length);
       } catch (e) {
         this.status = 'error';
         this.error = getErrorMessage(e);
-        console.error('Failed to load accounts/groups', e);
       }
     },
     async addAccount(input: AccountCreateInput) {
@@ -38,10 +45,10 @@ export const useAccountManagementStore = defineStore('account-management', {
       try {
         const newAccount = await createAccount(input);
         this.accounts.push(newAccount);
+        this.status = "ready";
         this.showAddModal = false;
       } catch (e) {
         this.error = getErrorMessage(e);
-        console.error('Failed to create account', e);
       }
     },
     async removeAccount(id: string) {
@@ -49,9 +56,9 @@ export const useAccountManagementStore = defineStore('account-management', {
       try {
         await deleteAccount(id);
         this.accounts = this.accounts.filter(a => a.id !== id);
+        this.status = this.accounts.length > 0 ? "ready" : "empty";
       } catch (e) {
         this.error = getErrorMessage(e);
-        console.error('Failed to delete account', e);
       }
     },
     async refreshStats(id: string) {
@@ -62,7 +69,6 @@ export const useAccountManagementStore = defineStore('account-management', {
         await this.load();
       } catch (e) {
         this.error = getErrorMessage(e);
-        console.error('Failed to refresh stats', e);
       }
     },
     setSelectedGroup(groupId: string | null) {

@@ -21,6 +21,7 @@ describe("M07 配音中心 store", () => {
     await store.load("project-1");
 
     expect(store.status).toBe("ready");
+    expect(store.viewState).toBe("blocked");
     expect(store.paragraphs.map((item) => item.text)).toEqual(["第一段脚本", "第二段脚本"]);
     expect(store.profiles[0].displayName).toBe("清晰叙述");
     expect(store.tracks).toHaveLength(1);
@@ -36,6 +37,7 @@ describe("M07 配音中心 store", () => {
 
     expect(result?.track.status).toBe("blocked");
     expect(store.status).toBe("blocked");
+    expect(store.viewState).toBe("blocked");
     expect(store.generationResult?.message).toContain("TTS Provider");
     expect(store.tracks[0].id).toBe("voice-2");
     expect(store.selectedTrackId).toBe("voice-2");
@@ -50,7 +52,19 @@ describe("M07 配音中心 store", () => {
 
     expect(result).toBeNull();
     expect(store.status).toBe("error");
+    expect(store.viewState).toBe("empty");
     expect(store.error?.message).toContain("脚本文本为空");
+  });
+
+  it("没有可用音色时进入 disabled 视图态", async () => {
+    vi.stubGlobal("fetch", createVoiceFetch({ disabledProfiles: true }));
+
+    const store = useVoiceStudioStore();
+    await store.load("project-1");
+
+    expect(store.status).toBe("ready");
+    expect(store.viewState).toBe("disabled");
+    expect(store.selectedProfileId).toBeNull();
   });
 
   it("Runtime 失败时保留中文错误态", async () => {
@@ -74,7 +88,19 @@ describe("M07 配音中心 store", () => {
     await store.generate();
 
     expect(store.status).toBe("error");
+    expect(store.viewState).toBe("error");
     expect(store.error?.message).toContain("脚本文本为空");
+  });
+
+  it("选择配音版本时拉取版本详情并覆盖本地列表数据", async () => {
+    vi.stubGlobal("fetch", createVoiceFetch({ withTrackDetails: true }));
+
+    const store = useVoiceStudioStore();
+    await store.load("project-1");
+    await store.selectTrack("voice-1");
+
+    expect(store.selectedTrack?.segments).toHaveLength(2);
+    expect(store.selectedTrack?.segments[1]?.text).toBe("第二段脚本");
   });
 
   it("删除配音版本后刷新列表并清空选中态", async () => {
@@ -104,13 +130,20 @@ describe("M07 配音中心 store", () => {
   });
 });
 
-function createVoiceFetch(options: { emptyScript?: boolean } = {}) {
+function createVoiceFetch(
+  options: { disabledProfiles?: boolean; emptyScript?: boolean; withTrackDetails?: boolean } = {}
+) {
   return createRouteAwareFetch((path, method) => {
     if (path === "/api/scripts/projects/project-1/document" && method === "GET") {
       return okJsonResponse(scriptDocument(options.emptyScript ? "" : "第一段脚本\n\n第二段脚本"));
     }
-    if (path === "/api/voice/profiles") return okJsonResponse([voiceProfile()]);
+    if (path === "/api/voice/profiles") {
+      return okJsonResponse([voiceProfile(options.disabledProfiles ? { enabled: false } : undefined)]);
+    }
     if (path === "/api/voice/projects/project-1/tracks") return okJsonResponse([voiceTrack()]);
+    if (path === "/api/voice/tracks/voice-1" && method === "GET") {
+      return okJsonResponse(options.withTrackDetails ? voiceTrackWithDetails("voice-1") : voiceTrack());
+    }
     if (path === "/api/voice/projects/project-1/tracks/generate") {
       return okJsonResponse({
         track: voiceTrack("voice-2"),
@@ -143,7 +176,7 @@ function now() {
   return "2026-04-16T10:00:00Z";
 }
 
-function voiceProfile() {
+function voiceProfile(overrides: Partial<{ enabled: boolean }> = {}) {
   return {
     id: "alloy-zh",
     provider: "pending_provider",
@@ -151,7 +184,7 @@ function voiceProfile() {
     displayName: "清晰叙述",
     locale: "zh-CN",
     tags: ["清晰", "旁白"],
-    enabled: true
+    enabled: overrides.enabled ?? true
   };
 }
 
@@ -175,5 +208,27 @@ function voiceTrack(id = "voice-1") {
     ],
     status: "blocked",
     createdAt: now()
+  };
+}
+
+function voiceTrackWithDetails(id = "voice-1") {
+  return {
+    ...voiceTrack(id),
+    segments: [
+      {
+        segmentIndex: 0,
+        text: "第一段脚本",
+        startMs: null,
+        endMs: null,
+        audioAssetId: null
+      },
+      {
+        segmentIndex: 1,
+        text: "第二段脚本",
+        startMs: null,
+        endMs: null,
+        audioAssetId: null
+      }
+    ]
   };
 }

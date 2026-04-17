@@ -9,7 +9,7 @@
     </div>
 
     <div class="system-status-list">
-      <div class="system-status-row">
+      <div class="system-status-row" data-health-card>
         <div class="system-status-row__info">
           <p class="system-status-row__name">Runtime 引擎</p>
           <p class="system-status-row__sub">{{ runtimeLabel }}</p>
@@ -19,7 +19,7 @@
         </p>
       </div>
 
-      <div class="system-status-row">
+      <div class="system-status-row" data-health-card>
         <div class="system-status-row__info">
           <p class="system-status-row__name">许可证授权</p>
           <p class="system-status-row__sub">{{ licenseLabel }}</p>
@@ -29,7 +29,7 @@
         </p>
       </div>
 
-      <div class="system-status-row">
+      <div class="system-status-row" data-health-card>
         <div class="system-status-row__info">
           <p class="system-status-row__name">配置总线</p>
           <p class="system-status-row__sub">{{ configStatusLabel }}</p>

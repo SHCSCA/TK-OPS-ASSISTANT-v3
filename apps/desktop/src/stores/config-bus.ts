@@ -1,7 +1,6 @@
 import { defineStore } from "pinia";
 
 import {
-  RuntimeRequestError,
   fetchRuntimeConfig,
   fetchRuntimeDiagnostics,
   fetchRuntimeHealth,
@@ -14,6 +13,7 @@ import type {
   RuntimeHealthSnapshot,
   RuntimeRequestErrorShape
 } from "@/types/runtime";
+import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 
 export type ConfigBusStatus = "idle" | "loading" | "ready" | "saving" | "error";
 export type RuntimeConnectionStatus = "idle" | "loading" | "online" | "offline";
@@ -38,6 +38,14 @@ export const useConfigBusStore = defineStore("config-bus", {
     status: "idle",
     runtimeStatus: "idle"
   }),
+  getters: {
+    viewState: (state): "loading" | "ready" | "error" =>
+      state.status === "error"
+        ? "error"
+        : state.status === "loading" || state.status === "saving"
+          ? "loading"
+          : "ready"
+  },
   actions: {
     async load(): Promise<void> {
       await this.hydrate("loading");
@@ -66,19 +74,9 @@ export const useConfigBusStore = defineStore("config-bus", {
       }
     },
     applyRuntimeError(error: unknown): void {
-      const runtimeError =
-        error instanceof RuntimeRequestError
-          ? error
-          : new RuntimeRequestError("Runtime request failed.");
-
       this.runtimeStatus = "offline";
       this.status = "error";
-      this.error = {
-        details: runtimeError.details,
-        message: runtimeError.message,
-        requestId: runtimeError.requestId,
-        status: runtimeError.status
-      };
+      this.error = toRuntimeErrorShape(error, "Runtime 配置请求失败，请稍后重试。");
     },
     async hydrate(nextStatus: ConfigBusStatus): Promise<void> {
       this.status = nextStatus;

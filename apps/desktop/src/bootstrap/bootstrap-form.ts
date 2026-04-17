@@ -71,17 +71,18 @@ export function hasCompletedBootstrapInitialization(
     return false;
   }
 
+  const revision = typeof settings.revision === "number" ? settings.revision : 0;
   const requiredValues = [
-    settings.runtime.workspaceRoot,
-    settings.paths.cacheDir,
-    settings.paths.exportDir,
-    settings.paths.logDir,
-    settings.ai.provider,
-    settings.ai.model,
-    settings.ai.voice,
-    settings.ai.subtitleMode
+    settings.runtime?.workspaceRoot,
+    settings.paths?.cacheDir,
+    settings.paths?.exportDir,
+    settings.paths?.logDir,
+    settings.ai?.provider,
+    settings.ai?.model,
+    settings.ai?.voice,
+    settings.ai?.subtitleMode
   ];
 
-  return settings.revision > 1 && requiredValues.every((item) => item.trim().length > 0);
+  return revision > 1 && requiredValues.every((item) => typeof item === "string" && item.trim().length > 0);
 }
 

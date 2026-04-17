@@ -1,87 +1,67 @@
 <template>
-  <aside class="shell-detail-panel">
+  <div class="shell-detail-panel" :data-open="String(open)">
     <transition name="panel-fade" mode="out-in">
-      <component
-        :is="activeComponent"
-        v-bind="componentProps"
-      />
+      <component :is="activeComponent" :closable="true" :context="context" @close="$emit('close')" />
     </transition>
-  </aside>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import SystemStatusDetail from '@/components/shell/details/SystemStatusDetail.vue';
-import ContextualDetail from '@/components/shell/details/ContextualDetail.vue';
-import AssetDetail from '@/components/shell/details/AssetDetail.vue';
-import LogDetail from '@/components/shell/details/LogDetail.vue';
-import BindingDetail from '@/components/shell/details/BindingDetail.vue';
+import { computed } from "vue";
+
+import AssetDetail from "@/components/shell/details/AssetDetail.vue";
+import BindingDetail from "@/components/shell/details/BindingDetail.vue";
+import ContextualDetail from "@/components/shell/details/ContextualDetail.vue";
+import LogDetail from "@/components/shell/details/LogDetail.vue";
+import SystemStatusDetail from "@/components/shell/details/SystemStatusDetail.vue";
+import type { DetailContext } from "@/stores/shell-ui";
 
 const props = defineProps<{
-  mode: 'hidden' | 'contextual' | 'asset' | 'logs' | 'binding' | 'settings';
-  configStatusLabel: string;
-  licenseLabel: string;
-  maskedCode: string;
-  projectName: string;
-  projectStatus: string;
-  runtimeLabel: string;
-  runtimeVersion: string;
+  context: DetailContext;
+  open: boolean;
+}>();
+
+defineEmits<{
+  close: [];
 }>();
 
 const activeComponent = computed(() => {
-  switch (props.mode) {
-    case 'settings': return SystemStatusDetail;
-    case 'contextual': return ContextualDetail;
-    case 'asset': return AssetDetail;
-    case 'logs': return LogDetail;
-    case 'binding': return BindingDetail;
-    default: return ContextualDetail;
+  switch (props.context.mode) {
+    case "settings":
+      return SystemStatusDetail;
+    case "asset":
+      return AssetDetail;
+    case "logs":
+      return LogDetail;
+    case "binding":
+      return BindingDetail;
+    case "hidden":
+    case "contextual":
+    default:
+      return ContextualDetail;
   }
-});
-
-const componentProps = computed(() => {
-  if (props.mode === 'settings') {
-    return {
-      configStatusLabel: props.configStatusLabel,
-      licenseLabel: props.licenseLabel,
-      maskedCode: props.maskedCode,
-      projectName: props.projectName,
-      projectStatus: props.projectStatus,
-      runtimeLabel: props.runtimeLabel,
-      runtimeVersion: props.runtimeVersion
-    };
-  }
-  return {};
 });
 </script>
 
 <style scoped>
 .shell-detail-panel {
-  background: var(--glass-bg);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  padding: var(--space-5);
-  width: var(--detail-panel-width);
-  box-shadow: var(--shadow-md);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
   height: 100%;
-  overflow-y: auto;
-  color: var(--text-primary);
+  overflow: auto;
+  padding: var(--space-5);
 }
 
 .panel-fade-enter-active,
 .panel-fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
-.panel-fade-enter-from {
-  opacity: 0;
-  transform: translateY(4px);
-}
-
+.panel-fade-enter-from,
 .panel-fade-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateX(8px);
 }
 </style>

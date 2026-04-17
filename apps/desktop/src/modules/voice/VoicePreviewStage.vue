@@ -1,8 +1,22 @@
 <template>
-  <section class="voice-preview-stage" data-testid="voice-preview-stage">
-    <div class="stage-kicker">声音导演台</div>
-    <h2>{{ title }}</h2>
-    <p class="stage-copy">{{ activeParagraphText }}</p>
+  <section class="panel-shell" data-testid="voice-preview-stage">
+    <div class="stage-copy">
+      <span class="stage-copy__kicker">配音导演台</span>
+      <h2>{{ title }}</h2>
+      <p>{{ stageCopy }}</p>
+    </div>
+
+    <div class="stage-meta">
+      <span class="stage-meta__chip">
+        {{ selectedProfile?.displayName ?? "未选音色" }}
+      </span>
+      <span class="stage-meta__chip">
+        {{ selectedTrack?.status ?? "未生成" }}
+      </span>
+      <span class="stage-meta__chip">
+        {{ selectedTrack?.segments.length ?? 0 }} 段配音片段
+      </span>
+    </div>
 
     <div class="wave-stage" :class="{ 'wave-stage--busy': status === 'generating' }">
       <span
@@ -13,9 +27,29 @@
       />
     </div>
 
-    <div class="stage-status" :class="`stage-status--${status}`">
-      <strong>{{ statusLabel }}</strong>
-      <span>{{ statusMessage }}</span>
+    <div class="detail-surface">
+      <div class="detail-surface__row">
+        <strong>{{ statusLabel }}</strong>
+        <span>{{ statusMessage }}</span>
+      </div>
+      <dl v-if="selectedTrack" class="detail-grid">
+        <div>
+          <dt>版本来源</dt>
+          <dd>{{ selectedTrack.source }}</dd>
+        </div>
+        <div>
+          <dt>Provider</dt>
+          <dd>{{ selectedTrack.provider ?? "pending_provider" }}</dd>
+        </div>
+        <div>
+          <dt>创建时间</dt>
+          <dd>{{ formatDate(selectedTrack.createdAt) }}</dd>
+        </div>
+        <div>
+          <dt>文件路径</dt>
+          <dd>{{ selectedTrack.filePath ?? "未生成真实音频" }}</dd>
+        </div>
+      </dl>
     </div>
 
     <audio
@@ -31,12 +65,14 @@
 import { computed } from "vue";
 
 import type { Paragraph, VoiceStudioStatus } from "@/stores/voice-studio";
-import type { VoiceTrackDto } from "@/types/runtime";
+import type { VoiceProfileDto, VoiceTrackDto } from "@/types/runtime";
 
 const props = defineProps<{
   activeParagraph: Paragraph | null;
   generationMessage: string | null;
+  selectedProfile: VoiceProfileDto | null;
   selectedTrack: VoiceTrackDto | null;
+  stateMessage: string;
   status: VoiceStudioStatus;
 }>();
 
@@ -46,37 +82,61 @@ const bars = Array.from({ length: 36 }, (_, index) => ({
 }));
 
 const title = computed(() => {
-  if (props.status === "generating") return "正在创建配音版本";
-  if (props.status === "blocked") return "待配置 AI Provider";
-  return "组织脚本声线与节奏";
+  if (props.status === "generating") return "正在生成配音版本。";
+  if (props.status === "blocked") return "配音能力被阻断。";
+  if (props.status === "error") return "配音工作台需要处理错误。";
+  if (!props.selectedTrack) return "等待真实配音版本。";
+  return "脚本文本与音色已经接通。";
 });
 
-const activeParagraphText = computed(() => {
-  return props.activeParagraph?.text ?? "选择脚本段落后，这里会展示当前配音上下文。";
+const stageCopy = computed(() => {
+  const paragraphText = props.activeParagraph?.text ?? "选择脚本文本段落后，这里会显示当前配音上下文。";
+  const profileText = props.selectedProfile
+    ? `${props.selectedProfile.displayName} · ${props.selectedProfile.locale}`
+    : "当前没有选中的音色。";
+  return `${paragraphText} 当前音色：${profileText}`;
 });
 
 const statusLabel = computed(() => {
   if (props.status === "loading") return "读取中";
   if (props.status === "generating") return "生成中";
-  if (props.status === "blocked") return "待配置 AI Provider";
-  if (props.status === "error") return "需要处理";
-  return "准备就绪";
+  if (props.status === "blocked") return "阻断";
+  if (props.status === "error") return "错误";
+  if (!props.selectedTrack) return "空态";
+  return "可用";
 });
 
 const statusMessage = computed(() => {
-  if (props.generationMessage) return props.generationMessage;
-  if (props.status === "generating") return "正在把脚本段落整理为配音版本记录。";
-  if (props.status === "blocked") return "尚未配置可用 TTS Provider，配音版本已作为草稿保存。";
-  if (props.status === "error") return "请根据页面提示修正后重试。";
-  return "选择音色和参数后，可生成真实 Runtime 配音版本记录。";
+  if (props.status === "loading") return "正在读取脚本文本、音色列表和配音版本。";
+  if (props.status === "generating") return "正在把脚本文本整理为真实配音版本记录。";
+  if (props.status === "blocked") {
+    return props.generationMessage || props.stateMessage;
+  }
+  if (props.status === "error") return props.stateMessage;
+  if (!props.selectedTrack) {
+    return "真实音频尚未生成，先选择可用音色并创建 Runtime 版本。";
+  }
+  return props.stateMessage;
 });
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    dateStyle: "short",
+    hour12: false,
+    timeStyle: "short"
+  }).format(date);
+}
 </script>
 
 <style scoped>
-.voice-preview-stage {
+.panel-shell {
   display: grid;
-  align-content: center;
-  gap: 18px;
+  gap: 16px;
   min-height: 0;
   border: 1px solid var(--border-default);
   border-radius: 8px;
@@ -87,7 +147,12 @@ const statusMessage = computed(() => {
   overflow: hidden;
 }
 
-.stage-kicker {
+.stage-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.stage-copy__kicker {
   color: var(--brand-primary);
   font-size: 13px;
   font-weight: 800;
@@ -100,19 +165,38 @@ h2 {
   line-height: 1.2;
 }
 
-.stage-copy {
-  max-width: 760px;
+.stage-copy p {
   margin: 0;
+  max-width: 760px;
   color: var(--text-secondary);
   font-size: 15px;
   line-height: 1.75;
+}
+
+.stage-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stage-meta__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .wave-stage {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 112px;
+  min-height: 120px;
   padding: 18px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
@@ -138,27 +222,52 @@ h2 {
   animation-delay: 220ms;
 }
 
-.stage-status {
+.detail-surface {
   display: grid;
-  gap: 4px;
+  gap: 12px;
   padding: 12px 14px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: var(--bg-card);
+}
+
+.detail-surface__row {
+  display: grid;
+  gap: 4px;
+}
+
+.detail-surface__row strong {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.detail-surface__row span {
   color: var(--text-secondary);
   font-size: 13px;
+  line-height: 1.6;
 }
 
-.stage-status strong {
-  color: var(--text-primary);
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.stage-status--blocked strong {
-  color: var(--warning, #b7791f);
+.detail-grid div {
+  display: grid;
+  gap: 4px;
 }
 
-.stage-status--error strong {
-  color: var(--danger, #dc2626);
+.detail-grid dt {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.detail-grid dd {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
 }
 
 .audio-preview {

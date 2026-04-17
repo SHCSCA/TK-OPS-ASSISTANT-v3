@@ -4,7 +4,6 @@ import {
   createPublishPlan,
   deletePublishPlan,
   fetchPublishPlans,
-  fetchPublishReceipt,
   runPublishingPrecheck,
   submitPublishPlan,
   updatePublishPlan
@@ -14,32 +13,42 @@ import type {
   PublishPlanCreateInput,
   PublishPlanDto,
   PublishPlanUpdateInput,
-  PublishReceiptDto,
   SubmitPlanResultDto
 } from "@/types/runtime";
+import { resolveCollectionStatus, toRuntimeErrorMessage } from "@/stores/runtime-store-helpers";
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "发布计划操作失败";
+  return toRuntimeErrorMessage(error, "发布计划操作失败，请稍后重试。");
 }
 
 export const usePublishingStore = defineStore("publishing", {
   state: () => ({
     plans: [] as PublishPlanDto[],
-    receiptsByPlanId: {} as Record<string, PublishReceiptDto>,
     precheckResult: null as PrecheckResultDto | null,
     submitResult: null as SubmitPlanResultDto | null,
     loading: false,
+    status: "idle" as "idle" | "loading" | "empty" | "ready" | "error",
+    workflowState: "idle" as "idle" | "checking" | "submitting" | "blocked" | "ready" | "error",
     error: null as string | null
   }),
+  getters: {
+    viewState: (state): "loading" | "empty" | "ready" | "error" => {
+      if (state.status === "loading") return "loading";
+      if (state.status === "error") return "error";
+      return state.plans.length > 0 ? "ready" : "empty";
+    }
+  },
   actions: {
     async loadPlans(status?: string) {
       this.loading = true;
+      this.status = "loading";
       this.error = null;
       try {
         this.plans = await fetchPublishPlans(status);
+        this.status = resolveCollectionStatus(this.plans.length);
       } catch (error) {
+        this.status = "error";
         this.error = getErrorMessage(error);
-        console.error("Failed to load publish plans", error);
       } finally {
         this.loading = false;
       }
@@ -49,10 +58,10 @@ export const usePublishingStore = defineStore("publishing", {
       try {
         const plan = await createPublishPlan(input);
         this.plans.unshift(plan);
+        this.status = "ready";
         return plan;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to create publish plan", error);
         return null;
       }
     },
@@ -61,10 +70,10 @@ export const usePublishingStore = defineStore("publishing", {
       try {
         const plan = await updatePublishPlan(id, input);
         this.plans = this.plans.map((item) => (item.id === id ? plan : item));
+        this.status = "ready";
         return plan;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to update publish plan", error);
         return null;
       }
     },
@@ -73,33 +82,36 @@ export const usePublishingStore = defineStore("publishing", {
       try {
         await deletePublishPlan(id);
         this.plans = this.plans.filter((plan) => plan.id !== id);
-        delete this.receiptsByPlanId[id];
+        this.status = this.plans.length > 0 ? "ready" : "empty";
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to delete publish plan", error);
       }
     },
     async precheck(id: string) {
       this.error = null;
+      this.workflowState = "checking";
       try {
         this.precheckResult = await runPublishingPrecheck(id);
         await this.loadPlans();
+        this.workflowState = this.precheckResult.has_errors ? "blocked" : "ready";
         return this.precheckResult;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to run publishing precheck", error);
+        this.workflowState = "error";
         return null;
       }
     },
     async submit(id: string) {
       this.error = null;
+      this.workflowState = "submitting";
       try {
         this.submitResult = await submitPublishPlan(id);
         await this.loadPlans();
+        this.workflowState = "ready";
         return this.submitResult;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to submit publish plan", error);
+        this.workflowState = "error";
         return null;
       }
     },
@@ -108,22 +120,11 @@ export const usePublishingStore = defineStore("publishing", {
       try {
         const plan = await cancelPublishPlan(id);
         this.plans = this.plans.map((item) => (item.id === id ? plan : item));
+        this.workflowState = "ready";
         return plan;
       } catch (error) {
         this.error = getErrorMessage(error);
-        console.error("Failed to cancel publish plan", error);
-        return null;
-      }
-    },
-    async loadReceipt(id: string) {
-      this.error = null;
-      try {
-        const receipt = await fetchPublishReceipt(id);
-        this.receiptsByPlanId[id] = receipt;
-        return receipt;
-      } catch (error) {
-        this.error = getErrorMessage(error);
-        console.error("Failed to load publish receipt", error);
+        this.workflowState = "error";
         return null;
       }
     }
