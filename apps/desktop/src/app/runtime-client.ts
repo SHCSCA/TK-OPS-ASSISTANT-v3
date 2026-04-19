@@ -79,11 +79,9 @@ import type {
   AccountDto,
   AccountGroupDto,
   AccountCreateInput,
-  ApplyReviewSuggestionResultDto,
   ApplyVideoExtractionResultDto,
   AutomationTaskCreateInput,
   AutomationTaskDto,
-  AutomationTaskRunLogsDto,
   AutomationTaskRunDto,
   AutomationTaskUpdateInput,
   BrowserInstanceCreateInput,
@@ -92,11 +90,9 @@ import type {
   DeviceWorkspaceCreateInput,
   DeviceWorkspaceDto,
   DeviceWorkspaceUpdateInput,
-  ExecutionBindingCreateInput,
   ExecutionBindingDto,
   ExportProfileCreateInput,
   ExportProfileDto,
-  GenerateReviewSuggestionsResultDto,
   HealthCheckResultDto,
   PublishPlanCreateInput,
   PublishPlanDto,
@@ -105,8 +101,6 @@ import type {
   PublishingCalendarDayDto,
   PrecheckResultDto,
   SubmitPlanResultDto,
-  ReviewSuggestion,
-  ReviewSuggestionUpdateInput,
   RenderTaskCreateInput,
   RenderTaskDto,
   RenderTemplateDto,
@@ -855,12 +849,6 @@ export async function refreshAccountStats(id: string): Promise<void> {
   });
 }
 
-export async function runAccountStatusCheck(id: string): Promise<void> {
-  return requestRuntime<void>(`/api/accounts/${id}/status-check`, {
-    method: "POST"
-  });
-}
-
 export async function setAccountBinding(
   accountId: string,
   input: AccountBindingInput
@@ -922,20 +910,6 @@ export async function triggerAutomationTask(id: string): Promise<TriggerTaskResu
 
 export async function fetchAutomationTaskRuns(id: string): Promise<AutomationTaskRunDto[]> {
   return requestRuntime<AutomationTaskRunDto[]>(`/api/automation/tasks/${id}/runs`);
-}
-
-export async function fetchAutomationRun(id: string): Promise<AutomationTaskRunDto> {
-  return requestRuntime<AutomationTaskRunDto>(`/api/automation/runs/${id}`);
-}
-
-export async function cancelAutomationRun(id: string): Promise<AutomationTaskRunDto> {
-  return requestRuntime<AutomationTaskRunDto>(`/api/automation/runs/${id}/cancel`, {
-    method: "POST"
-  });
-}
-
-export async function fetchAutomationRunLogs(id: string): Promise<AutomationTaskRunLogsDto> {
-  return requestRuntime<AutomationTaskRunLogsDto>(`/api/automation/runs/${id}/logs`);
 }
 
 export async function pauseAutomationTask(id: string): Promise<AutomationTaskDto> {
@@ -1041,15 +1015,6 @@ export async function fetchExecutionBindings(
   return requestRuntime<ExecutionBindingDto[]>(
     `/api/devices/bindings${query ? `?${query}` : ""}`
   );
-}
-
-export async function createExecutionBinding(
-  input: ExecutionBindingCreateInput
-): Promise<ExecutionBindingDto> {
-  return requestRuntime<ExecutionBindingDto>("/api/devices/bindings", {
-    body: JSON.stringify(input),
-    method: "POST"
-  });
 }
 
 export async function removeExecutionBinding(id: string): Promise<void> {
@@ -1220,35 +1185,10 @@ export async function updateReviewSummary(
   });
 }
 
-export async function fetchReviewSuggestions(projectId: string): Promise<ReviewSuggestion[]> {
-  return requestRuntime<ReviewSuggestion[]>(`/api/review/projects/${projectId}/suggestions`);
-}
-
-export async function generateReviewSuggestions(
-  projectId: string
-): Promise<GenerateReviewSuggestionsResultDto> {
-  return requestRuntime<GenerateReviewSuggestionsResultDto>(
-    `/api/review/projects/${projectId}/suggestions/generate`,
-    {
-      method: "POST"
-    }
-  );
-}
-
-export async function updateReviewSuggestion(
-  suggestionId: string,
-  input: ReviewSuggestionUpdateInput
-): Promise<ReviewSuggestion> {
-  return requestRuntime<ReviewSuggestion>(`/api/review/suggestions/${suggestionId}`, {
-    body: JSON.stringify(input),
-    method: "PATCH"
-  });
-}
-
 export async function applyReviewSuggestionToScript(
   suggestionId: string
-): Promise<ApplyReviewSuggestionResultDto> {
-  return requestRuntime<ApplyReviewSuggestionResultDto>(
+): Promise<DashboardSummary["recentProjects"][number]> {
+  return requestRuntime<DashboardSummary["recentProjects"][number]>(
     `/api/review/suggestions/${suggestionId}/apply-to-script`,
     {
       method: "POST"

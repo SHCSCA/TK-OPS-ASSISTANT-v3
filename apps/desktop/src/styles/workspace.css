@@ -493,9 +493,4 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .workspace-button,
-  .workspace-icon-button {
-    transition: none;
-  }
-}
+/* Reduced Motion 降级统一由 :root[data-reduced-motion="true"] 的 --motion-* 变量控制 */

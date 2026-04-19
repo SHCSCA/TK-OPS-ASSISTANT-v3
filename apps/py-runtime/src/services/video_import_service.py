@@ -27,7 +27,7 @@ class VideoImportService:
     def import_video(self, *, project_id: str, file_path: str) -> dict[str, object]:
         path = Path(file_path)
         if not path.is_file():
-            raise HTTPException(status_code=400, detail='视频文件不存在。')
+            raise HTTPException(status_code=400, detail="视频文件不存在。")
 
         video_id = generate_uuid()
         saved_video = self._repository.create(
@@ -42,14 +42,14 @@ class VideoImportService:
                 height=None,
                 frame_rate=None,
                 codec=None,
-                status='imported',
+                status="imported",
                 error_message=None,
                 created_at=_utc_now(),
             )
         )
 
         def create_import_task(progress_callback):
-            from tasks.video_tasks import process_video_import_task
+            from runtime_tasks.video_tasks import process_video_import_task
 
             return process_video_import_task(
                 video_id=video_id,
@@ -61,7 +61,7 @@ class VideoImportService:
 
         try:
             self._task_manager.submit(
-                task_type='video_import',
+                task_type="video_import",
                 coro_factory=create_import_task,
                 project_id=project_id,
                 task_id=video_id,
@@ -76,26 +76,26 @@ class VideoImportService:
 
     def delete_video(self, *, video_id: str) -> None:
         if not self._repository.delete(video_id):
-            raise HTTPException(status_code=404, detail='视频记录不存在。')
+            raise HTTPException(status_code=404, detail="视频记录不存在。")
 
 
 def _to_dict(video: ImportedVideo) -> dict[str, object]:
     return {
-        'id': video.id,
-        'projectId': video.project_id,
-        'filePath': video.file_path,
-        'fileName': video.file_name,
-        'fileSizeBytes': video.file_size_bytes,
-        'durationSeconds': video.duration_seconds,
-        'width': video.width,
-        'height': video.height,
-        'frameRate': video.frame_rate,
-        'codec': video.codec,
-        'status': video.status,
-        'errorMessage': video.error_message,
-        'createdAt': video.created_at,
+        "id": video.id,
+        "projectId": video.project_id,
+        "filePath": video.file_path,
+        "fileName": video.file_name,
+        "fileSizeBytes": video.file_size_bytes,
+        "durationSeconds": video.duration_seconds,
+        "width": video.width,
+        "height": video.height,
+        "frameRate": video.frame_rate,
+        "codec": video.codec,
+        "status": video.status,
+        "errorMessage": video.error_message,
+        "createdAt": video.created_at,
     }
 
 
 def _utc_now() -> str:
-    return datetime.now(UTC).isoformat().replace('+00:00', 'Z')
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")

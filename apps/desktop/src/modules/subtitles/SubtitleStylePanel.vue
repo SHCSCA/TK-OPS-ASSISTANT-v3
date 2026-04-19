@@ -184,10 +184,5 @@ select {
   padding: 0 10px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  input,
-  select {
-    transition: none;
-  }
-}
+/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

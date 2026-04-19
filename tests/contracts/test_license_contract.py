@@ -31,7 +31,7 @@ def test_license_activate_contract_returns_expected_shape(
         json={"activationCode": "invalid-code"},
     )
 
-    assert response.status_code in {200, 400}
+    assert response.status_code in {200, 400, 503}
     payload = response.json()
     if payload["ok"] is True:
         assert set(payload) == {"ok", "data"}

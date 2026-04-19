@@ -12,14 +12,15 @@
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.7.0",
+    "@tauri-apps/plugin-shell": "^2.3.5",
     "pinia": "^3.0.3",
-    "vue-router": "^4.5.1",
-    "vue": "^3.5.13"
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.1"
   },
   "devDependencies": {
-    "@vue/test-utils": "^2.4.6",
     "@tauri-apps/cli": "^2.0.0",
     "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/test-utils": "^2.4.6",
     "jsdom": "^26.1.0",
     "typescript": "^5.8.3",
     "vite": "^7.1.5",

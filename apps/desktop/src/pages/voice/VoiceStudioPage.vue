@@ -1,60 +1,66 @@
 <template>
-  <section class="voice-page" data-testid="voice-studio-page">
-    <header class="hero">
-      <div class="hero__copy">
-        <span class="hero__kicker">M07 配音中心</span>
-        <h1>把脚本文本组织成可追溯的配音版本。</h1>
-        <p>
-          当前只保留真实脚本文本、真实 voice profiles 和真实配音版本记录。
-          没有可用 TTS Provider 时，只保存阻断草稿，不会伪造音频成功结果。
-        </p>
-        <div class="hero__meta">
-          <span class="pill pill--brand">{{ currentProjectName }}</span>
-          <span class="pill" :data-state="pageStateTone">{{ pageStateLabel }}</span>
-          <span class="pill">{{ store.paragraphs.length }} 段脚本</span>
-          <span class="pill">{{ store.tracks.length }} 条配音版本</span>
+  <div class="page-container h-full">
+    <header class="page-header">
+      <div class="page-header__crumb">首页 / 创作与媒体</div>
+      <div class="page-header__row">
+        <div>
+          <h1 class="page-header__title">配音中心</h1>
+          <div class="page-header__subtitle">把脚本文本组织成可追溯的配音版本。</div>
         </div>
-      </div>
-
-      <div class="hero__actions">
-        <button
-          class="action-button action-button--primary"
-          data-testid="voice-generate-button"
-          :disabled="generateDisabled"
-          type="button"
-          @click="handleGenerate"
-        >
-          {{ generateButtonLabel }}
-        </button>
-        <button
-          class="action-button action-button--secondary"
-          :disabled="!currentProjectId || store.status === 'loading'"
-          type="button"
-          @click="reloadVoiceStudio"
-        >
-          {{ store.status === "loading" ? "刷新中" : "刷新工作台" }}
-        </button>
+        <div class="page-header__actions">
+          <Button variant="secondary" :disabled="!currentProjectId || store.status === 'loading'" @click="reloadVoiceStudio">
+            <template #leading><span class="material-symbols-outlined">refresh</span></template>
+            {{ store.status === "loading" ? "刷新中..." : "重新读取" }}
+          </Button>
+          <Button variant="ai" :running="store.status === 'generating'" :disabled="generateDisabled" @click="handleGenerate">
+            <template #leading><span class="material-symbols-outlined">auto_awesome</span></template>
+            {{ generateButtonLabel }}
+          </Button>
+        </div>
       </div>
     </header>
 
-    <section class="state-banner" :data-state="pageStateTone">
-      <div class="state-banner__body">
-        <strong>{{ bannerTitle }}</strong>
-        <p>{{ bannerMessage }}</p>
-      </div>
-      <div class="state-banner__tags">
-        <span>脚本：{{ scriptStateLabel }}</span>
-        <span>音色：{{ profileStateLabel }}</span>
-        <span>版本：{{ versionStateLabel }}</span>
-      </div>
-    </section>
-
-    <div v-if="!currentProject" class="guide-panel">
-      <strong>请先选择项目</strong>
-      <span>配音中心必须读取当前项目的脚本文本和版本记录后，才能进入真实工作台。</span>
+    <div v-if="pageStateTone === 'error'" class="dashboard-alert" data-tone="danger">
+      <span class="material-symbols-outlined">error</span>
+      <span>{{ bannerTitle }} - {{ bannerMessage }}</span>
+    </div>
+    <div v-else-if="pageStateTone === 'blocked'" class="dashboard-alert" data-tone="warning">
+      <span class="material-symbols-outlined">warning</span>
+      <span>{{ bannerTitle }} - {{ bannerMessage }}</span>
+    </div>
+    <div v-else-if="pageStateTone === 'loading'" class="dashboard-alert" data-tone="brand">
+      <span class="material-symbols-outlined spinning">sync</span>
+      <span>{{ bannerTitle }} - {{ bannerMessage }}</span>
     </div>
 
-    <main v-else class="voice-workbench">
+    <div class="summary-grid">
+      <Card class="summary-card">
+        <span class="sc-label">当前项目</span>
+        <strong class="sc-val">{{ currentProjectName }}</strong>
+      </Card>
+      <Card class="summary-card">
+        <span class="sc-label">脚本段落</span>
+        <strong class="sc-val">{{ store.paragraphs.length }} 段</strong>
+        <p class="sc-hint">{{ scriptStateLabel }}</p>
+      </Card>
+      <Card class="summary-card">
+        <span class="sc-label">音色状态</span>
+        <strong class="sc-val">{{ profileStateLabel }}</strong>
+      </Card>
+      <Card class="summary-card">
+        <span class="sc-label">配音版本</span>
+        <strong class="sc-val">{{ store.tracks.length }} 条</strong>
+        <p class="sc-hint">{{ versionStateLabel }}</p>
+      </Card>
+    </div>
+
+    <div v-if="!currentProject" class="empty-state">
+      <span class="material-symbols-outlined">mic_off</span>
+      <strong>请先选择项目</strong>
+      <p>配音中心必须读取当前项目的脚本文本和版本记录后，才能进入真实工作台。</p>
+    </div>
+
+    <div v-else class="voice-workspace">
       <VoiceScriptPanel
         :active-index="store.activeParagraphIndex"
         :error-message="store.error?.message ?? null"
@@ -73,7 +79,7 @@
         :status="presentationStatus"
       />
 
-      <aside class="right-rail">
+      <aside class="voice-rail">
         <VoiceProfileRail
           :error-message="store.error?.message ?? null"
           :profiles="store.profiles"
@@ -98,8 +104,8 @@
           @select="store.selectTrack"
         />
       </aside>
-    </main>
-  </section>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -113,12 +119,16 @@ import VoiceVersionPanel from "@/modules/voice/VoiceVersionPanel.vue";
 import { useProjectStore } from "@/stores/project";
 import { useVoiceStudioStore } from "@/stores/voice-studio";
 
+import Button from "@/components/ui/Button/Button.vue";
+import Card from "@/components/ui/Card/Card.vue";
+import Chip from "@/components/ui/Chip/Chip.vue";
+
 const projectStore = useProjectStore();
 const store = useVoiceStudioStore();
 
 const currentProject = computed(() => projectStore.currentProject);
 const currentProjectId = computed(() => currentProject.value?.projectId ?? "");
-const currentProjectName = computed(() => currentProject.value?.projectName ?? "当前项目未就绪");
+const currentProjectName = computed(() => currentProject.value?.projectName ?? "未选择项目");
 const selectedProfile = computed(() => store.selectedProfile);
 const activeParagraph = computed(() => store.paragraphs[store.activeParagraphIndex] ?? null);
 const hasBlockedTrack = computed(() => store.selectedTrack?.status === "blocked");
@@ -134,13 +144,12 @@ const generateDisabled = computed(() => {
   if (store.status === "loading" || store.status === "generating" || store.status === "error") {
     return true;
   }
-
   return !hasScript.value || !hasEnabledProfile.value;
 });
 
 const generateButtonLabel = computed(() => {
   if (!currentProject.value) return "生成入口已锁定";
-  if (store.status === "generating") return "生成中";
+  if (store.status === "generating") return "生成中...";
   if (store.status === "blocked" || hasBlockedTrack.value) return "重新保存阻断草稿";
   if (!hasEnabledProfile.value) return "音色未就绪";
   return "生成配音版本";
@@ -158,14 +167,8 @@ const pageStateTone = computed(() => {
 });
 
 const pageStateLabel = computed(() => {
-  if (!currentProject.value) return "blocked";
-  if (store.status === "loading") return "loading";
-  if (store.status === "generating") return "loading";
-  if (store.status === "error") return "error";
-  if (!hasScript.value) return "empty";
-  if (!hasEnabledProfile.value) return "disabled";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "blocked";
-  return "ready";
+  const map: Record<string, string> = { blocked: "能力阻断", empty: "空态", error: "错误", loading: "加载中", ready: "已就绪", disabled: "不可用" };
+  return map[pageStateTone.value];
 });
 
 const scriptStateLabel = computed(() => {
@@ -193,46 +196,25 @@ const versionStateLabel = computed(() => {
 });
 
 const bannerTitle = computed(() => {
-  if (!currentProject.value) return "配音入口被阻断。";
-  if (store.status === "loading") return "正在读取脚本、音色和配音版本。";
-  if (store.status === "error") return "配音工作台读取失败。";
-  if (!hasScript.value) return "脚本为空，无法生成配音版本。";
-  if (!hasEnabledProfile.value) return "当前没有可用音色，生成入口保持锁定。";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "已保存阻断草稿，但没有生成真实音频。";
-  if (store.status === "generating") return "正在生成配音版本。";
-  return "脚本、音色和版本都已接通。";
+  if (!currentProject.value) return "配音入口被阻断";
+  if (store.status === "loading") return "正在同步上下文";
+  if (store.status === "error") return "配音工作台读取失败";
+  if (!hasScript.value) return "脚本为空";
+  if (!hasEnabledProfile.value) return "音色不可用";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "仅保存阻断草稿";
+  if (store.status === "generating") return "正在生成音频";
+  return "配音服务已就绪";
 });
 
 const bannerMessage = computed(() => {
-  if (!currentProject.value) {
-    return "先选择真实项目，再读取脚本文本和 voice profiles。没有项目上下文时，不创建假音频和假版本。";
-  }
-
-  if (store.status === "loading") {
-    return "脚本、音色和历史版本正在从 Runtime 拉取，当前只显示加载状态。";
-  }
-
-  if (store.status === "error") {
-    return store.error?.message ?? "配音工作台读取失败，请稍后重试。";
-  }
-
-  if (!hasScript.value) {
-    return "脚本文本为空，先在脚本与选题中心写入内容，再继续做配音版本。";
-  }
-
-  if (!hasEnabledProfile.value) {
-    return "当前选中的音色不可用，生成入口会保持禁用，直到有可用 voice profile。";
-  }
-
-  if (store.status === "blocked" || hasBlockedTrack.value) {
-    return store.generationResult?.message ?? "没有可用 TTS Provider，当前只保存阻断草稿，不生成真实音频。";
-  }
-
-  if (store.status === "generating") {
-    return "正在把脚本文本整理成真实配音版本记录。";
-  }
-
-  return "脚本文本、voice profiles 和配音版本记录都来自真实 Runtime 返回值。";
+  if (!currentProject.value) return "先选择真实项目，再读取脚本文本和音色。";
+  if (store.status === "loading") return "脚本、音色和历史版本正在从 Runtime 拉取。";
+  if (store.status === "error") return store.error?.message ?? "配音工作台读取失败，请稍后重试。";
+  if (!hasScript.value) return "脚本文本为空，先在脚本与选题中心写入内容，再继续做配音版本。";
+  if (!hasEnabledProfile.value) return "当前选中的音色不可用，生成入口会保持禁用，直到有可用音色。";
+  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "没有可用 TTS Provider，当前只保存阻断草稿，不生成真实音频。";
+  if (store.status === "generating") return "正在把脚本文本整理成真实配音版本记录。";
+  return "脚本、音色和配音版本记录都来自真实 Runtime 返回值。";
 });
 
 const panelStateMessage = computed(() => {
@@ -241,9 +223,7 @@ const panelStateMessage = computed(() => {
   if (store.status === "error") return store.error?.message ?? "读取失败。";
   if (!hasScript.value) return "脚本文本为空。";
   if (!hasEnabledProfile.value) return "当前没有可用音色，参数面板保持锁定。";
-  if (store.status === "blocked" || hasBlockedTrack.value) {
-    return store.generationResult?.message ?? "TTS Provider 未接通，当前版本为阻断草稿。";
-  }
+  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "TTS Provider 未接通，当前版本为阻断草稿。";
   if (store.status === "generating") return "正在生成配音版本。";
   return "真实音色和版本记录已接通。";
 });
@@ -263,274 +243,220 @@ const parameterLockedReason = computed(() => {
   return "";
 });
 
-watch(
-  () => store.paragraphs.length,
-  (count) => {
-    if (count === 0) {
-      store.activeParagraphIndex = 0;
-    } else if (store.activeParagraphIndex >= count) {
-      store.activeParagraphIndex = 0;
-    }
-  }
-);
-
-onMounted(() => {
-  loadProjectVoice();
+watch(() => store.paragraphs.length, (count) => {
+  if (count === 0) store.activeParagraphIndex = 0;
+  else if (store.activeParagraphIndex >= count) store.activeParagraphIndex = 0;
 });
 
-watch(
-  () => currentProject.value?.projectId,
-  () => {
-    loadProjectVoice();
-  }
-);
+onMounted(() => { loadProjectVoice(); });
+watch(() => currentProject.value?.projectId, () => { loadProjectVoice(); });
 
-async function loadProjectVoice(): Promise<void> {
+async function loadProjectVoice() {
   const projectId = currentProjectId.value;
   if (!projectId) return;
   await store.load(projectId);
 }
 
-async function reloadVoiceStudio(): Promise<void> {
+async function reloadVoiceStudio() {
   if (!currentProjectId.value) return;
   await store.load(currentProjectId.value);
 }
 
-async function handleGenerate(): Promise<void> {
+async function handleGenerate() {
   if (generateDisabled.value) return;
   await store.generate();
 }
 </script>
 
 <style scoped>
-.voice-page {
-  display: grid;
-  gap: 16px;
+.page-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-8) var(--space-8);
+  display: flex;
+  flex-direction: column;
   min-height: 100%;
-  padding: 28px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 8%, transparent), transparent 36%),
-    var(--bg-base);
-  color: var(--text-primary);
 }
 
-.hero {
+.page-header {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-shrink: 0;
+}
+
+.page-header__crumb {
+  font: var(--font-caption);
+  letter-spacing: var(--ls-caption);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+}
+
+.page-header__row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  padding: 24px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: var(--bg-elevated);
+  gap: var(--space-4);
 }
 
-.hero__copy {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
+.page-header__title {
+  font: var(--font-display-md);
+  letter-spacing: var(--ls-display-md);
+  color: var(--color-text-primary);
+  margin: 0 0 4px 0;
 }
 
-.hero__kicker {
-  color: var(--brand-primary);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0;
+.page-header__subtitle {
+  font: var(--font-body-md);
+  letter-spacing: var(--ls-body-md);
+  color: var(--color-text-secondary);
 }
 
-h1,
-h2,
-h3,
-p {
-  margin: 0;
-}
-
-h1 {
-  font-size: 32px;
-  line-height: 1.15;
-}
-
-.hero__copy p,
-.guide-panel span,
-.state-surface p {
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.hero__meta,
-.state-banner__tags {
+.page-header__actions {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dashboard-alert {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-muted);
+  line-height: 1.6;
+  margin-bottom: var(--space-4);
+  font: var(--font-body-sm);
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 10px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  font-size: 12px;
-  white-space: nowrap;
+.dashboard-alert[data-tone="danger"] {
+  border-color: rgba(255, 90, 99, 0.20);
+  background: rgba(255, 90, 99, 0.08);
+  color: var(--color-danger);
 }
 
-.pill--brand {
-  border-color: color-mix(in srgb, var(--brand-primary) 36%, transparent);
-  background: color-mix(in srgb, var(--brand-primary) 10%, var(--bg-card));
-  color: var(--brand-primary);
+.dashboard-alert[data-tone="warning"] {
+  border-color: rgba(245, 183, 64, 0.20);
+  background: rgba(245, 183, 64, 0.08);
+  color: var(--color-warning);
 }
 
-.pill[data-state="loading"] {
-  border-color: color-mix(in srgb, var(--info) 28%, transparent);
-  background: color-mix(in srgb, var(--info) 12%, var(--bg-card));
-  color: var(--info);
+.dashboard-alert[data-tone="brand"] {
+  border-color: rgba(0, 188, 212, 0.20);
+  background: rgba(0, 188, 212, 0.08);
+  color: var(--color-brand-primary);
 }
 
-.pill[data-state="blocked"] {
-  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
-  background: color-mix(in srgb, var(--warning) 10%, var(--bg-card));
-  color: var(--warning);
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-shrink: 0;
 }
 
-.pill[data-state="error"] {
-  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
-  background: color-mix(in srgb, var(--danger) 10%, var(--bg-card));
-  color: var(--danger);
-}
-
-.pill[data-state="disabled"] {
-  border-color: var(--border-default);
-  background: var(--bg-card);
-  color: var(--text-tertiary);
-}
-
-.hero__actions {
+.summary-card {
+  padding: var(--space-4);
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.action-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0 16px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  transition:
-    transform 160ms ease,
-    opacity 160ms ease,
-    border-color 160ms ease,
-    background-color 160ms ease;
-}
-
-.action-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.action-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.action-button--primary {
-  background: var(--brand-primary);
-  color: #041414;
-}
-
-.action-button--secondary {
-  border-color: var(--border-default);
-  background: var(--bg-card);
-  color: var(--text-primary);
-}
-
-.state-banner {
-  display: grid;
-  gap: 12px;
-  padding: 16px 18px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: var(--bg-elevated);
-}
-
-.state-banner[data-state="blocked"] {
-  border-color: color-mix(in srgb, var(--warning) 32%, transparent);
-}
-
-.state-banner[data-state="error"] {
-  border-color: color-mix(in srgb, var(--danger) 32%, transparent);
-}
-
-.state-banner[data-state="loading"] {
-  border-color: color-mix(in srgb, var(--info) 26%, transparent);
-}
-
-.state-banner[data-state="disabled"] {
-  border-color: color-mix(in srgb, var(--text-tertiary) 32%, transparent);
-}
-
-.state-banner__body {
-  display: grid;
+  flex-direction: column;
   gap: 4px;
 }
 
-.state-banner__body strong {
-  font-size: 16px;
+.sc-label {
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
 }
 
-.guide-panel {
+.sc-val {
+  font: var(--font-title-md);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-hint {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-6);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-canvas);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.empty-state .material-symbols-outlined {
+  font-size: 32px;
+  color: var(--color-text-tertiary);
+}
+
+.empty-state strong {
+  font: var(--font-title-md);
+  color: var(--color-text-primary);
+}
+
+.empty-state p {
+  margin: 0;
+  font: var(--font-body-md);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+.voice-workspace {
   display: grid;
-  gap: 8px;
-  padding: 20px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: var(--bg-elevated);
-}
-
-.guide-panel strong {
-  font-size: 16px;
-}
-
-.voice-workbench {
-  display: grid;
-  grid-template-columns: minmax(260px, 0.9fr) minmax(420px, 1.3fr) minmax(280px, 0.8fr);
-  gap: 16px;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(420px, 1.35fr) minmax(280px, 0.8fr);
+  gap: var(--space-4);
+  flex: 1;
   min-height: 0;
 }
 
-.right-rail {
+.voice-rail {
   display: grid;
   align-content: start;
-  gap: 12px;
+  gap: var(--space-4);
   min-height: 0;
+  overflow-y: auto;
 }
 
-@media (max-width: 1160px) {
-  .voice-page {
-    padding: 20px;
+@media (max-width: 1200px) {
+  .voice-workspace {
+    grid-template-columns: minmax(240px, 1fr) minmax(360px, 1fr);
   }
-
-  .hero {
-    flex-direction: column;
-  }
-
-  .voice-workbench {
-    grid-template-columns: minmax(0, 1fr);
+  .voice-rail {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr;
   }
 }
 
-@media (max-width: 760px) {
-  h1 {
-    font-size: 28px;
+@media (max-width: 860px) {
+  .voice-workspace {
+    grid-template-columns: 1fr;
+  }
+  .voice-rail {
+    grid-template-columns: 1fr;
+  }
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 </style>

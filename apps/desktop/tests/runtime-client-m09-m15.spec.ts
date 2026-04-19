@@ -33,6 +33,7 @@ import {
   submitPublishPlan,
   triggerAutomationTask,
   analyzeReviewProject,
+  applyReviewSuggestionToScript,
   updateAutomationTask,
   updateAsset,
   updateDeviceWorkspace,
@@ -103,6 +104,7 @@ describe("M09-M15 Runtime client 契约", () => {
     await deleteRenderTask("render-1");
     await fetchReviewSummary("project-1");
     await analyzeReviewProject("project-1");
+    await applyReviewSuggestionToScript("suggestion-1");
     await updateReviewSummary("project-1", { completion_rate: 0 });
 
     expect(deletedAsset).toEqual({ deleted: true });
@@ -179,6 +181,11 @@ describe("M09-M15 Runtime client 契约", () => {
       { path: "/api/review/projects/project-1/summary", method: "GET", body: undefined },
       { path: "/api/review/projects/project-1/analyze", method: "POST", body: undefined },
       {
+        path: "/api/review/suggestions/suggestion-1/apply-to-script",
+        method: "POST",
+        body: undefined
+      },
+      {
         path: "/api/review/projects/project-1/summary",
         method: "PATCH",
         body: { completion_rate: 0 }
@@ -223,6 +230,7 @@ function sampleResponseFor(path: string, method: string): unknown {
   if (path.endsWith("/cancel") && path.startsWith("/api/renders")) return { task_id: "render-1", status: "cancelled", message: "渲染任务已取消" };
   if (path.startsWith("/api/renders/tasks")) return path.includes("?") ? [renderTask()] : renderTask();
   if (path.endsWith("/analyze")) return { project_id: "project-1", status: "done", message: "复盘分析已完成", analyzed_at: now() };
+  if (path.endsWith("/apply-to-script")) return projectSummary();
   if (path.startsWith("/api/review")) return reviewSummary();
   return {};
 }
@@ -257,6 +265,20 @@ function automationTask() {
 
 function automationRun() {
   return { id: "run-1", task_id: "auto-1", status: "running", started_at: now(), finished_at: null, log_text: null, created_at: now() };
+}
+
+function projectSummary() {
+  return {
+    id: "project-child-1",
+    name: "project-child-1",
+    description: "adopted review suggestion result",
+    status: "draft",
+    currentScriptVersion: 1,
+    currentStoryboardVersion: 1,
+    createdAt: "2026-04-17T12:00:00Z",
+    updatedAt: "2026-04-17T12:00:00Z",
+    lastAccessedAt: "2026-04-17T12:00:00Z"
+  };
 }
 
 function publishPlan(status = "draft") {

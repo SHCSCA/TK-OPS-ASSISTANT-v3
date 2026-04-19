@@ -86,12 +86,14 @@ function getPreferredTheme(): ShellTheme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
+/**
+ * 创作类产品默认启用动效。
+ * Windows "最佳性能" 会让 prefers-reduced-motion: reduce 为 true，
+ * 但这不代表用户希望创作工具也禁用动画。
+ * 仅当用户在 TK-OPS 设置中主动切换时才禁用。
+ */
 function getDefaultReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-    return false;
-  }
-
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return false;
 }
 
 function createEmptyDetailContext(mode: DetailContextMode = "contextual"): DetailContext {

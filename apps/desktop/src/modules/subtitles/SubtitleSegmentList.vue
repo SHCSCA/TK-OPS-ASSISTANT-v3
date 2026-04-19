@@ -296,15 +296,5 @@ textarea:focus {
   transform: translateY(6px);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .segment-item,
-  .subtitle-list-enter-active,
-  .subtitle-list-leave-active {
-    transition: none;
-  }
-
-  .segment-item:hover {
-    transform: none;
-  }
-}
+/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

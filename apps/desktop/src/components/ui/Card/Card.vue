@@ -1,18 +1,29 @@
 <template>
-  <section class="ui-card" :class="[`ui-card--${variant}`, { 'is-interactive': interactive }]" v-bind="$attrs">
+  <component
+    :is="as"
+    class="ui-card"
+    :data-interactive="String(interactive)"
+    :data-selected="String(selected)"
+    :class="{ 'is-padded': padded }"
+    v-bind="$attrs"
+  >
     <slot />
-  </section>
+  </component>
 </template>
 
 <script setup lang="ts">
 withDefaults(
   defineProps<{
+    as?: string;
     interactive?: boolean;
-    variant?: "default" | "muted" | "selected";
+    padded?: boolean;
+    selected?: boolean;
   }>(),
   {
+    as: "div",
     interactive: false,
-    variant: "default"
+    padded: true,
+    selected: false
   }
 );
 </script>
@@ -21,37 +32,46 @@ withDefaults(
 .ui-card {
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  position: relative;
   transition:
     transform var(--motion-fast) var(--ease-spring),
     box-shadow var(--motion-fast) var(--ease-spring),
-    border-color var(--motion-fast) var(--ease-standard),
-    background-color var(--motion-fast) var(--ease-standard);
+    border-color var(--motion-fast) var(--ease-standard);
+  will-change: transform;
 }
 
-.ui-card--muted {
-  background: var(--color-bg-muted);
-  box-shadow: none;
+.ui-card.is-padded {
+  padding: var(--space-6);
 }
 
-.ui-card--selected {
-  border-color: color-mix(in srgb, var(--color-brand-primary) 42%, var(--color-border-default));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-brand-primary) 12%, transparent), var(--shadow-sm);
-}
-
-.is-interactive {
+/* Hover（可交互卡片才启用） */
+.ui-card[data-interactive="true"] {
   cursor: pointer;
 }
 
-.is-interactive:hover {
+.ui-card[data-interactive="true"]:hover {
   border-color: var(--color-border-default);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
 }
 
-.is-interactive:active {
+/* Active */
+.ui-card[data-interactive="true"]:active {
   transform: translateY(0);
+  transition-duration: var(--motion-instant);
+}
+
+/* Selected */
+.ui-card[data-selected="true"] {
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 1px var(--color-brand-primary), var(--shadow-md);
+  z-index: 1; /* Lift selected cards above siblings if in a grid */
+}
+
+/* Ensure focus-visible is distinct for accessibility */
+.ui-card[data-interactive="true"]:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
 }
 </style>

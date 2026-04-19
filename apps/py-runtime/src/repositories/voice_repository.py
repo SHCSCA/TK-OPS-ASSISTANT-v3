@@ -35,6 +35,32 @@ class VoiceRepository:
                 session.expunge(track)
             return track
 
+    def update_track(
+        self,
+        track_id: str,
+        *,
+        file_path: str | None = None,
+        status: str | None = None,
+        provider: str | None = None,
+        segments_json: str | None = None,
+    ) -> VoiceTrack | None:
+        with self._session_factory() as session:
+            track = session.get(VoiceTrack, track_id)
+            if track is None:
+                return None
+            if file_path is not None:
+                track.file_path = file_path
+            if status is not None:
+                track.status = status
+            if provider is not None:
+                track.provider = provider
+            if segments_json is not None:
+                track.segments_json = segments_json
+            session.commit()
+            session.refresh(track)
+            session.expunge(track)
+            return track
+
     def delete_track(self, track_id: str) -> bool:
         with self._session_factory() as session:
             track = session.get(VoiceTrack, track_id)

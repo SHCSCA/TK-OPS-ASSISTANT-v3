@@ -1,38 +1,42 @@
+/* apps/desktop/src/styles/tokens/colors.css */
+
 :root,
 :root[data-theme="light"] {
-  --color-bg-canvas: #f7f8fa;
-  --color-bg-surface: #ffffff;
-  --color-bg-elevated: #ffffff;
-  --color-bg-overlay: rgba(15, 18, 28, 0.48);
-  --color-bg-muted: #f0f2f5;
-  --color-bg-hover: rgba(15, 18, 28, 0.04);
-  --color-bg-active: rgba(0, 151, 167, 0.08);
-  --color-border-subtle: rgba(15, 18, 28, 0.06);
-  --color-border-default: rgba(15, 18, 28, 0.1);
-  --color-border-strong: rgba(15, 18, 28, 0.16);
-  --color-text-primary: #0b0d14;
-  --color-text-secondary: #4a5166;
-  --color-text-tertiary: #7d8497;
-  --color-text-on-brand: #ffffff;
-  --color-text-inverse: #ffffff;
-  --color-brand-primary: #0097a7;
-  --color-brand-primary-hover: #00acc1;
-  --color-brand-primary-active: #00838f;
-  --color-brand-glow: rgba(0, 151, 167, 0.22);
-  --color-brand-secondary: #5e17eb;
-  --color-success: #12a670;
-  --color-warning: #d98e00;
-  --color-danger: #d63b45;
-  --color-info: #2e63eb;
-  --gradient-ai-primary: linear-gradient(135deg, #0097a7 0%, #5e17eb 100%);
-  --gradient-ai-subtle: linear-gradient(135deg, rgba(0, 151, 167, 0.06) 0%, rgba(94, 23, 235, 0.06) 100%);
-  --gradient-aurora: conic-gradient(from 180deg at 50% 50%, #0097a7 0deg, #5e17eb 120deg, #f7f8fa 240deg, #0097a7 360deg);
-  --gradient-status-bar: linear-gradient(90deg, rgba(0, 151, 167, 0.03) 0%, transparent 50%, rgba(94, 23, 235, 0.03) 100%);
-  --shadow-sm: 0 1px 2px 0 rgba(15, 18, 28, 0.04), 0 1px 1px 0 rgba(15, 18, 28, 0.06);
-  --shadow-md: 0 4px 8px -2px rgba(15, 18, 28, 0.06), 0 2px 4px -2px rgba(15, 18, 28, 0.04);
-  --shadow-lg: 0 12px 24px -6px rgba(15, 18, 28, 0.1), 0 4px 8px -4px rgba(15, 18, 28, 0.06);
-  --shadow-glow-brand: 0 0 16px 0 rgba(0, 151, 167, 0.24);
-  --shadow-glow-ai: 0 0 16px 0 rgba(94, 23, 235, 0.18);
+  /* 2.1.1 基础色板 (Neutral) */
+  --color-bg-canvas: #F7F8FA;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-overlay: rgba(15,18,28,0.48);
+  --color-bg-muted: #F0F2F5;
+  --color-bg-hover: rgba(15,18,28,0.04);
+  --color-bg-active: rgba(0,151,167,0.08);
+  --color-border-subtle: rgba(15,18,28,0.06);
+  --color-border-default: rgba(15,18,28,0.10);
+  --color-border-strong: rgba(15,18,28,0.16);
+
+  /* 2.1.2 文字色 */
+  --color-text-primary: #0B0D14;
+  --color-text-secondary: #4A5166;
+  --color-text-tertiary: #7D8497;
+  --color-text-on-brand: #FFFFFF;
+  --color-text-inverse: #FFFFFF;
+
+  /* 2.1.3 品牌与状态色 */
+  --color-brand-primary: #0097A7;
+  --color-brand-primary-hover: #00ACC1;
+  --color-brand-primary-active: #00838F;
+  --color-brand-glow: rgba(0,151,167,0.22);
+  --color-brand-secondary: #5E17EB;
+  --color-success: #12A670;
+  --color-warning: #D98E00;
+  --color-danger: #D63B45;
+  --color-info: #2E63EB;
+
+  /* 2.1.4 语义渐变 */
+  --gradient-ai-primary: linear-gradient(135deg, #0097A7 0%, #5E17EB 100%);
+  --gradient-ai-subtle: linear-gradient(135deg, rgba(0,151,167,0.06) 0%, rgba(94,23,235,0.06) 100%);
+  --gradient-aurora: conic-gradient(from 180deg at 50% 50%, #0097A7 0deg, #5E17EB 120deg, #F7F8FA 240deg, #0097A7 360deg);
+  --gradient-status-bar: linear-gradient(90deg, rgba(0,151,167,0.03) 0%, transparent 50%, rgba(94,23,235,0.03) 100%);
 
   /* 兼容旧变量 */
   --surface-primary: var(--color-bg-canvas);
@@ -57,40 +61,43 @@
 }
 
 :root[data-theme="dark"] {
-  --color-bg-canvas: #0a0b0f;
-  --color-bg-surface: #12141a;
-  --color-bg-elevated: #1a1d26;
-  --color-bg-overlay: rgba(10, 11, 15, 0.72);
-  --color-bg-muted: #16181f;
-  --color-bg-hover: rgba(255, 255, 255, 0.04);
-  --color-bg-active: rgba(0, 188, 212, 0.1);
-  --color-border-subtle: rgba(255, 255, 255, 0.06);
-  --color-border-default: rgba(255, 255, 255, 0.1);
-  --color-border-strong: rgba(255, 255, 255, 0.18);
-  --color-text-primary: #edeff5;
-  --color-text-secondary: #a8adba;
-  --color-text-tertiary: #6b7183;
-  --color-text-on-brand: #ffffff;
-  --color-text-inverse: #0b0d14;
-  --color-brand-primary: #00bcd4;
-  --color-brand-primary-hover: #26d0e0;
-  --color-brand-primary-active: #00a5bc;
-  --color-brand-glow: rgba(0, 188, 212, 0.38);
-  --color-brand-secondary: #7000ff;
-  --color-success: #22d39a;
-  --color-warning: #f5b740;
-  --color-danger: #ff5a63;
-  --color-info: #5b8cff;
-  --gradient-ai-primary: linear-gradient(135deg, #00bcd4 0%, #7000ff 100%);
-  --gradient-ai-subtle: linear-gradient(135deg, rgba(0, 188, 212, 0.12) 0%, rgba(112, 0, 255, 0.12) 100%);
-  --gradient-aurora: conic-gradient(from 180deg at 50% 50%, #00bcd4 0deg, #7000ff 120deg, #0b0d14 240deg, #00bcd4 360deg);
-  --gradient-status-bar: linear-gradient(90deg, rgba(0, 188, 212, 0.04) 0%, transparent 50%, rgba(112, 0, 255, 0.04) 100%);
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px 0 rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 12px 32px 0 rgba(0, 0, 0, 0.6);
-  --shadow-glow-brand: 0 0 24px 0 rgba(0, 188, 212, 0.32);
-  --shadow-glow-ai: 0 0 32px 0 rgba(112, 0, 255, 0.28);
+  /* 2.1.1 基础色板 (Neutral) */
+  --color-bg-canvas: #0A0B0F;
+  --color-bg-surface: #12141A;
+  --color-bg-elevated: #1A1D26;
+  --color-bg-overlay: rgba(10,11,15,0.72);
+  --color-bg-muted: #16181F;
+  --color-bg-hover: rgba(255,255,255,0.04);
+  --color-bg-active: rgba(0,188,212,0.10);
+  --color-border-subtle: rgba(255,255,255,0.06);
+  --color-border-default: rgba(255,255,255,0.10);
+  --color-border-strong: rgba(255,255,255,0.18);
 
+  /* 2.1.2 文字色 */
+  --color-text-primary: #EDEFF5;
+  --color-text-secondary: #A8ADBA;
+  --color-text-tertiary: #6B7183;
+  --color-text-on-brand: #FFFFFF;
+  --color-text-inverse: #0B0D14;
+
+  /* 2.1.3 品牌与状态色 */
+  --color-brand-primary: #00BCD4;
+  --color-brand-primary-hover: #26D0E0;
+  --color-brand-primary-active: #00A5BC;
+  --color-brand-glow: rgba(0,188,212,0.38);
+  --color-brand-secondary: #7000FF;
+  --color-success: #22D39A;
+  --color-warning: #F5B740;
+  --color-danger: #FF5A63;
+  --color-info: #5B8CFF;
+
+  /* 2.1.4 语义渐变 */
+  --gradient-ai-primary: linear-gradient(135deg, #00BCD4 0%, #7000FF 100%);
+  --gradient-ai-subtle: linear-gradient(135deg, rgba(0,188,212,0.12) 0%, rgba(112,0,255,0.12) 100%);
+  --gradient-aurora: conic-gradient(from 180deg at 50% 50%, #00BCD4 0deg, #7000FF 120deg, #0B0D14 240deg, #00BCD4 360deg);
+  --gradient-status-bar: linear-gradient(90deg, rgba(0,188,212,0.04) 0%, transparent 50%, rgba(112,0,255,0.04) 100%);
+
+  /* 兼容旧变量 */
   --surface-primary: var(--color-bg-canvas);
   --surface-secondary: var(--color-bg-surface);
   --surface-tertiary: var(--color-bg-muted);

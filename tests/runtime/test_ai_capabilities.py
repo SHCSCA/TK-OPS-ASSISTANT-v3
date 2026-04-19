@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
@@ -31,6 +31,29 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
     assert 'apiKey' not in providers['openai']
 
 
+def test_provider_runtime_config_exposes_protocol_family_and_tts_flags(runtime_app) -> None:
+    service = runtime_app.state.ai_capability_service
+
+    openai_runtime = service.get_provider_runtime_config('openai')
+    openai_compatible_runtime = service.get_provider_runtime_config('openai_compatible')
+    anthropic_runtime = service.get_provider_runtime_config('anthropic')
+    gemini_runtime = service.get_provider_runtime_config('gemini')
+    cohere_runtime = service.get_provider_runtime_config('cohere')
+    ollama_runtime = service.get_provider_runtime_config('ollama')
+
+    assert openai_runtime.protocol_family == 'openai_responses'
+    assert openai_runtime.supports_tts is True
+    assert openai_runtime.requires_secret is True
+    assert openai_compatible_runtime.protocol_family == 'openai_chat'
+    assert openai_compatible_runtime.supports_tts is False
+    assert openai_compatible_runtime.requires_secret is True
+    assert anthropic_runtime.protocol_family == 'anthropic_messages'
+    assert gemini_runtime.protocol_family == 'gemini_generate'
+    assert cohere_runtime.protocol_family == 'cohere_chat'
+    assert ollama_runtime.protocol_family == 'openai_chat'
+    assert ollama_runtime.requires_secret is False
+
+
 def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
     client = TestClient(runtime_app)
 
@@ -45,7 +68,7 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                     'model': 'gpt-5',
                     'agentRole': 'Senior TikTok script strategist',
                     'systemPrompt': 'Write high-retention short video scripts.',
-                    'userPromptTemplate': 'Topic: {{topic}}'
+                    'userPromptTemplate': 'Topic: {{topic}}',
                 },
                 {
                     'capabilityId': 'script_rewrite',
@@ -54,7 +77,7 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                     'model': 'gpt-5-mini',
                     'agentRole': 'Script revision editor',
                     'systemPrompt': 'Improve pacing and hooks.',
-                    'userPromptTemplate': 'Rewrite: {{script}}'
+                    'userPromptTemplate': 'Rewrite: {{script}}',
                 },
                 {
                     'capabilityId': 'storyboard_generation',
@@ -63,7 +86,7 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                     'model': 'gpt-5-mini',
                     'agentRole': 'Storyboard planner',
                     'systemPrompt': 'Turn scripts into shot plans.',
-                    'userPromptTemplate': 'Storyboard: {{script}}'
+                    'userPromptTemplate': 'Storyboard: {{script}}',
                 },
                 {
                     'capabilityId': 'tts_generation',
@@ -72,7 +95,7 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                     'model': 'gpt-5-mini',
                     'agentRole': 'Voice designer',
                     'systemPrompt': 'Prepare TTS settings.',
-                    'userPromptTemplate': 'Voice: {{script}}'
+                    'userPromptTemplate': 'Voice: {{script}}',
                 },
                 {
                     'capabilityId': 'subtitle_alignment',
@@ -81,7 +104,7 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                     'model': 'gpt-5-mini',
                     'agentRole': 'Subtitle aligner',
                     'systemPrompt': 'Align subtitles.',
-                    'userPromptTemplate': 'Subtitle: {{script}}'
+                    'userPromptTemplate': 'Subtitle: {{script}}',
                 },
                 {
                     'capabilityId': 'video_generation',
@@ -90,7 +113,7 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                     'model': 'custom-video',
                     'agentRole': 'Video generator',
                     'systemPrompt': 'Prepare shots.',
-                    'userPromptTemplate': 'Video: {{storyboard}}'
+                    'userPromptTemplate': 'Video: {{storyboard}}',
                 },
                 {
                     'capabilityId': 'asset_analysis',
@@ -99,8 +122,8 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                     'model': 'gemini-2.5-pro',
                     'agentRole': 'Asset analyst',
                     'systemPrompt': 'Analyze assets.',
-                    'userPromptTemplate': 'Assets: {{assets}}'
-                }
+                    'userPromptTemplate': 'Assets: {{assets}}',
+                },
             ]
         },
     )
@@ -217,6 +240,83 @@ def test_ai_provider_health_check_uses_selected_model_and_real_probe(
     assert payload['model'] == 'gpt-5.4'
     assert payload['checkedAt']
     assert payload['latencyMs'] == 321
+
+
+def test_service_layer_400_errors_keep_structured_error_codes_in_envelope(
+    runtime_app,
+) -> None:
+    client = TestClient(runtime_app)
+
+    def _load_capabilities() -> list[dict[str, object]]:
+        response = client.get('/api/settings/ai-capabilities')
+        assert response.status_code == 200
+        return list(response.json()['data']['capabilities'])
+
+    def _save_capabilities(items: list[dict[str, object]]) -> None:
+        response = client.put('/api/settings/ai-capabilities', json={'capabilities': items})
+        assert response.status_code == 200
+
+    def _create_project() -> str:
+        response = client.post(
+            '/api/dashboard/projects',
+            json={'name': 'AI 错误码项目', 'description': 'error codes'},
+        )
+        assert response.status_code == 200
+        return response.json()['data']['id']
+
+    def _generate(project_id: str):
+        return client.post(f'/api/scripts/projects/{project_id}/generate', json={'topic': 'TK-OPS'})
+
+    capabilities = _load_capabilities()
+    for item in capabilities:
+        if item['capabilityId'] == 'script_generation':
+            item['enabled'] = False
+    _save_capabilities(capabilities)
+    response = _generate(_create_project())
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload['ok'] is False
+    assert payload['error_code'] == 'ai_capability_disabled'
+
+    capabilities = _load_capabilities()
+    for item in capabilities:
+        if item['capabilityId'] == 'script_generation':
+            item['enabled'] = True
+            item['provider'] = 'openai'
+            item['model'] = 'gpt-5'
+    _save_capabilities(capabilities)
+    response = _generate(_create_project())
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload['error_code'] == 'ai_provider_not_configured'
+
+    client.put(
+        '/api/settings/ai-capabilities/providers/openai_compatible/secret',
+        json={'apiKey': 'sk-test-openai-compatible'},
+    )
+    capabilities = _load_capabilities()
+    for item in capabilities:
+        if item['capabilityId'] == 'script_generation':
+            item['enabled'] = True
+            item['provider'] = 'openai_compatible'
+            item['model'] = 'custom-compatible-model'
+    _save_capabilities(capabilities)
+    response = _generate(_create_project())
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload['error_code'] == 'ai_provider_base_url_missing'
+
+    capabilities = _load_capabilities()
+    for item in capabilities:
+        if item['capabilityId'] == 'script_generation':
+            item['enabled'] = True
+            item['provider'] = 'video_generation_provider'
+            item['model'] = 'video-default'
+    _save_capabilities(capabilities)
+    response = _generate(_create_project())
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload['error_code'] == 'ai_provider_unsupported'
 
 
 def test_ai_capability_support_matrix_limits_models_by_capability(

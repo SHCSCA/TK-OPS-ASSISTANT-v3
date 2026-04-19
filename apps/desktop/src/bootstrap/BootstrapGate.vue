@@ -58,7 +58,7 @@ watch(
       return;
     }
 
-    if (route.name === routeIds.setupLicenseWizard) {
+    if (route.name === routeIds.setupLicenseWizard && !route.query.preview) {
       await router.replace(resolveRedirectTarget(route.query.redirect));
     }
   }

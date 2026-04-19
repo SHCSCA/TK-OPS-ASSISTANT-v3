@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.4 - 2026-04-19
+
+### Runtime 契约与设置收口
+
+- 补齐 `review / workspace / subtitles / video-deconstruction / voice` 的后端契约差口，并同步更新前端运行时调用类型。
+- 新增 AI Provider 文本适配层与 OpenAI TTS 适配实现，补上能力配置、健康检查、错误信封与相关契约测试。
+- 修正授权激活、Runtime 自检、视频拆解阶段阻塞、配音波形摘要和字幕本地生成的真实返回路径。
+
+### 文档同步
+
+- 更新 `docs/RUNTIME-API-CALLS.md`，使接口地址、错误码、返回示例和当前代码保持一致。
+- 根真源版本提升到 `0.3.4`，桌面壳与 Python Runtime 镜像版本继续通过同步脚本维护。
+
 ## 0.3.3 - 2026-04-17
 
 ### Main 分支收口
@@ -15,7 +28,7 @@
 ### 文档与版本统一
 
 - 将根 `README.md`、`apps/desktop/README.md`、`docs/PROJECT-STATUS.md`、`docs/RUNTIME-API-CALLS.md` 统一到合并后的最新状态口径。
-- 根版本真源升级到 `0.3.3`，镜像版本通过同步脚本维护。
+- 根真源已提升到当轮发布号，镜像清单继续通过同步脚本维护。
 
 ## 0.3.2 - 2026-04-16
 

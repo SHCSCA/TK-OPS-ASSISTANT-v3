@@ -110,7 +110,7 @@ def test_unhandled_runtime_errors_are_wrapped_with_request_id(
     assert response.status_code == 500
     payload = response.json()
     assert payload["ok"] is False
-    assert payload["error"] == "Internal server error"
+    assert payload["error"] == "系统内部错误，请稍后重试"
     assert payload["requestId"]
     assert "details" not in payload
 

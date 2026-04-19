@@ -1,100 +1,68 @@
 <template>
   <div class="shell-title-bar" data-tauri-drag-region>
+    
+    <!-- 左侧区 -->
     <div class="shell-title-bar__left" data-tauri-drag-region>
-      <button
-        aria-label="切换侧边栏"
-        class="shell-title-bar__icon-button"
-        type="button"
-        @click="emit('toggle-sidebar')"
-      >
-        <span class="material-symbols-outlined">{{ isCollapsed ? "menu_open" : "menu" }}</span>
-      </button>
-
       <div class="shell-brand" data-tauri-drag-region>
-        <div class="shell-brand__mark" data-tauri-drag-region>TK</div>
-        <div class="shell-brand__copy" data-tauri-drag-region>
-          <strong data-tauri-drag-region>TK-OPS</strong>
-          <span data-tauri-drag-region>本地 AI 视频创作中枢</span>
-        </div>
+        <div class="shell-brand__logo" data-tauri-drag-region></div>
+        <span class="shell-brand__name" data-tauri-drag-region>TK-OPS</span>
       </div>
-
-      <div class="shell-title-bar__project" data-tauri-drag-region>
-        <span class="shell-title-bar__project-label" data-tauri-drag-region>{{ pageTitle }}</span>
-        <strong data-tauri-drag-region>{{ projectLabel }}</strong>
+      
+      <div class="shell-divider" data-tauri-drag-region>|</div>
+      
+      <div class="shell-project" data-tauri-drag-region>
+        <span class="shell-project__name" :title="projectLabel" data-tauri-drag-region>
+          {{ projectLabel }}
+        </span>
       </div>
     </div>
 
-    <div class="shell-title-bar__search">
-      <Input v-model="searchKeyword" placeholder="搜索项目 / 脚本 / 任务 / 资产">
-        <template #leading>
-          <span class="material-symbols-outlined">search</span>
-        </template>
-        <template #trailing>
-          <kbd class="shell-title-bar__shortcut">Cmd+K</kbd>
-        </template>
-      </Input>
+    <!-- 中间区 -->
+    <div class="shell-title-bar__center" data-tauri-drag-region>
+      <div class="shell-search">
+        <span class="material-symbols-outlined shell-search__icon">search</span>
+        <input class="shell-search__input" type="text" placeholder="搜索项目 / 脚本 / 任务 / 资产" />
+        <kbd class="shell-search__shortcut">Cmd+K</kbd>
+      </div>
     </div>
 
-    <div class="shell-title-bar__actions">
-      <Chip :tone="runtimeChipTone" size="sm">
-        <template #leading>
-          <span class="material-symbols-outlined">memory</span>
-        </template>
-        {{ runtimeLabel }}
-      </Chip>
+    <!-- 右侧区 -->
+    <div class="shell-title-bar__right" data-tauri-drag-region>
+      <div class="shell-status-item">
+        <span class="status-dot status-dot--brand"></span>
+        <span class="status-text">{{ aiProviderLabel }}</span>
+      </div>
+      
+      <div class="shell-status-item">
+        <span class="status-dot" :class="`status-dot--${runtimeStatusTone}`"></span>
+        <span class="status-text">{{ runtimeLabel }}</span>
+      </div>
 
-      <Chip :tone="licenseChipTone" size="sm">
-        <template #leading>
-          <span class="material-symbols-outlined">verified</span>
-        </template>
+      <Chip :variant="licenseChipTone" size="sm" class="shell-license-chip">
         {{ licenseLabel }}
       </Chip>
 
-      <Chip tone="neutral" size="sm">
-        <template #leading>
-          <span class="material-symbols-outlined">auto_awesome</span>
-        </template>
-        {{ aiProviderLabel }}
-      </Chip>
+      <div class="shell-actions">
+        <button 
+          class="icon-button" 
+          :title="theme === 'dark' ? '切换浅色主题' : '切换深色主题'" 
+          @click="emit('toggle-theme')"
+        >
+          <span class="material-symbols-outlined">{{ theme === 'dark' ? 'light_mode' : 'dark_mode' }}</span>
+        </button>
+        <button class="icon-button" title="系统设置">
+          <span class="material-symbols-outlined">settings</span>
+        </button>
+      </div>
 
-      <button
-        :aria-pressed="detailOpen"
-        aria-label="切换详情面板"
-        class="shell-title-bar__icon-button"
-        title="切换属性面板"
-        type="button"
-        @click="emit('toggle-detail')"
-      >
-        <span class="material-symbols-outlined">right_panel_open</span>
-      </button>
-
-      <button
-        :aria-pressed="reducedMotion"
-        aria-label="切换减弱动效"
-        class="shell-title-bar__icon-button"
-        type="button"
-        @click="emit('toggle-motion')"
-      >
-        <span class="material-symbols-outlined">{{ reducedMotion ? "motion_photos_off" : "animation" }}</span>
-      </button>
-
-      <button
-        :aria-label="theme === 'dark' ? '切换浅色主题' : '切换深色主题'"
-        class="shell-title-bar__icon-button"
-        type="button"
-        @click="emit('toggle-theme')"
-      >
-        <span class="material-symbols-outlined">{{ theme === "dark" ? "light_mode" : "dark_mode" }}</span>
-      </button>
-
-      <div class="shell-window-controls" aria-label="窗口控制">
-        <button class="shell-window-controls__button" title="最小化" type="button" @click="handleMinimize">
+      <div class="shell-window-controls">
+        <button class="icon-button" title="最小化" @click="handleMinimize">
           <span class="material-symbols-outlined">remove</span>
         </button>
-        <button class="shell-window-controls__button" title="最大化或还原" type="button" @click="handleToggleMaximize">
+        <button class="icon-button" title="最大化或还原" @click="handleToggleMaximize">
           <span class="material-symbols-outlined">crop_square</span>
         </button>
-        <button class="shell-window-controls__button shell-window-controls__button--close" title="关闭" type="button" @click="handleClose">
+        <button class="icon-button window-close" title="关闭" @click="handleClose">
           <span class="material-symbols-outlined">close</span>
         </button>
       </div>
@@ -104,9 +72,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-
 import Chip from "@/components/ui/Chip/Chip.vue";
-import Input from "@/components/ui/Input/Input.vue";
 
 const props = defineProps<{
   aiProviderLabel: string;
@@ -128,9 +94,7 @@ const emit = defineEmits<{
   (event: "toggle-theme"): void;
 }>();
 
-const searchKeyword = ref("");
-
-const runtimeChipTone = computed(() => {
+const runtimeStatusTone = computed(() => {
   switch (props.runtimeTone) {
     case "online":
       return "success";
@@ -179,169 +143,213 @@ async function handleClose() {
 
 <style scoped>
 .shell-title-bar {
-  align-items: center;
+  height: var(--titlebar-height, 48px);
   background: var(--color-bg-surface);
-  display: grid;
-  gap: var(--space-4);
-  grid-template-columns: auto minmax(280px, 1fr) auto;
-  height: 100%;
-  min-width: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
   padding: 0 var(--space-4);
-}
-
-.shell-title-bar__left,
-.shell-title-bar__actions {
-  align-items: center;
   display: flex;
-  gap: var(--space-3);
-  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  -webkit-app-region: drag;
 }
 
-.shell-title-bar__search {
-  min-width: 0;
+/* ====================
+ * 左侧区 
+ * ==================== */
+.shell-title-bar__left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3); /* 12px */
+  width: 280px;
 }
 
 .shell-brand {
-  align-items: center;
   display: flex;
-  gap: 10px;
-  min-width: 0;
-}
-
-.shell-brand__mark {
   align-items: center;
+  gap: var(--space-2);
+}
+
+.shell-brand__logo {
+  width: 20px;
+  height: 20px;
   background: var(--gradient-ai-primary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   box-shadow: var(--shadow-glow-brand);
-  color: var(--color-text-on-brand);
-  display: inline-flex;
-  font-size: 12px;
-  font-weight: 700;
-  height: 24px;
-  justify-content: center;
-  width: 24px;
 }
 
-.shell-brand__copy {
-  display: grid;
-  gap: 2px;
+.shell-brand__name {
+  font: var(--font-title-sm);
+  letter-spacing: var(--ls-title-sm);
+  color: var(--color-text-primary);
 }
 
-.shell-brand__copy strong {
-  font-size: var(--font-title-sm);
-  line-height: 1;
+.shell-divider {
+  font-size: 14px;
+  line-height: 14px;
+  color: var(--color-border-default);
+  user-select: none;
 }
 
-.shell-brand__copy span,
-.shell-title-bar__project-label,
-.shell-title-bar__shortcut {
-  color: var(--color-text-tertiary);
-  font-size: var(--font-caption);
-}
-
-.shell-title-bar__project {
-  border-left: 1px solid var(--color-border-subtle);
-  display: grid;
-  gap: 2px;
+.shell-project {
+  flex: 1;
   min-width: 0;
-  padding-left: var(--space-3);
 }
 
-.shell-title-bar__project strong {
-  font-size: var(--font-body-sm);
+.shell-project__name {
+  display: block;
+  font: var(--font-body-md);
+  letter-spacing: var(--ls-body-md);
+  color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.shell-title-bar__icon-button,
-.shell-window-controls__button {
-  align-items: center;
-  appearance: none;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  display: inline-flex;
-  height: 32px;
+/* ====================
+ * 中间区 
+ * ==================== */
+.shell-title-bar__center {
+  flex: 1;
+  display: flex;
   justify-content: center;
-  transition:
-    background-color var(--motion-fast) var(--ease-standard),
-    color var(--motion-fast) var(--ease-standard),
-    border-color var(--motion-fast) var(--ease-standard),
-    transform var(--motion-instant) var(--ease-bounce);
-  width: 32px;
+  max-width: 560px;
 }
 
-.shell-title-bar__icon-button:hover,
-.shell-window-controls__button:hover {
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-subtle);
+.shell-search {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 32px;
+  background: var(--color-bg-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 0 8px;
+  gap: 8px;
+  transition: border-color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard);
+  -webkit-app-region: no-drag;
+}
+
+.shell-search:focus-within {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-strong);
+}
+
+.shell-search__icon {
+  font-size: 18px;
+  color: var(--color-text-tertiary);
+}
+
+.shell-search__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font: var(--font-body-md);
+  letter-spacing: var(--ls-body-md);
   color: var(--color-text-primary);
 }
 
-.shell-title-bar__icon-button:active,
-.shell-window-controls__button:active {
-  transform: scale(0.98);
+.shell-search__input::placeholder {
+  color: var(--color-text-tertiary);
 }
 
-.shell-title-bar__icon-button:focus-visible,
-.shell-window-controls__button:focus-visible {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-primary) 20%, transparent);
-  outline: none;
-}
-
-.shell-title-bar__shortcut {
+.shell-search__shortcut {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  padding: 2px 6px;
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-xs);
-  font-family: var(--font-family-mono);
-  line-height: 1;
-  padding: 3px 6px;
 }
 
-.shell-window-controls {
-  align-items: center;
-  border-left: 1px solid var(--color-border-subtle);
+/* ====================
+ * 右侧区 
+ * ==================== */
+.shell-title-bar__right {
   display: flex;
+  align-items: center;
+  gap: var(--space-2); /* 8px */
+}
+
+.shell-status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-bg-muted);
+}
+
+.status-dot--success { background: var(--color-success); box-shadow: 0 0 8px var(--color-success); }
+.status-dot--warning { background: var(--color-warning); box-shadow: 0 0 8px var(--color-warning); }
+.status-dot--danger { background: var(--color-danger); box-shadow: 0 0 8px var(--color-danger); }
+.status-dot--info { background: var(--color-info); }
+.status-dot--brand { background: var(--color-brand-primary); box-shadow: 0 0 8px var(--color-brand-primary); }
+
+.status-text {
+  font: var(--font-caption);
+  letter-spacing: var(--ls-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.shell-actions, .shell-window-controls {
+  display: flex;
+  align-items: center;
   gap: 4px;
-  margin-left: var(--space-1);
-  padding-left: var(--space-3);
+  -webkit-app-region: no-drag;
 }
 
-.shell-window-controls__button--close:hover {
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
+}
+
+.icon-button:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.icon-button .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.window-close:hover {
   background: var(--color-danger);
-  border-color: var(--color-danger);
-  color: var(--color-text-on-brand);
+  color: #fff;
 }
 
-@media (max-width: 1320px) {
-  .shell-title-bar {
-    grid-template-columns: auto minmax(220px, 1fr) auto;
-  }
-}
-
+/* 适配窄屏 */
 @media (max-width: 1160px) {
-  .shell-title-bar {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .shell-title-bar__search {
+  .shell-title-bar__center {
     display: none;
   }
 }
-
 @media (max-width: 900px) {
-  .shell-title-bar__project,
-  .shell-title-bar__actions :deep(.ui-chip:nth-of-type(3)) {
+  .shell-title-bar__left {
+    width: auto;
+  }
+  .shell-divider, .shell-project {
     display: none;
   }
 }
-
 @media (max-width: 760px) {
-  .shell-brand__copy span,
-  .shell-title-bar__actions :deep(.ui-chip) {
+  .shell-status-item,
+  .shell-license-chip {
     display: none;
   }
 }

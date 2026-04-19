@@ -285,9 +285,5 @@ h2 {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .wave-stage--busy .wave-bar {
-    animation: none;
-  }
-}
+/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

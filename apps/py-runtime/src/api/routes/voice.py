@@ -39,7 +39,7 @@ def list_project_tracks(project_id: str, request: Request) -> dict[str, object]:
 
 
 @router.post("/projects/{project_id}/tracks/generate")
-def generate_track(
+async def generate_track(
     project_id: str,
     payload: VoiceTrackGenerateInput,
     request: Request,

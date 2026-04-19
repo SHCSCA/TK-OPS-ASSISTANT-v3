@@ -70,10 +70,9 @@ def apply_to_script(
     suggestion_id: str,
     request: Request,
 ) -> dict[str, object]:
-    project = _svc(request).adopt_suggestion(
+    result = _svc(request).apply_suggestion_to_script(
         suggestion_id,
         dashboard_repository=request.app.state.dashboard_repository,
         script_repository=request.app.state.script_repository,
-        storyboard_repository=request.app.state.storyboard_repository,
     )
-    return ok_response(project.model_dump(mode="json"))
+    return ok_response(result.model_dump(mode="json"))

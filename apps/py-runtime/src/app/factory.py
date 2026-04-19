@@ -35,6 +35,7 @@ from api.routes import (
     workspace_router,
     ws_router,
 )
+from ai.providers import dispatch_tts
 from app.config import load_runtime_config
 from app.logging import configure_logging, log_event, pop_request_id, push_request_id
 from app.secret_store import build_secret_store
@@ -61,31 +62,70 @@ from repositories.video_deconstruction_repository import VideoDeconstructionRepo
 from repositories.voice_profile_repository import VoiceProfileRepository
 from repositories.voice_repository import VoiceRepository
 from schemas.envelope import error_response
-from schemas.error_codes import ErrorCodes
 from services.account_service import AccountService
 from services.ai_text_generation_service import AITextGenerationService
 from services.asset_service import AssetService
 from services.automation_service import AutomationService
-from services.broadcasting_ai_capability_service import BroadcastingAICapabilityService
+from services.bootstrap_service import BootstrapService
+from services.ai_capability_service import AICapabilityService
 from services.dashboard_service import DashboardService
 from services.device_workspace_service import DeviceWorkspaceService
-from services.license_activation import OfflineLicenseActivationAdapter
+from services.license_activation_base import LicenseActivationUnavailableError
 from services.license_service import LicenseService
 from services.machine_code import MachineCodeService
 from services.prompt_template_service import PromptTemplateService
 from services.publishing_service import PublishingService
 from services.render_service import RenderService
 from services.review_service import ReviewService
-from services.script_service import ScriptService
 from services.search_service import SearchService
+from services.script_service import ScriptService
 from services.settings_service import SettingsService
 from services.storyboard_service import StoryboardService
 from services.subtitle_service import SubtitleService
 from services.task_manager import task_manager
 from services.video_deconstruction_service import VideoDeconstructionService
 from services.video_import_service import VideoImportService
+from services.voice_artifact_store import VoiceArtifactStore
 from services.voice_service import VoiceService
 from services.workspace_service import WorkspaceService
+
+log = logging.getLogger(__name__)
+
+LICENSE_IMPORT_ERROR: ModuleNotFoundError | None = None
+LICENSE_DEPENDENCY_UNAVAILABLE_MESSAGE = "许可证激活依赖未就绪，请检查运行时依赖与授权配置"
+REQUEST_VALIDATION_FAILED_MESSAGE = "请求参数校验失败"
+REQUEST_FAILED_MESSAGE = "请求处理失败"
+INTERNAL_SERVER_ERROR_MESSAGE = "系统内部错误，请稍后重试"
+
+try:
+    from services.license_activation import OfflineLicenseActivationAdapter
+except ModuleNotFoundError as exc:  # pragma: no cover
+    LICENSE_IMPORT_ERROR = exc
+    OfflineLicenseActivationAdapter = None  # type: ignore[assignment]
+
+
+class UnavailableLicenseActivationAdapter:
+    def __init__(self, detail: str) -> None:
+        self._detail = detail
+
+    def activate(self, activation_code: str, *, machine_code: str):
+        raise LicenseActivationUnavailableError(self._detail)
+
+
+def _error_code_for_status(status_code: int) -> str | None:
+    if status_code == 400:
+        return "request.invalid_payload"
+    if status_code == 404:
+        return "runtime.resource_not_found"
+    if status_code == 405:
+        return "runtime.method_not_allowed"
+    if status_code == 409:
+        return "task.conflict"
+    if status_code == 422:
+        return "request.validation_failed"
+    if status_code >= 500:
+        return "runtime.internal_error"
+    return None
 
 
 def create_app() -> FastAPI:
@@ -117,49 +157,74 @@ def create_app() -> FastAPI:
     subtitle_repository = SubtitleRepository(session_factory=session_factory)
     timeline_repository = TimelineRepository(session_factory=session_factory)
 
+    license_import_error = (
+        f"{type(LICENSE_IMPORT_ERROR).__name__}: {LICENSE_IMPORT_ERROR}"
+        if LICENSE_IMPORT_ERROR is not None
+        else None
+    )
+    activation_adapter = (
+        OfflineLicenseActivationAdapter(
+            public_key_path=runtime_config.license_public_key_path,
+        )
+        if OfflineLicenseActivationAdapter is not None
+        else UnavailableLicenseActivationAdapter(
+            LICENSE_DEPENDENCY_UNAVAILABLE_MESSAGE,
+        )
+    )
+
+    machine_code_service = MachineCodeService()
+    license_service = LicenseService(
+        runtime_config=runtime_config,
+        repository=license_repository,
+        activation_adapter=activation_adapter,
+        machine_code_service=machine_code_service,
+    )
     settings_service = SettingsService(
         runtime_config=runtime_config,
         repository=settings_repository,
-        on_settings_updated=lambda settings: configure_logging(
-            Path(settings.paths.logDir), settings.logging.level
-        ),
+        render_repository=render_repository,
+        publishing_repository=publishing_repository,
         task_manager=task_manager,
+        license_service=license_service,
+    )
+    bootstrap_service = BootstrapService(
+        runtime_config=runtime_config,
+        settings_service=settings_service,
+        session_factory=session_factory,
     )
     dashboard_service = DashboardService(dashboard_repository)
-    ai_capability_service = BroadcastingAICapabilityService(
+    ai_capability_service = AICapabilityService(
         ai_capability_repository,
         secret_store,
     )
     ai_text_generation_service = AITextGenerationService(
-        ai_capability_service,
-        ai_job_repository,
-    )
-    script_service = ScriptService(
-        dashboard_service,
-        script_repository,
-        ai_job_repository,
-        ai_text_generation_service,
-        prompt_template_repository,
-    )
-    storyboard_service = StoryboardService(
-        dashboard_service,
-        storyboard_repository,
-        ai_job_repository,
-        ai_text_generation_service,
-        script_service,
+        capability_service=ai_capability_service,
+        ai_job_repository=ai_job_repository,
     )
     prompt_template_service = PromptTemplateService(prompt_template_repository)
+    script_service = ScriptService(
+        dashboard_service=dashboard_service,
+        repository=script_repository,
+        ai_job_repository=ai_job_repository,
+        ai_text_generation_service=ai_text_generation_service,
+        prompt_template_repository=prompt_template_repository,
+    )
+    storyboard_service = StoryboardService(
+        dashboard_service=dashboard_service,
+        repository=storyboard_repository,
+        ai_job_repository=ai_job_repository,
+        ai_text_generation_service=ai_text_generation_service,
+        script_service=script_service,
+    )
     video_deconstruction_service = VideoDeconstructionService(
         imported_video_repository=imported_video_repository,
         stage_repository=video_deconstruction_repository,
         task_manager=task_manager,
     )
-    video_import_service = VideoImportService(
-        repository=imported_video_repository,
-        stage_repository=video_deconstruction_repository,
+    asset_service = AssetService(
+        repository=asset_repository,
         task_manager=task_manager,
     )
-    asset_service = AssetService(asset_repository, task_manager=task_manager)
     account_service = AccountService(
         account_repository,
         binding_repository=device_workspace_repository,
@@ -174,28 +239,30 @@ def create_app() -> FastAPI:
         script_repository=script_repository,
         storyboard_repository=storyboard_repository,
     )
+    voice_artifact_store = VoiceArtifactStore(settings_service=settings_service)
     voice_service = VoiceService(
-        voice_repository,
+        repository=voice_repository,
         profile_repository=voice_profile_repository,
         task_manager=task_manager,
+        ai_capability_service=ai_capability_service,
+        tts_dispatcher=dispatch_tts,
+        voice_artifact_store=voice_artifact_store,
     )
     subtitle_service = SubtitleService(subtitle_repository)
-    workspace_service = WorkspaceService(timeline_repository)
-    search_service = SearchService(
-        session_factory=session_factory,
+    workspace_service = WorkspaceService(
+        timeline_repository,
         task_manager=task_manager,
     )
-    machine_code_service = MachineCodeService()
-    license_service = LicenseService(
-        runtime_config=runtime_config,
-        repository=license_repository,
-        activation_adapter=OfflineLicenseActivationAdapter(
-            runtime_config.license_public_key_path
-        ),
-        machine_code_service=machine_code_service,
+    video_import_service = VideoImportService(
+        repository=imported_video_repository,
+        stage_repository=video_deconstruction_repository,
+        task_manager=task_manager,
     )
+    search_service = SearchService(session_factory=session_factory)
     current_settings = settings_service.get_settings()
     configure_logging(Path(current_settings.paths.logDir), current_settings.logging.level)
+    if license_import_error:
+        log.warning("许可证服务依赖未就绪: %s", license_import_error)
 
     app = FastAPI(
         title='TK-OPS Runtime',
@@ -239,7 +306,9 @@ def create_app() -> FastAPI:
     app.state.subtitle_repository = subtitle_repository
     app.state.timeline_repository = timeline_repository
     app.state.license_service = license_service
+    app.state.license_import_error = license_import_error
     app.state.settings_service = settings_service
+    app.state.bootstrap_service = bootstrap_service
     app.state.dashboard_service = dashboard_service
     app.state.ai_capability_service = ai_capability_service
     app.state.ai_text_generation_service = ai_text_generation_service
@@ -254,12 +323,13 @@ def create_app() -> FastAPI:
     app.state.publishing_service = publishing_service
     app.state.render_service = render_service
     app.state.review_service = review_service
+    app.state.voice_artifact_store = voice_artifact_store
     app.state.voice_service = voice_service
     app.state.subtitle_service = subtitle_service
     app.state.workspace_service = workspace_service
     app.state.video_import_service = video_import_service
-    app.state.search_service = search_service
     app.state.task_manager = task_manager
+    app.state.search_service = search_service
 
     @app.middleware('http')
     async def request_context_middleware(request, call_next):  # type: ignore[no-untyped-def]
@@ -294,18 +364,19 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=422,
             content=error_response(
-                'Request validation failed',
+                REQUEST_VALIDATION_FAILED_MESSAGE,
                 request_id=request_id,
                 details=exc.errors(),
-                error_code=ErrorCodes.REQUEST_VALIDATION_FAILED,
+                error_code='request.validation_failed',
             ),
         )
 
     @app.exception_handler(StarletteHTTPException)
     async def handle_http_exception(request, exc: StarletteHTTPException):  # type: ignore[no-untyped-def]
         request_id = getattr(request.state, 'request_id', uuid4().hex)
-        message = exc.detail if isinstance(exc.detail, str) else 'Request failed'
+        message = exc.detail if isinstance(exc.detail, str) else REQUEST_FAILED_MESSAGE
         level = logging.ERROR if exc.status_code >= 500 else logging.WARNING
+        error_code = getattr(exc, 'error_code', None) or _error_code_for_status(exc.status_code)
         log_event(
             'system',
             'request.http_error',
@@ -320,7 +391,11 @@ def create_app() -> FastAPI:
         )
         return JSONResponse(
             status_code=exc.status_code,
-            content=error_response(message, request_id=request_id),
+            content=error_response(
+                message,
+                request_id=request_id,
+                error_code=error_code,
+            ),
         )
 
     @app.exception_handler(Exception)
@@ -339,7 +414,11 @@ def create_app() -> FastAPI:
         )
         return JSONResponse(
             status_code=500,
-            content=error_response('Internal server error', request_id=request_id),
+            content=error_response(
+                INTERNAL_SERVER_ERROR_MESSAGE,
+                request_id=request_id,
+                error_code='runtime.internal_error',
+            ),
         )
 
     app.include_router(accounts_router)

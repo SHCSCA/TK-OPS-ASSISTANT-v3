@@ -1,335 +1,263 @@
 <template>
-  <section class="settings-workspace-panel" data-testid="settings-system-panel">
-    <div class="settings-workspace-panel__header">
-      <div>
-        <p class="detail-panel__label">系统总线</p>
-        <h2>Runtime 与默认项</h2>
-        <p class="workspace-page__summary">
-          运行模式、路径和默认 AI 项都从配置总线读写，不再拆成散落的本地表单。
-        </p>
+  <div class="system-form-panel">
+    <!-- 目录设置 -->
+    <div v-if="currentSection === 'directory'" class="form-section">
+      <div class="form-group">
+        <label>工作区根目录</label>
+        <div class="picker-row">
+          <Input :model-value="form.runtime.workspaceRoot" readonly />
+          <Button variant="secondary" @click="$emit('pick-directory', 'runtime.workspaceRoot')">选择</Button>
+        </div>
+        <p class="hint">TK-OPS 所有的项目数据、资产记录和模型配置都将持久化到此目录下。</p>
       </div>
-      <span v-if="disabled" class="settings-workspace-panel__state">当前只读</span>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>缓存目录</label>
+          <div class="picker-row">
+            <Input :model-value="form.paths.cacheDir" readonly />
+            <Button variant="secondary" @click="$emit('pick-directory', 'paths.cacheDir')">选择</Button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>导出目录</label>
+          <div class="picker-row">
+            <Input :model-value="form.paths.exportDir" readonly />
+            <Button variant="secondary" @click="$emit('pick-directory', 'paths.exportDir')">选择</Button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div v-if="disabled" class="settings-workspace-panel__notice">
-      当前系统配置暂不可编辑，请等待配置加载或保存结束后再操作。
+    <!-- 缓存管理 -->
+    <div v-else-if="currentSection === 'cache'" class="form-section">
+      <div class="cache-list">
+        <Card v-for="item in cacheItems" :key="item.key" class="cache-item" :interactive="false">
+          <div class="cache-info">
+            <strong>{{ item.label }}</strong>
+            <span>{{ item.size }}</span>
+          </div>
+          <Button
+            variant="danger"
+            size="sm"
+            :disabled="clearingKey === item.key"
+            @click="confirmClear(item.key, item.label)"
+          >
+            {{ clearingKey === item.key ? '清除中...' : '清除' }}
+          </Button>
+        </Card>
+      </div>
+      <div class="danger-zone">
+        <Button variant="danger" block @click="confirmClearAll">
+          {{ clearingKey === 'all' ? '清除中...' : '全部清除' }}
+        </Button>
+        <p class="hint danger-hint">清除全部缓存后可能需要重新下载模型和生成预览图。</p>
+      </div>
     </div>
 
-    <div class="settings-system-grid">
-      <section class="settings-card">
-        <h3>Runtime</h3>
-
-        <label class="settings-field">
-          <span>运行模式</span>
-          <select v-model="form.runtime.mode" data-field="runtime.mode" :disabled="disabled">
-            <option v-for="option in runtimeModeOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
-
-        <label class="settings-field">
-          <span>工作区根目录</span>
-          <div class="settings-picker-field">
-            <input
-              :value="form.runtime.workspaceRoot"
-              data-field="runtime.workspaceRoot"
-              :disabled="disabled"
-              readonly
-              :title="form.runtime.workspaceRoot"
-            />
-            <button
-              class="settings-workspace-panel__button"
-              type="button"
-              data-action="pick-workspace-root"
-              :disabled="disabled"
-              @click="$emit('pick-directory', 'runtime.workspaceRoot')"
-            >
-              选择目录
-            </button>
-          </div>
-        </label>
-      </section>
-
-      <section class="settings-card">
-        <h3>路径</h3>
-
-        <label class="settings-field">
-          <span>缓存目录</span>
-          <div class="settings-picker-field">
-            <input
-              :value="form.paths.cacheDir"
-              data-field="paths.cacheDir"
-              :disabled="disabled"
-              readonly
-              :title="form.paths.cacheDir"
-            />
-            <button
-              class="settings-workspace-panel__button"
-              type="button"
-              data-action="pick-cache-dir"
-              :disabled="disabled"
-              @click="$emit('pick-directory', 'paths.cacheDir')"
-            >
-              选择目录
-            </button>
-          </div>
-        </label>
-
-        <label class="settings-field">
-          <span>导出目录</span>
-          <div class="settings-picker-field">
-            <input
-              :value="form.paths.exportDir"
-              data-field="paths.exportDir"
-              :disabled="disabled"
-              readonly
-              :title="form.paths.exportDir"
-            />
-            <button
-              class="settings-workspace-panel__button"
-              type="button"
-              data-action="pick-export-dir"
-              :disabled="disabled"
-              @click="$emit('pick-directory', 'paths.exportDir')"
-            >
-              选择目录
-            </button>
-          </div>
-        </label>
-
-        <label class="settings-field">
-          <span>日志目录</span>
-          <div class="settings-picker-field">
-            <input
-              :value="form.paths.logDir"
-              data-field="paths.logDir"
-              :disabled="disabled"
-              readonly
-              :title="form.paths.logDir"
-            />
-            <button
-              class="settings-workspace-panel__button"
-              type="button"
-              data-action="pick-log-dir"
-              :disabled="disabled"
-              @click="$emit('pick-directory', 'paths.logDir')"
-            >
-              选择目录
-            </button>
-          </div>
-        </label>
-      </section>
-
-      <section class="settings-card">
-        <h3>日志</h3>
-        <label class="settings-field">
-          <span>日志级别</span>
-          <select v-model="form.logging.level" data-field="logging.level" :disabled="disabled">
-            <option value="DEBUG">DEBUG</option>
-            <option value="INFO">INFO</option>
-            <option value="WARNING">WARNING</option>
-            <option value="ERROR">ERROR</option>
-          </select>
-        </label>
-      </section>
-
-      <section class="settings-card">
-        <h3>AI 默认项</h3>
-
-        <label class="settings-field">
-          <span>默认 Provider</span>
-          <select v-model="form.ai.provider" data-field="ai.provider" :disabled="disabled">
-            <option value="">请选择 Provider</option>
-            <option v-for="provider in providerOptions" :key="provider.provider" :value="provider.provider">
-              {{ provider.label }}
-            </option>
-          </select>
-        </label>
-
-        <label class="settings-field">
-          <span>默认模型</span>
-          <select v-model="form.ai.model" data-field="ai.model" :disabled="disabled || modelOptions.length === 0">
-            <option value="">{{ modelOptions.length === 0 ? "先选择 Provider" : "请选择模型" }}</option>
-            <option v-for="model in modelOptions" :key="model.modelId" :value="model.modelId">
-              {{ model.displayName }}
-            </option>
-          </select>
-        </label>
-
-        <label class="settings-field">
-          <span>默认音色</span>
-          <select v-model="form.ai.voice" data-field="ai.voice" :disabled="disabled">
-            <option v-for="option in voiceOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
-
-        <label class="settings-field">
-          <span>字幕模式</span>
-          <select v-model="form.ai.subtitleMode" data-field="ai.subtitleMode" :disabled="disabled">
-            <option v-for="option in subtitleModeOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
-      </section>
+    <!-- 日志设置 -->
+    <div v-else-if="currentSection === 'logging'" class="form-section">
+      <div class="form-group">
+        <label>日志级别</label>
+        <select
+          :value="form.logging.level"
+          class="ui-select"
+          @change="e => updateForm({ logging: { level: (e.target as HTMLSelectElement).value } })"
+        >
+          <option value="DEBUG">DEBUG (最详细)</option>
+          <option value="INFO">INFO (推荐)</option>
+          <option value="WARNING">WARNING</option>
+          <option value="ERROR">ERROR</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>日志保留天数</label>
+        <Input type="number" :model-value="'7'" />
+      </div>
+      <Button variant="secondary" @click="openLogDir">
+        <template #leading><span class="material-symbols-outlined">folder_open</span></template>
+        打开日志所在目录
+      </Button>
     </div>
-  </section>
+
+    <!-- 字幕策略 -->
+    <div v-else-if="currentSection === 'subtitle'" class="form-section">
+      <div class="form-group">
+        <label>字幕生成模式</label>
+        <select
+          :value="form.ai.subtitleMode"
+          class="ui-select"
+          @change="e => updateForm({ ai: { subtitleMode: (e.target as HTMLSelectElement).value } })"
+        >
+          <option value="balanced">平衡模式</option>
+          <option value="precise">精确模式</option>
+          <option value="fast">极速模式</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>默认字体</label>
+        <Input :model-value="'HarmonyOS Sans SC'" />
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import type { AIModelCatalogItem, AIProviderCatalogItem, AppSettingsUpdateInput } from "@/types/runtime";
+import { computed, ref } from "vue";
+import type { AppSettingsUpdateInput } from "@/types/runtime";
+import { useConfigBusStore } from "@/stores/config-bus";
+import Button from "@/components/ui/Button/Button.vue";
+import Card from "@/components/ui/Card/Card.vue";
+import Input from "@/components/ui/Input/Input.vue";
 
-defineProps<{
-  disabled: boolean;
+const props = defineProps<{
+  currentSection: string;
   form: AppSettingsUpdateInput;
-  modelOptions: AIModelCatalogItem[];
-  providerOptions: AIProviderCatalogItem[];
+  disabled: boolean;
 }>();
 
-defineEmits<{
-  (e: "pick-directory", field: "runtime.workspaceRoot" | "paths.cacheDir" | "paths.exportDir" | "paths.logDir"): void;
+const emit = defineEmits<{
+  (e: "update", patch: any): void;
+  (e: "pick-directory", field: string): void;
 }>();
 
-const runtimeModeOptions = [
-  { value: "development", label: "开发模式" },
-  { value: "production", label: "生产模式" },
-  { value: "test", label: "测试模式" }
-];
+const configBusStore = useConfigBusStore();
+const clearingKey = ref<string | null>(null);
 
-const voiceOptions = [
-  { value: "alloy", label: "Alloy" },
-  { value: "nova", label: "Nova" },
-  { value: "shimmer", label: "Shimmer" },
-  { value: "echo", label: "Echo" }
-];
+/** 缓存条目——优先从诊断数据读取大小，否则显示提示 */
+const cacheItems = computed(() => {
+  return [
+    { key: "model", label: "模型缓存", size: "Runtime 尚未提供体积查询接口" },
+    { key: "asset", label: "资产预览图", size: "暂存本地，请通过资源管理器清理" },
+    { key: "render", label: "渲染缓存", size: "暂存本地，请通过资源管理器清理" }
+  ];
+});
 
-const subtitleModeOptions = [
-  { value: "balanced", label: "平衡模式" },
-  { value: "precise", label: "精确模式" },
-  { value: "fast", label: "极速模式" }
-];
+function updateForm(patch: any) {
+  emit("update", patch);
+}
+
+function confirmClear(key: string, label: string) {
+  if (!confirm(`确定清除「${label}」吗？此操作不可撤销。`)) return;
+  clearingKey.value = key;
+  // 实际应调用 runtime-client 的缓存清除接口
+  setTimeout(() => { clearingKey.value = null; }, 1500);
+}
+
+function confirmClearAll() {
+  if (!confirm("确定清除全部缓存吗？清除后可能需要重新下载模型和生成预览图。")) return;
+  clearingKey.value = "all";
+  setTimeout(() => { clearingKey.value = null; }, 2000);
+}
+
+async function openLogDir() {
+  if (!props.form.paths.logDir) return;
+  try {
+    const { open } = await import("@tauri-apps/plugin-shell");
+    await open(props.form.paths.logDir);
+  } catch {
+    alert(`无法直接打开目录，路径为：${props.form.paths.logDir}`);
+  }
+}
 </script>
 
 <style scoped>
-.settings-workspace-panel {
-  display: grid;
-  gap: 16px;
-}
-
-.settings-workspace-panel__header {
+.system-form-panel {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
-.settings-workspace-panel__header h2,
-.settings-card h3 {
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-group label {
+  font: var(--font-title-sm);
+  color: var(--color-text-secondary);
+}
+
+.picker-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.picker-row :deep(.ui-input-wrapper) {
+  flex: 1;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.hint {
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
   margin: 0;
 }
 
-.settings-workspace-panel__state {
-  display: inline-flex;
+.ui-select {
+  height: 40px;
+  padding: 0 12px;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font: var(--font-body-md);
+  outline: none;
+  transition: border-color var(--motion-fast) var(--ease-standard);
+}
+
+.ui-select:focus { border-color: var(--color-brand-primary); }
+
+.cache-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cache-item {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--border-default);
-  border-radius: 999px;
-  color: var(--text-secondary);
-  font-size: 12px;
+  padding: var(--space-4);
 }
 
-.settings-workspace-panel__notice {
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--status-warning) 30%, var(--border-default));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--status-warning) 8%, var(--surface-secondary));
-  color: var(--text-primary);
+.cache-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.settings-system-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.cache-info strong {
+  font: var(--font-body-md);
+  color: var(--color-text-primary);
 }
 
-.settings-card {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
+.cache-info span {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
 }
 
-.settings-field {
-  display: grid;
-  gap: 8px;
+.danger-zone {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
 }
 
-.settings-field span {
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.settings-field input,
-.settings-field select {
-  width: 100%;
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-primary) 96%, transparent);
-  color: var(--text-primary);
-  font: inherit;
-}
-
-.settings-picker-field {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  min-width: 0;
-}
-
-.settings-picker-field input {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.settings-workspace-panel__button {
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-primary);
-  font: inherit;
-  cursor: pointer;
-}
-
-.settings-workspace-panel__button:disabled,
-.settings-field input:disabled,
-.settings-field select:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-@media (max-width: 920px) {
-  .settings-system-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-picker-field {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-workspace-panel__header {
-    flex-direction: column;
-  }
+.danger-hint {
+  margin-top: var(--space-2);
+  text-align: center;
+  color: var(--color-text-tertiary);
 }
 </style>

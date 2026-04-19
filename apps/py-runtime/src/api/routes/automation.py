@@ -13,7 +13,7 @@ def _svc(request: Request) -> AutomationService:
     return request.app.state.automation_service  # type: ignore[no-any-return]
 
 
-@router.get("/")
+@router.get("")
 def list_tasks(
     request: Request,
     status: str | None = None,
@@ -23,7 +23,7 @@ def list_tasks(
     return ok_response([task.model_dump(mode="json") for task in tasks])
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
 def create_task(payload: AutomationTaskCreateInput, request: Request) -> dict[str, object]:
     task = _svc(request).create_task(payload)
     return ok_response(task.model_dump(mode="json"))

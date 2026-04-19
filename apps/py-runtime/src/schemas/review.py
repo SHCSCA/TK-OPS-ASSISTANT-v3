@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from schemas.scripts import ScriptVersionDto
+
 
 class ReviewSuggestion(BaseModel):
     id: str
@@ -46,3 +48,12 @@ class AnalyzeProjectResultDto(BaseModel):
     status: str
     message: str
     analyzed_at: datetime
+
+
+class ApplySuggestionToScriptResultDto(BaseModel):
+    projectId: str
+    suggestionId: str
+    status: str
+    message: str
+    currentScriptVersion: int
+    scriptVersion: ScriptVersionDto

@@ -223,7 +223,6 @@ watch(
     document.documentElement.dataset.theme = nextTheme;
     document.documentElement.setAttribute("data-reduced-motion", String(nextReducedMotion));
     document.documentElement.style.colorScheme = nextTheme;
-    document.body.classList.toggle("reduced-motion", nextReducedMotion);
   },
   { immediate: true }
 );
@@ -731,7 +730,7 @@ function formatShanghaiDateTime(value: string) {
   grid-template-columns:
     var(--sidebar-width-expanded)
     minmax(var(--content-min-width), 1fr)
-    minmax(0, var(--detail-panel-width));
+    auto;
   min-height: 0;
   position: relative;
 }
@@ -740,7 +739,7 @@ function formatShanghaiDateTime(value: string) {
   grid-template-columns:
     var(--sidebar-width-collapsed)
     minmax(var(--content-min-width), 1fr)
-    minmax(0, var(--detail-panel-width));
+    auto;
 }
 
 .app-shell__workspace--wizard {
@@ -754,10 +753,11 @@ function formatShanghaiDateTime(value: string) {
 }
 
 .app-shell__content {
-  background: transparent;
+  background: var(--color-bg-canvas);
+  flex: 1;
   min-height: 0;
-  min-width: 0;
-  overflow: auto;
+  min-width: 640px;
+  overflow-y: auto;
   position: relative;
 }
 

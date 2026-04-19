@@ -146,3 +146,55 @@ def test_review_adopt_creates_child_project_and_copies_context(tmp_path: Path) -
     assert adopted.adopted is True
     assert adopted.adopted_as_project_id == adopted_project.id
     assert adopted.adopted_at is not None
+
+
+def test_review_apply_to_script_updates_original_project_only(tmp_path: Path) -> None:
+    service, dashboard_repository, script_repository, _storyboard_repository = _make_review_service(
+        tmp_path
+    )
+
+    source_project = dashboard_repository.create_project(
+        name="原项目",
+        description="用于验证 apply-to-script",
+    )
+    script_repository.save_version(
+        source_project.id,
+        source="user",
+        content="第一版脚本",
+    )
+    script_repository.save_version(
+        source_project.id,
+        source="ai",
+        content="第二版脚本",
+    )
+
+    service.analyze(source_project.id)
+    summary = service.get_summary(source_project.id)
+    suggestion = summary.suggestions[0]
+
+    result = service.apply_suggestion_to_script(suggestion.id)
+
+    assert result.projectId == source_project.id
+    assert result.suggestionId == suggestion.id
+    assert result.status == "已应用"
+    assert "复盘建议" in result.message
+    assert result.currentScriptVersion == 3
+    assert "复盘建议" in result.scriptVersion.content
+    assert "第二版脚本" in result.scriptVersion.content
+
+    projects = dashboard_repository.list_recent_projects()
+    assert len(projects) == 1
+    assert projects[0].id == source_project.id
+    assert projects[0].current_script_version == 3
+
+    versions = script_repository.list_versions(source_project.id)
+    assert len(versions) == 3
+    assert versions[0].revision == 3
+    assert versions[0].content == result.scriptVersion.content
+    assert versions[0].content != versions[1].content
+
+    refreshed_summary = service.get_summary(source_project.id)
+    applied = next(item for item in refreshed_summary.suggestions if item.id == suggestion.id)
+    assert applied.adopted is True
+    assert applied.adopted_as_project_id is None
+    assert applied.adopted_at is not None

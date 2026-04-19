@@ -298,15 +298,5 @@ function confirmDelete(trackId: string): void {
   transform: translateY(6px);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .version-item,
-  .subtitle-version-enter-active,
-  .subtitle-version-leave-active {
-    transition: none;
-  }
-
-  .version-item:hover {
-    transform: none;
-  }
-}
+/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

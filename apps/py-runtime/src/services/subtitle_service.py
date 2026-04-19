@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from dataclasses import dataclass
-from datetime import timedelta
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -26,7 +26,6 @@ from schemas.subtitles import (
 
 log = logging.getLogger(__name__)
 
-BLOCKED_PROVIDER_MESSAGE = "尚未接入可用字幕对齐 Provider，已保存字幕草稿。"
 ALIGN_MESSAGE = "字幕时间码已更新。"
 EXPORT_MESSAGE = "字幕导出完成。"
 
@@ -47,8 +46,8 @@ class SubtitleService:
         try:
             tracks = self._repository.list_tracks(project_id)
         except Exception as exc:
-            log.exception("查询字幕版本列表失败")
-            raise HTTPException(status_code=500, detail="查询字幕版本列表失败") from exc
+            log.exception("查询字幕轨道列表失败")
+            raise HTTPException(status_code=500, detail="查询字幕轨道列表失败") from exc
         return [self._to_dto(track) for track in tracks]
 
     def generate_track(
@@ -60,10 +59,11 @@ class SubtitleService:
         if not segments:
             raise HTTPException(
                 status_code=400,
-                detail="字幕源文本为空，请先在脚本与选题中心创建内容。",
+                detail="字幕源文本不能为空，请先在脚本或选题中心提供内容。",
             )
 
         style = self._resolve_style(payload.stylePreset)
+        generated_at = utc_now_iso()
         track = SubtitleTrack(
             id=str(uuid4()),
             project_id=project_id,
@@ -75,20 +75,28 @@ class SubtitleService:
                 [segment.model_dump(mode="json") for segment in segments],
                 ensure_ascii=False,
             ),
-            status="blocked",
-            created_at=utc_now_iso(),
+            status="ready",
+            created_at=generated_at,
         )
 
         try:
             saved = self._repository.create_track(track)
         except Exception as exc:
-            log.exception("创建字幕版本失败")
-            raise HTTPException(status_code=500, detail="创建字幕版本失败") from exc
+            log.exception("创建字幕轨道失败")
+            raise HTTPException(status_code=500, detail="创建字幕轨道失败") from exc
 
         return SubtitleTrackGenerateResultDto(
             track=self._to_dto(saved),
-            task=None,
-            message=BLOCKED_PROVIDER_MESSAGE,
+            task={
+                "kind": "local-subtitle-generate",
+                "mode": "deterministic-local",
+                "language": payload.language,
+                "stylePreset": style.preset,
+                "segmentCount": len(segments),
+                "sourceCharacters": len(payload.sourceText),
+                "generatedAt": generated_at,
+            },
+            message="字幕轨道已基于本地文本规则生成。",
         )
 
     def align_track(
@@ -113,7 +121,7 @@ class SubtitleService:
             log.exception("保存字幕对齐结果失败")
             raise HTTPException(status_code=500, detail="保存字幕对齐结果失败") from exc
         if saved is None:
-            raise HTTPException(status_code=404, detail="字幕版本不存在")
+            raise HTTPException(status_code=404, detail="字幕轨道不存在。")
         return self._to_dto(saved)
 
     def list_style_templates(self) -> list[SubtitleStyleTemplateDto]:
@@ -170,20 +178,20 @@ class SubtitleService:
                 status="ready",
             )
         except Exception as exc:
-            log.exception("保存字幕校正失败")
-            raise HTTPException(status_code=500, detail="保存字幕校正失败") from exc
+            log.exception("保存字幕校正结果失败")
+            raise HTTPException(status_code=500, detail="保存字幕校正结果失败") from exc
         if track is None:
-            raise HTTPException(status_code=404, detail="字幕版本不存在")
+            raise HTTPException(status_code=404, detail="字幕轨道不存在。")
         return self._to_dto(track)
 
     def delete_track(self, track_id: str) -> None:
         try:
             deleted = self._repository.delete_track(track_id)
         except Exception as exc:
-            log.exception("删除字幕版本失败")
-            raise HTTPException(status_code=500, detail="删除字幕版本失败") from exc
+            log.exception("删除字幕轨道失败")
+            raise HTTPException(status_code=500, detail="删除字幕轨道失败") from exc
         if not deleted:
-            raise HTTPException(status_code=404, detail="字幕版本不存在")
+            raise HTTPException(status_code=404, detail="字幕轨道不存在。")
 
     def _builtin_style_templates(self) -> list[_BuiltinSubtitleStyleTemplate]:
         return [
@@ -316,21 +324,47 @@ class SubtitleService:
         return f"{hours:d}:{minutes:02d}:{seconds:02d}.{centiseconds:02d}"
 
     def _split_segments(self, source_text: str) -> list[SubtitleSegmentDto]:
-        return [
-            SubtitleSegmentDto(segmentIndex=index, text=text)
-            for index, text in enumerate(
-                line.strip() for line in source_text.splitlines() if line.strip()
+        segments: list[SubtitleSegmentDto] = []
+        current_start_ms = 0
+        for index, text in enumerate(self._split_source_text(source_text)):
+            duration_ms = self._estimate_segment_duration_ms(text)
+            segments.append(
+                SubtitleSegmentDto(
+                    segmentIndex=index,
+                    text=text,
+                    startMs=current_start_ms,
+                    endMs=current_start_ms + duration_ms,
+                )
             )
-        ]
+            current_start_ms += duration_ms + 120
+        return segments
+
+    def _split_source_text(self, source_text: str) -> list[str]:
+        segments: list[str] = []
+        for raw_line in source_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            parts = [part.strip() for part in re.split(r"(?<=[。！？!?；;])\s*", line) if part.strip()]
+            if parts:
+                segments.extend(parts)
+            else:
+                segments.append(line)
+        return segments
+
+    def _estimate_segment_duration_ms(self, text: str) -> int:
+        normalized_text = re.sub(r"\s+", "", text)
+        char_count = max(len(normalized_text), 1)
+        return max(900, min(5000, 900 + char_count * 120))
 
     def _get_track(self, track_id: str) -> SubtitleTrack:
         try:
             track = self._repository.get_track(track_id)
         except Exception as exc:
-            log.exception("查询字幕版本详情失败")
-            raise HTTPException(status_code=500, detail="查询字幕版本详情失败") from exc
+            log.exception("查询字幕轨道详情失败")
+            raise HTTPException(status_code=500, detail="查询字幕轨道详情失败") from exc
         if track is None:
-            raise HTTPException(status_code=404, detail="字幕版本不存在")
+            raise HTTPException(status_code=404, detail="字幕轨道不存在。")
         return track
 
     def _to_dto(self, track: SubtitleTrack) -> SubtitleTrackDto:

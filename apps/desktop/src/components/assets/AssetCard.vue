@@ -198,14 +198,5 @@ function durationLabel(durationMs: number | null) {
   font-size: 11px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .asset-card {
-    transition: none;
-  }
-
-  .asset-card:hover,
-  .asset-card--selected {
-    transform: none;
-  }
-}
+/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

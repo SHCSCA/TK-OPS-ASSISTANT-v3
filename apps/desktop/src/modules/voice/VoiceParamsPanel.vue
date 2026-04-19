@@ -223,13 +223,5 @@ function updateConfig(patch: Partial<VoiceConfig>): void {
   transform: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .emotion-button {
-    transition: none;
-  }
-
-  .emotion-button:hover {
-    transform: none;
-  }
-}
+/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

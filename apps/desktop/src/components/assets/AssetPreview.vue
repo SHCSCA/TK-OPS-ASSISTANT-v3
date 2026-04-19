@@ -341,9 +341,5 @@ function toPreviewUrl(filePath: string): string {
   letter-spacing: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .asset-preview video {
-    animation: none;
-  }
-}
+/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

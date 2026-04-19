@@ -48,6 +48,16 @@ def test_validation_failures_use_error_envelope(runtime_client: TestClient) -> N
     assert response.status_code == 422
     payload = response.json()
     assert payload["ok"] is False
-    assert payload["error"] == "Request validation failed"
+    assert payload["error"] == "请求参数校验失败"
     assert payload["requestId"]
     assert payload["details"]
+
+
+def test_runtime_logs_contract_envelope_and_schema(runtime_client: TestClient) -> None:
+    response = runtime_client.get("/api/settings/logs", params={"limit": 3})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert set(payload) == {"ok", "data"}
+    assert set(payload["data"]) == {"items", "nextCursor"}

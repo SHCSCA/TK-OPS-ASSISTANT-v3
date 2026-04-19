@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from urllib.parse import quote
 from typing import Any
 
 from fastapi import HTTPException
@@ -193,21 +194,47 @@ class WorkspaceService:
         return self._save_tracks(timeline, tracks, "片段已替换。")
 
     def fetch_timeline_preview(self, timeline_id: str) -> TimelinePreviewDto:
-        self._load_timeline(timeline_id)
+        timeline = self._load_timeline(timeline_id)
+        try:
+            tracks = self._parse_tracks(timeline.tracks_json)
+            preview_payload = self._build_timeline_preview_payload(timeline, tracks)
+            preview_url = self._encode_data_url(preview_payload)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.exception("生成时间线本地预览失败")
+            raise HTTPException(status_code=500, detail="生成时间线本地预览失败") from exc
+
         return TimelinePreviewDto(
             timelineId=timeline_id,
-            status="unavailable",
-            message=_UNAVAILABLE_PREVIEW_MESSAGE,
-            previewUrl=None,
+            status="ready",
+            message="时间线本地预览已生成，包含真实轨道与片段摘要。",
+            previewUrl=preview_url,
         )
 
     def precheck_timeline(self, timeline_id: str) -> TimelinePrecheckDto:
-        self._load_timeline(timeline_id)
+        timeline = self._load_timeline(timeline_id)
+        try:
+            tracks = self._parse_tracks(timeline.tracks_json)
+            issues = self._build_timeline_precheck_issues(timeline, tracks)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.exception("执行时间线本地预检失败")
+            raise HTTPException(status_code=500, detail="执行时间线本地预检失败") from exc
+
+        if issues:
+            status = "warning"
+            message = f"时间线本地预检发现 {len(issues)} 个问题。"
+        else:
+            status = "ready"
+            message = "时间线本地预检通过。"
+
         return TimelinePrecheckDto(
             timelineId=timeline_id,
-            status="unavailable",
-            message=_UNAVAILABLE_PRECHECK_MESSAGE,
-            issues=[],
+            status=status,
+            message=message,
+            issues=issues,
         )
 
     def run_ai_command(
@@ -379,3 +406,99 @@ class WorkspaceService:
             if str(track.get("id")) == track_id:
                 return index
         return None
+
+    def _build_timeline_preview_payload(
+        self,
+        timeline: Timeline,
+        tracks: list[dict[str, object]],
+    ) -> dict[str, object]:
+        track_summaries: list[dict[str, object]] = []
+        clip_count = 0
+        total_clip_duration_ms = 0
+
+        for track in tracks:
+            clips = track.get("clips")
+            if not isinstance(clips, list):
+                clips = []
+
+            clip_summaries = [self._summarize_clip(clip) for clip in clips if isinstance(clip, dict)]
+            track_clip_count = len(clip_summaries)
+            track_clip_duration_ms = sum(int(clip["durationMs"]) for clip in clip_summaries)
+            clip_count += track_clip_count
+            total_clip_duration_ms += track_clip_duration_ms
+            track_summaries.append(
+                {
+                    "id": track.get("id"),
+                    "kind": track.get("kind"),
+                    "name": track.get("name"),
+                    "orderIndex": track.get("orderIndex"),
+                    "locked": track.get("locked", False),
+                    "muted": track.get("muted", False),
+                    "clipCount": track_clip_count,
+                    "clipDurationMs": track_clip_duration_ms,
+                    "clips": clip_summaries,
+                }
+            )
+
+        return {
+            "timelineId": timeline.id,
+            "timelineName": timeline.name,
+            "status": timeline.status,
+            "source": timeline.source,
+            "durationSeconds": timeline.duration_seconds,
+            "trackCount": len(track_summaries),
+            "clipCount": clip_count,
+            "totalClipDurationMs": total_clip_duration_ms,
+            "tracks": track_summaries,
+        }
+
+    def _encode_data_url(self, payload: dict[str, object]) -> str:
+        json_payload = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        return f"data:application/json;charset=utf-8,{quote(json_payload, safe='')}"
+
+    def _summarize_clip(self, clip: dict[str, object]) -> dict[str, object]:
+        return {
+            "id": clip.get("id"),
+            "trackId": clip.get("trackId"),
+            "label": clip.get("label"),
+            "startMs": clip.get("startMs"),
+            "durationMs": clip.get("durationMs"),
+            "status": clip.get("status"),
+            "sourceType": clip.get("sourceType"),
+            "sourceId": clip.get("sourceId"),
+        }
+
+    def _build_timeline_precheck_issues(
+        self,
+        timeline: Timeline,
+        tracks: list[dict[str, object]],
+    ) -> list[str]:
+        issues: list[str] = []
+        if not tracks:
+            return ["时间线尚未配置轨道，无法生成本地预检结果。"]
+
+        for track in tracks:
+            track_name = str(track.get("name") or track.get("id") or "未命名轨道")
+            track_kind = str(track.get("kind") or "")
+            if track_kind not in SUPPORTED_TRACK_KINDS:
+                issues.append(f"轨道 {track_name} 的类型 {track_kind} 不受支持。")
+
+            clips = track.get("clips")
+            if not isinstance(clips, list):
+                issues.append(f"轨道 {track_name} 的片段数据格式无效。")
+                continue
+
+            for clip in clips:
+                if not isinstance(clip, dict):
+                    issues.append(f"轨道 {track_name} 存在无法识别的片段。")
+                    continue
+
+                clip_label = str(clip.get("label") or clip.get("id") or "未命名片段")
+                duration_ms = clip.get("durationMs")
+                start_ms = clip.get("startMs")
+                if not isinstance(duration_ms, int) or duration_ms <= 0:
+                    issues.append(f"片段 {clip_label} 的时长无效。")
+                if not isinstance(start_ms, int) or start_ms < 0:
+                    issues.append(f"片段 {clip_label} 的起始时间无效。")
+
+        return issues

@@ -102,3 +102,21 @@ def test_render_resource_usage_contract_returns_real_disk_usage(tmp_path: Path) 
     assert usage["disk"]["usagePct"] >= 0
     assert usage["cpu"]["status"] in {"ready", "unavailable"}
     assert usage["gpu"]["status"] == "unavailable"
+
+
+def test_render_retry_contract_updates_task_status(tmp_path: Path) -> None:
+    client = TestClient(_build_app(tmp_path))
+
+    response = client.patch(
+        "/api/renders/tasks/render-task-1",
+        json={"status": "failed", "progress": 60, "error_message": "失败"},
+    )
+    assert response.status_code == 200
+
+    response = client.post("/api/renders/tasks/render-task-1/retry")
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["status"] == "queued"
+    assert data["progress"] == 0
+    assert data["error_message"] is None

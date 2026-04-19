@@ -4,12 +4,22 @@ import base64
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+import pytest
 from fastapi.testclient import TestClient
 
-from services.license_activation import OfflineLicenseActivationAdapter
+try:
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from services.license_activation import OfflineLicenseActivationAdapter
+
+    HAS_CRYPTOGRAPHY = True
+except ModuleNotFoundError:
+    serialization = None  # type: ignore[assignment]
+    Ed25519PrivateKey = Any  # type: ignore[assignment]
+    OfflineLicenseActivationAdapter = None  # type: ignore[assignment]
+    HAS_CRYPTOGRAPHY = False
 
 
 def _base64url(data: bytes) -> str:
@@ -85,6 +95,7 @@ def test_license_status_persists_machine_id_across_app_recreation(
     assert second_payload["data"]["active"] is False
 
 
+@pytest.mark.skipif(not HAS_CRYPTOGRAPHY, reason="缺少 cryptography 依赖")
 def test_license_activate_persists_grant_across_app_recreation(
     runtime_data_dir: Path,
     monkeypatch,
@@ -132,11 +143,30 @@ def test_license_activation_rejects_blank_code_with_error_envelope(
     assert response.status_code == 422
     payload = response.json()
     assert payload["ok"] is False
-    assert payload["error"] == "Request validation failed"
+    assert payload["error"] == "请求参数校验失败"
     assert payload["requestId"]
     assert payload["details"]
 
 
+def test_license_activate_returns_503_when_activation_dependency_is_unavailable(
+    runtime_client: TestClient,
+) -> None:
+    if runtime_client.app.state.license_import_error is None:
+        pytest.skip("当前环境已安装 cryptography")
+
+    response = runtime_client.post(
+        "/api/license/activate",
+        json={"activationCode": "invalid-code"},
+    )
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"] == "许可证激活依赖未就绪，请检查运行时依赖与授权配置"
+    assert payload["requestId"]
+
+
+@pytest.mark.skipif(not HAS_CRYPTOGRAPHY, reason="缺少 cryptography 依赖")
 def test_license_activation_rejects_machine_code_mismatch(
     runtime_data_dir: Path,
     monkeypatch,
@@ -163,6 +193,7 @@ def test_license_activation_rejects_machine_code_mismatch(
     assert payload["requestId"]
 
 
+@pytest.mark.skipif(not HAS_CRYPTOGRAPHY, reason="缺少 cryptography 依赖")
 def test_offline_activation_accepts_case_insensitive_machine_code(tmp_path: Path) -> None:
     private_key = Ed25519PrivateKey.generate()
     public_key_path = tmp_path / "license-public.pem"
@@ -185,6 +216,7 @@ def test_offline_activation_accepts_case_insensitive_machine_code(tmp_path: Path
     assert result.license_type == "perpetual"
 
 
+@pytest.mark.skipif(not HAS_CRYPTOGRAPHY, reason="缺少 cryptography 依赖")
 def test_license_activation_rejects_invalid_signature(
     runtime_data_dir: Path,
     monkeypatch,
@@ -205,6 +237,7 @@ def test_license_activation_rejects_invalid_signature(
     assert payload["requestId"]
 
 
+@pytest.mark.skipif(not HAS_CRYPTOGRAPHY, reason="缺少 cryptography 依赖")
 def test_license_events_write_structured_audit_logs(
     runtime_data_dir: Path,
     monkeypatch,

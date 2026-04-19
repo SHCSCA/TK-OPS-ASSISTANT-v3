@@ -58,7 +58,7 @@ const fillWidth = computed(() => (props.max <= 0 ? 0 : (clampedValue.value / pro
 }
 
 .is-indeterminate .ui-progress__fill {
-  animation: progress-flow 1.2s linear infinite;
+  animation: progress-flow var(--motion-pulse) linear infinite;
   width: 40%;
 }
 

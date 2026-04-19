@@ -14,6 +14,7 @@ from schemas.subtitles import (
     SubtitleSegmentDto,
     SubtitleStyleDto,
     SubtitleTrackAlignInput,
+    SubtitleTrackGenerateInput,
 )
 from services.subtitle_service import SubtitleService
 
@@ -66,6 +67,34 @@ def _make_subtitle_service(tmp_path: Path) -> SubtitleService:
         session.commit()
 
     return SubtitleService(SubtitleRepository(session_factory=session_factory))
+
+
+def test_generate_track_creates_deterministic_local_track(tmp_path: Path) -> None:
+    service = _make_subtitle_service(tmp_path)
+
+    generated = service.generate_track(
+        "project-subtitle",
+        SubtitleTrackGenerateInput(
+            sourceText="开场介绍。\n第二句内容更长一些。",
+            language="zh-CN",
+            stylePreset="creator-default",
+        ),
+    )
+
+    assert generated.track.projectId == "project-subtitle"
+    assert generated.track.source == "script"
+    assert generated.track.status == "ready"
+    assert generated.task is not None
+    assert generated.task["mode"] == "deterministic-local"
+    assert generated.task["segmentCount"] == 2
+    assert "本地" in generated.message
+    assert len(generated.track.segments) == 2
+    assert generated.track.segments[0].segmentIndex == 0
+    assert generated.track.segments[0].startMs == 0
+    assert generated.track.segments[0].endMs is not None
+    assert generated.track.segments[1].startMs is not None
+    assert generated.track.segments[1].startMs >= generated.track.segments[0].endMs
+    assert generated.track.segments[0].confidence is None
 
 
 def test_align_track_updates_segment_times_and_status(tmp_path: Path) -> None:

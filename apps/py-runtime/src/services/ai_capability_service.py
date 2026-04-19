@@ -41,7 +41,10 @@ class ProviderRuntimeConfig:
     api_key: str | None
     base_url: str
     secret_source: str
+    requires_secret: bool
     supports_text_generation: bool
+    supports_tts: bool
+    protocol_family: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -289,7 +292,10 @@ class AICapabilityService:
             api_key=secret_key,
             base_url=base_url,
             secret_source=secret_source,
+            requires_secret=bool(metadata['requires_secret']),
             supports_text_generation='text_generation' in metadata['capabilities'],
+            supports_tts='tts' in metadata['capabilities'],
+            protocol_family=_protocol_family_for(provider_id),
         )
 
     def _probe_provider_connectivity(
@@ -1006,6 +1012,44 @@ def _mask_secret(value: str | None) -> str:
     if len(value) <= 8:
         return '*' * len(value)
     return f'{value[:4]}{"*" * max(4, len(value) - 8)}{value[-4:]}'
+
+
+def _protocol_family_for(provider_id: str) -> str:
+    if provider_id == 'openai':
+        return 'openai_responses'
+    if provider_id == 'anthropic':
+        return 'anthropic_messages'
+    if provider_id == 'gemini':
+        return 'gemini_generate'
+    if provider_id == 'cohere':
+        return 'cohere_chat'
+    if provider_id in {
+        'openai_compatible',
+        'deepseek',
+        'qwen',
+        'kimi',
+        'zhipu',
+        'minimax',
+        'doubao',
+        'baidu_qianfan',
+        'hunyuan',
+        'xai',
+        'mistral',
+        'openrouter',
+        'ollama',
+        'lm_studio',
+        'vllm',
+        'localai',
+    }:
+        return 'openai_chat'
+    if provider_id in {
+        'azure_speech',
+        'elevenlabs',
+        'volcengine_speech',
+        'minimax_speech',
+    }:
+        return 'tts_openai'
+    return 'unknown'
 
 
 def _utc_now() -> str:

@@ -1,284 +1,231 @@
 <template>
-  <section class="account-management">
-    <header class="account-management__hero">
-      <div class="account-management__hero-copy">
-        <p class="account-management__eyebrow">账号管理 · 真实对象</p>
-        <h1>账号管理</h1>
-        <p>
-          只展示 Runtime 返回的账号对象、状态、分组目录和真实统计，不伪造账号绑定或健康分数。
-        </p>
-      </div>
-
-      <div class="account-management__hero-actions">
-        <button class="account-management__button" type="button" @click="handleReload" :disabled="store.status === 'loading'">
-          <span class="material-symbols-outlined">refresh</span>
-          重新拉取
-        </button>
-        <button class="account-management__button account-management__button--brand" type="button" @click="store.showAddModal = true" :disabled="store.status === 'loading'">
-          <span class="material-symbols-outlined">person_add</span>
-          添加账号
-        </button>
+  <div class="page-container h-full">
+    <header class="page-header">
+      <div class="page-header__crumb">首页 / 账号与设备</div>
+      <div class="page-header__row">
+        <div>
+          <h1 class="page-header__title">账号管理</h1>
+          <div class="page-header__subtitle">只展示 Runtime 返回的账号对象、状态、分组目录和真实统计，不伪造账号绑定或健康分数。</div>
+        </div>
+        <div class="page-header__actions">
+          <Button variant="secondary" @click="handleReload" :disabled="store.status === 'loading'">
+            <template #leading><span class="material-symbols-outlined">refresh</span></template>
+            重新拉取
+          </Button>
+          <Button variant="primary" @click="store.showAddModal = true" :disabled="store.status === 'loading'">
+            <template #leading><span class="material-symbols-outlined">person_add</span></template>
+            添加账号
+          </Button>
+        </div>
       </div>
     </header>
 
-    <p v-if="store.error" class="account-management__banner account-management__banner--error">
-      {{ store.error }}
-    </p>
-    <p v-else-if="store.status === 'loading'" class="account-management__banner">
-      正在读取真实账号对象与分组目录，请稍候。
-    </p>
-    <p v-else-if="store.groups.length === 0" class="account-management__banner account-management__banner--blocked">
-      Runtime 尚未返回账号分组目录。页面只展示真实账号对象，不会伪造绑定关系。
-    </p>
+    <div v-if="store.error" class="dashboard-alert" data-tone="danger">
+      <span class="material-symbols-outlined">error</span>
+      <span>{{ store.error }}</span>
+    </div>
+    <div v-else-if="store.status === 'loading'" class="dashboard-alert" data-tone="brand">
+      <span class="material-symbols-outlined spinning">sync</span>
+      <span>正在读取真实账号对象与分组目录，请稍候...</span>
+    </div>
+    <div v-else-if="store.groups.length === 0" class="dashboard-alert" data-tone="warning">
+      <span class="material-symbols-outlined">warning</span>
+      <span>Runtime 尚未返回账号分组目录。页面只展示真实账号对象，不会伪造绑定关系。</span>
+    </div>
 
-    <section class="account-management__summary">
-      <article class="summary-card">
-        <span>账号总数</span>
-        <strong>{{ store.accounts.length }}</strong>
-        <p>Runtime 返回的真实账号对象</p>
-      </article>
-      <article class="summary-card">
-        <span>当前筛选</span>
-        <strong>{{ visibleAccounts.length }}</strong>
-        <p>{{ currentGroupLabel }}</p>
-      </article>
-      <article class="summary-card">
-        <span>当前选中</span>
-        <strong>{{ selectedAccount ? selectedAccount.name : "未选中" }}</strong>
-        <p>{{ selectedAccount ? selectedAccount.platform : "请在左侧选中一个账号" }}</p>
-      </article>
-      <article class="summary-card">
-        <span>分组目录</span>
-        <strong>{{ store.groups.length }}</strong>
-        <p>仅用于真实筛选，不写入假绑定</p>
-      </article>
-    </section>
+    <div class="summary-grid">
+      <Card class="summary-card">
+        <span class="sc-label">账号总数</span>
+        <strong class="sc-val">{{ store.accounts.length }}</strong>
+        <p class="sc-hint">Runtime 返回的真实账号对象</p>
+      </Card>
+      <Card class="summary-card">
+        <span class="sc-label">当前筛选</span>
+        <strong class="sc-val">{{ visibleAccounts.length }}</strong>
+        <p class="sc-hint">{{ currentGroupLabel }}</p>
+      </Card>
+      <Card class="summary-card">
+        <span class="sc-label">当前选中</span>
+        <strong class="sc-val" :title="selectedAccount ? selectedAccount.name : '未选中'">
+          {{ selectedAccount ? selectedAccount.name : "未选中" }}
+        </strong>
+        <p class="sc-hint" :title="selectedAccount ? selectedAccount.platform : '请在左侧选中一个账号'">
+          {{ selectedAccount ? selectedAccount.platform : "请在左侧选中一个账号" }}
+        </p>
+      </Card>
+      <Card class="summary-card">
+        <span class="sc-label">分组目录</span>
+        <strong class="sc-val">{{ store.groups.length }}</strong>
+        <p class="sc-hint">仅用于真实筛选，不写入假绑定</p>
+      </Card>
+    </div>
 
-    <main class="account-management__body">
-      <aside class="account-management__rail">
-        <section class="rail-card">
+    <div class="workspace-grid">
+      <aside class="workspace-rail">
+        <Card class="rail-card">
           <div class="rail-card__header">
-            <div>
-              <p class="rail-card__eyebrow">搜索与分组</p>
-              <h2>筛选真实账号</h2>
+            <h3>筛选真实账号</h3>
+          </div>
+          <div class="rail-card__body">
+            <div class="search-box">
+              <span class="material-symbols-outlined">search</span>
+              <input v-model="searchQuery" type="search" placeholder="搜索账号名称或用户名" />
+            </div>
+
+            <div class="group-tabs">
+              <button :class="{ active: store.selectedGroupId === null }" type="button" @click="handleSelectGroup(null)">
+                全部账号
+              </button>
+              <button
+                v-for="group in store.groups"
+                :key="group.id"
+                :class="{ active: store.selectedGroupId === group.id }"
+                type="button"
+                @click="handleSelectGroup(group.id)"
+              >
+                {{ group.name }}
+              </button>
+            </div>
+
+            <p class="rail-card__hint">{{ groupsHint }}</p>
+          </div>
+        </Card>
+
+        <Card class="rail-card flex-1">
+          <div class="rail-card__header">
+            <h3>{{ listTitle }}</h3>
+            <Chip size="sm" variant="brand">{{ visibleAccounts.length }}</Chip>
+          </div>
+          <div class="rail-card__body no-padding scroll-area">
+            <div v-if="store.status === 'loading'" class="empty-state">
+              <span class="material-symbols-outlined spinning">sync</span>
+              <strong>正在加载账号</strong>
+              <p>同步 Runtime 中的账号对象和分组目录。</p>
+            </div>
+            <div v-else-if="visibleAccounts.length === 0" class="empty-state">
+              <span class="material-symbols-outlined">person_off</span>
+              <strong>没有符合条件的账号</strong>
+              <p>可以切换分组、清空搜索，或者添加一个真实账号对象。</p>
+            </div>
+            <div v-else class="account-list">
+              <button
+                v-for="account in visibleAccounts"
+                :key="account.id"
+                class="account-card"
+                :class="{ 'is-selected': selectedAccountId === account.id }"
+                @click="selectAccount(account)"
+              >
+                <div class="ac-head">
+                  <div class="ac-avatar" :data-platform="account.platform">
+                    <img v-if="account.avatarUrl" :src="account.avatarUrl" :alt="account.name" />
+                    <span v-else>{{ account.name.charAt(0).toUpperCase() }}</span>
+                  </div>
+                  <div class="ac-meta">
+                    <strong :title="account.name">{{ account.name }}</strong>
+                    <span>@{{ account.username || "未提供用户名" }}</span>
+                  </div>
+                  <Chip size="sm" :variant="statusTone(account.status)">{{ getStatusLabel(account.status) }}</Chip>
+                </div>
+                <div class="ac-body">
+                  <span>{{ platformLabel(account.platform) }}</span>
+                  <span>{{ formatDateTime(account.updatedAt) }}</span>
+                </div>
+                <div class="ac-stats">
+                  <span><strong>{{ formatCount(account.followerCount) }}</strong> 粉丝</span>
+                  <span><strong>{{ formatCount(account.videoCount) }}</strong> 视频</span>
+                </div>
+                <div class="ac-footer">
+                  <span class="ac-tag">{{ account.authExpiresAt ? `到期 ${formatDateTime(account.authExpiresAt)}` : "未返回授权到期时间" }}</span>
+                  <Button variant="danger" size="sm" :disabled="store.status === 'loading'" @click.stop="handleDeleteAccount(account)">删除</Button>
+                </div>
+              </button>
             </div>
           </div>
-
-          <label class="search-box">
-            <span class="material-symbols-outlined">search</span>
-            <input v-model="searchQuery" type="search" placeholder="搜索账号名称或用户名" />
-          </label>
-
-          <div class="group-tabs" aria-label="账号分组筛选">
-            <button :class="{ active: store.selectedGroupId === null }" type="button" @click="handleSelectGroup(null)">
-              全部账号
-            </button>
-            <button
-              v-for="group in store.groups"
-              :key="group.id"
-              :class="{ active: store.selectedGroupId === group.id }"
-              type="button"
-              @click="handleSelectGroup(group.id)"
-            >
-              {{ group.name }}
-            </button>
-          </div>
-
-          <p class="rail-card__hint">
-            {{ groupsHint }}
-          </p>
-        </section>
-
-        <section class="rail-card rail-card--list">
-          <div class="rail-card__header">
-            <div>
-              <p class="rail-card__eyebrow">账号列表</p>
-              <h2>{{ listTitle }}</h2>
-            </div>
-            <span class="rail-card__badge">{{ visibleAccounts.length }}</span>
-          </div>
-
-          <div v-if="store.status === 'loading'" class="state-card">
-            <span class="material-symbols-outlined state-card__spinner">sync</span>
-            <strong>正在加载账号</strong>
-            <p>同步 Runtime 中的账号对象和分组目录。</p>
-          </div>
-
-          <div v-else-if="visibleAccounts.length === 0" class="state-card state-card--empty">
-            <span class="material-symbols-outlined">person_off</span>
-            <strong>没有符合条件的账号</strong>
-            <p>可以切换分组、清空搜索，或者添加一个真实账号对象。</p>
-          </div>
-
-          <div v-else class="account-list">
-            <button
-              v-for="account in visibleAccounts"
-              :key="account.id"
-              :data-testid="`account-card-${account.id}`"
-              class="account-card"
-              :class="{ 'account-card--selected': selectedAccountId === account.id }"
-              type="button"
-              @click="selectAccount(account)"
-            >
-              <div class="account-card__head">
-                <div class="account-card__avatar" :data-platform="account.platform">
-                  <img v-if="account.avatarUrl" :src="account.avatarUrl" :alt="account.name" />
-                  <span v-else>{{ account.name.charAt(0).toUpperCase() }}</span>
-                </div>
-                <div class="account-card__meta">
-                  <strong :title="account.name">{{ account.name }}</strong>
-                  <span>@{{ account.username || "未提供用户名" }}</span>
-                </div>
-                <span class="account-card__status" :class="account.status">{{ getStatusLabel(account.status) }}</span>
-              </div>
-
-              <div class="account-card__body">
-                <span>{{ platformLabel(account.platform) }}</span>
-                <span>{{ formatDateTime(account.updatedAt) }}</span>
-              </div>
-
-              <div class="account-card__stats">
-                <span><strong>{{ formatCount(account.followerCount) }}</strong> 粉丝</span>
-                <span><strong>{{ formatCount(account.videoCount) }}</strong> 视频</span>
-              </div>
-
-              <div class="account-card__footer">
-                <span class="account-card__tag">
-                  {{ account.authExpiresAt ? `到期 ${formatDateTime(account.authExpiresAt)}` : "未返回授权到期时间" }}
-                </span>
-                <button
-                  class="account-card__delete"
-                  type="button"
-                  :disabled="store.status === 'loading'"
-                  @click.stop="handleDeleteAccount(account)"
-                >
-                  删除
-                </button>
-              </div>
-            </button>
-          </div>
-        </section>
+        </Card>
       </aside>
 
-      <section class="account-management__detail">
-        <article class="detail-card">
+      <main class="workspace-main">
+        <Card class="detail-card">
           <div class="detail-card__header">
             <div>
-              <p class="detail-card__eyebrow">账号详情</p>
-              <h2>{{ selectedAccount ? selectedAccount.name : "未选中账号" }}</h2>
-              <p class="detail-card__summary">
-                {{ selectedAccount ? `账号对象来自 ${platformLabel(selectedAccount.platform)}，选中后会同步打开右侧详情面板。` : "在左侧选择一个账号，右侧会显示真实状态、统计和授权到期时间。" }}
-              </p>
+              <h3>{{ selectedAccount ? selectedAccount.name : "未选中账号" }}</h3>
+              <p class="summary">{{ selectedAccount ? `账号对象来自 ${platformLabel(selectedAccount.platform)}，选中后会同步打开右侧详情面板。` : "在左侧选择一个账号，右侧会显示真实状态、统计和授权到期时间。" }}</p>
             </div>
-            <div class="detail-card__actions" v-if="selectedAccount">
-              <button class="account-management__button" type="button" @click="handleRefreshSelected" :disabled="store.status === 'loading'">
-                <span class="material-symbols-outlined">refresh</span>
+            <div class="actions" v-if="selectedAccount">
+              <Button variant="secondary" @click="handleRefreshSelected" :disabled="store.status === 'loading'">
+                <template #leading><span class="material-symbols-outlined">refresh</span></template>
                 刷新统计
-              </button>
+              </Button>
             </div>
           </div>
 
-          <template v-if="selectedAccount">
+          <div class="detail-card__body" v-if="selectedAccount">
             <dl class="detail-metadata">
-              <div>
-                <dt>平台</dt>
-                <dd>{{ platformLabel(selectedAccount.platform) }}</dd>
-              </div>
-              <div>
-                <dt>状态</dt>
-                <dd>{{ getStatusLabel(selectedAccount.status) }}</dd>
-              </div>
-              <div>
-                <dt>用户名</dt>
-                <dd>{{ selectedAccount.username || "未提供用户名" }}</dd>
-              </div>
-              <div>
-                <dt>授权到期</dt>
-                <dd>{{ selectedAccount.authExpiresAt ? formatDateTime(selectedAccount.authExpiresAt) : "未返回到期时间" }}</dd>
-              </div>
-              <div>
-                <dt>创建时间</dt>
-                <dd>{{ formatDateTime(selectedAccount.createdAt) }}</dd>
-              </div>
-              <div>
-                <dt>更新时间</dt>
-                <dd>{{ formatDateTime(selectedAccount.updatedAt) }}</dd>
-              </div>
+              <div><dt>平台</dt><dd>{{ platformLabel(selectedAccount.platform) }}</dd></div>
+              <div><dt>状态</dt><dd><Chip :variant="statusTone(selectedAccount.status)" size="sm">{{ getStatusLabel(selectedAccount.status) }}</Chip></dd></div>
+              <div><dt>用户名</dt><dd>{{ selectedAccount.username || "未提供用户名" }}</dd></div>
+              <div><dt>授权到期</dt><dd>{{ selectedAccount.authExpiresAt ? formatDateTime(selectedAccount.authExpiresAt) : "未返回到期时间" }}</dd></div>
+              <div><dt>创建时间</dt><dd>{{ formatDateTime(selectedAccount.createdAt) }}</dd></div>
+              <div><dt>更新时间</dt><dd>{{ formatDateTime(selectedAccount.updatedAt) }}</dd></div>
             </dl>
 
-            <section class="detail-block">
-              <div class="detail-block__header">
-                <span>真实统计</span>
-              </div>
+            <div class="detail-block">
+              <div class="detail-block__header"><span>真实统计</span></div>
               <div class="metric-grid">
-                <article class="metric-card">
+                <div class="metric-card">
                   <span>粉丝</span>
                   <strong>{{ formatCount(selectedAccount.followerCount) }}</strong>
-                </article>
-                <article class="metric-card">
+                </div>
+                <div class="metric-card">
                   <span>关注</span>
                   <strong>{{ formatCount(selectedAccount.followingCount) }}</strong>
-                </article>
-                <article class="metric-card">
+                </div>
+                <div class="metric-card">
                   <span>视频</span>
                   <strong>{{ formatCount(selectedAccount.videoCount) }}</strong>
-                </article>
+                </div>
               </div>
-            </section>
+            </div>
 
-            <section class="detail-block">
-              <div class="detail-block__header">
-                <span>标签与备注</span>
-              </div>
+            <div class="detail-block">
+              <div class="detail-block__header"><span>标签与备注</span></div>
               <div v-if="selectedTags.length" class="tag-list">
-                <span v-for="tag in selectedTags" :key="tag">{{ tag }}</span>
+                <span v-for="tag in selectedTags" :key="tag" class="tag-item">{{ tag }}</span>
               </div>
               <p v-else class="detail-empty">Runtime 还没有为该账号返回标签。</p>
-              <p class="detail-note">
-                {{ selectedAccount.notes || "Runtime 没有返回备注内容。" }}
-              </p>
-            </section>
+              <p class="detail-note">{{ selectedAccount.notes || "Runtime 没有返回备注内容。" }}</p>
+            </div>
 
-            <section class="detail-block detail-block--blocked">
+            <div class="detail-block detail-block--blocked">
               <div class="detail-block__header">
                 <span>分组与绑定</span>
-                <strong>blocked</strong>
+                <Chip variant="warning" size="sm">blocked</Chip>
               </div>
-              <p class="detail-empty">
-                当前 Runtime 只返回账号对象和分组目录，没有返回 per-account 的绑定字段。页面只做真实筛选，不伪造账号绑定。
-              </p>
-            </section>
+              <p class="detail-empty">当前 Runtime 只返回账号对象和分组目录，没有返回 per-account 的绑定字段。页面只做真实筛选，不伪造账号绑定。</p>
+            </div>
 
             <div class="detail-actions">
-              <button class="account-management__button account-management__button--brand" type="button" @click="openSelectedAccountDetail">
-                打开右侧详情
-              </button>
-              <button class="account-management__button" type="button" @click="clearSelection">
-                清空选择
-              </button>
+              <Button variant="primary" @click="openSelectedAccountDetail">打开右侧详情</Button>
+              <Button variant="ghost" @click="clearSelection">清空选择</Button>
             </div>
-          </template>
-
-          <template v-else>
-            <div class="detail-empty-state">
+          </div>
+          <div class="detail-card__body empty-wrapper" v-else>
+            <div class="empty-state">
               <span class="material-symbols-outlined">person_search</span>
               <strong>未选中账号</strong>
               <p>在左侧选择一个真实账号对象，右侧会展示它的统计、授权到期和备注信息。</p>
             </div>
-          </template>
-        </article>
-
-        <article class="detail-card detail-card--soft">
-          <div class="detail-block__header">
-            <span>真实边界</span>
           </div>
-          <p class="detail-note">
-            账号页只显示 Runtime 真实返回的账号对象，不显示健康分、在线率或人工拼接的绑定结果。
-          </p>
-        </article>
-      </section>
-    </main>
+        </Card>
 
+        <Card class="detail-card soft-card">
+          <div class="detail-block__header"><span>真实边界</span></div>
+          <p class="detail-note">账号页只显示 Runtime 真实返回的账号对象，不显示健康分、在线率或人工拼接的绑定结果。</p>
+        </Card>
+      </main>
+    </div>
+
+    <!-- Drawer Modal -->
     <transition name="drawer">
       <div v-if="store.showAddModal" class="drawer-overlay" @click="store.showAddModal = false">
         <aside class="drawer-panel" @click.stop>
@@ -287,136 +234,112 @@
               <p class="drawer-panel__eyebrow">添加账号</p>
               <h2>创建真实账号对象</h2>
             </div>
-            <button class="drawer-panel__close" type="button" @click="store.showAddModal = false">
+            <button class="drawer-panel__close" @click="store.showAddModal = false">
               <span class="material-symbols-outlined">close</span>
             </button>
           </div>
-
-          <form class="drawer-form" @submit.prevent="handleAddAccount">
-            <label class="drawer-form__field">
-              <span>账号显示名称</span>
-              <input v-model="addForm.name" type="text" placeholder="例如：我的主账号" required />
-            </label>
-
-            <label class="drawer-form__field">
-              <span>目标平台</span>
-              <select v-model="addForm.platform">
-                <option value="tiktok">TikTok</option>
-                <option value="youtube">YouTube</option>
-                <option value="instagram">Instagram</option>
-              </select>
-            </label>
-
-            <label class="drawer-form__field">
-              <span>用户名</span>
-              <input v-model="addForm.username" type="text" placeholder="username" />
-            </label>
-
-            <label class="drawer-form__field">
-              <span>初始状态</span>
-              <select v-model="addForm.status">
-                <option value="active">已激活</option>
-                <option value="inactive">未登录</option>
-                <option value="expired">凭证过期</option>
-                <option value="suspended">已封禁</option>
-              </select>
-            </label>
-
-            <p class="drawer-form__hint">
-              这里创建的只是账号对象，不包含任何假绑定；后续分组和授权状态仍以 Runtime 返回为准。
-            </p>
-
-            <div class="drawer-form__actions">
-              <button class="account-management__button" type="button" @click="store.showAddModal = false">取消</button>
-              <button class="account-management__button account-management__button--brand" type="submit" :disabled="!addForm.name || store.status === 'loading'">
-                保存账号
-              </button>
-            </div>
-          </form>
+          <div class="drawer-panel__body">
+            <form class="drawer-form" @submit.prevent="handleAddAccount">
+              <div class="form-group">
+                <label>账号显示名称</label>
+                <Input v-model="addForm.name" placeholder="例如：我的主账号" required />
+              </div>
+              <div class="form-group">
+                <label>目标平台</label>
+                <select v-model="addForm.platform" class="ui-input-field">
+                  <option value="tiktok">TikTok</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="instagram">Instagram</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>用户名</label>
+                <Input v-model="addForm.username" placeholder="username" />
+              </div>
+              <div class="form-group">
+                <label>初始状态</label>
+                <select v-model="addForm.status" class="ui-input-field">
+                  <option value="active">已激活</option>
+                  <option value="inactive">未登录</option>
+                  <option value="expired">凭证过期</option>
+                  <option value="suspended">已封禁</option>
+                </select>
+              </div>
+              <p class="drawer-form__hint">这里创建的只是账号对象，不包含任何假绑定；后续分组和授权状态仍以 Runtime 返回为准。</p>
+              <div class="drawer-actions">
+                <Button variant="ghost" @click="store.showAddModal = false">取消</Button>
+                <Button variant="primary" type="submit" :disabled="!addForm.name || store.status === 'loading'">保存账号</Button>
+              </div>
+            </form>
+          </div>
         </aside>
       </div>
     </transition>
-  </section>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-
 import { createRouteDetailContext, useShellUiStore } from "@/stores/shell-ui";
 import { useAccountManagementStore } from "@/stores/account-management";
 import type { AccountDto } from "@/types/runtime";
+
+import Button from "@/components/ui/Button/Button.vue";
+import Card from "@/components/ui/Card/Card.vue";
+import Chip from "@/components/ui/Chip/Chip.vue";
 
 const store = useAccountManagementStore();
 const shellUiStore = useShellUiStore();
 const searchQuery = ref("");
 const selectedAccountId = ref<string | null>(null);
 
-const addForm = reactive({
-  name: "",
-  platform: "tiktok",
-  username: "",
-  status: "active"
-});
+const addForm = reactive({ name: "", platform: "tiktok", username: "", status: "active" });
 
 const visibleAccounts = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
-  if (!query) {
-    return store.accounts;
-  }
-
+  if (!query) return store.accounts;
   return store.accounts.filter((account) => {
     const username = account.username?.toLowerCase() ?? "";
     return account.name.toLowerCase().includes(query) || username.includes(query);
   });
 });
 
-const selectedAccount = computed(
-  () => store.accounts.find((account) => account.id === selectedAccountId.value) ?? null
-);
+const selectedAccount = computed(() => store.accounts.find((account) => account.id === selectedAccountId.value) ?? null);
 const selectedTags = computed(() => (selectedAccount.value ? parseTags(selectedAccount.value.tags) : []));
 const currentGroupLabel = computed(() => {
   if (store.selectedGroupId === null) return "全部账号";
   const group = store.groups.find((item) => item.id === store.selectedGroupId);
   return group ? `分组：${group.name}` : "当前分组已不存在";
 });
+
 const groupsHint = computed(() => {
   if (store.status === "loading") return "Runtime 正在返回分组目录。";
   if (store.groups.length === 0) return "当前没有分组目录，列表仅按账号对象显示。";
   return "分组筛选只影响列表结果，不会写入假绑定。";
 });
+
 const listTitle = computed(() => {
   if (store.status === "loading") return "加载中";
   if (visibleAccounts.value.length === 0) return "暂无可见账号";
   return "账号列表";
 });
 
-watch(
-  selectedAccount,
-  (account) => {
-    if (!account) {
-      shellUiStore.clearDetailContext("binding");
-      shellUiStore.closeDetailPanel();
-      return;
-    }
+watch(selectedAccount, (account) => {
+  if (!account) {
+    shellUiStore.clearDetailContext("binding");
+    shellUiStore.closeDetailPanel();
+    return;
+  }
+  shellUiStore.openDetailWithContext(buildAccountDetailContext(account));
+}, { immediate: true });
 
-    shellUiStore.openDetailWithContext(buildAccountDetailContext(account));
-  },
-  { immediate: true }
-);
-
-onMounted(() => {
-  void store.load();
-});
-
+onMounted(() => { void store.load(); });
 onBeforeUnmount(() => {
   shellUiStore.clearDetailContext("binding");
   shellUiStore.closeDetailPanel();
 });
 
-function handleReload() {
-  void store.load();
-}
-
+function handleReload() { void store.load(); }
 function handleSelectGroup(groupId: string | null) {
   selectedAccountId.value = null;
   shellUiStore.clearDetailContext("binding");
@@ -424,10 +347,7 @@ function handleSelectGroup(groupId: string | null) {
   store.setSelectedGroup(groupId);
 }
 
-function selectAccount(account: AccountDto) {
-  selectedAccountId.value = account.id;
-}
-
+function selectAccount(account: AccountDto) { selectedAccountId.value = account.id; }
 function clearSelection() {
   selectedAccountId.value = null;
   shellUiStore.clearDetailContext("binding");
@@ -440,25 +360,15 @@ function openSelectedAccountDetail() {
 }
 
 async function handleAddAccount() {
-  await store.addAccount({
-    name: addForm.name.trim(),
-    platform: addForm.platform,
-    username: addForm.username.trim(),
-    status: addForm.status
-  });
-  addForm.name = "";
-  addForm.username = "";
-  addForm.platform = "tiktok";
-  addForm.status = "active";
+  await store.addAccount({ name: addForm.name.trim(), platform: addForm.platform, username: addForm.username.trim(), status: addForm.status });
+  addForm.name = ""; addForm.username = ""; addForm.platform = "tiktok"; addForm.status = "active";
   selectedAccountId.value = null;
 }
 
 async function handleDeleteAccount(account: AccountDto) {
   if (!window.confirm(`确认删除账号“${account.name}”吗？`)) return;
   await store.removeAccount(account.id);
-  if (selectedAccountId.value === account.id) {
-    clearSelection();
-  }
+  if (selectedAccountId.value === account.id) clearSelection();
 }
 
 async function handleRefreshSelected() {
@@ -468,46 +378,27 @@ async function handleRefreshSelected() {
 
 function buildAccountDetailContext(account: AccountDto) {
   return createRouteDetailContext("binding", {
-    icon: "account_circle",
-    eyebrow: "账号详情",
-    title: account.name,
-    description: "只展示 Runtime 真实返回的账号对象和状态，不伪造绑定关系。",
-    badge: {
-      label: getStatusLabel(account.status),
-      tone: account.status === "active" ? "success" : account.status === "expired" ? "warning" : "neutral"
-    },
+    icon: "account_circle", eyebrow: "账号详情", title: account.name, description: "只展示 Runtime 真实返回的账号对象和状态，不伪造绑定关系。",
+    badge: { label: getStatusLabel(account.status), tone: account.status === "active" ? "success" : account.status === "expired" ? "warning" : "neutral" },
     metrics: [
       { id: "followers", label: "粉丝", value: formatCount(account.followerCount), hint: "真实统计" },
       { id: "following", label: "关注", value: formatCount(account.followingCount), hint: "真实统计" },
       { id: "videos", label: "视频", value: formatCount(account.videoCount), hint: "真实统计" }
     ],
     sections: [
-      {
-        id: "profile",
-        title: "账号概览",
-        fields: [
+      { id: "profile", title: "账号概览", fields: [
           { id: "platform", label: "平台", value: platformLabel(account.platform) },
           { id: "status", label: "状态", value: getStatusLabel(account.status) },
           { id: "username", label: "用户名", value: account.username || "未提供用户名" },
           { id: "auth", label: "授权到期", value: account.authExpiresAt ? formatDateTime(account.authExpiresAt) : "未返回到期时间", mono: true },
           { id: "created", label: "创建时间", value: formatDateTime(account.createdAt), mono: true },
           { id: "updated", label: "更新时间", value: formatDateTime(account.updatedAt), mono: true }
-        ]
-      },
-      {
-        id: "tags",
-        title: "标签与备注",
-        emptyLabel: "Runtime 还没有为该账号返回标签或备注。",
-        fields: [
+      ]},
+      { id: "tags", title: "标签与备注", emptyLabel: "Runtime 还没有为该账号返回标签或备注。", fields: [
           { id: "tags", label: "标签", value: parseTags(account.tags).join(" / ") || "未返回标签" },
           { id: "notes", label: "备注", value: account.notes || "未返回备注", multiline: true }
-        ]
-      },
-      {
-        id: "binding",
-        title: "分组与绑定",
-        emptyLabel: "Runtime 只返回账号对象与分组目录，没有返回账号绑定字段。"
-      }
+      ]},
+      { id: "binding", title: "分组与绑定", emptyLabel: "Runtime 只返回账号对象与分组目录，没有返回账号绑定字段。" }
     ],
     actions: [
       { id: "refresh", label: "刷新统计", icon: "refresh", tone: "brand" },
@@ -521,9 +412,7 @@ function parseTags(raw: string | null): string[] {
   try {
     const parsed = JSON.parse(raw) as unknown;
     return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
-  } catch {
-    return [];
-  }
+  } catch { return []; }
 }
 
 function formatCount(count: number | null) {
@@ -533,281 +422,235 @@ function formatCount(count: number | null) {
   return String(count);
 }
 
+function statusTone(status: string): "success" | "neutral" | "danger" | "warning" {
+  if (status === "active") return "success";
+  if (status === "inactive") return "neutral";
+  if (status === "suspended") return "danger";
+  if (status === "expired") return "warning";
+  return "neutral";
+}
+
 function getStatusLabel(status: string) {
   switch (status) {
-    case "active":
-      return "已激活";
-    case "inactive":
-      return "未登录";
-    case "suspended":
-      return "已封禁";
-    case "expired":
-      return "凭证过期";
-    default:
-      return status || "未知";
+    case "active": return "已激活";
+    case "inactive": return "未登录";
+    case "suspended": return "已封禁";
+    case "expired": return "凭证过期";
+    default: return status || "未知";
   }
 }
 
 function platformLabel(platform: string) {
   switch (platform) {
-    case "tiktok":
-      return "TikTok";
-    case "youtube":
-      return "YouTube";
-    case "instagram":
-      return "Instagram";
-    default:
-      return platform || "未知平台";
+    case "tiktok": return "TikTok";
+    case "youtube": return "YouTube";
+    case "instagram": return "Instagram";
+    default: return platform || "未知平台";
   }
 }
 
 function formatDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-
   const parts = new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-    hourCycle: "h23"
+    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, hourCycle: "h23"
   }).formatToParts(date);
-
   const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
   return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")}`;
 }
 </script>
 
 <style scoped>
-.account-management {
-  display: grid;
-  gap: 16px;
-  min-height: 100%;
-  padding: 18px 24px 24px;
-}
-
-.account-management__hero {
-  align-items: start;
+.page-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-8) var(--space-8);
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column;
 }
 
-.account-management__hero-copy {
+.page-header {
   display: grid;
-  gap: 8px;
-  min-width: 0;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-shrink: 0;
 }
 
-.account-management__eyebrow {
-  color: var(--color-brand-primary, var(--brand-primary));
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-  margin: 0;
+.page-header__crumb {
+  font: var(--font-caption);
+  letter-spacing: var(--ls-caption);
+  color: var(--color-text-tertiary);
   text-transform: uppercase;
 }
 
-.account-management__hero-copy h1 {
-  font-size: 28px;
-  line-height: 1.15;
-  margin: 0;
-}
-
-.account-management__hero-copy p {
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 13px;
-  line-height: 1.7;
-  margin: 0;
-  max-width: 780px;
-}
-
-.account-management__hero-actions,
-.detail-actions,
-.drawer-form__actions {
+.page-header__row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
 }
 
-.account-management__button {
+.page-header__title {
+  font: var(--font-display-md);
+  letter-spacing: var(--ls-display-md);
+  color: var(--color-text-primary);
+  margin: 0 0 4px 0;
+}
+
+.page-header__subtitle {
+  font: var(--font-body-md);
+  letter-spacing: var(--ls-body-md);
+  color: var(--color-text-secondary);
+}
+
+.page-header__actions {
+  display: flex;
   align-items: center;
-  background: transparent;
-  border: 1px solid var(--color-border-default, var(--border-default));
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary, var(--text-primary));
-  cursor: pointer;
-  display: inline-flex;
-  gap: 6px;
-  height: 36px;
-  justify-content: center;
-  padding: 0 14px;
+  gap: var(--space-3);
 }
 
-.account-management__button--brand {
-  background: var(--color-brand-primary, var(--brand-primary));
-  border-color: var(--color-brand-primary, var(--brand-primary));
-  color: var(--color-text-on-brand, #fff);
-}
-
-.account-management__button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.account-management__banner {
-  border: 1px solid var(--color-border-default, var(--border-default));
+.dashboard-alert {
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  background: var(--color-bg-surface, var(--surface-secondary));
-  color: var(--color-text-secondary, var(--text-secondary));
-  margin: 0;
-  padding: 10px 12px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-muted);
+  line-height: 1.6;
+  margin-bottom: var(--space-4);
+  font: var(--font-body-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.account-management__banner--error {
-  border-color: color-mix(in srgb, var(--color-danger, var(--status-error)) 32%, var(--color-border-default, var(--border-default)));
-  color: var(--color-danger, var(--status-error));
+.dashboard-alert[data-tone="danger"] {
+  border-color: rgba(255, 90, 99, 0.20);
+  background: rgba(255, 90, 99, 0.08);
+  color: var(--color-danger);
 }
 
-.account-management__banner--blocked {
-  border-color: color-mix(in srgb, var(--color-warning, var(--status-warning)) 30%, var(--color-border-default, var(--border-default)));
-  color: var(--color-warning, var(--status-warning));
+.dashboard-alert[data-tone="warning"] {
+  border-color: rgba(245, 183, 64, 0.20);
+  background: rgba(245, 183, 64, 0.08);
+  color: var(--color-warning);
 }
 
-.account-management__summary {
+.dashboard-alert[data-tone="brand"] {
+  border-color: rgba(0, 188, 212, 0.20);
+  background: rgba(0, 188, 212, 0.08);
+  color: var(--color-brand-primary);
+}
+
+.summary-grid {
   display: grid;
-  gap: 12px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-shrink: 0;
 }
 
 .summary-card {
-  border: 1px solid var(--color-border-default, var(--border-default));
-  border-radius: var(--radius-md);
-  background: var(--color-bg-surface, var(--surface-secondary));
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-  padding: 14px;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.summary-card span {
-  color: var(--color-text-tertiary, var(--text-tertiary));
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
+.sc-label {
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
   text-transform: uppercase;
 }
 
-.summary-card strong {
-  font-size: 15px;
-  line-height: 1.3;
+.sc-val {
+  font: var(--font-title-md);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.summary-card p {
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 12px;
-  line-height: 1.5;
-  margin: 0;
+.sc-hint {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.account-management__body {
+.workspace-grid {
   display: grid;
-  gap: 16px;
   grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: var(--space-4);
+  flex: 1;
   min-height: 0;
 }
 
-.account-management__rail,
-.account-management__detail {
-  display: grid;
-  gap: 12px;
-  min-height: 0;
-}
-
-.rail-card,
-.detail-card {
-  border: 1px solid var(--color-border-default, var(--border-default));
-  border-radius: var(--radius-md);
-  background: var(--color-bg-surface, var(--surface-secondary));
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-}
-
-.detail-card--soft {
-  background: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 4%, var(--color-bg-surface, var(--surface-secondary)));
-}
-
-.rail-card--list {
-  gap: 12px;
-  min-height: 0;
-}
-
-.rail-card__header,
-.detail-card__header {
+.workspace-rail {
   display: flex;
-  align-items: start;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
+}
+
+.rail-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.rail-card__header {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-canvas);
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
 }
 
-.rail-card__eyebrow,
-.detail-card__eyebrow {
-  color: var(--color-text-tertiary, var(--text-tertiary));
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-  margin: 0 0 4px;
-  text-transform: uppercase;
-}
-
-.rail-card__header h2,
-.detail-card__header h2 {
+.rail-card__header h3 {
   margin: 0;
+  font: var(--font-title-md);
+  color: var(--color-text-primary);
 }
 
-.rail-card__badge {
-  align-self: start;
-  background: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 14%, transparent);
-  border-radius: 999px;
-  color: var(--color-brand-primary, var(--brand-primary));
-  font-size: 12px;
-  font-weight: 700;
-  padding: 2px 8px;
+.rail-card__body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rail-card__body.no-padding {
+  padding: 0;
+}
+
+.scroll-area {
+  overflow-y: auto;
 }
 
 .search-box {
-  align-items: center;
-  background: var(--color-bg-canvas, var(--bg-card));
-  border: 1px solid var(--color-border-default, var(--border-default));
-  border-radius: var(--radius-sm);
   display: flex;
+  align-items: center;
   gap: 8px;
-  height: 38px;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
   padding: 0 10px;
-}
-
-.search-box .material-symbols-outlined {
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 18px;
+  height: 36px;
 }
 
 .search-box input {
   background: transparent;
   border: none;
-  color: var(--color-text-primary, var(--text-primary));
-  font-size: 13px;
-  min-width: 0;
+  color: var(--color-text-primary);
   outline: none;
-  width: 100%;
+  flex: 1;
+  font: var(--font-body-md);
 }
 
 .group-tabs {
@@ -818,443 +661,416 @@ function formatDateTime(value: string): string {
 
 .group-tabs button {
   background: transparent;
-  border: 1px solid var(--color-border-default, var(--border-default));
+  border: 1px solid var(--color-border-default);
   border-radius: var(--radius-sm);
-  color: var(--color-text-secondary, var(--text-secondary));
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 13px;
-  height: 32px;
-  padding: 0 12px;
+  padding: 6px 12px;
+  transition: all var(--motion-fast) var(--ease-standard);
 }
 
 .group-tabs button.active {
-  background: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 12%, transparent);
-  border-color: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 35%, var(--color-border-default, var(--border-default)));
-  color: var(--color-brand-primary, var(--brand-primary));
+  background: color-mix(in srgb, var(--color-brand-primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-brand-primary) 35%, var(--color-border-default));
+  color: var(--color-brand-primary);
 }
 
 .rail-card__hint {
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 12px;
-  line-height: 1.6;
   margin: 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-tertiary);
 }
 
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-10) var(--space-4);
+  color: var(--color-text-tertiary);
+  gap: 8px;
+}
+
+.empty-state .material-symbols-outlined {
+  font-size: 32px;
+  color: var(--color-text-secondary);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
 .account-list {
-  display: grid;
-  gap: 10px;
-  max-height: min(68vh, 760px);
-  overflow: auto;
-  padding-right: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .account-card {
-  background: transparent;
-  border: 1px solid var(--color-border-default, var(--border-default));
-  border-radius: var(--radius-md);
-  color: inherit;
-  cursor: pointer;
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  text-align: left;
-}
-
-.account-card--selected {
-  background: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 8%, var(--color-bg-surface, var(--surface-secondary)));
-  border-color: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 55%, var(--color-border-default, var(--border-default)));
-}
-
-.account-card__head {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.account-card__avatar {
-  align-items: center;
-  background: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 14%, transparent);
-  border-radius: 50%;
   display: flex;
-  height: 48px;
-  justify-content: center;
-  overflow: hidden;
-  width: 48px;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--space-4);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--motion-fast) var(--ease-standard);
 }
 
-.account-card__avatar[data-platform="youtube"] {
-  background: color-mix(in srgb, var(--color-danger, var(--status-error)) 14%, transparent);
+.account-card:hover {
+  background: var(--color-bg-hover);
 }
 
-.account-card__avatar[data-platform="instagram"] {
-  background: color-mix(in srgb, var(--color-warning, var(--status-warning)) 14%, transparent);
+.account-card:active {
+  transform: scale(0.98);
+  transition-duration: var(--motion-instant);
 }
 
-.account-card__avatar img {
-  height: 100%;
-  object-fit: cover;
+.account-list-transition-move,
+.account-list-transition-enter-active,
+.account-list-transition-leave-active {
+  transition: all var(--motion-default) var(--ease-spring);
+}
+.account-list-transition-enter-from,
+.account-list-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+.account-list-transition-leave-active {
+  position: absolute;
   width: 100%;
 }
 
-.account-card__avatar span {
-  color: var(--color-brand-primary, var(--brand-primary));
-  font-size: 20px;
-  font-weight: 800;
+.account-card.is-selected {
+  background: color-mix(in srgb, var(--color-brand-primary) 8%, var(--color-bg-surface));
+  border-left: 3px solid var(--color-brand-primary);
+  padding-left: calc(var(--space-4) - 3px);
 }
 
-.account-card__meta {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.account-card__meta strong {
-  font-size: 15px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-card__meta span,
-.account-card__body,
-.account-card__stats,
-.account-card__footer {
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 12px;
-}
-
-.account-card__status {
-  align-self: start;
-  border-radius: 999px;
-  padding: 2px 8px;
-  white-space: nowrap;
-}
-
-.account-card__status.active {
-  background: color-mix(in srgb, var(--color-success, var(--status-success)) 12%, transparent);
-  color: var(--color-success, var(--status-success));
-}
-
-.account-card__status.inactive {
-  background: color-mix(in srgb, var(--color-text-tertiary, var(--text-tertiary)) 12%, transparent);
-  color: var(--color-text-tertiary, var(--text-tertiary));
-}
-
-.account-card__status.suspended {
-  background: color-mix(in srgb, var(--color-danger, var(--status-error)) 12%, transparent);
-  color: var(--color-danger, var(--status-error));
-}
-
-.account-card__status.expired {
-  background: color-mix(in srgb, var(--color-warning, var(--status-warning)) 12%, transparent);
-  color: var(--color-warning, var(--status-warning));
-}
-
-.account-card__body,
-.account-card__stats,
-.account-card__footer {
-  align-items: center;
+.ac-head {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: 12px;
 }
 
-.account-card__body span {
+.ac-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-brand-primary) 14%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--color-brand-primary);
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.ac-avatar[data-platform="youtube"] { background: color-mix(in srgb, var(--color-danger) 14%, transparent); color: var(--color-danger); }
+.ac-avatar[data-platform="instagram"] { background: color-mix(in srgb, var(--color-warning) 14%, transparent); color: var(--color-warning); }
+.ac-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.ac-meta {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.ac-meta strong {
+  font: var(--font-title-sm);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.account-card__stats strong {
-  color: var(--color-text-primary, var(--text-primary));
-  font-size: 15px;
+.ac-meta span {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
 }
 
-.account-card__tag {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.ac-body, .ac-stats, .ac-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
 }
 
-.account-card__delete {
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--color-danger, var(--status-error)) 30%, var(--color-border-default, var(--border-default)));
-  border-radius: var(--radius-sm);
-  color: var(--color-danger, var(--status-error));
-  cursor: pointer;
-  height: 28px;
-  padding: 0 10px;
+.ac-stats strong {
+  color: var(--color-text-primary);
+  font-size: 14px;
 }
 
-.account-card__delete:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
+.ac-tag {
+  color: var(--color-text-tertiary);
 }
 
-.detail-card__summary {
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 13px;
-  line-height: 1.7;
-  margin: 6px 0 0;
+.workspace-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
+}
+
+.detail-card {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-card__header {
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-canvas);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.detail-card__header h3 {
+  margin: 0 0 4px 0;
+  font: var(--font-title-lg);
+  color: var(--color-text-primary);
+}
+
+.summary {
+  margin: 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.detail-card__body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.empty-wrapper {
+  flex: 1;
+  justify-content: center;
 }
 
 .detail-metadata {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
   margin: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .detail-metadata div {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
 }
 
 .detail-metadata dt {
-  color: var(--color-text-tertiary, var(--text-tertiary));
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-.detail-metadata dd {
-  font-size: 13px;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.detail-block {
-  border-top: 1px solid var(--color-border-default, var(--border-default));
-  display: grid;
-  gap: 10px;
-  padding-top: 14px;
-}
-
-.detail-block--blocked {
-  background: color-mix(in srgb, var(--color-warning, var(--status-warning)) 6%, transparent);
-  border: 1px dashed color-mix(in srgb, var(--color-warning, var(--status-warning)) 28%, var(--color-border-default, var(--border-default)));
-  border-radius: var(--radius-md);
-  padding: 14px;
-}
-
-.detail-block__header {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.detail-block__header span {
-  color: var(--color-text-tertiary, var(--text-tertiary));
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
   text-transform: uppercase;
 }
 
-.detail-block__header strong {
-  background: color-mix(in srgb, var(--color-danger, var(--status-error)) 12%, transparent);
-  border-radius: 999px;
-  color: var(--color-danger, var(--status-error));
-  font-size: 12px;
-  padding: 2px 8px;
+.detail-metadata dd {
+  margin: 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-primary);
+}
+
+.detail-block {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.detail-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.detail-block__header span {
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
 }
 
 .metric-grid {
   display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
 }
 
 .metric-card {
-  border: 1px solid var(--color-border-default, var(--border-default));
+  padding: var(--space-4);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-default);
   border-radius: var(--radius-sm);
-  background: var(--color-bg-canvas, var(--surface-tertiary));
-  display: grid;
-  gap: 6px;
-  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .metric-card span {
-  color: var(--color-text-tertiary, var(--text-tertiary));
-  font-size: 12px;
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
 }
 
 .metric-card strong {
-  font-size: 18px;
+  font: var(--font-title-lg);
+  color: var(--color-text-primary);
 }
 
 .tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
-.tag-list span {
-  background: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 22%, transparent);
-  border-radius: 999px;
-  color: var(--color-text-primary, var(--text-primary));
-  font-size: 11px;
+.tag-item {
+  font: var(--font-caption);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-default);
   padding: 2px 8px;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
 }
 
-.detail-empty {
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 13px;
-  line-height: 1.7;
+.detail-empty, .detail-note {
   margin: 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-tertiary);
+  line-height: 1.6;
 }
 
-.detail-note {
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 13px;
-  line-height: 1.7;
-  margin: 0;
+.detail-block--blocked {
+  background: color-mix(in srgb, var(--color-warning) 6%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--color-warning) 28%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
 }
 
-.detail-empty-state {
-  align-items: center;
-  display: grid;
-  gap: 10px;
-  justify-items: center;
-  min-height: 320px;
-  padding: 24px 12px;
-  text-align: center;
+.detail-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
 }
 
-.detail-empty-state .material-symbols-outlined {
-  color: var(--color-brand-primary, var(--brand-primary));
-  font-size: 42px;
-}
-
-.detail-empty-state strong {
-  font-size: 15px;
+.soft-card {
+  background: color-mix(in srgb, var(--color-brand-primary) 4%, var(--color-bg-surface));
 }
 
 .drawer-overlay {
-  background: color-mix(in srgb, var(--color-bg-overlay, rgba(0, 0, 0, 0.55)) 100%, transparent);
-  inset: 0;
   position: fixed;
-  z-index: 1300;
+  inset: 0;
+  background: var(--color-bg-overlay);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .drawer-panel {
-  background: var(--color-bg-surface, var(--surface-secondary));
-  bottom: 0;
-  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.22);
-  display: grid;
-  gap: 16px;
-  max-width: 420px;
-  overflow: auto;
-  padding: 18px;
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: min(420px, 100vw);
+  width: 420px;
+  background: var(--color-bg-surface);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
 }
 
 .drawer-panel__header {
-  align-items: start;
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
 }
 
 .drawer-panel__eyebrow {
-  color: var(--color-brand-primary, var(--brand-primary));
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-  margin: 0 0 4px;
+  margin: 0 0 4px 0;
+  font: var(--font-caption);
+  color: var(--color-brand-primary);
   text-transform: uppercase;
 }
 
 .drawer-panel__header h2 {
   margin: 0;
+  font: var(--font-title-lg);
+  color: var(--color-text-primary);
 }
 
 .drawer-panel__close {
-  align-items: center;
   background: transparent;
-  border: 1px solid var(--color-border-default, var(--border-default));
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary, var(--text-secondary));
+  border: none;
+  color: var(--color-text-tertiary);
   cursor: pointer;
-  display: inline-flex;
-  height: 32px;
-  justify-content: center;
-  width: 32px;
+  padding: 4px;
+}
+
+.drawer-panel__body {
+  padding: var(--space-6);
+  flex: 1;
+  overflow-y: auto;
 }
 
 .drawer-form {
-  display: grid;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-.drawer-form__field {
-  display: grid;
-  gap: 6px;
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.drawer-form__field span {
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 13px;
+.form-group label {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
 }
 
-.drawer-form__field input,
-.drawer-form__field select {
-  background: var(--color-bg-canvas, var(--surface-tertiary));
-  border: 1px solid var(--color-border-default, var(--border-default));
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary, var(--text-primary));
-  font: inherit;
-  min-height: 38px;
+.ui-input-field {
+  height: 38px;
   padding: 0 12px;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: var(--font-body-md);
+  outline: none;
 }
 
 .drawer-form__hint {
-  color: var(--color-text-secondary, var(--text-secondary));
-  font-size: 12px;
-  line-height: 1.7;
   margin: 0;
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
+  line-height: 1.6;
 }
 
-.drawer-enter-active,
-.drawer-leave-active {
-  transition: opacity 160ms ease;
+.drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
 }
 
-.drawer-enter-from,
-.drawer-leave-to {
-  opacity: 0;
-}
+.drawer-enter-active, .drawer-leave-active { transition: opacity 160ms ease; }
+.drawer-enter-from, .drawer-leave-to { opacity: 0; }
 
-@media (max-width: 1280px) {
-  .account-management__summary,
-  .account-management__body {
-    grid-template-columns: 1fr;
-  }
-
-  .account-management__hero {
-    flex-direction: column;
-  }
-
-  .account-management__hero-actions {
-    justify-content: flex-start;
-  }
-
-  .metric-grid,
-  .detail-metadata {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .account-management {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
+@media (max-width: 1200px) {
+  .workspace-grid { grid-template-columns: 1fr; }
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>

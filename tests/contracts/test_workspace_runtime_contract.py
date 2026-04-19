@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 import pytest
 from fastapi import FastAPI
@@ -16,12 +18,12 @@ if str(ROUTES_SRC) not in sys.path:
     sys.path.insert(0, str(ROUTES_SRC))
 
 from workspace import router as workspace_router
+from common.time import utc_now_iso
+from domain.models import Base
+from domain.models import Project
 from persistence.engine import create_runtime_engine, create_session_factory
 from repositories.timeline_repository import TimelineRepository
 from schemas.envelope import error_response
-from domain.models import Base
-from domain.models import Project
-from common.time import utc_now_iso
 from services.task_manager import TaskManager
 from services.workspace_service import WorkspaceService
 
@@ -62,14 +64,14 @@ def runtime_client(tmp_path):
 
     @app.exception_handler(StarletteHTTPException)
     async def handle_http_exception(request, exc):  # type: ignore[no-untyped-def]
-        message = exc.detail if isinstance(exc.detail, str) else "Request failed"
+        message = exc.detail if isinstance(exc.detail, str) else "请求处理失败"
         return JSONResponse(status_code=exc.status_code, content=error_response(message))
 
     @app.exception_handler(Exception)
     async def handle_unexpected_exception(request, exc):  # type: ignore[no-untyped-def]
         return JSONResponse(
             status_code=500,
-            content=error_response("Internal server error"),
+            content=error_response("系统内部错误，请稍后重试"),
         )
 
     return TestClient(app)
@@ -162,7 +164,7 @@ def test_workspace_timeline_contract_creates_and_updates_draft(
                 {
                     "id": "track-video-1",
                     "kind": "video",
-                    "name": "视频轨 1",
+                    "name": "视频轨1",
                     "orderIndex": 0,
                     "locked": False,
                     "muted": False,
@@ -281,8 +283,8 @@ def test_workspace_clip_contract_replaces_clip_atomically(
         json={
             "sourceType": "voice_track",
             "sourceId": "voice-track-1",
-            "label": "新旁白",
-            "prompt": "请使用更稳重的语气",
+            "label": "新镜头",
+            "prompt": "请使用更稳定的语气",
             "resolution": {"width": 1280, "height": 720},
             "editableFields": ["label", "prompt"],
         },
@@ -293,12 +295,12 @@ def test_workspace_clip_contract_replaces_clip_atomically(
     clip = timeline["tracks"][0]["clips"][0]
     assert clip["sourceType"] == "voice_track"
     assert clip["sourceId"] == "voice-track-1"
-    assert clip["label"] == "新旁白"
-    assert clip["prompt"] == "请使用更稳重的语气"
+    assert clip["label"] == "新镜头"
+    assert clip["prompt"] == "请使用更稳定的语气"
     assert clip["resolution"]["height"] == 720
 
 
-def test_workspace_timeline_preview_returns_unavailable_when_helper_missing(
+def test_workspace_timeline_preview_returns_local_summary_from_real_timeline(
     runtime_client: TestClient,
 ) -> None:
     _, timeline_id, _ = _seed_timeline_with_clip(runtime_client)
@@ -307,11 +309,22 @@ def test_workspace_timeline_preview_returns_unavailable_when_helper_missing(
 
     assert response.status_code == 200
     data = _assert_ok(response.json())
-    assert data["status"] == "unavailable"
-    assert "不可用" in data["message"]
+    assert data["timelineId"] == timeline_id
+    assert data["status"] == "ready"
+    assert data["previewUrl"] is not None
+
+    prefix, encoded_payload = data["previewUrl"].split(",", 1)
+    assert prefix.startswith("data:application/json")
+    preview_payload = json.loads(unquote(encoded_payload))
+    assert preview_payload["timelineId"] == timeline_id
+    assert preview_payload["trackCount"] == 2
+    assert preview_payload["clipCount"] == 1
+    assert preview_payload["tracks"][0]["kind"] == "video"
+    assert preview_payload["tracks"][0]["clipCount"] == 1
+    assert preview_payload["tracks"][1]["kind"] == "audio"
 
 
-def test_workspace_timeline_precheck_returns_unavailable_when_helper_missing(
+def test_workspace_timeline_precheck_returns_local_status_from_real_timeline(
     runtime_client: TestClient,
 ) -> None:
     _, timeline_id, _ = _seed_timeline_with_clip(runtime_client)
@@ -320,8 +333,25 @@ def test_workspace_timeline_precheck_returns_unavailable_when_helper_missing(
 
     assert response.status_code == 200
     data = _assert_ok(response.json())
-    assert data["status"] == "unavailable"
-    assert "不可用" in data["message"]
+    assert data["timelineId"] == timeline_id
+    assert data["status"] == "ready"
+    assert data["issues"] == []
+    assert "通过" in data["message"]
+
+
+def test_workspace_timeline_precheck_reports_real_issues_for_empty_tracks(
+    runtime_client: TestClient,
+) -> None:
+    _, timeline_id = _create_workspace_timeline(runtime_client)
+
+    response = runtime_client.post(f"/api/workspace/timelines/{timeline_id}/precheck")
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["timelineId"] == timeline_id
+    assert data["status"] == "warning"
+    assert data["issues"]
+    assert any("轨道" in issue for issue in data["issues"])
 
 
 def test_workspace_ai_command_returns_real_taskbus_task(

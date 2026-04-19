@@ -23,6 +23,7 @@ env/
 ENV/
 venv/
 .runtime-data/
+.worktrees/
 
 # Logs / OS
 *.log

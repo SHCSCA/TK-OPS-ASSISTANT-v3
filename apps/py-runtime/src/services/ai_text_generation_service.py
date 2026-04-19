@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-import json
+import logging
 import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 
 from fastapi import HTTPException
 
+from ai import providers as ai_providers
+from ai.providers.base import TextGenerationRequest
+from ai.providers.errors import ProviderHTTPException
 from repositories.ai_job_repository import AIJobRepository
 from services.ai_capability_service import AICapabilityService
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,18 +42,31 @@ class AITextGenerationService:
     ) -> GeneratedTextResult:
         capability = self._capability_service.get_capability(capability_id)
         if not capability.enabled:
-            raise HTTPException(status_code=400, detail='当前 AI 能力已停用。')
+            raise ProviderHTTPException(
+                status_code=400,
+                detail='当前 AI 能力已停用。',
+                error_code='ai_capability_disabled',
+            )
 
         provider_runtime = self._capability_service.get_provider_runtime_config(capability.provider)
         if not provider_runtime.supports_text_generation:
-            raise HTTPException(
+            raise ProviderHTTPException(
                 status_code=400,
-                detail='当前 Provider 已注册，但本阶段尚未接入文本生成。',
+                detail='当前 Provider 尚未接入文本生成。',
+                error_code='ai_provider_unsupported',
             )
-        if not provider_runtime.api_key:
-            raise HTTPException(status_code=400, detail='Provider API Key 尚未配置。')
         if provider_runtime.provider == 'openai_compatible' and provider_runtime.base_url.strip() == '':
-            raise HTTPException(status_code=400, detail='OpenAI-compatible Provider 必须配置 Base URL。')
+            raise ProviderHTTPException(
+                status_code=400,
+                detail='OpenAI-compatible Provider 必须先配置 Base URL。',
+                error_code='ai_provider_base_url_missing',
+            )
+        if provider_runtime.requires_secret and not provider_runtime.api_key:
+            raise ProviderHTTPException(
+                status_code=400,
+                detail='Provider API Key 尚未配置。',
+                error_code='ai_provider_not_configured',
+            )
 
         prompt = _render_template(capability.userPromptTemplate, variables)
         instructions = '\n\n'.join(
@@ -65,40 +81,58 @@ class AITextGenerationService:
         started_at = time.perf_counter()
 
         try:
-            if provider_runtime.provider == 'openai':
-                output_text = _call_openai_responses(
-                    base_url=provider_runtime.base_url,
-                    api_key=provider_runtime.api_key,
+            output = ai_providers.dispatch_text_generation(
+                provider_runtime,
+                TextGenerationRequest(
                     model=capability.model,
-                    instructions=instructions,
-                    prompt=prompt,
+                    system_prompt=instructions,
+                    user_prompt=prompt,
                     request_id=request_id,
-                )
-            elif provider_runtime.provider == 'openai_compatible':
-                output_text = _call_openai_compatible_chat(
-                    base_url=provider_runtime.base_url,
-                    api_key=provider_runtime.api_key,
-                    model=capability.model,
-                    instructions=instructions,
-                    prompt=prompt,
-                    request_id=request_id,
-                )
-            else:
-                raise HTTPException(status_code=400, detail='当前 Provider 不可用于文本生成。')
-        except HTTPException as exc:
+                ),
+            )
+            output_text = output.text
+        except ProviderHTTPException as exc:
+            duration_ms = int((time.perf_counter() - started_at) * 1000)
             self._ai_job_repository.mark_failed(
                 job.id,
                 error=str(exc.detail),
-                duration_ms=int((time.perf_counter() - started_at) * 1000),
+                duration_ms=duration_ms,
+            )
+            log.warning(
+                'AI 文本生成 Provider 异常 capability=%s provider=%s code=%s detail=%s',
+                capability_id,
+                provider_runtime.provider,
+                exc.error_code,
+                exc.detail,
             )
             raise
-        except Exception as exc:  # pragma: no cover - defensive branch
+        except HTTPException as exc:
+            duration_ms = int((time.perf_counter() - started_at) * 1000)
+            self._ai_job_repository.mark_failed(
+                job.id,
+                error=str(exc.detail),
+                duration_ms=duration_ms,
+            )
+            log.warning(
+                'AI 文本生成请求异常 capability=%s provider=%s detail=%s',
+                capability_id,
+                provider_runtime.provider,
+                exc.detail,
+            )
+            raise
+        except Exception as exc:  # pragma: no cover - 防御性兜底
+            duration_ms = int((time.perf_counter() - started_at) * 1000)
             self._ai_job_repository.mark_failed(
                 job.id,
                 error=str(exc),
-                duration_ms=int((time.perf_counter() - started_at) * 1000),
+                duration_ms=duration_ms,
             )
-            raise HTTPException(status_code=502, detail='AI Provider 请求失败。') from exc
+            log.exception('AI 文本生成失败 capability=%s provider=%s', capability_id, provider_runtime.provider)
+            raise ProviderHTTPException(
+                status_code=502,
+                detail='AI Provider 请求失败，请稍后重试。',
+                error_code='ai_provider_server_error',
+            ) from exc
 
         self._ai_job_repository.mark_succeeded(
             job.id,
@@ -117,102 +151,3 @@ def _render_template(template: str, variables: dict[str, str]) -> str:
     for key, value in variables.items():
         rendered = rendered.replace(f'{{{{{key}}}}}', value)
     return rendered
-
-
-def _call_openai_responses(
-    *,
-    base_url: str,
-    api_key: str,
-    model: str,
-    instructions: str,
-    prompt: str,
-    request_id: str | None,
-) -> str:
-    payload = _post_json(
-        base_url,
-        api_key,
-        {
-            'model': model,
-            'instructions': instructions,
-            'input': prompt,
-        },
-        request_id=request_id,
-    )
-    texts: list[str] = []
-    if isinstance(payload.get('output_text'), str):
-        texts.append(str(payload['output_text']))
-    for item in payload.get('output', []):
-        if item.get('type') != 'message':
-            continue
-        for content in item.get('content', []):
-            if content.get('type') in {'output_text', 'text'} and content.get('text'):
-                texts.append(str(content['text']))
-    text = '\n'.join(part.strip() for part in texts if part and part.strip()).strip()
-    if not text:
-        raise HTTPException(status_code=502, detail='OpenAI 返回了空文本。')
-    return text
-
-
-def _call_openai_compatible_chat(
-    *,
-    base_url: str,
-    api_key: str,
-    model: str,
-    instructions: str,
-    prompt: str,
-    request_id: str | None,
-) -> str:
-    payload = _post_json(
-        base_url.rstrip('/') + '/chat/completions',
-        api_key,
-        {
-            'model': model,
-            'messages': [
-                {'role': 'system', 'content': instructions},
-                {'role': 'user', 'content': prompt},
-            ],
-        },
-        request_id=request_id,
-    )
-    choices = payload.get('choices', [])
-    if not choices:
-        raise HTTPException(status_code=502, detail='OpenAI-compatible Provider 未返回候选结果。')
-    content = choices[0].get('message', {}).get('content', '')
-    if isinstance(content, list):
-        text = '\n'.join(str(item.get('text', '')).strip() for item in content if item.get('text'))
-    else:
-        text = str(content).strip()
-    if not text:
-        raise HTTPException(status_code=502, detail='OpenAI-compatible Provider 返回了空内容。')
-    return text
-
-
-def _post_json(
-    url: str,
-    api_key: str,
-    payload: dict[str, object],
-    *,
-    request_id: str | None,
-) -> dict[str, object]:
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode('utf-8'),
-        headers={
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json',
-            'X-Request-ID': request_id or '',
-        },
-        method='POST',
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            return json.loads(response.read().decode('utf-8'))
-    except urllib.error.HTTPError as exc:
-        try:
-            payload = json.loads(exc.read().decode('utf-8'))
-            message = payload.get('error', {}).get('message') or payload.get('message')
-        except Exception:  # pragma: no cover - defensive fallback
-            message = None
-        raise HTTPException(status_code=502, detail=message or 'AI Provider 返回 HTTP 错误。') from exc
-    except urllib.error.URLError as exc:
-        raise HTTPException(status_code=502, detail='无法连接 AI Provider。') from exc

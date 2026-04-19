@@ -175,17 +175,5 @@ defineEmits<{
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .asset-card-list-enter-active,
-  .asset-card-list-leave-active,
-  .asset-state__spinner {
-    animation: none;
-    transition: none;
-  }
-
-  .asset-card-list-enter-from,
-  .asset-card-list-leave-to {
-    transform: none;
-  }
-}
+/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

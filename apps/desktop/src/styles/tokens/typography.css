@@ -1,17 +1,52 @@
+/* apps/desktop/src/styles/tokens/typography.css */
+
 :root {
-  --font-family-sans: "Inter", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", "Segoe UI", sans-serif;
-  --font-family-mono: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, monospace;
-  --font-display-xl: 40px;
-  --font-display-lg: 32px;
-  --font-display-md: 24px;
-  --font-title-lg: 20px;
-  --font-title-md: 16px;
-  --font-title-sm: 14px;
-  --font-body-lg: 15px;
-  --font-body-md: 14px;
-  --font-body-sm: 13px;
-  --font-caption: 12px;
-  --font-mono-md: 13px;
+  /* 2.2 字体族 */
+  --font-family-sans: 'Inter', 'HarmonyOS Sans SC', 'PingFang SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, monospace;
+
+  /* 字号、字重、行高与字距 
+   * 使用方式: font: var(--font-title-sm); letter-spacing: var(--ls-title-sm);
+   */
+  --font-display-xl: 700 40px/48px var(--font-family-sans);
+  --ls-display-xl: -0.8px;
+
+  --font-display-lg: 700 32px/40px var(--font-family-sans);
+  --ls-display-lg: -0.5px;
+
+  --font-display-md: 600 24px/32px var(--font-family-sans);
+  --ls-display-md: -0.3px;
+  
+  --font-title-lg: 600 20px/28px var(--font-family-sans);
+  --ls-title-lg: -0.2px;
+
+  --font-title-md: 600 16px/24px var(--font-family-sans);
+  --ls-title-md: -0.1px;
+
+  --font-title-sm: 600 14px/20px var(--font-family-sans);
+  --ls-title-sm: 0;
+  
+  --font-body-lg: 400 15px/24px var(--font-family-sans);
+  --ls-body-lg: 0;
+
+  --font-body-md: 400 14px/22px var(--font-family-sans);
+  --ls-body-md: 0;
+
+  --font-body-sm: 400 13px/20px var(--font-family-sans);
+  --ls-body-sm: 0;
+  
+  --font-caption: 500 12px/16px var(--font-family-sans);
+  --ls-caption: 0.2px;
+
+  --font-mono-md: 500 13px/20px var(--font-family-mono);
+  --ls-mono-md: 0;
+
+  --font-numeric-lg: 700 28px/32px var(--font-family-sans);
+  --ls-numeric-lg: -0.5px;
+
+  /* 兼容旧变量 */
+  --font-base: var(--font-family-sans);
+  --font-mono: var(--font-family-mono);
   --line-display-xl: 48px;
   --line-display-lg: 40px;
   --line-display-md: 32px;
@@ -22,8 +57,4 @@
   --line-body-md: 22px;
   --line-body-sm: 20px;
   --line-caption: 16px;
-
-  /* 兼容旧变量 */
-  --font-base: var(--font-family-sans);
-  --font-mono: var(--font-family-mono);
 }

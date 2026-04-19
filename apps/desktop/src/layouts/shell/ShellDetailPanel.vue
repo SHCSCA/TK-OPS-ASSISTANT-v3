@@ -12,6 +12,7 @@ import { computed } from "vue";
 import AssetDetail from "@/components/shell/details/AssetDetail.vue";
 import BindingDetail from "@/components/shell/details/BindingDetail.vue";
 import ContextualDetail from "@/components/shell/details/ContextualDetail.vue";
+import DetailContextRenderer from "@/components/shell/details/DetailContextRenderer.vue";
 import LogDetail from "@/components/shell/details/LogDetail.vue";
 import SystemStatusDetail from "@/components/shell/details/SystemStatusDetail.vue";
 import type { DetailContext } from "@/stores/shell-ui";
@@ -26,6 +27,9 @@ defineEmits<{
 }>();
 
 const activeComponent = computed(() => {
+  if (props.context.source === "route") {
+    return DetailContextRenderer;
+  }
   switch (props.context.mode) {
     case "settings":
       return SystemStatusDetail;
@@ -45,11 +49,13 @@ const activeComponent = computed(() => {
 
 <style scoped>
 .shell-detail-panel {
-  background: var(--color-bg-elevated);
+  background: var(--color-bg-surface);
   color: var(--color-text-primary);
   height: 100%;
-  overflow: auto;
-  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
 }
 
 .panel-fade-enter-active,

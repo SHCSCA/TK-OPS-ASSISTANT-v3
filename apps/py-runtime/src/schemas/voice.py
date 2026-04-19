@@ -49,6 +49,7 @@ class VoiceTrackSegmentDto(BaseModel):
     startMs: int | None = None
     endMs: int | None = None
     audioAssetId: str | None = None
+    regeneration: dict[str, object] | None = None
 
 
 class VoiceTrackDto(BaseModel):

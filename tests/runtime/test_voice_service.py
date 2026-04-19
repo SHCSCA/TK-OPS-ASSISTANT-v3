@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
+import threading
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
 
+from ai.providers.base import TTSResponse
+from ai.providers.errors import ProviderHTTPException
+from ai.providers import dispatch_tts
 from common.time import utc_now_iso
 from domain.models import Base, Project, VoiceTrack
 from persistence.engine import create_runtime_engine, create_session_factory
@@ -14,23 +20,56 @@ from repositories.voice_repository import VoiceRepository
 from schemas.voice import (
     VoiceProfileCreateInput,
     VoiceSegmentRegenerateInput,
+    VoiceTrackGenerateInput,
 )
+from services.ai_capability_service import ProviderRuntimeConfig
 from services.task_manager import TaskManager
+from services.voice_artifact_store import VoiceArtifactStore
 from services.voice_service import VoiceService
 
 
-def _make_voice_service(tmp_path: Path) -> VoiceService:
-    engine = create_runtime_engine(tmp_path / "runtime.db")
-    Base.metadata.create_all(engine)
-    session_factory = create_session_factory(engine)
+class _FakeAICapabilityService:
+    def __init__(
+        self,
+        *,
+        runtime: ProviderRuntimeConfig,
+        capability_provider: str = 'openai',
+        capability_model: str = 'gpt-4o-mini-tts',
+    ) -> None:
+        self._runtime = runtime
+        self._capability = SimpleNamespace(
+            provider=capability_provider,
+            model=capability_model,
+        )
+
+    def get_provider_runtime_config(self, provider_id: str) -> ProviderRuntimeConfig:
+        assert provider_id == self._runtime.provider
+        return self._runtime
+
+    def get_capability(self, capability_id: str):
+        assert capability_id == 'tts_generation'
+        return self._capability
+
+
+class _FakeSettingsService:
+    def __init__(self, workspace_root: Path) -> None:
+        self._workspace_root = workspace_root
+
+    def get_settings(self):
+        return SimpleNamespace(
+            runtime=SimpleNamespace(workspaceRoot=str(self._workspace_root))
+        )
+
+
+def _seed_project(session_factory) -> None:
     now = utc_now_iso()
     with session_factory() as session:
         session.add(
             Project(
-                id="project-voice",
-                name="配音测试项目",
-                description="",
-                status="active",
+                id='project-voice',
+                name='配音测试项目',
+                description='',
+                status='active',
                 current_script_version=0,
                 current_storyboard_version=0,
                 created_at=now,
@@ -40,12 +79,12 @@ def _make_voice_service(tmp_path: Path) -> VoiceService:
         )
         session.add(
             VoiceTrack(
-                id="voice-track-1",
-                project_id="project-voice",
+                id='voice-track-1',
+                project_id='project-voice',
                 timeline_id=None,
-                source="tts",
-                provider="pending_provider",
-                voice_name="标准女声",
+                source='tts',
+                provider='openai',
+                voice_name='标准女声',
                 file_path=None,
                 segments_json="""
                 [
@@ -53,90 +92,499 @@ def _make_voice_service(tmp_path: Path) -> VoiceService:
                   {"segmentIndex": 1, "text": "第二段文本", "startMs": null, "endMs": null, "audioAssetId": null}
                 ]
                 """.strip(),
-                status="ready",
+                status='ready',
                 created_at=now,
             )
         )
         session.commit()
 
-    return VoiceService(
-        VoiceRepository(session_factory=session_factory),
+
+def _make_voice_service(
+    tmp_path: Path,
+    *,
+    ai_capability_service=None,
+    tts_dispatcher=None,
+    artifact_store=None,
+) -> tuple[VoiceService, VoiceRepository, TaskManager]:
+    engine = create_runtime_engine(tmp_path / 'runtime.db')
+    Base.metadata.create_all(engine)
+    session_factory = create_session_factory(engine)
+    _seed_project(session_factory)
+
+    task_manager = TaskManager()
+    repository = VoiceRepository(session_factory=session_factory)
+    service = VoiceService(
+        repository,
         profile_repository=VoiceProfileRepository(session_factory=session_factory),
-        task_manager=TaskManager(),
+        task_manager=task_manager,
+        ai_capability_service=ai_capability_service,
+        tts_dispatcher=tts_dispatcher,
+        voice_artifact_store=artifact_store,
     )
+    return service, repository, task_manager
+
+
+async def _wait_for_task(task_manager: TaskManager, task_id: str) -> str:
+    for _ in range(100):
+        task = task_manager.get(task_id)
+        if task is not None and task.status in {'succeeded', 'failed', 'cancelled'}:
+            return task.status
+        await asyncio.sleep(0.01)
+    raise AssertionError(f'任务未在预期时间内结束: {task_id}')
 
 
 def test_list_profiles_seeds_builtin_profiles_and_supports_create(
     tmp_path: Path,
 ) -> None:
-    service = _make_voice_service(tmp_path)
+    service, _, _ = _make_voice_service(tmp_path)
 
     profiles = service.list_profiles()
     assert profiles
-    assert profiles[0].voiceId == "alloy"
+    assert profiles[0].voiceId == 'alloy'
+    assert profiles[0].provider == 'openai'
 
     created = service.create_profile(
         VoiceProfileCreateInput(
-            provider="openai",
-            voiceId="shimmer",
-            displayName="清亮女声",
-            locale="zh-CN",
-            tags=["清亮", "通用"],
+            provider='openai',
+            voiceId='shimmer',
+            displayName='清亮女声',
+            locale='zh-CN',
+            tags=['清亮', '通用'],
             enabled=True,
         )
     )
 
-    assert created.voiceId == "shimmer"
+    assert created.voiceId == 'shimmer'
     assert created.enabled is True
-    assert any(profile.voiceId == "shimmer" for profile in service.list_profiles())
+    assert any(profile.voiceId == 'shimmer' for profile in service.list_profiles())
+
+
+def test_generate_track_returns_blocked_when_tts_is_not_available(
+    tmp_path: Path,
+) -> None:
+    service, repository, _ = _make_voice_service(tmp_path)
+
+    result = service.generate_track(
+        'project-voice',
+        VoiceTrackGenerateInput(
+            profileId='alloy-zh',
+            sourceText='第一句\n第二句',
+        ),
+    )
+
+    assert result.track.status == 'blocked'
+    assert result.track.provider == 'openai'
+    assert result.task is None
+    assert '未配置可用 TTS Provider' in result.message
+
+    stored = repository.get_track(result.track.id)
+    assert stored is not None
+    assert stored.status == 'blocked'
+    assert stored.file_path is None
+
+
+def test_generate_track_returns_blocked_when_provider_has_no_registered_tts_adapter(
+    tmp_path: Path,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='localai',
+        label='LocalAI',
+        api_key=None,
+        base_url='http://127.0.0.1:8080/v1',
+        secret_source='test',
+        requires_secret=False,
+        supports_text_generation=True,
+        supports_tts=True,
+        protocol_family='openai_chat',
+    )
+    service, repository, _ = _make_voice_service(
+        tmp_path,
+        ai_capability_service=_FakeAICapabilityService(
+            runtime=runtime,
+            capability_provider='localai',
+            capability_model='localai-tts-model',
+        ),
+        tts_dispatcher=dispatch_tts,
+        artifact_store=VoiceArtifactStore(
+            settings_service=_FakeSettingsService(tmp_path / 'workspace')
+        ),
+    )
+    profile = service.create_profile(
+        VoiceProfileCreateInput(
+            provider='localai',
+            voiceId='localai-voice',
+            displayName='本地音色',
+            locale='zh-CN',
+            tags=['本地'],
+            enabled=True,
+        )
+    )
+
+    result = service.generate_track(
+        'project-voice',
+        VoiceTrackGenerateInput(
+            profileId=profile.id,
+            sourceText='第一句',
+        ),
+    )
+
+    assert result.track.status == 'blocked'
+    assert result.task is None
+    assert '未配置可用 TTS Provider' in result.message
+
+    stored = repository.get_track(result.track.id)
+    assert stored is not None
+    assert stored.status == 'blocked'
+
+
+def test_generate_track_submits_task_and_writes_audio_file_when_openai_tts_is_available(
+    tmp_path: Path,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='openai',
+        label='OpenAI',
+        api_key='sk-test-openai',
+        base_url='https://api.openai.com/v1/responses',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=True,
+        supports_tts=True,
+        protocol_family='openai_responses',
+    )
+    settings_service = _FakeSettingsService(tmp_path / 'workspace')
+    service, repository, task_manager = _make_voice_service(
+        tmp_path,
+        ai_capability_service=_FakeAICapabilityService(runtime=runtime),
+        tts_dispatcher=lambda runtime_config, request: TTSResponse(
+            audio_bytes=b'voice-bytes',
+            content_type='audio/mpeg',
+            provider='openai',
+            model=request.model,
+        ),
+        artifact_store=VoiceArtifactStore(settings_service=settings_service),
+    )
+
+    async def _run() -> None:
+        result = service.generate_track(
+            'project-voice',
+            VoiceTrackGenerateInput(
+                profileId='alloy-zh',
+                sourceText='第一句\n第二句',
+                speed=1.1,
+            ),
+        )
+
+        assert result.track.status == 'processing'
+        assert result.task is not None
+        assert result.task['kind'] == 'ai-voice'
+        assert result.task['ownerRef'] == {'kind': 'voice-track', 'id': result.track.id}
+
+        final_status = await _wait_for_task(task_manager, result.task['id'])
+        assert final_status == 'succeeded'
+
+        stored = repository.get_track(result.track.id)
+        assert stored is not None
+        assert stored.status == 'ready'
+        assert stored.provider == 'openai'
+        assert stored.file_path is not None
+        output_path = Path(stored.file_path)
+        assert output_path.exists()
+        assert output_path.read_bytes() == b'voice-bytes'
+        assert output_path.parent == settings_service._workspace_root / 'voice'
+        assert output_path.name == f'{result.track.id}.mp3'
+
+    asyncio.run(_run())
+
+
+def test_generate_track_marks_failed_when_tts_dispatcher_raises(
+    tmp_path: Path,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='openai',
+        label='OpenAI',
+        api_key='sk-test-openai',
+        base_url='https://api.openai.com/v1/responses',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=True,
+        supports_tts=True,
+        protocol_family='openai_responses',
+    )
+    service, repository, task_manager = _make_voice_service(
+        tmp_path,
+        ai_capability_service=_FakeAICapabilityService(runtime=runtime),
+        tts_dispatcher=lambda runtime_config, request: (_ for _ in ()).throw(
+            ProviderHTTPException(
+                status_code=502,
+                detail='AI Provider 请求失败。',
+                error_code='ai_provider_server_error',
+            )
+        ),
+        artifact_store=VoiceArtifactStore(
+            settings_service=_FakeSettingsService(tmp_path / 'workspace')
+        ),
+    )
+
+    async def _run() -> None:
+        result = service.generate_track(
+            'project-voice',
+            VoiceTrackGenerateInput(
+                profileId='alloy-zh',
+                sourceText='第一句',
+            ),
+        )
+
+        assert result.track.status == 'processing'
+        assert result.task is not None
+
+        final_status = await _wait_for_task(task_manager, result.task['id'])
+        assert final_status == 'failed'
+
+        stored = repository.get_track(result.track.id)
+        assert stored is not None
+        assert stored.status == 'failed'
+        assert stored.file_path is None
+
+    asyncio.run(_run())
+
+
+def test_generate_track_offloads_tts_dispatch_and_file_write_from_event_loop_thread(
+    tmp_path: Path,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='openai',
+        label='OpenAI',
+        api_key='sk-test-openai',
+        base_url='https://api.openai.com/v1/responses',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=True,
+        supports_tts=True,
+        protocol_family='openai_responses',
+    )
+    thread_ids: dict[str, int] = {}
+
+    class _RecordingArtifactStore:
+        def __init__(self, output_root: Path) -> None:
+            self._output_root = output_root
+
+        def write_audio(
+            self,
+            track_id: str,
+            *,
+            audio_bytes: bytes,
+            output_format: str,
+        ) -> str:
+            thread_ids['artifact'] = threading.get_ident()
+            output_path = self._output_root / f'{track_id}.{output_format}'
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(audio_bytes)
+            return str(output_path)
+
+    def _fake_dispatcher(runtime_config, request):
+        thread_ids['dispatcher'] = threading.get_ident()
+        return TTSResponse(
+            audio_bytes=b'thread-check',
+            content_type='audio/mpeg',
+            provider='openai',
+            model=request.model,
+        )
+
+    service, _, task_manager = _make_voice_service(
+        tmp_path,
+        ai_capability_service=_FakeAICapabilityService(runtime=runtime),
+        tts_dispatcher=_fake_dispatcher,
+        artifact_store=_RecordingArtifactStore(tmp_path / 'voice-output'),
+    )
+
+    async def _run() -> None:
+        loop_thread_id = threading.get_ident()
+        result = service.generate_track(
+            'project-voice',
+            VoiceTrackGenerateInput(
+                profileId='alloy-zh',
+                sourceText='line-1\nline-2',
+            ),
+        )
+
+        assert result.task is not None
+        final_status = await _wait_for_task(task_manager, result.task['id'])
+        assert final_status == 'succeeded'
+        assert thread_ids['dispatcher'] != loop_thread_id
+        assert thread_ids['artifact'] != loop_thread_id
+
+    asyncio.run(_run())
+
+
+def test_generate_track_marks_failed_when_audio_write_fails(
+    tmp_path: Path,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='openai',
+        label='OpenAI',
+        api_key='sk-test-openai',
+        base_url='https://api.openai.com/v1/responses',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=True,
+        supports_tts=True,
+        protocol_family='openai_responses',
+    )
+
+    class _FailingArtifactStore:
+        def write_audio(
+            self,
+            track_id: str,
+            *,
+            audio_bytes: bytes,
+            output_format: str,
+        ) -> str:
+            raise OSError('disk full')
+
+    service, repository, task_manager = _make_voice_service(
+        tmp_path,
+        ai_capability_service=_FakeAICapabilityService(runtime=runtime),
+        tts_dispatcher=lambda runtime_config, request: TTSResponse(
+            audio_bytes=b'voice-bytes',
+            content_type='audio/mpeg',
+            provider='openai',
+            model=request.model,
+        ),
+        artifact_store=_FailingArtifactStore(),
+    )
+
+    async def _run() -> None:
+        result = service.generate_track(
+            'project-voice',
+            VoiceTrackGenerateInput(
+                profileId='alloy-zh',
+                sourceText='line-1',
+            ),
+        )
+
+        assert result.track.status == 'processing'
+        assert result.task is not None
+
+        final_status = await _wait_for_task(task_manager, result.task['id'])
+        assert final_status == 'failed'
+
+        stored = repository.get_track(result.track.id)
+        assert stored is not None
+        assert stored.status == 'failed'
+        assert stored.file_path is None
+
+    asyncio.run(_run())
 
 
 def test_regenerate_segment_returns_taskbus_task(tmp_path: Path) -> None:
-    service = _make_voice_service(tmp_path)
+    runtime = ProviderRuntimeConfig(
+        provider='openai',
+        label='OpenAI',
+        api_key='sk-test-openai',
+        base_url='https://api.openai.com/v1/responses',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=True,
+        supports_tts=True,
+        protocol_family='openai_responses',
+    )
+    settings_service = _FakeSettingsService(tmp_path / 'workspace')
+    service, repository, task_manager = _make_voice_service(
+        tmp_path,
+        ai_capability_service=_FakeAICapabilityService(runtime=runtime),
+        tts_dispatcher=lambda runtime_config, request: TTSResponse(
+            audio_bytes=b'regenerated-segment',
+            content_type='audio/mpeg',
+            provider='openai',
+            model=request.model,
+        ),
+        artifact_store=VoiceArtifactStore(settings_service=settings_service),
+    )
+
+    async def _run() -> None:
+        result = await service.regenerate_segment(
+            'voice-track-1',
+            '1',
+            VoiceSegmentRegenerateInput(
+                profileId='alloy-zh',
+                speed=1.0,
+                pitch=0,
+                emotion='calm',
+            ),
+        )
+
+        assert result.task is not None
+        assert result.task['kind'] == 'ai-voice'
+        assert result.task['ownerRef'] == {'kind': 'voice-track', 'id': 'voice-track-1'}
+
+        final_status = await _wait_for_task(task_manager, result.task['id'])
+        assert final_status == 'succeeded'
+
+        stored = repository.get_track('voice-track-1')
+        assert stored is not None
+        segments = json.loads(stored.segments_json)
+        assert segments[1]['regeneration']['status'] == 'succeeded'
+        assert segments[1]['regeneration']['profileId'] == 'alloy-zh'
+        assert segments[1]['regeneration']['taskId'] == result.task['id']
+
+    asyncio.run(_run())
+
+
+def test_regenerate_segment_returns_blocked_result_when_tts_provider_is_missing(
+    tmp_path: Path,
+) -> None:
+    service, repository, _ = _make_voice_service(tmp_path)
 
     result = asyncio.run(
         service.regenerate_segment(
-            "voice-track-1",
-            "1",
+            'voice-track-1',
+            '1',
             VoiceSegmentRegenerateInput(
-                profileId="alloy-zh",
+                profileId='alloy-zh',
                 speed=1.0,
                 pitch=0,
-                emotion="calm",
+                emotion='calm',
             ),
         )
     )
 
     assert result.task is not None
-    assert result.task["kind"] == "ai-voice"
-    assert result.task["ownerRef"] == {"kind": "voice-track", "id": "voice-track-1"}
+    assert result.task['status'] == 'blocked'
+    assert result.task['retryable'] is True
+    assert 'TTS Provider' in result.message
+
+    stored = repository.get_track('voice-track-1')
+    assert stored is not None
+    segments = json.loads(stored.segments_json)
+    assert segments[1]['regeneration']['status'] == 'blocked'
+    assert segments[1]['regeneration']['retryable'] is True
 
 
-def test_fetch_waveform_returns_unavailable_without_audio_file(
+def test_fetch_waveform_returns_missing_audio_status_without_audio_file(
     tmp_path: Path,
 ) -> None:
-    service = _make_voice_service(tmp_path)
+    service, _, _ = _make_voice_service(tmp_path)
 
-    waveform = service.fetch_waveform("voice-track-1")
+    waveform = service.fetch_waveform('voice-track-1')
 
-    assert waveform.status == "unavailable"
+    assert waveform.status == 'missing_audio'
     assert waveform.points == []
-    assert "不可用" in waveform.message
+    assert '音频文件' in waveform.message
 
 
 def test_regenerate_missing_segment_rejects_unknown_segment(
     tmp_path: Path,
 ) -> None:
-    service = _make_voice_service(tmp_path)
+    service, _, _ = _make_voice_service(tmp_path)
 
     with pytest.raises(HTTPException) as exc_info:
         asyncio.run(
             service.regenerate_segment(
-                "voice-track-1",
-                "999",
-                VoiceSegmentRegenerateInput(profileId="alloy-zh"),
+                'voice-track-1',
+                '999',
+                VoiceSegmentRegenerateInput(profileId='alloy-zh'),
             )
         )
 
     assert exc_info.value.status_code == 404
-    assert "片段" in str(exc_info.value.detail)
+    assert '片段' in str(exc_info.value.detail)

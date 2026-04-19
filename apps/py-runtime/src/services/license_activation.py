@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
 
 from services.license_crypto import (
     LicensePayloadError,
@@ -11,22 +9,11 @@ from services.license_crypto import (
     mask_activation_code,
     verify_activation_code,
 )
-
-
-@dataclass(frozen=True, slots=True)
-class ActivationResult:
-    license_type: str
-    activated_at: str
-    masked_code: str
-    signed_payload: str
-
-
-class LicenseActivationAdapter(Protocol):
-    def activate(self, activation_code: str, *, machine_code: str) -> ActivationResult: ...
-
-
-class LicenseActivationError(RuntimeError):
-    pass
+from services.license_activation_base import (
+    ActivationResult,
+    LicenseActivationAdapter,
+    LicenseActivationError,
+)
 
 
 class OfflineLicenseActivationAdapter:

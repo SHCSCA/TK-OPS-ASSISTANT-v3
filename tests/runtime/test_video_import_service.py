@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,11 +10,8 @@ from fastapi import HTTPException
 from domain.models import Base, ImportedVideo, Project
 from persistence.engine import create_runtime_engine, create_session_factory
 from repositories.imported_video_repository import ImportedVideoRepository
+from runtime_tasks.video_tasks import process_video_import_task
 from services.video_import_service import VideoImportService
-from tasks.video_tasks import process_video_import_task
-
-# 配置 pytest-asyncio
-pytestmark = pytest.mark.asyncio
 
 
 class RecordingTaskManager:
@@ -59,10 +57,7 @@ def _make_service(
     )
 
 
-async def test_import_video_starts_async_task(tmp_path: Path) -> None:
-    """
-    验证导入视频会立即返回 'imported' 状态，并启动后台异步任务。
-    """
+def test_import_video_starts_async_task(tmp_path: Path) -> None:
     task_manager = RecordingTaskManager()
     service = _make_service(tmp_path, task_manager=task_manager)
     fake_video = tmp_path / "clip.mp4"
@@ -96,14 +91,14 @@ async def test_import_video_starts_async_task(tmp_path: Path) -> None:
     assert submission["task_id"] == video["id"]
 
 
-async def test_import_nonexistent_file_raises_http_error(tmp_path: Path) -> None:
+def test_import_nonexistent_file_raises_http_error(tmp_path: Path) -> None:
     service = _make_service(tmp_path)
 
     with pytest.raises(HTTPException):
         service.import_video(project_id="project-1", file_path=str(tmp_path / "missing.mp4"))
 
 
-async def test_list_videos_for_project(tmp_path: Path) -> None:
+def test_list_videos_for_project(tmp_path: Path) -> None:
     task_manager = RecordingTaskManager()
     service = _make_service(tmp_path, task_manager=task_manager)
     fake_video = tmp_path / "listed.mp4"
@@ -118,7 +113,7 @@ async def test_list_videos_for_project(tmp_path: Path) -> None:
     assert videos[0]["status"] == "imported"
 
 
-async def test_process_video_import_task_reports_progress_when_ffprobe_unavailable(
+def test_process_video_import_task_reports_progress_when_ffprobe_unavailable(
     tmp_path: Path,
 ) -> None:
     repository = _make_repository(tmp_path)
@@ -145,12 +140,14 @@ async def test_process_video_import_task_reports_progress_when_ffprobe_unavailab
     async def progress_callback(progress: int, message: str) -> None:
         progress_events.append((progress, message))
 
-    with patch("tasks.video_tasks.probe_video", return_value=None):
-        await process_video_import_task(
-            video_id="video-progress",
-            file_path=str(fake_video),
-            repository=repository,
-            progress_callback=progress_callback,
+    with patch("runtime_tasks.video_tasks.probe_video", return_value=None):
+        asyncio.run(
+            process_video_import_task(
+                video_id="video-progress",
+                file_path=str(fake_video),
+                repository=repository,
+                progress_callback=progress_callback,
+            )
         )
 
     updated = repository.get("video-progress")
@@ -164,7 +161,7 @@ async def test_process_video_import_task_reports_progress_when_ffprobe_unavailab
     ]
 
 
-async def test_process_video_import_task_marks_error_and_reraises(
+def test_process_video_import_task_marks_error_and_reraises(
     tmp_path: Path,
 ) -> None:
     repository = _make_repository(tmp_path)
@@ -187,12 +184,14 @@ async def test_process_video_import_task_marks_error_and_reraises(
     )
     repository.create(video)
 
-    with patch("tasks.video_tasks.probe_video", side_effect=RuntimeError("ffprobe failed")):
+    with patch("runtime_tasks.video_tasks.probe_video", side_effect=RuntimeError("ffprobe failed")):
         with pytest.raises(RuntimeError, match="ffprobe failed"):
-            await process_video_import_task(
-                video_id="video-error",
-                file_path=str(fake_video),
-                repository=repository,
+            asyncio.run(
+                process_video_import_task(
+                    video_id="video-error",
+                    file_path=str(fake_video),
+                    repository=repository,
+                )
             )
 
     updated = repository.get("video-error")

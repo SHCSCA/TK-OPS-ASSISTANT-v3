@@ -1,235 +1,161 @@
 <template>
   <ProjectContextGuard>
-    <section class="script-topic-center">
-      <header class="script-topic-center__header">
-        <div class="script-topic-center__headline">
-          <p class="script-topic-center__eyebrow">创作策划 / Script Studio</p>
-          <h1>脚本与选题中心</h1>
-          <p class="script-topic-center__summary">
-            主题、脚本、版本和 AI 改写继续挂在同一个项目链路上，不再拆成零散表单。
-          </p>
-        </div>
-        <div class="script-topic-center__meta">
-          <span class="script-topic-center__chip script-topic-center__chip--project">
-            {{ projectName }}
-          </span>
-          <span class="script-topic-center__chip">
-            {{ revisionLabel }}
-          </span>
-          <span class="script-topic-center__chip" :data-tone="pageState">
-            {{ pageStateLabel }}
-          </span>
+    <div class="page-container">
+      <header class="page-header">
+        <div class="page-header__crumb">首页 / 创作策划</div>
+        <div class="page-header__row">
+          <div>
+            <h1 class="page-header__title">脚本与选题中心</h1>
+            <div class="page-header__subtitle">主题、脚本、版本和 AI 改写继续挂在同一个项目链路上，不再拆成零散表单。</div>
+          </div>
+          <div class="page-header__actions">
+            <!-- 风格预设(mock) -->
+            <Button variant="secondary" disabled>风格预设 ▾</Button>
+            <Button variant="ai" :running="scriptStore.status === 'generating'" :disabled="generateDisabled" @click="handleGenerate">
+              <template #leading><span class="material-symbols-outlined">auto_awesome</span></template>
+              AI 生成脚本
+            </Button>
+            <Button variant="secondary" @click="handleCopyContent" :disabled="!content">
+              <template #leading><span class="material-symbols-outlined">content_copy</span></template>
+              复制正文
+            </Button>
+            <Button variant="primary" :disabled="saveDisabled" @click="handleSave">
+              <template #leading><span class="material-symbols-outlined">save</span></template>
+              保存脚本
+            </Button>
+          </div>
         </div>
       </header>
 
-      <section class="script-topic-center__control-bar">
-        <div class="script-topic-center__control-copy">
-          <strong>策划工作台</strong>
-          <p>
-            当前版本 {{ revisionLabel }}，脚本生成、改写和保存都通过 `script-studio` store 回到项目主链。
-          </p>
-        </div>
-        <div class="script-topic-center__control-actions">
-          <button
-            class="script-topic-center__button script-topic-center__button--ai"
-            type="button"
-            data-action="generate-script"
-            :disabled="generateDisabled"
-            @click="handleGenerate"
-          >
-            <span class="material-symbols-outlined">auto_awesome</span>
-            AI 生成脚本
-          </button>
-          <button
-            class="script-topic-center__button script-topic-center__button--ghost"
-            type="button"
-            data-action="rewrite-script"
-            :disabled="rewriteDisabled"
-            @click="handleRewrite"
-          >
-            <span class="material-symbols-outlined">ink_eraser</span>
-            改写当前版本
-          </button>
-          <button
-            class="script-topic-center__button script-topic-center__button--primary"
-            type="button"
-            data-action="save-script"
-            :disabled="saveDisabled"
-            @click="handleSave"
-          >
-            <span class="material-symbols-outlined">save</span>
-            保存脚本
-          </button>
-        </div>
-      </section>
-
-      <section
-        class="script-topic-center__state-banner"
-        :class="`script-topic-center__state-banner--${pageState}`"
-      >
-        <span class="material-symbols-outlined">{{ pageStateIcon }}</span>
-        <div>
-          <strong>{{ pageStateTitle }}</strong>
-          <p>{{ pageStateDescription }}</p>
-        </div>
-      </section>
-
-      <div class="script-topic-center__workspace">
-        <aside class="script-topic-center__panel script-topic-center__panel--prompt" data-script-section="prompt-panel">
-          <div class="script-topic-center__panel-heading">
-            <div>
-              <h2>策划输入台</h2>
-              <p>保留真实主题和改写指令入口，不在页面内拼接业务规则。</p>
+      <div class="script-workspace">
+        <!-- 左侧 Prompt 面板 -->
+        <aside class="script-panel script-panel--prompt">
+          <Card class="script-card h-full">
+            <div class="script-card__header">
+              <h3>策划输入台</h3>
             </div>
-            <span class="script-topic-center__mini-status">{{ disabledReason }}</span>
-          </div>
+            <div class="script-card__body">
+              <div class="form-group">
+                <Input v-model="topic" label="主题" placeholder="例如：春日新品种草" :disabled="isBusy" />
+              </div>
+              <div class="form-group">
+                <Input v-model="instructions" label="改写要求" multiline :rows="6" placeholder="补充目标人群、时长和风格要求" :disabled="isBusy" />
+              </div>
 
-          <label class="script-topic-center__field">
-            <span>主题</span>
-            <input v-model="topic" data-field="script.topic" :disabled="isBusy" />
-          </label>
-
-          <label class="script-topic-center__field">
-            <span>改写要求</span>
-            <textarea
-              v-model="instructions"
-              data-field="script.instructions"
-              :disabled="isBusy"
-            />
-          </label>
-
-          <section class="script-topic-center__brief">
-            <div class="script-topic-center__brief-card">
-              <small>项目链路</small>
-              <strong>{{ projectChainLabel }}</strong>
-              <p>脚本会继续回流到 Project 与 Script Studio。</p>
+              <!-- 结构锚点 -->
+              <div class="outline-section">
+                <div class="outline-header">
+                  <strong>结构锚点</strong>
+                  <Chip size="sm">{{ outlineSegments.length }} 段</Chip>
+                </div>
+                <div v-if="outlineSegments.length > 0" class="outline-list">
+                  <div v-for="seg in outlineSegments" :key="seg.id" class="outline-item">
+                    <strong>{{ seg.title }}</strong>
+                    <p>{{ seg.excerpt }}</p>
+                  </div>
+                </div>
+                <div v-else class="empty-text">还没有正文结构，先生成脚本或从现有版本继续编辑。</div>
+              </div>
             </div>
-            <div class="script-topic-center__brief-card">
-              <small>当前主标题</small>
-              <strong>{{ titleSeed }}</strong>
-              <p>来自真实脚本正文第一段，不生成伪变体。</p>
+            <div class="script-card__footer">
+               <Button variant="secondary" block :disabled="rewriteDisabled" @click="handleRewrite">改写当前版本</Button>
             </div>
-          </section>
-
-          <section class="script-topic-center__outline">
-            <div class="script-topic-center__subheading">
-              <strong>结构锚点</strong>
-              <span>{{ outlineSegments.length }} 段</span>
-            </div>
-            <ol v-if="outlineSegments.length > 0" class="script-topic-center__outline-list">
-              <li v-for="segment in outlineSegments" :key="segment.id">
-                <strong>{{ segment.title }}</strong>
-                <p>{{ segment.excerpt }}</p>
-              </li>
-            </ol>
-            <div v-else class="script-topic-center__empty-inline">
-              还没有正文结构，先生成脚本或从现有版本继续编辑。
-            </div>
-          </section>
+          </Card>
         </aside>
 
-        <main class="script-topic-center__panel script-topic-center__panel--editor" data-script-section="editor">
-          <div class="script-topic-center__panel-heading">
-            <div>
-              <h2>脚本工作面</h2>
-              <p>
-                {{ displayedVersionMeta }}
-              </p>
-            </div>
-            <div class="script-topic-center__editor-meta">
-              <span>{{ currentSourceLabel }}</span>
-              <span>{{ currentModelLabel }}</span>
-            </div>
-          </div>
-
-          <div v-if="pageState === 'loading'" class="script-topic-center__loading">
-            <span class="material-symbols-outlined">progress_activity</span>
-            正在通过 Runtime 拉取当前项目脚本。
-          </div>
-          <div v-else-if="pageState === 'empty'" class="script-topic-center__empty">
-            <span class="material-symbols-outlined">description</span>
-            <div>
-              <strong>当前项目还没有脚本版本</strong>
-              <p>先填写主题后生成脚本，或等待 Script Studio 写入首个版本。</p>
-            </div>
-          </div>
-          <div v-else class="script-topic-center__editor-shell">
-            <textarea
-              v-model="content"
-              class="script-topic-center__editor"
-              data-field="script.content"
-              :disabled="isBusy || pageState === 'empty'"
-            />
-            <section class="script-topic-center__editor-foot">
-              <div>
-                <strong>正文摘要</strong>
-                <p>当前共 {{ contentLength }} 字，按真实段落拆成 {{ outlineSegments.length }} 个策划锚点。</p>
-              </div>
-              <span>{{ updatedAtLabel }}</span>
-            </section>
-          </div>
+        <!-- 中间 脚本编辑器 -->
+        <main class="script-panel script-panel--editor">
+          <Card class="script-card h-full editor-card" :class="{ 'is-generating': scriptStore.status === 'generating' }">
+             <!-- AI 生成流光线 -->
+             <div class="ai-flow-bar" v-if="scriptStore.status === 'generating'"></div>
+             
+             <div class="editor-header">
+                <div>
+                   <h3>脚本工作面</h3>
+                   <span class="editor-meta">{{ displayedVersionMeta }}</span>
+                </div>
+                <div class="editor-tags">
+                   <Chip v-if="currentSourceLabel">{{ currentSourceLabel }}</Chip>
+                   <Chip v-if="currentModelLabel" variant="brand">{{ currentModelLabel }}</Chip>
+                </div>
+             </div>
+             
+             <div class="editor-body">
+               <div v-if="pageState === 'loading'" class="editor-empty">
+                 <span class="material-symbols-outlined spinning">progress_activity</span>
+                 <p>正在通过 Runtime 拉取当前项目脚本...</p>
+               </div>
+               <div v-else-if="pageState === 'empty'" class="editor-empty">
+                 <span class="material-symbols-outlined">description</span>
+                 <p>当前项目还没有脚本版本<br/><small>先填写主题后生成脚本，或等待 Script Studio 写入首个版本。</small></p>
+               </div>
+               <textarea v-else
+                 class="editor-textarea"
+                 v-model="content"
+                 :disabled="isBusy || pageState === 'empty'"
+               />
+             </div>
+             
+             <div class="editor-footer">
+                <span>当前共 {{ contentLength }} 字，按真实段落拆成 {{ outlineSegments.length }} 个策划锚点。</span>
+                <span>{{ updatedAtLabel }}</span>
+             </div>
+          </Card>
         </main>
 
-        <aside class="script-topic-center__rail">
-          <section class="script-topic-center__panel" data-script-section="versions">
-            <div class="script-topic-center__panel-heading">
-              <div>
-                <h2>版本轨迹</h2>
-                <p>直接展示真实修订，不在 UI 中制造演示版本。</p>
+        <!-- 右侧 版本与变体 -->
+        <aside class="script-panel script-panel--versions">
+          <Card class="script-card rail-card" style="flex: 1; min-height: 0;">
+            <div class="script-card__header">
+              <h3>版本轨迹</h3>
+              <Chip size="sm">{{ versions.length }}</Chip>
+            </div>
+            <div class="script-card__body no-padding scroll-area">
+               <div v-if="versions.length === 0" class="empty-text">当前项目还没有脚本版本。</div>
+               <div v-else class="version-list">
+                 <transition-group name="list-fade">
+                   <button v-for="version in versions" :key="version.revision" 
+                     class="version-item" 
+                     :class="{ 'is-active': selectedRevision === version.revision }"
+                     @click="selectedRevision = version.revision">
+                      <div class="v-main">
+                        <strong>修订 {{ version.revision }}</strong>
+                        <span class="v-time">{{ formatDateTime(version.createdAt) }}</span>
+                      </div>
+                      <div class="v-sub">{{ version.source }} · {{ version.provider ?? "手动" }}</div>
+                   </button>
+                 </transition-group>
+               </div>
+            </div>
+          </Card>
+
+          <Card class="script-card rail-card">
+             <div class="script-card__header">
+              <h3>AI 作业与变体</h3>
+            </div>
+            <div class="script-card__body no-padding">
+              <div class="title-seed">
+                 <small>当前主标题</small>
+                 <strong>{{ titleSeed }}</strong>
               </div>
-              <span>{{ versions.length }} 条</span>
-            </div>
-            <div v-if="versions.length === 0" class="script-topic-center__empty-inline">
-              当前项目还没有脚本版本。
-            </div>
-            <div v-else class="script-topic-center__version-list">
-              <button
-                v-for="version in versions"
-                :key="version.revision"
-                class="script-topic-center__version"
-                :class="{ 'script-topic-center__version--active': selectedRevision === version.revision }"
-                data-script-version-item
-                type="button"
-                @click="selectedRevision = version.revision"
-              >
-                <div>
-                  <strong>修订 {{ version.revision }}</strong>
-                  <p>{{ version.source }} · {{ version.provider ?? "手动" }}</p>
-                </div>
-                <small>{{ formatDateTime(version.createdAt) }}</small>
-              </button>
-            </div>
-          </section>
-
-          <section class="script-topic-center__panel" data-script-section="title-variants">
-            <div class="script-topic-center__panel-heading">
-              <div>
-                <h2>标题方向与 AI 作业</h2>
-                <p>仅显示真实作业和当前主标题，不生成伪造标题列表。</p>
+              
+              <div v-if="recentJobs.length === 0" class="empty-text">当前还没有真实 AI 作业记录。</div>
+              <div v-else class="job-list">
+                 <transition-group name="list-fade">
+                   <div v-for="job in recentJobs.slice(0, 3)" :key="job.id" class="job-item">
+                      <div class="job-main">
+                         <strong>{{ capabilityLabel(job.capabilityId) }}</strong>
+                         <span>{{ job.provider }} · {{ job.model }}</span>
+                      </div>
+                      <Chip :variant="jobTone(job.status)" size="sm">{{ jobStatusLabel(job.status) }}</Chip>
+                   </div>
+                 </transition-group>
               </div>
             </div>
-
-            <div class="script-topic-center__title-card">
-              <small>当前主标题</small>
-              <strong>{{ titleSeed }}</strong>
-            </div>
-
-            <div v-if="recentJobs.length === 0" class="script-topic-center__empty-inline">
-              当前还没有真实标题变体结果，后续会跟随脚本生成一起写入版本记录。
-            </div>
-            <ul v-else class="script-topic-center__job-list">
-              <li v-for="job in recentJobs" :key="job.id" class="script-topic-center__job">
-                <div>
-                  <strong>{{ capabilityLabel(job.capabilityId) }}</strong>
-                  <p>{{ job.provider }} · {{ job.model }}</p>
-                </div>
-                <span :data-job-state="job.status">{{ jobStatusLabel(job.status) }}</span>
-              </li>
-            </ul>
-          </section>
+          </Card>
         </aside>
       </div>
-    </section>
+    </div>
   </ProjectContextGuard>
 </template>
 
@@ -243,7 +169,13 @@ import { useProjectStore } from "@/stores/project";
 import { useScriptStudioStore } from "@/stores/script-studio";
 import type { ScriptVersion } from "@/types/runtime";
 
+import Button from "@/components/ui/Button/Button.vue";
+import Card from "@/components/ui/Card/Card.vue";
+import Chip from "@/components/ui/Chip/Chip.vue";
+import Input from "@/components/ui/Input/Input.vue";
+
 type PageState = "loading" | "empty" | "ready" | "error" | "blocked";
+type Tone = "neutral" | "brand" | "success" | "warning" | "danger" | "info" | "default";
 
 const projectStore = useProjectStore();
 const scriptStore = useScriptStudioStore();
@@ -265,7 +197,6 @@ const displayedVersion = computed<ScriptVersion | null>(() => {
   if (selectedRevision.value === null) {
     return currentVersion.value;
   }
-
   return versions.value.find((version) => version.revision === selectedRevision.value) ?? currentVersion.value;
 });
 const hasDocument = computed(() => currentVersion.value !== null || versions.value.length > 0);
@@ -280,178 +211,106 @@ const pageState = computed<PageState>(() => {
   if (hasBlockedJob.value) return "blocked";
   return "ready";
 });
-const revisionLabel = computed(() =>
-  currentVersion.value ? `修订 ${currentVersion.value.revision}` : "尚无修订"
-);
+
+const revisionLabel = computed(() => currentVersion.value ? `修订 ${currentVersion.value.revision}` : "尚无修订");
 const pageStateLabel = computed(() => {
-  const map: Record<PageState, string> = {
-    blocked: "能力阻断",
-    empty: "空态",
-    error: "错误",
-    loading: "加载中",
-    ready: "已就绪"
-  };
+  const map: Record<PageState, string> = { blocked: "能力阻断", empty: "空态", error: "错误", loading: "加载中", ready: "已就绪" };
   return map[pageState.value];
 });
-const pageStateIcon = computed(() => {
-  const map: Record<PageState, string> = {
-    blocked: "lock",
-    empty: "notes",
-    error: "error",
-    loading: "progress_activity",
-    ready: "task_alt"
-  };
-  return map[pageState.value];
-});
-const pageStateTitle = computed(() => {
-  if (pageState.value === "loading") return "正在同步 Script Studio";
-  if (pageState.value === "empty") return "脚本链路仍为空";
-  if (pageState.value === "error") return "脚本请求失败";
-  if (pageState.value === "blocked") return "AI 作业存在阻断";
-  return "脚本工作面已就绪";
-});
+
 const pageStateDescription = computed(() => {
-  if (pageState.value === "loading") {
-    return "当前页面正在通过真实 Runtime 读取脚本版本和 AI 作业。";
-  }
-  if (pageState.value === "empty") {
-    return "还没有脚本版本时，不展示伪造策划结果，只保留真实生成入口。";
-  }
-  if (pageState.value === "error") {
-    return errorSummary.value;
-  }
-  if (pageState.value === "blocked") {
-    return latestJob.value?.error ?? "最近一次 AI 作业被阻断，当前仍可继续手动编辑与保存。";
-  }
+  if (pageState.value === "loading") return "当前页面正在通过真实 Runtime 读取脚本版本和 AI 作业。";
+  if (pageState.value === "empty") return "还没有脚本版本时，不展示伪造策划结果，只保留真实生成入口。";
+  if (pageState.value === "error") return scriptStore.error?.message || "脚本请求失败，请稍后重试。";
+  if (pageState.value === "blocked") return latestJob.value?.error ?? "最近一次 AI 作业被阻断，当前仍可继续手动编辑与保存。";
   return "当前页面使用真实项目、脚本版本和 AI 作业状态构成策划工作台。";
 });
-const errorSummary = computed(() => {
-  if (!scriptStore.error) {
-    return "脚本请求失败，请稍后重试。";
-  }
 
-  return scriptStore.error.requestId
-    ? `${scriptStore.error.message}（${scriptStore.error.requestId}）`
-    : scriptStore.error.message;
-});
-const disabledReason = computed(() => {
-  if (!currentProjectId.value) return "等待项目上下文";
-  if (scriptStore.status === "loading") return "正在加载";
-  if (scriptStore.status === "saving") return "正在保存";
-  if (scriptStore.status === "generating") return "AI 正在处理中";
-  return "动作可用";
-});
 const generateDisabled = computed(() => isBusy.value || topic.value.trim().length === 0);
 const rewriteDisabled = computed(() => isBusy.value || instructions.value.trim().length === 0 || !hasDocument.value);
 const saveDisabled = computed(() => isBusy.value || content.value.trim().length === 0 || pageState.value === "empty");
 const contentLength = computed(() => content.value.trim().length);
 const outlineSegments = computed(() => parseScriptSegments(content.value));
 const titleSeed = computed(() => outlineSegments.value[0]?.title ?? "等待真实脚本标题");
-const projectChainLabel = computed(() => `${projectName.value} / Script Studio / Project`);
-const displayedVersionMeta = computed(() => {
-  if (!displayedVersion.value) {
-    return "暂无脚本版本，等待当前项目写入正文。";
-  }
 
-  return `当前查看修订 ${displayedVersion.value.revision} · ${formatDateTime(displayedVersion.value.createdAt)}`;
+const displayedVersionMeta = computed(() => {
+  if (!displayedVersion.value) return "暂无脚本版本，等待当前项目写入正文。";
+  return `修订 ${displayedVersion.value.revision} · ${formatDateTime(displayedVersion.value.createdAt)}`;
 });
 const currentSourceLabel = computed(() => displayedVersion.value?.source ?? "无来源");
 const currentModelLabel = computed(() => displayedVersion.value?.model ?? "手动编辑");
-const updatedAtLabel = computed(() =>
-  displayedVersion.value ? `写入时间 ${formatDateTime(displayedVersion.value.createdAt)}` : "尚未写入"
-);
+const updatedAtLabel = computed(() => displayedVersion.value ? `写入时间 ${formatDateTime(displayedVersion.value.createdAt)}` : "尚未写入");
 
-watch(
-  currentProjectId,
-  (projectId, previousProjectId) => {
-    if (!projectId || projectId === previousProjectId) {
-      return;
-    }
-    topic.value = "";
-    instructions.value = "";
-    selectedRevision.value = null;
-    void scriptStore.load(projectId);
-  },
-  { immediate: true }
-);
+watch(currentProjectId, (projectId, previousProjectId) => {
+  if (!projectId || projectId === previousProjectId) return;
+  topic.value = "";
+  instructions.value = "";
+  selectedRevision.value = null;
+  void scriptStore.load(projectId);
+}, { immediate: true });
 
-watch(
-  currentVersion,
-  (value) => {
-    selectedRevision.value = value?.revision ?? null;
-  },
-  { immediate: true }
-);
+watch(currentVersion, (value) => { selectedRevision.value = value?.revision ?? null; }, { immediate: true });
+watch(displayedVersion, (value) => { content.value = value?.content ?? ""; }, { immediate: true });
 
-watch(
-  displayedVersion,
-  (value) => {
-    content.value = value?.content ?? "";
-  },
-  { immediate: true }
-);
-
-watch(
-  [projectName, revisionLabel, pageState, latestJob, currentVersion, titleSeed],
-  () => {
-    shellUiStore.setDetailContext(
-      createRouteDetailContext("contextual", {
-        icon: "description",
-        eyebrow: "脚本与选题中心",
-        title: projectName.value,
-        description: pageStateDescription.value,
-        badge: {
-          label: pageStateLabel.value,
-          tone: pageState.value === "error" ? "danger" : pageState.value === "blocked" ? "warning" : "brand"
+watch([projectName, revisionLabel, pageState, latestJob, currentVersion, titleSeed], () => {
+  shellUiStore.setDetailContext(
+    createRouteDetailContext("contextual", {
+      icon: "description",
+      eyebrow: "脚本与选题中心",
+      title: projectName.value,
+      description: pageStateDescription.value,
+      badge: {
+        label: pageStateLabel.value,
+        tone: pageState.value === "error" ? "danger" : pageState.value === "blocked" ? "warning" : "brand"
+      },
+      metrics: [
+        { id: "revision", label: "当前修订", value: revisionLabel.value },
+        { id: "segments", label: "段落数", value: String(outlineSegments.value.length) },
+        { id: "jobs", label: "AI 作业", value: String(recentJobs.value.length) }
+      ],
+      sections: [
+        {
+          id: "version",
+          title: "当前脚本",
+          fields: [
+            { id: "title", label: "主标题", value: titleSeed.value, multiline: true },
+            { id: "source", label: "来源", value: currentSourceLabel.value },
+            { id: "model", label: "模型", value: currentModelLabel.value }
+          ]
         },
-        metrics: [
-          { id: "revision", label: "当前修订", value: revisionLabel.value },
-          { id: "segments", label: "段落数", value: String(outlineSegments.value.length) },
-          { id: "jobs", label: "AI 作业", value: String(recentJobs.value.length) }
-        ],
-        sections: [
-          {
-            id: "version",
-            title: "当前脚本",
-            fields: [
-              { id: "title", label: "主标题", value: titleSeed.value, multiline: true },
-              { id: "source", label: "来源", value: currentSourceLabel.value },
-              { id: "model", label: "模型", value: currentModelLabel.value }
-            ]
-          },
-          {
-            id: "jobs",
-            title: "最近作业",
-            emptyLabel: "当前没有真实 AI 作业记录。",
-            items: recentJobs.value.slice(0, 3).map((job) => ({
-              id: job.id,
-              title: capabilityLabel(job.capabilityId),
-              description: `${job.provider} · ${job.model}`,
-              meta: jobStatusLabel(job.status),
-              tone: job.status === "failed" ? "danger" : job.status === "blocked" ? "warning" : "brand"
-            }))
-          }
-        ]
-      })
-    );
-  },
-  { immediate: true }
-);
+        {
+          id: "jobs",
+          title: "最近作业",
+          emptyLabel: "当前没有真实 AI 作业记录。",
+          items: recentJobs.value.slice(0, 3).map((job) => ({
+            id: job.id,
+            title: capabilityLabel(job.capabilityId),
+            description: `${job.provider} · ${job.model}`,
+            meta: jobStatusLabel(job.status),
+            tone: jobTone(job.status)
+          }))
+        }
+      ]
+    })
+  );
+}, { immediate: true });
 
 onBeforeUnmount(() => {
   shellUiStore.clearDetailContext("contextual");
 });
 
-async function handleSave(): Promise<void> {
-  await scriptStore.save(content.value);
-}
+async function handleSave(): Promise<void> { await scriptStore.save(content.value); }
+async function handleGenerate(): Promise<void> { await scriptStore.generate(topic.value.trim()); }
+async function handleRewrite(): Promise<void> { await scriptStore.rewrite(instructions.value.trim()); }
 
-async function handleGenerate(): Promise<void> {
-  await scriptStore.generate(topic.value.trim());
-}
-
-async function handleRewrite(): Promise<void> {
-  await scriptStore.rewrite(instructions.value.trim());
+async function handleCopyContent() {
+  if (!content.value) return;
+  try {
+    await navigator.clipboard.writeText(content.value);
+    // Optional: show a toast or feedback
+  } catch (err) {
+    console.error("Failed to copy script:", err);
+  }
 }
 
 function capabilityLabel(capabilityId: string): string {
@@ -469,391 +328,473 @@ function jobStatusLabel(status: string): string {
   return status;
 }
 
-function formatDateTime(value: string): string {
-  if (!value) {
-    return "未知时间";
-  }
+function jobTone(status: string): Tone {
+  if (status === "failed") return "danger";
+  if (status === "blocked") return "warning";
+  if (status === "succeeded") return "success";
+  if (status === "running") return "brand";
+  return "default";
+}
 
+function formatDateTime(value: string): string {
+  if (!value) return "未知时间";
   return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    hour12: false,
-    minute: "2-digit",
-    month: "numeric",
-    day: "numeric"
+    hour: "2-digit", hour12: false, minute: "2-digit", month: "numeric", day: "numeric"
   }).format(new Date(value));
 }
 
 function parseScriptSegments(value: string): Array<{ excerpt: string; id: string; title: string }> {
-  return value
-    .split(/\n\s*\n/)
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-    .map((segment, index) => {
-      const lines = segment
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
-      const rawTitle = lines[0] ?? `段落 ${index + 1}`;
-      const title = rawTitle.replace(/^#+\s*/, "");
-      const excerpt = lines.slice(1).join(" ").slice(0, 80) || "等待补充正文。";
-      return {
-        excerpt,
-        id: `segment-${index + 1}`,
-        title
-      };
-    });
+  return value.split(/\n\s*\n/).map((segment) => segment.trim()).filter(Boolean).map((segment, index) => {
+    const lines = segment.split("\n").map((line) => line.trim()).filter(Boolean);
+    const rawTitle = lines[0] ?? `段落 ${index + 1}`;
+    const title = rawTitle.replace(/^#+\s*/, "");
+    const excerpt = lines.slice(1).join(" ").slice(0, 80) || "等待补充正文。";
+    return { excerpt, id: `segment-${index + 1}`, title };
+  });
 }
 </script>
 
 <style scoped>
-.script-topic-center {
-  display: grid;
-  gap: 20px;
-}
-
-.script-topic-center__header,
-.script-topic-center__control-bar {
-  align-items: flex-start;
+.page-container {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-8) var(--space-8);
   display: flex;
-  gap: 16px;
-  justify-content: space-between;
+  flex-direction: column;
+  height: 100%;
 }
 
-.script-topic-center__headline {
+.page-header {
   display: grid;
-  gap: 8px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-shrink: 0;
 }
 
-.script-topic-center__eyebrow {
-  color: var(--text-tertiary);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  margin: 0;
+.page-header__crumb {
+  font: var(--font-caption);
+  letter-spacing: var(--ls-caption);
+  color: var(--color-text-tertiary);
   text-transform: uppercase;
 }
 
-.script-topic-center__summary,
-.script-topic-center__panel-heading p,
-.script-topic-center__control-copy p,
-.script-topic-center__brief-card p,
-.script-topic-center__outline-list p,
-.script-topic-center__job p,
-.script-topic-center__empty-inline,
-.script-topic-center__state-banner p,
-.script-topic-center__editor-foot p {
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.script-topic-center__meta,
-.script-topic-center__control-actions,
-.script-topic-center__editor-meta {
-  align-items: center;
+.page-header__row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
 }
 
-.script-topic-center__chip,
-.script-topic-center__mini-status,
-.script-topic-center__editor-meta span {
-  background: color-mix(in srgb, var(--surface-tertiary) 92%, transparent);
-  border: 1px solid var(--border-default);
-  border-radius: 999px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  padding: 6px 12px;
+.page-header__title {
+  font: var(--font-display-md);
+  letter-spacing: var(--ls-display-md);
+  color: var(--color-text-primary);
+  margin: 0 0 4px 0;
 }
 
-.script-topic-center__chip--project {
-  color: var(--text-primary);
+.page-header__subtitle {
+  font: var(--font-body-md);
+  letter-spacing: var(--ls-body-md);
+  color: var(--color-text-secondary);
 }
 
-.script-topic-center__chip[data-tone="ready"] {
-  border-color: color-mix(in srgb, var(--color-success) 35%, var(--border-default));
-  color: var(--color-success);
+.page-header__actions {
+  display: flex;
+  gap: var(--space-3);
 }
 
-.script-topic-center__chip[data-tone="blocked"] {
-  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--border-default));
-  color: var(--color-warning);
+/* 工作区网格 */
+.script-workspace {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 320px;
+  gap: var(--space-4);
+  flex: 1;
+  min-height: 0;
 }
 
-.script-topic-center__chip[data-tone="error"] {
-  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--border-default));
-  color: var(--color-danger);
+.script-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
 }
 
-.script-topic-center__control-bar,
-.script-topic-center__state-banner,
-.script-topic-center__panel {
-  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
-  border: 1px solid var(--border-default);
-  border-radius: 20px;
+.h-full {
+  height: 100%;
+}
+
+.script-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.script-card__header {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-bg-canvas); /* slightly differentiated */
+}
+
+.script-card__header h3 {
+  margin: 0;
+  font: var(--font-title-md);
+  color: var(--color-text-primary);
+}
+
+.script-card__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.script-card__body.no-padding {
+  padding: 0;
+}
+
+.script-card__footer {
+  padding: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-canvas);
+}
+
+/* Prompt Panel */
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.outline-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.outline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.outline-header strong {
+  font: var(--font-title-sm);
+  color: var(--color-text-secondary);
+}
+
+.outline-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.outline-item {
+  padding: var(--space-3);
+  background: var(--color-bg-muted);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  transition: all var(--motion-fast) var(--ease-standard);
+  cursor: default;
+}
+
+.outline-item:hover {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-default);
   box-shadow: var(--shadow-sm);
 }
 
-.script-topic-center__control-bar {
-  padding: 18px 20px;
+.outline-item strong {
+  display: block;
+  font: var(--font-title-sm);
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
 }
 
-.script-topic-center__control-copy {
-  display: grid;
-  gap: 6px;
-}
-
-.script-topic-center__button {
-  align-items: center;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  display: inline-flex;
-  gap: 8px;
-  height: 40px;
-  justify-content: center;
-  padding: 0 16px;
-}
-
-.script-topic-center__button:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
-}
-
-.script-topic-center__button--primary {
-  background: var(--brand-primary);
-  color: var(--text-inverse, #041314);
-}
-
-.script-topic-center__button--ghost {
-  background: transparent;
-  border-color: var(--border-default);
-  color: var(--text-primary);
-}
-
-.script-topic-center__button--ai {
-  background: var(--gradient-ai-primary);
-  color: #fff;
-}
-
-.script-topic-center__state-banner {
-  align-items: center;
-  display: flex;
-  gap: 14px;
-  padding: 14px 18px;
-}
-
-.script-topic-center__state-banner--error {
-  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--border-default));
-}
-
-.script-topic-center__state-banner--blocked {
-  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--border-default));
-}
-
-.script-topic-center__workspace {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr) minmax(280px, 320px);
-}
-
-.script-topic-center__panel,
-.script-topic-center__rail {
-  display: grid;
-  gap: 16px;
-}
-
-.script-topic-center__panel {
-  align-content: start;
-  padding: 18px;
-}
-
-.script-topic-center__panel-heading,
-.script-topic-center__subheading,
-.script-topic-center__editor-foot {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-}
-
-.script-topic-center__field {
-  display: grid;
-  gap: 8px;
-}
-
-.script-topic-center__field span,
-.script-topic-center__brief-card small,
-.script-topic-center__title-card small {
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-
-.script-topic-center__field input,
-.script-topic-center__field textarea,
-.script-topic-center__editor {
-  background: var(--surface-tertiary);
-  border: 1px solid var(--border-default);
-  border-radius: 12px;
-  color: var(--text-primary);
-  padding: 12px 14px;
-}
-
-.script-topic-center__field textarea {
-  min-height: 132px;
-  resize: vertical;
-}
-
-.script-topic-center__brief {
-  display: grid;
-  gap: 12px;
-}
-
-.script-topic-center__brief-card,
-.script-topic-center__title-card {
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 14%, transparent), transparent 60%),
-    var(--surface-tertiary);
-  border: 1px solid var(--border-default);
-  border-radius: 16px;
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-}
-
-.script-topic-center__outline {
-  display: grid;
-  gap: 12px;
-}
-
-.script-topic-center__outline-list {
-  display: grid;
-  gap: 10px;
+.outline-item p {
   margin: 0;
-  padding-left: 18px;
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.script-topic-center__outline-list li {
-  display: grid;
-  gap: 4px;
+.empty-text {
+  padding: var(--space-4);
+  text-align: center;
+  font: var(--font-body-sm);
+  color: var(--color-text-tertiary);
 }
 
-.script-topic-center__loading,
-.script-topic-center__empty {
-  align-items: center;
-  background: var(--surface-tertiary);
-  border: 1px dashed var(--border-default);
-  border-radius: 18px;
-  color: var(--text-secondary);
+.editor-card {
+  position: relative;
+  background: var(--color-bg-surface);
+  --motion-flow: 2.4s;
+}
+
+.ai-flow-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient-ai-primary);
+  background-size: 200% 200%;
+  animation: ai-flow var(--motion-flow) linear infinite;
+  z-index: 10;
+}
+
+.editor-header {
+  padding: var(--space-4) var(--space-5);
   display: flex;
-  gap: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.editor-header h3 {
+  margin: 0 0 4px 0;
+  font: var(--font-title-lg);
+  color: var(--color-text-primary);
+}
+
+.editor-meta {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.editor-tags {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.editor-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editor-textarea {
+  flex: 1;
+  width: 100%;
+  resize: none;
+  border: none;
+  background: transparent;
+  padding: var(--space-5);
+  font: var(--font-body-lg);
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.editor-textarea:disabled {
+  opacity: 0.8;
+}
+
+.editor-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  min-height: 320px;
-  padding: 24px;
+  gap: var(--space-3);
+  color: var(--color-text-tertiary);
   text-align: center;
 }
 
-.script-topic-center__editor-shell {
-  display: grid;
-  gap: 12px;
+.editor-empty .material-symbols-outlined {
+  font-size: 32px;
+  opacity: 0.5;
 }
 
-.script-topic-center__editor {
-  min-height: 420px;
-  resize: vertical;
-}
-
-.script-topic-center__version-list,
-.script-topic-center__job-list {
-  display: grid;
-  gap: 10px;
-}
-
-.script-topic-center__version {
-  align-items: center;
-  background: var(--surface-tertiary);
-  border: 1px solid transparent;
-  border-radius: 14px;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  padding: 14px;
-  text-align: left;
-}
-
-.script-topic-center__version--active {
-  border-color: color-mix(in srgb, var(--brand-primary) 32%, var(--border-default));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-primary) 28%, transparent);
-}
-
-.script-topic-center__version p,
-.script-topic-center__version small {
-  color: var(--text-secondary);
+.editor-empty p {
   margin: 0;
+  font: var(--font-body-md);
+  line-height: 1.5;
 }
 
-.script-topic-center__job {
-  align-items: center;
-  background: var(--surface-tertiary);
-  border: 1px solid var(--border-default);
-  border-radius: 14px;
+.editor-footer {
+  padding: var(--space-3) var(--space-5);
   display: flex;
-  gap: 12px;
+  align-items: center;
   justify-content: space-between;
-  padding: 14px;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-canvas);
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
 }
 
-.script-topic-center__job span {
-  border-radius: 999px;
-  font-size: 12px;
-  padding: 4px 10px;
+/* Versions Rail */
+.scroll-area {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
 }
 
-.script-topic-center__job span[data-job-state="succeeded"] {
-  background: color-mix(in srgb, var(--color-success) 16%, transparent);
-  color: var(--color-success);
+.scroll-area::-webkit-scrollbar {
+  width: 4px;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
 }
 
-.script-topic-center__job span[data-job-state="blocked"] {
-  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
-  color: var(--color-warning);
+.version-list {
+  display: flex;
+  flex-direction: column;
 }
 
-.script-topic-center__job span[data-job-state="failed"] {
-  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
-  color: var(--color-danger);
+.version-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--motion-fast) var(--ease-standard);
 }
 
-.script-topic-center__job span:not([data-job-state="succeeded"]):not([data-job-state="blocked"]):not([data-job-state="failed"]) {
-  background: color-mix(in srgb, var(--brand-primary) 14%, transparent);
-  color: var(--brand-primary);
+.version-item:hover {
+  background: var(--color-bg-hover);
 }
 
-@media (max-width: 1280px) {
-  .script-topic-center__workspace {
-    grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+.version-item:active {
+  transform: scale(0.98);
+}
+
+.version-item.is-active {
+  background: color-mix(in srgb, var(--color-brand-primary) 8%, transparent);
+  border-left: 3px solid var(--color-brand-primary);
+  padding-left: calc(var(--space-4) - 3px);
+}
+
+/* List Transitions */
+.list-fade-enter-active,
+.list-fade-leave-active {
+  transition: all var(--motion-default) var(--ease-spring);
+}
+.list-fade-enter-from,
+.list-fade-leave-to {
+  opacity: 0;
+  transform: translateX(10px);
+}
+.list-fade-leave-active {
+  position: absolute;
+}
+
+.v-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.v-main strong {
+  font: var(--font-title-sm);
+  color: var(--color-text-primary);
+}
+
+.v-time {
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.v-sub {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.title-seed {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-brand-primary) 4%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title-seed small {
+  font: var(--font-caption);
+  color: var(--color-brand-primary);
+  text-transform: uppercase;
+}
+
+.title-seed strong {
+  font: var(--font-title-md);
+  color: var(--color-text-primary);
+}
+
+.job-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.job-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: background-color var(--motion-fast) var(--ease-standard);
+}
+
+.job-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.job-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.job-main strong {
+  font: var(--font-body-sm);
+  color: var(--color-text-primary);
+}
+
+.job-main span {
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+@media (max-width: 1200px) {
+  .script-workspace {
+    grid-template-columns: 300px minmax(0, 1fr);
   }
-
-  .script-topic-center__rail {
+  .script-panel--versions {
     grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex-direction: row;
+    height: 320px;
+  }
+  .rail-card {
+    flex: 1;
   }
 }
 
-@media (max-width: 960px) {
-  .script-topic-center__header,
-  .script-topic-center__control-bar,
-  .script-topic-center__panel-heading,
-  .script-topic-center__editor-foot {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .script-topic-center__workspace,
-  .script-topic-center__rail {
+@media (max-width: 860px) {
+  .script-workspace {
     grid-template-columns: 1fr;
   }
-
-  .script-topic-center__editor {
-    min-height: 320px;
+  .script-panel--versions {
+    flex-direction: column;
+    height: auto;
+  }
+  .page-header__row {
+    flex-direction: column;
   }
 }
 </style>

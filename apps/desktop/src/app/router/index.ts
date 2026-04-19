@@ -74,7 +74,7 @@ export function createAppRouter(
       await licenseStore.loadStatus();
     }
 
-    if (target.id === routeIds.setupLicenseWizard && licenseStore.active) {
+    if (target.id === routeIds.setupLicenseWizard && licenseStore.active && !to.query.preview) {
       return resolveRedirectTarget(to.query.redirect);
     }
 

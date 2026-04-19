@@ -236,15 +236,5 @@ const statusLabel = computed(() => {
   transform: translateY(6px);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .paragraph-item,
-  .voice-list-enter-active,
-  .voice-list-leave-active {
-    transition: none;
-  }
-
-  .paragraph-item:hover {
-    transform: none;
-  }
-}
+/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

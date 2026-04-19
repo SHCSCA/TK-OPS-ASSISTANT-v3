@@ -849,12 +849,6 @@ export type AutomationTaskRunDto = {
   created_at: string;
 };
 
-export type AutomationTaskRunLogsDto = {
-  run_id: string;
-  log_text: string | null;
-  lines: string[];
-};
-
 export type TriggerTaskResultDto = {
   task_id: string;
   run_id: string;
@@ -907,14 +901,6 @@ export type BrowserInstanceDto = {
   last_seen_at: string | null;
   created_at: string;
   updated_at: string;
-};
-
-export type ExecutionBindingCreateInput = {
-  account_id: string;
-  device_workspace_id: string;
-  browser_instance_id?: string | null;
-  source?: string | null;
-  metadata_json?: string | null;
 };
 
 export type ExecutionBindingDto = {
@@ -1117,26 +1103,6 @@ export type AnalyzeProjectResultDto = {
   status: string;
   message: string;
   analyzed_at: string;
-};
-
-export type ReviewSuggestionUpdateInput = {
-  status: "pending" | "applied" | "dismissed";
-};
-
-export type GenerateReviewSuggestionsResultDto = {
-  project_id: string;
-  status: string;
-  message: string;
-  generated_count: number;
-  generated_at: string;
-};
-
-export type ApplyReviewSuggestionResultDto = {
-  project_id: string;
-  suggestion_id: string;
-  script_revision: number;
-  status: string;
-  message: string;
 };
 
 export type VideoTranscriptDto = {

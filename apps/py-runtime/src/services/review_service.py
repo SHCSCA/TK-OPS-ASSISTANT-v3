@@ -9,15 +9,17 @@ from common.time import utc_now
 from domain.models.review import ReviewSummary
 from repositories.dashboard_repository import DashboardRepository, StoredProject
 from repositories.review_repository import ReviewRepository
-from repositories.script_repository import ScriptRepository
+from repositories.script_repository import ScriptRepository, StoredScriptVersion
 from repositories.storyboard_repository import StoryboardRepository
 from schemas.dashboard import ProjectSummaryDto
 from schemas.review import (
+    ApplySuggestionToScriptResultDto,
     AnalyzeProjectResultDto,
     ReviewSuggestion,
     ReviewSummaryDto,
     ReviewSummaryUpdateInput,
 )
+from schemas.scripts import ScriptVersionDto
 
 log = logging.getLogger(__name__)
 
@@ -170,6 +172,66 @@ class ReviewService:
             raise HTTPException(status_code=500, detail="复盘建议采纳失败") from exc
         return self._to_project_dto(child_project)
 
+    def apply_suggestion_to_script(
+        self,
+        suggestion_id: str,
+        *,
+        project_id: str | None = None,
+        dashboard_repository: DashboardRepository | None = None,
+        script_repository: ScriptRepository | None = None,
+    ) -> ApplySuggestionToScriptResultDto:
+        source_project_id = project_id or self._project_id_from_suggestion_id(suggestion_id)
+        dashboard_repository = dashboard_repository or self._dashboard_repository
+        script_repository = script_repository or self._script_repository
+        if dashboard_repository is None:
+            raise HTTPException(status_code=500, detail="复盘库缺少项目存储依赖")
+        if script_repository is None:
+            raise HTTPException(status_code=500, detail="复盘库缺少脚本存储依赖")
+
+        summary = self._get_summary_model(source_project_id)
+        suggestions = self._parse_suggestions(summary.suggestions_json)
+        suggestion = next((item for item in suggestions if item.id == suggestion_id), None)
+        if suggestion is None:
+            raise HTTPException(status_code=404, detail="复盘建议不存在")
+
+        try:
+            script_versions = script_repository.list_versions(source_project_id)
+            latest_content = script_versions[0].content if script_versions else ""
+            applied_content = self._build_applied_script_content(
+                latest_content=latest_content,
+                suggestion=suggestion,
+            )
+            stored_script = script_repository.save_version(
+                source_project_id,
+                source="review_apply",
+                content=applied_content,
+            )
+            dashboard_repository.update_project_versions(
+                source_project_id,
+                current_script_version=stored_script.revision,
+            )
+            suggestion.adopted = True
+            suggestion.adopted_at = utc_now()
+            suggestion.adopted_as_project_id = None
+            self._repository.save_suggestions(
+                source_project_id,
+                json.dumps([item.model_dump(mode="json") for item in suggestions], ensure_ascii=False),
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.exception("复盘建议应用到脚本失败")
+            raise HTTPException(status_code=500, detail="复盘建议应用到脚本失败") from exc
+
+        return ApplySuggestionToScriptResultDto(
+            projectId=source_project_id,
+            suggestionId=suggestion_id,
+            status="已应用",
+            message="已将复盘建议应用到原项目脚本，并生成新的脚本版本",
+            currentScriptVersion=stored_script.revision,
+            scriptVersion=self._to_script_version_dto(stored_script),
+        )
+
     def _get_summary_model(self, project_id: str) -> ReviewSummary:
         try:
             summary = self._repository.get_summary(project_id)
@@ -293,3 +355,32 @@ class ReviewService:
             updatedAt=project.updated_at,
             lastAccessedAt=project.last_accessed_at,
         )
+
+    def _to_script_version_dto(self, stored: StoredScriptVersion) -> ScriptVersionDto:
+        return ScriptVersionDto(
+            revision=stored.revision,
+            source=stored.source,
+            content=stored.content,
+            provider=stored.provider,
+            model=stored.model,
+            aiJobId=stored.ai_job_id,
+            createdAt=stored.created_at,
+        )
+
+    def _build_applied_script_content(
+        self,
+        *,
+        latest_content: str,
+        suggestion: ReviewSuggestion,
+    ) -> str:
+        latest_text = latest_content.rstrip()
+        review_note = "\n".join(
+            [
+                "【复盘建议】",
+                suggestion.title.strip(),
+                suggestion.description.strip(),
+            ]
+        ).strip()
+        if latest_text:
+            return f"{latest_text}\n\n{review_note}"
+        return review_note

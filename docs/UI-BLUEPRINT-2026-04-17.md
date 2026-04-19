@@ -1552,6 +1552,792 @@ ASCII 线框仅示意区域划分，实际尺寸以右侧标注为准。
 
 ---
 
+## 10 · Detail Panel 交互规格（§3.5 补充）
+
+> 补充 §3.5 缺失的 Detail Panel 内部结构、5 种内容模式、页面联动规则与组件坐标。
+
+### 10.1 页面 → Detail Panel 模式映射表（route meta 真源）
+
+| 页面 | `detailPanelMode` | `statusBarMode` | 默认展开 | 说明 |
+| --- | --- | --- | --- | --- |
+| `setup_license_wizard` | `hidden` | `setup` | — | 向导全屏，不挂载 Detail Panel |
+| `creator_dashboard` | `contextual` | `overview` | 否 | 展示项目上下文与运行状态 |
+| `script_topic_center` | `contextual` | `editing` | 否 | 显示 Prompt 参数与版本摘要 |
+| `storyboard_planning_center` | `contextual` | `editing` | 否 | 显示镜头参数与脚本映射 |
+| `ai_editing_workspace` | `asset` | `editing` | 是（选中片段时） | 选中片段/资产的属性、生成参数 |
+| `video_deconstruction_center` | `logs` | `review` | 否 | 拆解阶段日志与原始素材信息 |
+| `voice_studio` | `contextual` | `editing` | 否 | 当前音色、模型、生成状态 |
+| `subtitle_alignment_center` | `contextual` | `editing` | 否 | 字幕样式、时间码诊断 |
+| `asset_library` | `asset` | `overview` | 是（选中资产时） | 资产元数据、标签、引用关系 |
+| `account_management` | `binding` | `system` | 否 | 账号健康、绑定设备、发布目标 |
+| `device_workspace_management` | `binding` | `system` | 否 | 设备运行信息与异常记录 |
+| `automation_console` | `logs` | `tasks` | 否 | 任务日志与规则详情 |
+| `publishing_center` | `binding` | `publishing` | 否 | 目标账号、设备、冲突与回执 |
+| `render_export_center` | `logs` | `rendering` | 否 | 渲染日志与资源占用 |
+| `review_optimization_center` | `logs` | `review` | 否 | 复盘日志与建议详情 |
+| `ai_system_settings` | `settings` | `system` | 是 | 测试结果、诊断信息、系统状态 |
+
+### 10.2 Detail Panel 内部通用结构
+
+所有模式共享同一骨架，由 5 个可选区块组成：
+
+```
+┌─ Detail Panel 360px / 480px ──────────────────────┐
+│ ┌─ 头部 48px ──────────────────────────────────┐  │
+│ │ [关闭 ×]   [图标] 标题      [Badge 状态]     │  │
+│ │            眉批（eyebrow）                   │  │
+│ └──────────────────────────────────────────────┘  │
+│ ┌─ Metric 条 56px（可选）──────────────────────┐  │
+│ │ [指标1 值]   [指标2 值]   [指标3 值]         │  │
+│ └──────────────────────────────────────────────┘  │
+│ ┌─ Tab 条 40px（可选）─────────────────────────┐  │
+│ │ [属性] [日志] [版本]  ——滑动下划线           │  │
+│ └──────────────────────────────────────────────┘  │
+│                                                    │
+│   Section 标题                                     │
+│   ┌─ Field ─────────────────────────────────────┐ │
+│   │ 标签          值                            │ │
+│   │ 标签          值                            │ │
+│   └─────────────────────────────────────────────┘ │
+│                                                    │
+│   Section 标题                                     │
+│   ┌─ Item 列表 ────────────────────────────────┐  │
+│   │ [icon] 标题           meta                 │  │
+│   │        说明文字                            │  │
+│   │ [icon] 标题           meta                 │  │
+│   └────────────────────────────────────────────┘  │
+│                                                    │
+│ ┌─ 底部操作区 56px（可选）─────────────────────┐  │
+│ │ [次要操作]                     [主操作 ▶]    │  │
+│ └──────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────┘
+```
+
+### 10.3 内部组件 CSS 坐标
+
+**头部**：
+```css
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 48px;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.detail-header__icon {
+  font-size: 20px;
+  color: var(--color-brand-primary);
+}
+.detail-header__title {
+  font: var(--font-title-md);
+  color: var(--color-text-primary);
+  flex: 1;
+}
+.detail-header__eyebrow {
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.detail-header__close {
+  width: 28px; height: 28px;
+  /* icon-button 五态 */
+}
+```
+
+**Metric 条**：
+```css
+.detail-metrics {
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.detail-metric {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.detail-metric__value {
+  font: var(--font-title-lg);
+  color: var(--color-text-primary);
+}
+.detail-metric__label {
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+```
+
+**Section**：
+```css
+.detail-section {
+  padding: var(--space-4) var(--space-4) 0;
+}
+.detail-section__title {
+  font: var(--font-title-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-3);
+  letter-spacing: 0.3px;
+}
+.detail-section__description {
+  font: var(--font-body-sm);
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-3);
+}
+```
+
+**Field 行**：
+```css
+.detail-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.detail-field:last-child { border-bottom: none; }
+.detail-field__label {
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  width: 100px;
+}
+.detail-field__value {
+  font: var(--font-body-md);
+  color: var(--color-text-primary);
+  text-align: right;
+  word-break: break-all;
+}
+.detail-field__value[data-mono="true"] {
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+}
+```
+
+**Item 行**：
+```css
+.detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.detail-item:last-child { border-bottom: none; }
+.detail-item__icon {
+  font-size: 18px;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.detail-item__icon[data-tone="brand"] { color: var(--color-brand-primary); }
+.detail-item__icon[data-tone="success"] { color: var(--color-success); }
+.detail-item__icon[data-tone="danger"] { color: var(--color-danger); }
+.detail-item__body { flex: 1; min-width: 0; }
+.detail-item__title {
+  font: var(--font-body-md);
+  color: var(--color-text-primary);
+}
+.detail-item__description {
+  font: var(--font-body-sm);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+.detail-item__meta {
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+```
+
+**空态**：
+```css
+.detail-empty {
+  text-align: center;
+  padding: var(--space-10) var(--space-6);
+  color: var(--color-text-tertiary);
+  font: var(--font-body-sm);
+}
+.detail-empty__icon {
+  font-size: 40px;
+  margin-bottom: var(--space-4);
+  opacity: 0.4;
+}
+```
+
+**底部操作区**：
+```css
+.detail-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  height: 56px;
+  padding: 0 var(--space-4);
+  background: var(--color-bg-surface);
+  border-top: 1px solid var(--color-border-subtle);
+}
+```
+
+### 10.4 五种模式内容规格
+
+#### 10.4.1 `contextual` — 上下文模式（默认）
+
+**用途**：通用页面工作上下文展示。
+
+```
+头部：[页面图标] 页面名称 上下文 · [Runtime 状态 Badge]
+       眉批：页面类型
+Metrics：页面类型 | 项目上下文 | AI Provider
+Section 1 "工作上下文"：
+  Field: 当前页面 / 项目 / Runtime / 授权
+Section 2 "共享层约定"：
+  Items: detailPanelMode / statusBarMode / pageType
+```
+
+#### 10.4.2 `asset` — 资产模式
+
+**用途**：选中资产的完整属性视图。
+
+```
+未选中：
+  空态图标 + "在资产中心或工作台选中真实资产后查看详情"
+
+已选中：
+  头部：[inventory_2] 资产详情 · [类型 Badge]
+  Metrics：资产名称 | 标签数 | 引用数
+  Section 1 "属性与元数据"：
+    Fields: 类型 / 来源 / 大小 / 路径(mono) / 创建时间 / 更新时间
+  Section 2 "真实标签"：
+    Items: Tag 列表（brand tone）
+  Section 3 "引用影响范围"：
+    Items: 引用项列表（link icon + referenceType + referenceId）
+  操作区：[检查引用并删除]（disabled if references > 0）
+```
+
+#### 10.4.3 `logs` — 日志模式
+
+**用途**：任务日志流与阶段信息。面板宽 480px。
+
+```
+头部：[receipt_long] 页面名称 日志 · [statusBarMode Badge]
+Section 1 "日志通道"：
+  Items: Runtime 状态 / 项目上下文（各带 tone + icon）
+Section 2 "日志内容"：
+  空态: "当前没有可展示的实时日志。接入 WebSocket 后日志会出现在这里。"
+  接入后：逆序日志条目（时间戳 + level + message）
+```
+
+#### 10.4.4 `binding` — 绑定模式
+
+**用途**：账号、设备、发布对象的绑定关系与状态。
+
+```
+头部：[link] 页面名称 绑定信息 · [许可证状态 Badge]
+Section 1 "当前绑定链路"：
+  Fields: 项目 / 许可证 / Runtime
+Section 2 "接入说明"：
+  Items:
+  - [manage_accounts] 账号绑定需要真实对象
+  - [desktop_windows] 工作区绑定需要真实目录
+```
+
+#### 10.4.5 `settings` — 系统诊断模式
+
+**用途**：系统级状态、版本、路径、AI 配置。面板宽 480px。
+
+```
+头部：[settings] 系统与 AI 可用性 · [配置总线状态 Badge]
+Metrics：Runtime 版本 | AI Provider | 主题
+Section 1 "系统状态"：
+  Fields: Runtime / 许可证 / 配置总线 / 当前项目
+Section 2 "目录与边界"：
+  Fields: 工作区 / 缓存目录 / 导出目录 / 日志目录
+```
+
+### 10.5 Detail Panel 动效
+
+| 交互 | 动效 | 时长 | 曲线 |
+| --- | --- | --- | --- |
+| 面板展开 | `width: 0 → 360/480` + `opacity 0 → 1` + `translateX(16px) → 0` | `--motion-default` | `--ease-spring` |
+| 面板收起 | 反向 | `--motion-fast` | `--ease-accelerate` |
+| 内容模式切换 | `opacity 0 → 1` + `translateX(8px) → 0` | `--motion-fast` | `--ease-standard` |
+| Item 入场 | stagger 30ms，`opacity 0 → 1` + `translateY(4px) → 0` | `--motion-fast` | `--ease-decelerate` |
+
+---
+
+## 11 · `ai_system_settings` 多 AI 配置中心完整设计（§5.16 重写）
+
+> 覆盖原 §5.16 极简线框。本节定义多 AI Provider 配置中心的完整交互规格，支持 24+ Provider、动态模型获取、连通性测试、7 个能力绑定。
+
+### 11.1 页面目标
+
+让用户能**自由接入任意 AI 模型商**、配置 API Key 与 Base URL、动态拉取可用模型列表、测试连通性，并将 7 个创作能力分别绑定到不同 Provider + Model 组合。同时管理 TTS 音色、字幕策略、系统目录、缓存与日志。
+
+**核心原则**：
+- **不写死模型列表**：支持 `supportsModelDiscovery` 的 Provider 从远端实时拉取模型，其余用内置注册表 + 手动输入
+- **Provider 配置即测即用**：Key 填入 → 测试 → 通过后 Capability 绑定即可选择
+- **错误前置**：API Key 无效、Base URL 错误、模型不可用在配置阶段就暴露，不等到生成时才报错
+
+### 11.2 页面布局
+
+```
+┌─ Page Header ──────────────────────────────────────────────┐
+│ AI 与系统设置                                              │
+├────────────────────────────────────────────────────────────┤
+│ ┌─ 设置导航 220px ─┐ ┌─ 主内容区 flex:1 ──────────────────┐│
+│ │                  │ │                                    ││
+│ │ ⬤ Provider 管理  │ │ ┌──────────────────────────────┐   ││
+│ │   能力绑定       │ │ │   当前选中设置分组的内容区   │   ││
+│ │   Prompt 模板    │ │ │                              │   ││
+│ │ ── 分割线 ──     │ │ │                              │   ││
+│ │   音色管理       │ │ │                              │   ││
+│ │   字幕策略       │ │ │                              │   ││
+│ │ ── 分割线 ──     │ │ │                              │   ││
+│ │   目录           │ │ │                              │   ││
+│ │   缓存           │ │ └──────────────────────────────┘   ││
+│ │   日志           │ │                                    ││
+│ │   诊断           │ │                                    ││
+│ └──────────────────┘ └────────────────────────────────────┘│
+└────────────────────────────────────────────────────────────┘
+```
+
+**设置导航**：
+- 宽 220px（非 240px，给主区更多空间）
+- 导航项高 36px，圆角 `--radius-sm`，激活态 `--color-bg-active` + `--color-brand-primary` 文字
+- 分组间用 1px `--color-border-subtle` 分割线 + `--space-3` 间距
+- **分组结构**：AI 配置（Provider 管理 / 能力绑定 / Prompt 模板）→ 媒体（音色管理 / 字幕策略）→ 系统（目录 / 缓存 / 日志 / 诊断）
+
+### 11.3 Provider 管理
+
+#### 11.3.1 Provider 列表视图
+
+```
+┌─ Provider 管理 ────────────────────────────────────────────┐
+│                                                            │
+│ 搜索 [____________🔍]    筛选 [全部 ▾]  [+ 自定义 Provider] │
+│                                                            │
+│ ┌─ 商业服务 ───────────────────────────────────────────────┐│
+│ │                                                          ││
+│ │ ┌─ Provider 卡片 ─────────────────────────────────────┐  ││
+│ │ │ ┌──┐                                                │  ││
+│ │ │ │OA│  OpenAI                    ● 就绪 · 128ms      │  ││
+│ │ │ └──┘  gpt-5, gpt-5.4 等 3 个模型                    │  ││
+│ │ │       API Key: sk-xx****xxxx                         │  ││
+│ │ │       文本生成 ✓  视觉 ✓  TTS ✓                     │  ││
+│ │ │                         [测试] [配置 →]              │  ││
+│ │ └──────────────────────────────────────────────────────┘  ││
+│ │                                                          ││
+│ │ ┌─ Provider 卡片 ─────────────────────────────────────┐  ││
+│ │ │ ┌──┐                                                │  ││
+│ │ │ │An│  Anthropic                 ○ 未配置             │  ││
+│ │ │ └──┘  claude-sonnet                                  │  ││
+│ │ │       API Key: 未设置                                │  ││
+│ │ │       文本生成 ✓  视觉 ✓                            │  ││
+│ │ │                         [测试] [配置 →]              │  ││
+│ │ └──────────────────────────────────────────────────────┘  ││
+│ │ ...                                                      ││
+│ └──────────────────────────────────────────────────────────┘│
+│                                                            │
+│ ┌─ 本地推理 ───────────────────────────────────────────────┐│
+│ │ Ollama (就绪)  ·  LM Studio (离线)  ·  vLLM (离线)      ││
+│ └──────────────────────────────────────────────────────────┘│
+│                                                            │
+│ ┌─ 聚合路由 ───────────────────────────────────────────────┐│
+│ │ OpenRouter (未配置)                                      ││
+│ └──────────────────────────────────────────────────────────┘│
+└────────────────────────────────────────────────────────────┘
+```
+
+**Provider 卡片规格**：
+```css
+.provider-card {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-spring);
+}
+.provider-card:hover {
+  border-color: var(--color-border-default);
+}
+.provider-card[data-status="ready"] {
+  border-left: 3px solid var(--color-success);
+}
+.provider-card[data-status="misconfigured"] {
+  border-left: 3px solid var(--color-warning);
+}
+.provider-card[data-status="missing_secret"] {
+  border-left: 3px solid var(--color-border-subtle);
+}
+.provider-card[data-status="offline"] {
+  border-left: 3px solid var(--color-danger);
+}
+```
+
+**Provider 图标**：40 × 40px，圆角 `--radius-md`，背景 `--color-bg-muted`，内部 2 字母缩写居中，`font-title-sm`，`--color-text-secondary`。
+
+**状态指示器**：
+| 状态 | 圆点颜色 | 文字 | 含义 |
+| --- | --- | --- | --- |
+| `ready` | `--color-success` + glow | "就绪 · {latency}ms" | Key 有效 + 连通 |
+| `misconfigured` | `--color-warning` | "配置异常" | Key 存在但测试失败 |
+| `missing_secret` | `--color-text-tertiary` | "未配置" | 无 API Key |
+| `offline` | `--color-danger` | "离线" | 无法连接（本地推理未启动等） |
+| `testing` | `--color-info` + 旋转 | "测试中..." | 正在探针 |
+
+**能力标签**：`font-caption`，行内 Chip 列表，已支持显示 ✓，未支持不显示。
+
+**分组筛选**：
+- 全部 / 商业服务(`commercial`) / 本地推理(`local`) / 聚合路由(`aggregator`) / 媒体(`media`)
+- 搜索框：按 label / provider_id 模糊匹配
+
+#### 11.3.2 Provider 配置抽屉（点击"配置 →"展开）
+
+不使用弹窗，使用 **右侧内联展开** 或 **抽屉** 避免上下文丢失：
+
+```
+┌─ 配置 · OpenAI ────────────────────────────────────────────┐
+│ [← 返回列表]                                     [关闭 ×] │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│ API Key                                                    │
+│ ┌──────────────────────────────────────────────┐           │
+│ │ sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx       [👁] │           │
+│ └──────────────────────────────────────────────┘           │
+│ 来源：安全存储    环境变量：TK_OPS_OPENAI_API_KEY           │
+│                                                            │
+│ Base URL                                                   │
+│ ┌──────────────────────────────────────────────┐           │
+│ │ https://api.openai.com/v1/responses          │           │
+│ └──────────────────────────────────────────────┘           │
+│ 默认值，留空使用官方地址                                     │
+│                                                            │
+│ ── 连通性测试 ─────────────────────────────────────────── │
+│                                                            │
+│ 测试模型  [gpt-5            ▾]   [▶ 测试连通性]            │
+│                                                            │
+│ ┌─ 测试结果 ───────────────────────────────────┐           │
+│ │ ● 就绪 · 延迟 128ms · gpt-5                 │           │
+│ │ 测试时间 2026-04-18 14:32:05                 │           │
+│ └──────────────────────────────────────────────┘           │
+│                                                            │
+│ ── 可用模型 ──────────────────────────────────────────── │
+│                                                            │
+│ [刷新模型列表 ↻]                  共 3 个模型               │
+│                                                            │
+│ ┌─────────────────────────────────────────────┐            │
+│ │ gpt-5            文本生成 · 视觉            │            │
+│ │ gpt-5.4          文本生成 · 视觉            │            │
+│ │ gpt-5.4-mini     文本生成                   │            │
+│ │ gpt-4o-mini-tts  TTS                        │            │
+│ └─────────────────────────────────────────────┘            │
+│                                                            │
+│                              [保存] [取消]                  │
+└────────────────────────────────────────────────────────────┘
+```
+
+**交互要点**：
+
+1. **API Key 输入**：
+   - 默认 mask 显示（`sk-xx****xxxx`），点击眼睛图标切换可见
+   - 输入后自动检测来源标签（`安全存储` / `环境变量` / `未设置`）
+   - 保存时调用 `PUT /api/settings/ai-providers/{provider_id}/secret`
+
+2. **Base URL**：
+   - 显示当前生效的 URL（可能来自用户设置 / 环境变量 / 默认值）
+   - `requires_base_url == true` 的 Provider（如 `openai_compatible`、`azure_speech`）：**必填**，空值时显示错误态
+   - 其余 Provider：可选，显示"默认值，留空使用官方地址"
+
+3. **连通性测试**：
+   - 测试模型下拉：从模型列表中选择一个模型
+   - 点击"测试连通性"→ 按钮进入 `data-state="running"` 流光态
+   - 调用 `POST /api/settings/ai-providers/{provider_id}/health`，`body: { model }`
+   - 成功：`● 就绪 · 延迟 128ms`，结果卡片左边框 `--color-success`，短暂 glow
+   - 失败：`✕ 连接失败 · 错误信息`，结果卡片左边框 `--color-danger`，shake 动效（§6 `provider-test-shake`）
+
+4. **可用模型列表**：
+   - 初始从 `GET /api/settings/ai-providers/{provider_id}/models` 加载
+   - `supportsModelDiscovery == true` 的 Provider（Ollama、OpenRouter、LM Studio、vLLM、LocalAI）：
+     - 显示"刷新模型列表 ↻"按钮
+     - 点击调用 `POST /api/settings/ai-providers/{provider_id}/models/refresh`
+     - 刷新期间按钮旋转，列表显示 skeleton
+     - 刷新完成后列表更新，新模型入场 `opacity 0 → 1`
+   - `supportsModelDiscovery == false` 的 Provider：
+     - 显示内置注册表模型
+     - 底部显示"手动添加"入口：用户可输入自定义 `model_id`（如新版本发布但注册表未更新时）
+   - 每个模型行：模型名 + 能力标签（Chip: 文本生成 / 视觉 / TTS 等）
+
+### 11.4 能力绑定矩阵
+
+```
+┌─ 能力绑定 ─────────────────────────────────────────────────┐
+│                                                            │
+│ 将 7 项 AI 能力分别绑定到 Provider 与模型                    │
+│                                                            │
+│ ┌──────────────────────────────────────────────────────┐   │
+│ │ 能力              启用  Provider        模型        状态│   │
+│ ├──────────────────────────────────────────────────────┤   │
+│ │ 脚本生成           ✓   [OpenAI    ▾]  [gpt-5    ▾]  ●  │   │
+│ │ 脚本改写           ✓   [Anthropic ▾]  [claude   ▾]  ●  │   │
+│ │ 分镜生成           ✓   [Gemini   ▾]  [gemini-p ▾]  ●  │   │
+│ │ 配音生成           ○   [OpenAI    ▾]  [gpt-4o-t ▾]  ○  │   │
+│ │ 字幕对齐           ○   [--       ▾]  [--       ▾]  ○  │   │
+│ │ 视频生成           ○   [--       ▾]  [--       ▾]  ○  │   │
+│ │ 素材分析           ○   [Gemini   ▾]  [gemini-p ▾]  ○  │   │
+│ └──────────────────────────────────────────────────────┘   │
+│                                                            │
+│ 提示：Provider 下拉只显示支持对应能力类型的 Provider         │
+│                                                            │
+│                               [保存绑定] [恢复默认]         │
+└────────────────────────────────────────────────────────────┘
+```
+
+**交互规格**：
+
+1. **启用开关**：Toggle Switch（28 × 16px），开启 `--color-brand-primary`，关闭 `--color-bg-muted`
+2. **Provider 下拉**：
+   - **动态过滤**：只显示 `capabilities` 包含对应 `capability_type` 的 Provider
+   - 如 `tts_generation` 行只显示 capabilities 含 `tts` 的 Provider（openai / azure_speech / elevenlabs / volcengine_speech / minimax_speech / minimax / doubao / localai）
+   - 未配置的 Provider 在下拉中灰色 + "(未配置)" 后缀
+   - 已配置且 `ready` 的 Provider 显示绿色圆点
+   - 数据源：`GET /api/settings/ai-capabilities/support-matrix`
+3. **模型下拉**：
+   - Provider 变更后自动刷新模型列表
+   - 调用 `GET /api/settings/ai-providers/{provider_id}/models`
+   - 模型列表按 `defaultFor` 包含当前 `capability_id` 的排在前面
+   - `supportsModelDiscovery` 的 Provider：下拉底部显示"刷新远端模型"快捷操作
+   - 用户也可手动输入任意 model_id（下拉支持 combobox 模式）
+4. **状态圆点**：
+   - 绿色 `--color-success`：Provider 已配置且 ready + 模型已选
+   - 灰色 `--color-text-tertiary`：未启用或未配置
+   - 黄色 `--color-warning`：Provider 配置了但测试未通过
+5. **保存**：调用 `PUT /api/settings/ai-capabilities`，提交完整的 7 项配置
+6. **恢复默认**：重置为内置默认（全部绑 OpenAI + 默认模型）
+
+### 11.5 Prompt 模板编辑
+
+```
+┌─ Prompt 模板 ──────────────────────────────────────────────┐
+│                                                            │
+│ 为每项 AI 能力配置角色设定、系统 Prompt 和用户 Prompt 模板    │
+│                                                            │
+│ ┌─ 脚本生成 ───────────────────────────────────── [展开] ─┐│
+│ │ 角色：资深短视频脚本策划                                 ││
+│ │ Provider：OpenAI / gpt-5                                ││
+│ └──────────────────────────────────────────────────────────┘│
+│                                                            │
+│ ┌─ 脚本改写 ───────────────────────────────────── [展开] ─┐│
+│ │ 角色：短视频脚本改写编辑                                 ││
+│ │ Provider：Anthropic / claude-sonnet                     ││
+│ └──────────────────────────────────────────────────────────┘│
+│                                                            │
+│ ┌─ 分镜生成 ─────────────────────────── [展开] ▼ 已展开 ──┐│
+│ │                                                          ││
+│ │ 角色设定（Agent Role）                                   ││
+│ │ ┌────────────────────────────────────────────┐           ││
+│ │ │ 分镜规划导演                               │           ││
+│ │ └────────────────────────────────────────────┘           ││
+│ │                                                          ││
+│ │ 系统 Prompt                                              ││
+│ │ ┌────────────────────────────────────────────┐           ││
+│ │ │ 把脚本文本拆解为清晰的镜头与视觉提示。     │           ││
+│ │ │                                            │           ││
+│ │ └────────────────────────────────────────────┘           ││
+│ │                                                          ││
+│ │ 用户 Prompt 模板                                         ││
+│ │ ┌────────────────────────────────────────────┐           ││
+│ │ │ 脚本内容：                                 │           ││
+│ │ │ {{script}}                                 │           ││
+│ │ │                                            │           ││
+│ │ └────────────────────────────────────────────┘           ││
+│ │ 可用变量：{{script}}                                     ││
+│ │                                                          ││
+│ │              [恢复默认]  [保存]                            ││
+│ └──────────────────────────────────────────────────────────┘│
+└────────────────────────────────────────────────────────────┘
+```
+
+**交互要点**：
+- **手风琴展开**：一次只展开一个，展开高度 `auto`（CSS `max-height` 过渡），折叠态显示角色 + Provider 摘要
+- **变量高亮**：`{{variable}}` 在编辑器内用 `--color-brand-primary` 背景 + `--color-text-on-brand` 文字高亮
+- **可用变量提示**：每个 capability 有不同变量（`script_generation: {{topic}}`、`script_rewrite: {{script}}, {{instructions}}` 等），自动显示在编辑器下方
+- **保存**：调用 `PUT /api/settings/ai-capabilities`
+- **恢复默认**：从后端获取内置默认值填入
+
+### 11.6 音色管理（TTS Provider 联动）
+
+```
+┌─ 音色管理 ─────────────────────────────────────────────────┐
+│                                                            │
+│ TTS Provider  [OpenAI    ▾]              [+ 添加自定义音色] │
+│                                                            │
+│ ┌─ 音色卡片网格（3 列）──────────────────────────────────┐ │
+│ │                                                        │ │
+│ │ ┌─ 清晰女声 ──────┐ ┌─ 温柔讲述 ──────┐ ┌─ 沉稳男声 ─┐│ │
+│ │ │ ◉ alloy         │ │ ◉ nova          │ │ ◉ echo     ││ │
+│ │ │ Provider: OpenAI│ │ Provider: OpenAI│ │ Provider:  ││ │
+│ │ │ 标签: 清晰 旁白 │ │ 标签: 温柔 生活 │ │ 标签: 沉稳 ││ │
+│ │ │ zh-CN            │ │ zh-CN            │ │ zh-CN      ││ │
+│ │ │                  │ │                  │ │            ││ │
+│ │ │ [▶ 试听] [编辑] │ │ [▶ 试听] [编辑] │ │ [▶][编辑]  ││ │
+│ │ └──────────────────┘ └──────────────────┘ └────────────┘│ │
+│ └────────────────────────────────────────────────────────┘ │
+│                                                            │
+│ 提示：音色来源由 Provider 决定。更换 TTS Provider 后        │
+│ 需要重新选择或配置音色。                                    │
+└────────────────────────────────────────────────────────────┘
+```
+
+**交互要点**：
+- **TTS Provider 下拉**：只显示 `capabilities` 含 `tts` 的 Provider，切换后音色列表刷新
+- **试听**：点击后通过 TTS API 生成一段示例音频（3-5 秒），播放期间显示 CSS 波形动画
+- **自定义音色**：填写 `voice_id`、`display_name`、`locale`、`tags`，Provider 从下拉继承
+- **音色卡片**：`180 × 200 px`，圆角 `--radius-lg`，hover 上浮 2px
+- **当前 `pending_provider` 的音色**：用警告 Chip 标注"待绑定 Provider"
+
+### 11.7 系统分组（目录 / 缓存 / 日志 / 诊断）
+
+沿用原始 Settings 模板，表单式布局：
+
+**目录**：
+- 工作区根目录：路径输入 + 浏览按钮（调用 Tauri file dialog）
+- 缓存目录 / 导出目录 / 日志目录：同上
+- 每个路径显示 `容量 / 可用空间`（如果 Runtime 返回）
+
+**缓存**：
+- 模型缓存 / 资产缓存 / 渲染缓存：各显示大小 + "清除"按钮
+- "全部清除"按钮（danger 风格）
+- 清除确认弹窗
+
+**日志**：
+- 日志级别下拉：`DEBUG / INFO / WARNING / ERROR`
+- 日志保留天数：数字输入
+- "打开日志目录"按钮
+- 最近日志文件列表（只读）
+
+**诊断**：
+- Runtime 版本 / 运行时长 / 内存占用 / 端口
+- "导出诊断包"按钮 → 调用 `POST /api/settings/maintenance/diagnostics/export`
+- "导出后自动复制路径"开关
+
+### 11.8 Detail Panel 联动（settings 模式）
+
+AI 与系统设置页面的 Detail Panel（480px 宽）实时反映当前操作的上下文：
+
+| 左侧选中分组 | Detail Panel 内容 |
+| --- | --- |
+| Provider 管理 | 当前选中 Provider 的健康探针历史、最近 3 次测试结果、错误日志 |
+| 能力绑定 | 当前选中能力行的 Provider 支持矩阵（哪些 Provider 支持、推荐模型） |
+| Prompt 模板 | 当前展开的模板预览渲染效果（用示例变量填充后的完整 prompt） |
+| 音色管理 | 选中音色的详情 + 波形预览区域 |
+| 目录 / 缓存 | 目录大小统计 + 磁盘空间可视化 |
+| 日志 | 最近日志实时流 |
+| 诊断 | Runtime 健康检查实时结果 |
+
+### 11.9 数据流与 API 调用映射
+
+| 交互 | API 调用 | 方法 |
+| --- | --- | --- |
+| 进入页面 | `GET /api/settings/ai-providers/catalog` | 加载 Provider 列表 + 状态 |
+| 进入页面 | `GET /api/settings/ai-capabilities` | 加载 7 项能力绑定 |
+| 进入页面 | `GET /api/settings/ai-capabilities/support-matrix` | 加载能力支持矩阵 |
+| 配置 API Key | `PUT /api/settings/ai-providers/{id}/secret` | 保存密钥 |
+| 测试连通性 | `POST /api/settings/ai-providers/{id}/health` | 健康探针 |
+| 加载模型列表 | `GET /api/settings/ai-providers/{id}/models` | 拉取模型 |
+| 刷新远端模型 | `POST /api/settings/ai-providers/{id}/models/refresh` | 动态发现 |
+| 保存能力绑定 | `PUT /api/settings/ai-capabilities` | 更新 7 项配置 |
+| 保存 Prompt | `PUT /api/settings/ai-capabilities` | 同上（含 Prompt 字段） |
+| 音色列表 | `GET /api/voice/profiles` | 加载音色 |
+| 添加音色 | `POST /api/voice/profiles` | 创建自定义音色 |
+| TTS 试听 | `POST /api/voice/{project_id}/generate` | 生成试听音频 |
+
+### 11.10 五态覆盖
+
+| 状态 | 表现 |
+| --- | --- |
+| **加载中** | 设置导航 Skeleton（9 个 36px 条形）+ 主内容区 3 张 Provider 卡片 Skeleton |
+| **空态** | Provider 列表全部 `missing_secret` 时：顶部引导卡"开始配置你的第一个 AI Provider"，品牌色边框 + 箭头指向卡片 |
+| **正常** | Provider 卡片列表 + 状态圆点 + 能力标签 |
+| **错误** | API 请求失败时：内容区顶部 Toast "加载失败：{error_code}"；单 Provider 测试失败：卡片内联错误信息 + shake |
+| **运行中** | 连通性测试按钮流光 + 模型刷新旋转 + 保存按钮 loading |
+
+### 11.11 B 区触发点
+
+| 触发 | 动效 | 实现 |
+| --- | --- | --- |
+| Provider 测试成功 | 结果卡片左边框 `--color-success` + 短暂 glow 1s | `box-shadow: 0 0 24px var(--color-success)` → fade |
+| Provider 测试失败 | 结果卡片 shake | `translateX(-2px ↔ 2px)` 3 次，240ms |
+| 模型刷新完成 | 新模型行 stagger 入场 | `opacity 0 → 1`，stagger 40ms |
+| 能力保存成功 | 保存按钮短暂变为 ✓ | 图标 `scale(0) → 1.2 → 1`，300ms |
+| 音色试听播放 | 卡片底部 3 根竖条波形 | `scaleY` 阶梯循环（同配音中心 §5.7） |
+
+### 11.12 组件清单
+
+| 层级 | 文件 | 内容 |
+| --- | --- | --- |
+| page | `pages/settings/AISystemSettingsPage.vue` | 左导航 + 右内容区布局 |
+| component | `pages/settings/components/SettingsNav.vue` | 左侧设置导航 |
+| component | `pages/settings/components/ProviderList.vue` | Provider 卡片列表 + 搜索 + 筛选 |
+| component | `pages/settings/components/ProviderCard.vue` | 单 Provider 卡片 |
+| component | `pages/settings/components/ProviderConfigDrawer.vue` | Provider 配置抽屉（Key / URL / 测试 / 模型） |
+| component | `pages/settings/components/ProviderHealthResult.vue` | 连通性测试结果卡片 |
+| component | `pages/settings/components/ModelList.vue` | 可用模型列表（支持动态刷新 + 手动输入） |
+| component | `pages/settings/components/CapabilityMatrix.vue` | 7 行能力绑定表 |
+| component | `pages/settings/components/CapabilityRow.vue` | 单行：开关 + Provider 下拉 + Model 下拉 + 状态 |
+| component | `pages/settings/components/PromptTemplateList.vue` | 手风琴式模板列表 |
+| component | `pages/settings/components/PromptTemplateEditor.vue` | 单模板展开编辑器 |
+| component | `pages/settings/components/VoiceProfileGrid.vue` | 音色卡片网格 |
+| component | `pages/settings/components/VoiceProfileCard.vue` | 单音色卡片 |
+| composable | `pages/settings/use-provider-management.ts` | Provider CRUD + 测试 + 状态 |
+| composable | `pages/settings/use-capability-binding.ts` | 能力绑定读写 + 矩阵过滤 |
+| composable | `pages/settings/use-model-discovery.ts` | 模型列表 + 动态刷新 |
+| composable | `pages/settings/use-prompt-editing.ts` | Prompt 模板编辑 + 变量高亮 |
+| composable | `pages/settings/use-voice-profiles.ts` | 音色管理 + 试听 |
+| types | `pages/settings/types.ts` | `ProviderCardState` / `CapabilityBindingRow` / `PromptEditorState` 等 |
+| styles | `pages/settings/AISystemSettings.module.css` | Provider 卡片 / 能力矩阵 / 手风琴 |
+| runtime | `modules/settings-api/providers.ts` | Provider 相关 API 适配 |
+| runtime | `modules/settings-api/capabilities.ts` | 能力绑定 API 适配 |
+| runtime | `modules/settings-api/models.ts` | 模型发现 API 适配 |
+
+### 11.13 模型发现流程图
+
+```
+用户打开 Provider 配置抽屉
+       │
+       ▼
+GET /ai-providers/{id}/models  ──→  返回模型列表
+       │
+       ├─ supportsModelDiscovery == true?
+       │     │
+       │     ├─ 是 → 显示 [刷新模型列表 ↻] 按钮
+       │     │         │
+       │     │         ▼ (用户点击)
+       │     │   POST /ai-providers/{id}/models/refresh
+       │     │         │
+       │     │         ├─ status: "refreshed" → 更新列表 + "已从远端获取 N 个模型"
+       │     │         └─ status: "static_catalog" → Toast "当前使用内置注册表"
+       │     │
+       │     └─ 否 → 显示内置模型 + [手动添加] 入口
+       │                │
+       │                ▼ (用户输入自定义 model_id)
+       │           追加到本地列表，标记 "(自定义)"
+       │
+       ▼
+用户在 能力绑定 或 连通性测试 中选择模型
+```
+
+---
+
 ## 附录 A · 实施顺序建议
 
 1. **Week 1 · 共享底座**（共享层任务矩阵）

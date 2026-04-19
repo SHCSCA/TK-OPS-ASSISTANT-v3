@@ -1,10 +1,19 @@
 <template>
-  <label class="ui-input" :class="{ 'is-disabled': disabled, 'is-textarea': multiline }">
-    <span v-if="label" class="ui-input__label">{{ label }}</span>
-    <div class="ui-input__control">
+  <div class="ui-input-wrapper">
+    <label v-if="label" class="ui-input__label">{{ label }}</label>
+    <div
+      class="ui-input__control"
+      :class="{
+        'is-disabled': disabled,
+        'is-textarea': multiline,
+        'has-error': error
+      }"
+      :data-error="error ? 'true' : 'false'"
+    >
       <span v-if="$slots.leading" class="ui-input__icon">
         <slot name="leading" />
       </span>
+      
       <textarea
         v-if="multiline"
         class="ui-input__field ui-input__field--textarea"
@@ -25,17 +34,23 @@
         v-bind="$attrs"
         @input="emitValue"
       />
+
       <span v-if="$slots.trailing" class="ui-input__icon ui-input__icon--trailing">
         <slot name="trailing" />
       </span>
     </div>
-  </label>
+    <div v-if="hint" class="ui-input__hint" :class="{ 'is-error': error }">
+      {{ hint }}
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 withDefaults(
   defineProps<{
     disabled?: boolean;
+    error?: boolean;
+    hint?: string;
     label?: string;
     modelValue?: string;
     multiline?: boolean;
@@ -45,6 +60,7 @@ withDefaults(
   }>(),
   {
     disabled: false,
+    error: false,
     label: "",
     modelValue: "",
     multiline: false,
@@ -65,24 +81,24 @@ function emitValue(event: Event) {
 </script>
 
 <style scoped>
-.ui-input {
-  display: grid;
+.ui-input-wrapper {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
 }
 
 .ui-input__label {
   color: var(--color-text-secondary);
-  font-size: var(--font-caption);
-  font-weight: 600;
-  line-height: var(--line-caption);
+  font: var(--font-caption);
+  letter-spacing: var(--ls-caption);
 }
 
 .ui-input__control {
   align-items: center;
   background: var(--color-bg-muted);
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   display: flex;
   gap: var(--space-2);
   min-height: 36px;
@@ -93,10 +109,19 @@ function emitValue(event: Event) {
     background-color var(--motion-fast) var(--ease-standard);
 }
 
-.ui-input__control:focus-within {
+.ui-input__control:hover:not(.is-disabled) {
+  background: var(--color-bg-surface);
+}
+
+.ui-input__control:focus-within:not(.is-disabled) {
   background: var(--color-bg-surface);
   border-color: var(--color-brand-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-primary) 20%, transparent);
+  box-shadow: 0 0 0 3px var(--color-brand-glow);
+}
+
+.ui-input__control[data-error="true"]:not(.is-disabled) {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 18%, transparent);
 }
 
 .ui-input__field {
@@ -104,11 +129,12 @@ function emitValue(event: Event) {
   border: 0;
   color: var(--color-text-primary);
   flex: 1;
-  font: inherit;
-  line-height: var(--line-body-md);
+  font: var(--font-body-md);
+  letter-spacing: var(--ls-body-md);
   min-width: 0;
   outline: none;
   padding: 0;
+  width: 100%;
 }
 
 .ui-input__field::placeholder {
@@ -116,8 +142,8 @@ function emitValue(event: Event) {
 }
 
 .ui-input__field--textarea {
-  min-height: 96px;
-  padding: 10px 0;
+  min-height: 72px;
+  padding: 8px 0;
   resize: vertical;
 }
 
@@ -132,11 +158,29 @@ function emitValue(event: Event) {
   justify-content: flex-end;
 }
 
-.is-textarea .ui-input__control {
+.is-textarea {
   align-items: stretch;
 }
 
-.is-disabled {
-  opacity: 0.56;
+.ui-input__control.is-disabled {
+  background: var(--color-bg-muted);
+  cursor: not-allowed;
+}
+
+.ui-input__control.is-disabled .ui-input__field,
+.ui-input__control.is-disabled .ui-input__icon {
+  color: var(--color-text-tertiary);
+  cursor: not-allowed;
+}
+
+.ui-input__hint {
+  color: var(--color-text-secondary);
+  font: var(--font-body-sm);
+  letter-spacing: var(--ls-body-sm);
+  margin-top: -2px;
+}
+
+.ui-input__hint.is-error {
+  color: var(--color-danger);
 }
 </style>

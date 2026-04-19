@@ -10,9 +10,10 @@ from schemas.license import (
     LicenseActivateResultDto,
     LicenseStatusDto,
 )
-from services.license_activation import (
+from services.license_activation_base import (
     LicenseActivationAdapter,
     LicenseActivationError,
+    LicenseActivationUnavailableError,
 )
 from services.machine_code import MachineCodeError, MachineCodeService
 
@@ -58,6 +59,17 @@ class LicenseService:
                 payload.activationCode,
                 machine_code=current.machine_code,
             )
+        except LicenseActivationUnavailableError as exc:
+            log_event(
+                "audit",
+                "license.activation_failed",
+                request_id=request_id,
+                context={
+                    "machineCode": current.machine_code,
+                    "reason": str(exc),
+                },
+            )
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
         except LicenseActivationError as exc:
             log_event(
                 "audit",

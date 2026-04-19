@@ -31,22 +31,27 @@
     </nav>
 
     <footer class="shell-sidebar__footer">
-      <div class="shell-sidebar__workspace-card">
-        <div class="shell-sidebar__workspace-avatar">TK</div>
-        <div class="shell-sidebar__workspace-copy">
-          <span>{{ hasProject ? "当前项目" : "等待项目" }}</span>
-          <strong>{{ projectLabel }}</strong>
+      <div class="shell-sidebar__user-card">
+        <div class="shell-sidebar__avatar">
+          <span class="material-symbols-outlined">person</span>
+        </div>
+        <div class="shell-sidebar__user-info">
+          <span class="user-name">本地创作者</span>
+          <span class="user-status">{{ hasProject ? "工作区已连接" : "离线授权" }}</span>
         </div>
       </div>
-      <span class="shell-sidebar__footer-label">{{ hasProject ? "工作区已连接" : "部分页面保持只读" }}</span>
+
+      <button class="shell-sidebar__toggle" :title="isCollapsed ? '展开侧边栏' : '折叠侧边栏'" @click="shellUiStore.toggleSidebar()">
+        <span class="material-symbols-outlined">{{ isCollapsed ? "keyboard_double_arrow_right" : "keyboard_double_arrow_left" }}</span>
+      </button>
     </footer>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
-
 import type { RouteManifestItem } from "@/types/router";
+import { useShellUiStore } from "@/stores/shell-ui";
 
 defineProps<{
   hasProject: boolean;
@@ -57,6 +62,8 @@ defineProps<{
   }>;
   projectLabel: string;
 }>();
+
+const shellUiStore = useShellUiStore();
 </script>
 
 <style scoped>
@@ -64,55 +71,76 @@ defineProps<{
   background: var(--color-bg-canvas);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
   height: 100%;
   min-width: 0;
+  /* 展开态：padding: var(--space-4) var(--space-3) */
   padding: var(--space-4) var(--space-3);
+  transition: padding var(--motion-default) var(--ease-spring);
+}
+
+.shell-sidebar[data-collapsed="true"] {
+  /* 折叠态：padding: var(--space-4) var(--space-2) */
+  padding: var(--space-4) var(--space-2);
 }
 
 .shell-sidebar__nav {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-4);
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .shell-sidebar__group {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .shell-sidebar__group-title {
   align-items: center;
   color: var(--color-text-tertiary);
   display: flex;
-  font-size: 11px;
-  font-weight: 600;
+  font: var(--font-caption);
   height: 24px;
   letter-spacing: 0.8px;
   margin: var(--space-2) 0 0;
   padding: 0 var(--space-3);
   text-transform: uppercase;
   white-space: nowrap;
+  transition: opacity var(--motion-default) var(--ease-standard);
+  opacity: 1;
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__group-title {
+  opacity: 0;
+  pointer-events: none;
+  height: 0;
+  margin: 0;
+  overflow: hidden;
 }
 
 .shell-nav-link {
   align-items: center;
-  border: 1px solid transparent;
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
-  display: grid;
+  display: flex;
   gap: var(--space-3);
-  grid-template-columns: 20px minmax(0, 1fr);
   height: 40px;
   padding: 0 12px;
-  position: relative;
   text-decoration: none;
   transition:
     background-color var(--motion-fast) var(--ease-standard),
-    border-color var(--motion-fast) var(--ease-standard),
     color var(--motion-fast) var(--ease-standard),
     transform var(--motion-instant) var(--ease-bounce);
+  white-space: nowrap;
+  position: relative;
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-nav-link {
+  padding: 0;
+  justify-content: center;
 }
 
 .shell-nav-link:hover:not(.shell-nav-link--disabled) {
@@ -120,104 +148,152 @@ defineProps<{
   color: var(--color-text-primary);
 }
 
-.shell-nav-link.is-active {
-  background: var(--color-bg-active);
-  border-color: color-mix(in srgb, var(--color-brand-primary) 24%, var(--color-border-default));
-  color: var(--color-brand-primary);
+.shell-nav-link:active:not(.shell-nav-link--disabled) {
+  transform: scale(0.98);
 }
 
+.shell-nav-link.is-active {
+  background: var(--color-bg-active);
+  color: var(--color-brand-primary);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--color-brand-primary);
+  position: relative;
+}
+
+/* 活跃项左侧指示条微流光 */
 .shell-nav-link.is-active::before {
-  background: var(--color-brand-primary);
-  border-radius: 0 2px 2px 0;
-  box-shadow: var(--shadow-glow-brand);
-  content: "";
-  height: 20px;
-  left: -12px;
+  content: '';
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 0;
+  top: 0;
+  bottom: 0;
   width: 3px;
+  background: linear-gradient(180deg, var(--color-brand-primary), var(--color-brand-secondary), var(--color-brand-primary));
+  background-size: 100% 200%;
+  animation: sidebar-active-flow var(--motion-breathe) ease-in-out infinite alternate;
+}
+
+@keyframes sidebar-active-flow {
+  from { background-position: 0% 0%; }
+  to { background-position: 0% 100%; }
 }
 
 .shell-nav-link__icon {
   font-size: 20px;
+  flex-shrink: 0;
 }
 
 .shell-nav-link__text {
+  font: var(--font-title-sm);
+  letter-spacing: var(--ls-title-sm);
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  transition: opacity var(--motion-default) var(--ease-standard);
+  opacity: 1;
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-nav-link__text {
+  opacity: 0;
+  width: 0;
+  display: none;
 }
 
 .shell-nav-link--disabled {
   opacity: 0.48;
+  cursor: not-allowed;
 }
 
+/* 底部固定区 */
 .shell-sidebar__footer {
-  border-top: 1px solid var(--color-border-subtle);
-  display: grid;
-  gap: var(--space-3);
   margin-top: auto;
-  padding-top: var(--space-3);
-}
-
-.shell-sidebar__workspace-card {
-  align-items: center;
-  background: var(--color-bg-surface);
-  border-radius: var(--radius-md);
   display: flex;
-  gap: var(--space-3);
-  padding: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
 }
 
-.shell-sidebar__workspace-avatar {
+.shell-sidebar__user-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 40px;
+  overflow: hidden;
+  transition: opacity var(--motion-default) var(--ease-standard);
+  white-space: nowrap;
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__user-card {
+  opacity: 0;
+  width: 0;
+  display: none;
+}
+
+.shell-sidebar__avatar {
   align-items: center;
   background: var(--gradient-ai-primary);
   border-radius: var(--radius-full);
   color: var(--color-text-on-brand);
-  display: inline-flex;
+  display: flex;
   flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 700;
   height: 32px;
   justify-content: center;
   width: 32px;
+  box-shadow: var(--shadow-glow-brand);
 }
 
-.shell-sidebar__workspace-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
+.shell-sidebar__avatar .material-symbols-outlined {
+  font-size: 16px;
 }
 
-.shell-sidebar__workspace-copy span,
-.shell-sidebar__footer-label {
+.shell-sidebar__user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.shell-sidebar__user-info .user-name {
+  font: var(--font-title-sm);
+  letter-spacing: var(--ls-title-sm);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.shell-sidebar__user-info .user-status {
+  font: var(--font-caption);
+  letter-spacing: var(--ls-caption);
   color: var(--color-text-tertiary);
-  font-size: var(--font-caption);
+  margin-top: 2px;
 }
 
-.shell-sidebar__workspace-copy strong {
-  font-size: var(--font-body-sm);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-[data-collapsed="true"] .shell-sidebar__group-title,
-[data-collapsed="true"] .shell-nav-link__text,
-[data-collapsed="true"] .shell-sidebar__workspace-copy,
-[data-collapsed="true"] .shell-sidebar__footer-label {
-  display: none;
-}
-
-[data-collapsed="true"] .shell-nav-link {
-  grid-template-columns: 1fr;
-  justify-items: center;
-  padding: 0;
-}
-
-[data-collapsed="true"] .shell-sidebar__workspace-card {
+.shell-sidebar__toggle {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  height: 32px;
   justify-content: center;
-  padding: var(--space-2);
+  width: 32px;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__toggle {
+  margin: 0 auto;
+}
+
+.shell-sidebar__toggle:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.shell-sidebar__toggle:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
 }
 </style>

@@ -1,7 +1,8 @@
-﻿<template>
+<template>
   <section class="bootstrap-screen" data-bootstrap-screen="loading">
     <div class="bootstrap-screen__backdrop" aria-hidden="true" />
-    <div class="bootstrap-screen__panel">
+    <div class="bootstrap-screen__aurora" aria-hidden="true" />
+    <div class="bootstrap-screen__panel bootstrap-loading__panel-enter">
       <p class="bootstrap-screen__eyebrow">TK-OPS 启动检查</p>
       <h1>正在准备首启环境</h1>
       <p class="bootstrap-screen__summary">
@@ -29,3 +30,33 @@
     </div>
   </section>
 </template>
+
+<style scoped>
+/* 极光背景旋转——即使 Runtime 离线也有动效反馈 */
+.bootstrap-screen__aurora {
+  position: absolute;
+  inset: -40%;
+  background: var(--gradient-aurora);
+  filter: blur(80px);
+  opacity: 0.35;
+  animation: aurora-rotate var(--motion-rotate-slow) linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* 面板入场：从下方淡入 */
+.bootstrap-loading__panel-enter {
+  animation: bootstrap-panel-in var(--motion-slow) var(--ease-decelerate) both;
+}
+
+@keyframes bootstrap-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+</style>

@@ -1,17 +1,26 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+import logging
+
+from fastapi import APIRouter, HTTPException, Request
 
 from schemas.envelope import ok_response
 from schemas.license import LicenseActivateInput
-from services.license_service import LicenseService
 
 router = APIRouter(prefix="/api/license", tags=["license"])
+log = logging.getLogger(__name__)
 
 
-def get_license_service(request: Request) -> LicenseService:
-    license_service = request.app.state.license_service
-    assert isinstance(license_service, LicenseService)
+def get_license_service(request: Request):
+    license_service = getattr(request.app.state, "license_service", None)
+    if license_service is None:
+        import_error = getattr(request.app.state, "license_import_error", None)
+        if import_error:
+            log.error("许可证服务依赖未就绪: %s", import_error)
+        raise HTTPException(
+            status_code=503,
+            detail="许可证服务暂不可用，请检查运行时依赖与授权配置",
+        )
     return license_service
 
 

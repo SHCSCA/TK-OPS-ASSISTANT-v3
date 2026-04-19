@@ -242,13 +242,5 @@ const statusLabel = computed(() => {
   line-height: 1.65;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .profile-item {
-    transition: none;
-  }
-
-  .profile-item:hover {
-    transform: none;
-  }
-}
+/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

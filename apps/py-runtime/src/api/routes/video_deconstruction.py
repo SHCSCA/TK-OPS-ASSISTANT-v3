@@ -4,9 +4,13 @@ from fastapi import APIRouter, Request
 
 from schemas.envelope import ok_response
 from schemas.video_deconstruction import (
+    ApplyVideoExtractionResultDto,
     ImportVideoInput,
     ImportedVideoDto,
+    VideoSegmentDto,
     VideoStageDto,
+    VideoStructureExtractionDto,
+    VideoTranscriptDto,
 )
 from services.video_deconstruction_service import VideoDeconstructionService
 from services.video_import_service import VideoImportService
@@ -54,6 +58,58 @@ def list_videos(project_id: str, request: Request) -> dict[str, object]:
 def delete_video(video_id: str, request: Request) -> dict[str, object]:
     get_video_import_service(request).delete_video(video_id=video_id)
     return ok_response(None)
+
+
+@router.post("/videos/{video_id}/transcribe")
+def start_transcription(video_id: str, request: Request) -> dict[str, object]:
+    transcript = get_video_deconstruction_service(request).start_transcription(video_id)
+    assert isinstance(transcript, VideoTranscriptDto)
+    return ok_response(transcript.model_dump(mode="json"))
+
+
+@router.get("/videos/{video_id}/transcript")
+def get_transcript(video_id: str, request: Request) -> dict[str, object]:
+    transcript = get_video_deconstruction_service(request).get_transcript(video_id)
+    assert isinstance(transcript, VideoTranscriptDto)
+    return ok_response(transcript.model_dump(mode="json"))
+
+
+@router.post("/videos/{video_id}/segment")
+def run_segmentation(video_id: str, request: Request) -> dict[str, object]:
+    segments = get_video_deconstruction_service(request).run_segmentation(video_id)
+    return ok_response([VideoSegmentDto.model_validate(item).model_dump(mode="json") for item in segments])
+
+
+@router.get("/videos/{video_id}/segments")
+def get_segments(video_id: str, request: Request) -> dict[str, object]:
+    segments = get_video_deconstruction_service(request).get_segments(video_id)
+    return ok_response([VideoSegmentDto.model_validate(item).model_dump(mode="json") for item in segments])
+
+
+@router.post("/videos/{video_id}/extract-structure")
+def extract_structure(video_id: str, request: Request) -> dict[str, object]:
+    extraction = get_video_deconstruction_service(request).extract_structure(video_id)
+    assert isinstance(extraction, VideoStructureExtractionDto)
+    return ok_response(extraction.model_dump(mode="json"))
+
+
+@router.get("/videos/{video_id}/structure")
+def get_structure(video_id: str, request: Request) -> dict[str, object]:
+    extraction = get_video_deconstruction_service(request).get_structure(video_id)
+    assert isinstance(extraction, VideoStructureExtractionDto)
+    return ok_response(extraction.model_dump(mode="json"))
+
+
+@router.post("/extractions/{extraction_id}/apply-to-project")
+def apply_extraction_to_project(extraction_id: str, request: Request) -> dict[str, object]:
+    result = get_video_deconstruction_service(request).apply_extraction_to_project(
+        extraction_id,
+        dashboard_service=request.app.state.dashboard_service,
+        script_repository=request.app.state.script_repository,
+        storyboard_repository=request.app.state.storyboard_repository,
+    )
+    assert isinstance(result, ApplyVideoExtractionResultDto)
+    return ok_response(result.model_dump(mode="json"))
 
 
 @router.get("/videos/{video_id}/stages")

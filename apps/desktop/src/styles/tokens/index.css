@@ -1,3 +1,4 @@
-@import "./colors.css";
-@import "./typography.css";
-@import "./spacing.css";
+/* apps/desktop/src/styles/tokens/index.css */
+@import './colors.css';
+@import './typography.css';
+@import './spacing.css';

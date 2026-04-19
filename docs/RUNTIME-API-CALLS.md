@@ -1,8 +1,8 @@
-> ?????2026-04-17??????? `codex/backend-requirements-2026-04-17` ????????????????????????????
+> 更新日期：2026-04-19；本文以当前 `main` 分支代码为接口真源，记录已落地 Runtime 接口与前端调用关系。
 
 # Runtime API 与前端调用真源
 
-**当前状态（2026-04-17）**: Runtime 已覆盖 `search / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。
+**当前状态（2026-04-19）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。本轮补齐 `review / workspace / subtitles / video-deconstruction / voice` 契约对齐，§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
 **接口版本**: V1（统一 JSON 信封，无独立版本号前缀）
 **唯一真源约束**: 后端路由、服务、前端 `runtime-client.ts`、Pinia store、契约测试发生变化时，必须在同一次改动中更新本文件。
 **编码约束**: 本文档必须使用 UTF-8 无 BOM 保存，所有读取、生成、校验脚本都按 UTF-8 处理，避免中文出现乱码。
@@ -49,11 +49,10 @@
 | --- | --- | --- |
 | `request.validation_failed` | 请求体验证失败 | 统一由 `error_response(..., error_code=...)` 返回 |
 | `runtime.not-ready` | Runtime 自检未通过 | 适用于版本、依赖、数据库等启动前检查 |
-| `runtime.port-occupied` | Runtime 端口被占用 | 适用于 `/api/bootstrap/runtime-selfcheck` 的端口检查 |
+| `runtime.port-not-listening` | Runtime 端口未监听 | 适用于 `/api/bootstrap/runtime-selfcheck` 的端口检查；监听中返回 `ok`，未监听返回 `warning` |
 | `project.not_found` | 项目不存在 | 适用于 dashboard / script / storyboard 等项目主链 |
 | `task.not_found` | 长任务不存在 | 适用于 `/api/tasks/{task_id}` |
 | `task.conflict` | 长任务不可取消或状态冲突 | 适用于 `/api/tasks/{task_id}/cancel` |
-| `search.query.invalid` | 搜索参数非法 | 预留给 `/api/search` 的查询校验扩展 |
 
 ### 1.3 模块索引
 
@@ -75,10 +74,51 @@
 | 发布中心 | `/api/publishing/plans` | `publishing.ts`、`PublishingCenterPage.vue` |
 | 渲染与导出中心 | `/api/renders` | `renders.ts`、`RenderExportCenterPage.vue` |
 | 复盘与优化中心 | `/api/review` | `review.ts`、`ReviewOptimizationCenterPage.vue` |
+| 提示词模板中心 | `/api/prompt-templates` | `runtime-client.ts`（`listPromptTemplates`、`createPromptTemplate`、`updatePromptTemplate`、`deletePromptTemplate`） |
 | AI 与系统设置 | `/api/settings`、`/api/settings/ai-capabilities`、`/api/settings/ai-providers` | `config-bus.ts`、`ai-capability.ts`、`AIAndSystemSettingsPage.vue` |
 | 全局搜索 | `/api/search` | `searchGlobal` |
 | 长任务状态 | `/api/tasks` | `task-bus.ts` |
 | WebSocket | `/api/ws` | `task-bus.ts` WebSocket 订阅 |
+
+## 1.5 文档-代码差异矩阵（V1）
+
+- HTTP 文档路由数（提取）：169
+- HTTP 代码路由数（去重）：169
+- HTTP 文档与代码一致：169
+- HTTP 代码未写入文档（需补充）：0
+- HTTP 文档有但代码未见（需补齐）：0
+
+### 接口状态表（2026-04-18）
+
+| 状态 | 数量 | 说明 |
+| --- | --- | --- |
+| 已实现并已文档化 | 169 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
+| 已实现但未文档化 | 0 | 本轮已补齐剩余高级接口登记 |
+| 文档已写但未实现 | 0 | 本轮已补齐 `/api/video-deconstruction` 文档要求的 7 个接口，并完成剩余接口登记 |
+| 字段仍可继续细化 | 若干 | 主要是高级接口的错误码、更多响应示例和边界说明 |
+
+### 本轮收口
+
+- 已按文档补齐 `/api/video-deconstruction/videos/{video_id}/transcribe`
+- 已按文档补齐 `/api/video-deconstruction/videos/{video_id}/transcript`
+- 已按文档补齐 `/api/video-deconstruction/videos/{video_id}/segment`
+- 已按文档补齐 `/api/video-deconstruction/videos/{video_id}/segments`
+- 已按文档补齐 `/api/video-deconstruction/videos/{video_id}/extract-structure`
+- 已按文档补齐 `/api/video-deconstruction/videos/{video_id}/structure`
+- 已按文档补齐 `/api/video-deconstruction/extractions/{extraction_id}/apply-to-project`
+- 已补登记 `/api/video-deconstruction/videos/{video_id}/stages`
+- 已补登记 `/api/video-deconstruction/videos/{video_id}/stages/{stage_id}/rerun`
+
+### 仍待细化的高优先模块
+
+- 脚本 / 分镜：可继续补充 `versions / restore / shots* / sync-from-script` 的失败路径示例。
+- 工作台：可继续补充 `clip move/trim/replace`、`preview`、`precheck` 的更多返回示例。
+- 配音 / 字幕 / 资产：可继续补充 `waveform / export / group batch` 的异常路径与响应样例。
+
+### 字段层面结论
+
+- `search / bootstrap / settings.health / prompt-templates / video-deconstruction` 当前已完成文档字段闭环。
+- 其余未登记的高级接口主要缺的是“条目本身”，不是主 DTO 字段完全未知。
 
 ### 1.4 全局搜索
 
@@ -108,7 +148,7 @@
         "id": "project-1:1",
         "projectId": "project-1",
         "title": "Alpha Hook",
-        "snippet": "Alpha Hook 第二行文案",
+        "snippet": "Alpha Hook 第二行文本。",
         "updatedAt": "2026-04-17T12:00:00Z"
       }
     ],
@@ -120,55 +160,35 @@
 }
 ```
 
-### 2.1 首启运行时初始化
+---
+
+## 2.1 首启运行时初始化
 
 **核心返回 DTO**: `BootstrapDirectoryReportDto`、`RuntimeSelfCheckReportDto`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `POST /api/bootstrap/initialize-directories` | 无；按当前 settings/config 与 runtime data root 创建并校验目录 | `BootstrapDirectoryReportDto`：`rootDir`、`databasePath`、`status`、`directories[]`、`checkedAt` | `500` | `initializeDirectories` |
-| `POST /api/bootstrap/runtime-selfcheck` | 无；执行端口、版本、依赖、数据库聚合自检 | `RuntimeSelfCheckReportDto`：`status`、`runtimeVersion`、`checkedAt`、`items[]` | `500`；单项失败时结果内返回 `runtime.not-ready` / `runtime.port-occupied` | `runtimeSelfCheck` |
+| `POST /api/bootstrap/runtime-selfcheck` | 无；执行端口、版本、依赖、数据库聚合自检 | `RuntimeSelfCheckReportDto`：`status`、`runtimeVersion`、`checkedAt`、`items[]` | `500`；端口项未监听时返回 `runtime.port-not-listening` | `runtimeSelfCheck` |
 
-**目录初始化示例**
+**端口检查语义**
 
-```json
-{
-  "ok": true,
-  "data": {
-    "rootDir": "C:/TKOPS/.runtime-data",
-    "databasePath": "C:/TKOPS/.runtime-data/runtime.db",
-    "status": "ok",
-    "directories": [
-      {
-        "key": "projects",
-        "label": "项目目录",
-        "path": "C:/TKOPS/.runtime-data/projects",
-        "exists": true,
-        "writable": true,
-        "status": "ok",
-        "message": "目录已就绪"
-      }
-    ],
-    "checkedAt": "2026-04-17T12:00:00Z"
-  }
-}
-```
-
-**自检示例**
+- 监听中返回 `ok`。
+- 未监听返回 `warning`，`errorCode` 为 `runtime.port-not-listening`。
 
 ```json
 {
   "ok": true,
   "data": {
     "status": "ok",
-    "runtimeVersion": "0.3.3",
+    "runtimeVersion": "0.3.4",
     "checkedAt": "2026-04-17T12:00:00Z",
     "items": [
       {
         "key": "port",
         "label": "端口检查",
         "status": "ok",
-        "detail": "端口 8000 可用。",
+        "detail": "端口 8000 已处于监听状态",
         "errorCode": null,
         "checkedAt": "2026-04-17T12:00:00Z"
       }
@@ -176,8 +196,6 @@
   }
 }
 ```
-
----
 
 ## 2. 许可证
 
@@ -187,7 +205,11 @@
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/license/status` | 无 | `LicenseStatusDto` | `500` | `fetchLicenseStatus` |
-| `POST /api/license/activate` | `LicenseActivateInput`：`activationCode` | `LicenseActivateResultDto` | `422`、`500` | `activateLicense` |
+| `POST /api/license/activate` | `LicenseActivateInput`：`activationCode` | `LicenseActivateResultDto` | `422`、`500`、`503` | `activateLicense` |
+
+**当前差异**
+
+- 缺少 `cryptography` 依赖时，`GET /api/license/status` 仍可用，但 `POST /api/license/activate` 会返回 `503`，错误信息为“许可证激活依赖未就绪，请检查运行时依赖与授权配置”。
 
 **示例**
 
@@ -284,9 +306,13 @@
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/scripts/projects/{project_id}/document` | 路径参数：`project_id` | `ScriptDocumentDto` | `404`、`500` | `fetchScriptDocument` |
+| `GET /api/scripts/projects/{project_id}/versions` | 路径参数：`project_id` | `ScriptVersionDto[]` | `404` | 当前前端未直接调用 |
 | `PUT /api/scripts/projects/{project_id}/document` | `ScriptSaveInput`：`content` | `ScriptDocumentDto` | `404`、`422` | `saveScriptDocument` |
 | `POST /api/scripts/projects/{project_id}/generate` | `ScriptGenerateInput`：`topic` | `ScriptDocumentDto` | `404`、`409`、`500` | `generateScriptDocument` |
+| `POST /api/scripts/projects/{project_id}/title-variants` | `ScriptTitleVariantsInput`：`topic`、`count` | `ScriptTitleVariantDto[]` | `404`、`422`、`502` | `generateScriptTitleVariants` |
 | `POST /api/scripts/projects/{project_id}/rewrite` | `ScriptRewriteInput`：`instructions` | `ScriptDocumentDto` | `404`、`409`、`500` | `rewriteScriptDocument` |
+| `POST /api/scripts/projects/{project_id}/restore/{version_id}` | 路径参数：`project_id`、`version_id` | `ScriptDocumentDto` | `404` | `restoreScriptVersion` |
+| `POST /api/scripts/projects/{project_id}/segments/{segment_id}/rewrite` | 路径参数：`project_id`、`segment_id`；`ScriptSegmentRewriteInput`：`instructions`、`promptTemplateId?` | `ScriptDocumentDto` | `400`、`404`、`422` | `rewriteScriptSegment` |
 
 **示例**
 
@@ -312,6 +338,44 @@
 
 ---
 
+## 4.1 提示词模板中心
+
+**核心返回 DTO**: `PromptTemplateDto`
+关键字段：`id`、`kind`、`name`、`description`、`content`、`createdAt`、`updatedAt`
+
+| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
+| --- | --- | --- | --- | --- |
+| `GET /api/prompt-templates` | 查询参数：`kind?` | `PromptTemplateDto[]` | `422`、`500` | `listPromptTemplates` |
+| `POST /api/prompt-templates` | `PromptTemplateInput`：`kind`、`name`、`description`、`content` | `PromptTemplateDto` | `422`、`500` | `createPromptTemplate` |
+| `PUT /api/prompt-templates/{template_id}` | 路径参数：`template_id`；`PromptTemplateUpdateInput`：`kind`、`name`、`description`、`content` | `PromptTemplateDto` | `404`、`422`、`500` | `updatePromptTemplate` |
+| `DELETE /api/prompt-templates/{template_id}` | 路径参数：`template_id` | `{"deleted": true}` | `404` | `deletePromptTemplate` |
+
+**当前差异**
+
+- 前端 `runtime-client.ts` 仍用旧的 Prompt 模板更新口径，且输入字段仍是 `kind/name/template`；后端真实契约已经是 `PUT /api/prompt-templates/{template_id}` 和 `kind/name/description/content`。
+- 前端类型 `PromptTemplateDto` 仍保留 `template` / `variables` 口径，和后端 `description/content` DTO 不一致。
+
+**示例**
+
+```json
+{
+  "ok": true,
+  "data": [
+    {
+      "id": "pt-1",
+      "kind": "script_hook",
+      "name": "开场钩子",
+      "description": "用于短视频脚本开场",
+      "content": "请输出 3 个高冲击开场句。",
+      "createdAt": "2026-04-17T12:10:00Z",
+      "updatedAt": "2026-04-17T12:10:00Z"
+    }
+  ]
+}
+```
+
+---
+
 ## 5. 分镜规划中心
 
 **核心返回 DTO**: `StoryboardDocumentDto`
@@ -320,8 +384,13 @@
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/storyboards/projects/{project_id}/document` | 路径参数：`project_id` | `StoryboardDocumentDto` | `404`、`500` | `fetchStoryboardDocument` |
+| `GET /api/storyboards/templates` | 无 | `StoryboardTemplateDto[]` | `500` | `fetchStoryboardTemplates` |
 | `PUT /api/storyboards/projects/{project_id}/document` | `StoryboardSaveInput`：`basedOnScriptRevision`、`scenes[]` | `StoryboardDocumentDto` | `404`、`422` | `saveStoryboardDocument` |
 | `POST /api/storyboards/projects/{project_id}/generate` | 路径参数：`project_id` | `StoryboardDocumentDto` | `404`、`409`、`500` | `generateStoryboardDocument` |
+| `POST /api/storyboards/projects/{project_id}/sync-from-script` | 路径参数：`project_id` | `StoryboardDocumentDto` | `400`、`404` | `syncStoryboardFromScript` |
+| `POST /api/storyboards/projects/{project_id}/shots` | 路径参数：`project_id`；`StoryboardShotInput`：`title`、`summary`、`visualPrompt` | `StoryboardDocumentDto` | `400`、`404`、`422` | `createStoryboardShot` |
+| `PATCH /api/storyboards/projects/{project_id}/shots/{shot_id}` | 路径参数：`project_id`、`shot_id`；`StoryboardShotUpdateInput` | `StoryboardDocumentDto` | `404`、`422` | `updateStoryboardShot` |
+| `DELETE /api/storyboards/projects/{project_id}/shots/{shot_id}` | 路径参数：`project_id`、`shot_id` | `StoryboardDocumentDto` | `404` | `deleteStoryboardShot` |
 
 **示例**
 
@@ -363,9 +432,20 @@
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/workspace/projects/{project_id}/timeline` | 路径参数：`project_id` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`500` | `fetchWorkspaceTimeline` |
-| `POST /api/workspace/projects/{project_id}/timeline` | `TimelineCreateInput`：`name` | `TimelineDto` | `404`、`422` | `createWorkspaceTimeline` |
-| `PATCH /api/workspace/timelines/{timeline_id}` | `TimelineUpdateInput`：`name?`、`durationSeconds?`、`tracks[]` | `TimelineDto` | `404`、`422` | `updateWorkspaceTimeline` |
-| `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandInput`：`timelineId?`、`capabilityId`、`parameters` | `WorkspaceAICommandResultDto`，当前固定 `status=blocked` | `404`、`422` | `runWorkspaceAICommand` |
+| `POST /api/workspace/projects/{project_id}/timeline` | `TimelineCreateInput`：`name` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`422` | `createWorkspaceTimeline` |
+| `PATCH /api/workspace/timelines/{timeline_id}` | `TimelineUpdateInput`：`name?`、`durationSeconds?`、`tracks[]` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`422` | `updateWorkspaceTimeline` |
+| `GET /api/workspace/clips/{clip_id}` | 路径参数：`clip_id` | `WorkspaceClipDetailDto` | `404` | `fetchWorkspaceClip` |
+| `POST /api/workspace/clips/{clip_id}/move` | 路径参数：`clip_id`；`ClipMoveInput`：`targetTrackId`、`startMs` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`422` | `moveWorkspaceClip` |
+| `POST /api/workspace/clips/{clip_id}/trim` | 路径参数：`clip_id`；`ClipTrimInput`：`startMs?`、`durationMs?`、`inPointMs?`、`outPointMs?` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`422` | `trimWorkspaceClip` |
+| `POST /api/workspace/clips/{clip_id}/replace` | 路径参数：`clip_id`；`ClipReplaceInput`：`sourceType`、`sourceId?`、`label`、`prompt?`、`resolution?`、`editableFields[]` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`422` | `replaceWorkspaceClip` |
+| `GET /api/workspace/timelines/{timeline_id}/preview` | 路径参数：`timeline_id` | `TimelinePreviewDto`：`status=ready`，`previewUrl` 为本地 `data:application/json` manifest | `404`、`500` | `fetchTimelinePreview` |
+| `POST /api/workspace/timelines/{timeline_id}/precheck` | 路径参数：`timeline_id` | `TimelinePrecheckDto`：`status=ready/warning`、`issues[]` | `404`、`500` | `precheckTimeline` |
+| `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandInput`：`timelineId?`、`capabilityId`、`parameters` | `WorkspaceAICommandResultDto`；当前最小实现返回 `status=queued` 并创建真实 TaskBus 任务 | `404`、`422` | `runWorkspaceAICommand` |
+
+**当前实现说明**
+
+- `GET /preview` 不伪造渲染画面，返回基于真实轨道、片段与时长统计生成的本地 manifest。
+- `POST /precheck` 校验轨道类型、片段时长、起始时间与片段数据格式；空轨道会返回可见问题列表。
 
 **示例**
 
@@ -373,9 +453,12 @@
 {
   "ok": true,
   "data": {
-    "status": "blocked",
-    "task": null,
-    "message": "AI 剪辑命令尚未接入 Provider，本阶段仅保存时间线草稿。"
+    "status": "queued",
+    "task": {
+      "kind": "ai-workspace-command",
+      "projectId": "project-1"
+    },
+    "message": "AI 命令已进入任务队列，正在通过 TaskBus 处理。"
   }
 }
 ```
@@ -391,13 +474,23 @@
 | `POST /api/video-deconstruction/projects/{project_id}/import` | `ImportVideoInput`：`filePath` | `ImportedVideoDto` | `404`、`422` | `importVideo` |
 | `GET /api/video-deconstruction/projects/{project_id}/videos` | 路径参数：`project_id` | `ImportedVideoDto[]` | `404` | `fetchImportedVideos` |
 | `DELETE /api/video-deconstruction/videos/{video_id}` | 路径参数：`video_id` | `null` | `404` | `deleteImportedVideo` |
-| `POST /api/video-deconstruction/videos/{video_id}/transcribe` | 无 | `VideoTranscriptDto`；无 Provider 时 `status=pending_provider` 且 `text=null` | `404` | `startVideoTranscription` |
+| `POST /api/video-deconstruction/videos/{video_id}/transcribe` | 无 | `VideoTranscriptDto`；无 Provider 时 `status=provider_required` 且 `text=null` | `404`、`500` | `startVideoTranscription` |
 | `GET /api/video-deconstruction/videos/{video_id}/transcript` | 无 | `VideoTranscriptDto` | `404` | `fetchVideoTranscript` |
-| `POST /api/video-deconstruction/videos/{video_id}/segment` | 无 | `VideoSegmentDto[]` | `404`、`409` | `runVideoSegmentation` |
+| `POST /api/video-deconstruction/videos/{video_id}/segment` | 无 | `VideoSegmentDto[]` | `404`、`409`、`500` | `runVideoSegmentation` |
 | `GET /api/video-deconstruction/videos/{video_id}/segments` | 无 | `VideoSegmentDto[]` | `404` | `fetchVideoSegments` |
-| `POST /api/video-deconstruction/videos/{video_id}/extract-structure` | 无 | `VideoStructureExtractionDto`；依赖 transcript | `404`、`409` | `extractVideoStructure` |
+| `POST /api/video-deconstruction/videos/{video_id}/extract-structure` | 无 | `VideoStructureExtractionDto`；依赖 `segment` 成功 | `404`、`409`、`500` | `extractVideoStructure` |
 | `GET /api/video-deconstruction/videos/{video_id}/structure` | 无 | `VideoStructureExtractionDto` | `404` | `fetchVideoStructure` |
-| `POST /api/video-deconstruction/extractions/{extraction_id}/apply-to-project` | 无 | `ApplyVideoExtractionResultDto`：`projectId`、`extractionId`、`scriptRevision`、`status`、`message` | `404`、`409` | `applyVideoExtractionToProject` |
+| `POST /api/video-deconstruction/extractions/{extraction_id}/apply-to-project` | 无 | `ApplyVideoExtractionResultDto`：`projectId`、`extractionId`、`scriptRevision`、`status`、`message` | `404`、`409`、`500` | `applyVideoExtractionToProject` |
+| `GET /api/video-deconstruction/videos/{video_id}/stages` | 无 | `VideoStageDto[]`：返回 `import / transcribe / segment / extract_structure` 四阶段状态 | `404` | `fetchVideoStages` |
+| `POST /api/video-deconstruction/videos/{video_id}/stages/{stage_id}/rerun` | 路径参数：`stage_id` 允许 `transcribe / segment / extract_structure` | `TaskInfo` | `400`、`404`、`409` | `rerunVideoStage` |
+
+**当前实现说明**
+
+- `POST /transcribe` 在无转录 Provider 时返回 `status=provider_required`，不再伪造转写文本。
+- `POST /segment` 依赖转录阶段成功；条件不满足时返回 `409`，并把 `segment` 阶段写成 `blocked`。
+- `POST /extract-structure` 依赖分段阶段成功；条件不满足时返回 `409`，并把 `extract_structure` 阶段写成 `blocked`。
+- `POST /apply-to-project` 仅在 `extract_structure.status=succeeded` 时允许回写；失败统一走 JSON 错误信封。
+- `POST /stages/{stage_id}/rerun` 会写入真实阶段状态；重跑 `transcribe` 且无 Provider 时仍返回 `provider_required`。
 
 **示例**
 
@@ -409,10 +502,18 @@
     "videoId": "video-1",
     "language": "zh-CN",
     "text": null,
-    "status": "pending_provider",
+    "status": "provider_required",
     "createdAt": "2026-04-17T10:10:00Z",
     "updatedAt": "2026-04-17T10:10:00Z"
   }
+}
+```
+
+```json
+{
+  "ok": false,
+  "error": "视频转录尚未成功，分段已阻塞；请先完成转录后重试。",
+  "error_code": "task.conflict"
 }
 ```
 
@@ -425,12 +526,26 @@
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/voice/profiles` | 无 | `VoiceProfileDto[]` | `500` | `fetchVoiceProfiles` |
+| `POST /api/voice/profiles` | `VoiceProfileCreateInput`：`provider`、`voiceId`、`displayName`、`locale`、`tags[]`、`enabled` | `VoiceProfileDto` | `422`、`500`、`503` | `createVoiceProfile` |
 | `GET /api/voice/projects/{project_id}/tracks` | 路径参数：`project_id` | `VoiceTrackDto[]` | `404` | `fetchVoiceTracks` |
 | `POST /api/voice/projects/{project_id}/tracks/generate` | `VoiceTrackGenerateInput`：`profileId`、`sourceText`、`speed`、`pitch`、`emotion` | `VoiceTrackGenerateResultDto`：`track`、`task`、`message` | `404`、`422`、`409` | `generateVoiceTrack` |
+| `POST /api/voice/tracks/{track_id}/segments/{segment_id}/regenerate` | 路径参数：`track_id`、`segment_id`；`VoiceSegmentRegenerateInput`：`profileId?`、`speed`、`pitch`、`emotion` | `VoiceTrackRegenerateResultDto`：`track`、`task`、`message` | `404`、`422`、`409` | `regenerateVoiceSegment` |
+| `GET /api/voice/tracks/{track_id}/waveform` | 路径参数：`track_id` | `VoiceWaveformDto`；本地音频存在时 `status=ready`，缺少音频时 `status=missing_audio` | `404`、`500` | `fetchVoiceWaveform` |
 | `GET /api/voice/tracks/{track_id}` | 路径参数：`track_id` | `VoiceTrackDto` | `404` | `fetchVoiceTrack` |
-| `DELETE /api/voice/tracks/{track_id}` | 路径参数：`track_id` | 删除结果对象 | `404` | `deleteVoiceTrack` |
+| `DELETE /api/voice/tracks/{track_id}` | 路径参数：`track_id` | `null` | `404` | `deleteVoiceTrack` |
+
+**当前实现说明**
+
+- `POST /api/voice/projects/{project_id}/tracks/generate` 当前是双路径：
+  - 无可用 TTS adapter、无可用配置、缺少必需 secret 或 base_url 时，返回 `track.status="blocked"`、`task=null`。
+  - 可用 OpenAI TTS 时，返回 `track.status="processing"`，并附带 `kind="ai-voice"` 的任务对象；后台成功后轨道状态更新为 `ready`，失败后更新为 `failed`。
+- `POST /api/voice/tracks/{track_id}/segments/{segment_id}/regenerate` 会真实写入 `segments[].regeneration`；无 Provider 时返回 `blocked + retryable=true`，有 Provider 时写入真实任务与成功/失败状态。
+- `GET /api/voice/tracks/{track_id}/waveform` 在本地存在音频文件时返回确定性波形摘要；未找到音频时返回 `missing_audio`。
+- 内建 `VoiceProfile.provider` 已使用真实 provider，当前内建音色均为 `openai`。
 
 **示例**
+
+阻塞路径：
 
 ```json
 {
@@ -441,15 +556,67 @@
       "projectId": "project-1",
       "timelineId": null,
       "source": "tts",
-      "provider": "pending_provider",
-      "voiceName": "标准女声",
+      "provider": "openai",
+      "voiceName": "清晰女声",
       "filePath": null,
       "segments": [],
       "status": "blocked",
-      "createdAt": "2026-04-17T10:15:00Z"
+      "createdAt": "2026-04-18T10:15:00Z"
     },
     "task": null,
     "message": "当前未配置可用 TTS Provider，已保留配音轨草稿。"
+  }
+}
+```
+
+处理路径：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "track": {
+      "id": "voice-2",
+      "projectId": "project-1",
+      "timelineId": null,
+      "source": "tts",
+      "provider": "openai",
+      "voiceName": "清晰女声",
+      "filePath": null,
+      "segments": [],
+      "status": "processing",
+      "createdAt": "2026-04-18T10:18:00Z"
+    },
+    "task": {
+      "id": "task-voice-1",
+      "kind": "ai-voice",
+      "projectId": "project-1",
+      "ownerRef": {
+        "kind": "voice-track",
+        "id": "voice-2"
+      },
+      "status": "queued",
+      "progress": 0,
+      "label": "配音生成：清晰女声",
+      "message": "配音生成任务已提交。"
+    },
+    "message": "配音生成任务已提交。"
+  }
+}
+```
+
+波形缺失音频示例：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "status": "missing_audio",
+    "message": "未找到音频文件，无法生成波形摘要。",
+    "durationMs": null,
+    "sampleRate": null,
+    "channels": null,
+    "points": []
   }
 }
 ```
@@ -463,10 +630,18 @@
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/subtitles/projects/{project_id}/tracks` | 路径参数：`project_id` | `SubtitleTrackDto[]` | `404` | `fetchSubtitleTracks` |
-| `POST /api/subtitles/projects/{project_id}/tracks/generate` | `SubtitleTrackGenerateInput`：`sourceText`、`language`、`stylePreset` | `SubtitleTrackGenerateResultDto`：`track`、`task`、`message` | `404`、`422`、`409` | `generateSubtitleTrack` |
+| `POST /api/subtitles/projects/{project_id}/tracks/generate` | `SubtitleTrackGenerateInput`：`sourceText`、`language`、`stylePreset` | `SubtitleTrackGenerateResultDto`：`track`、`task`、`message` | `400`、`404`、`500` | `generateSubtitleTrack` |
+| `GET /api/subtitles/style-templates` | 无 | `SubtitleStyleTemplateDto[]` | `500` | `listSubtitleStyleTemplates` |
+| `POST /api/subtitles/tracks/{track_id}/align` | 路径参数：`track_id`；`SubtitleTrackAlignInput`：`segments[]` | `SubtitleTrackDto` | `404`、`422`、`500` | `alignSubtitleTrack` |
+| `POST /api/subtitles/tracks/{track_id}/export` | 路径参数：`track_id`；`SubtitleExportInput`：`format` | `SubtitleExportDto` | `400`、`404`、`422` | `exportSubtitleTrack` |
 | `GET /api/subtitles/tracks/{track_id}` | 路径参数：`track_id` | `SubtitleTrackDto` | `404` | `fetchSubtitleTrack` |
 | `PATCH /api/subtitles/tracks/{track_id}` | `SubtitleTrackUpdateInput`：`segments[]`、`style` | `SubtitleTrackDto` | `404`、`422` | `updateSubtitleTrack` |
-| `DELETE /api/subtitles/tracks/{track_id}` | 路径参数：`track_id` | 删除结果对象 | `404` | `deleteSubtitleTrack` |
+| `DELETE /api/subtitles/tracks/{track_id}` | 路径参数：`track_id` | `null` | `404` | `deleteSubtitleTrack` |
+
+**当前实现说明**
+
+- `POST /generate` 不再返回 `blocked` 占位，而是直接生成 `status=ready` 的本地确定性字幕轨道。
+- 生成规则基于真实输入文本分段和时长估算，不伪装 AI 识别结果。
 
 **示例**
 
@@ -474,21 +649,42 @@
 {
   "ok": true,
   "data": {
-    "id": "subtitle-1",
-    "projectId": "project-1",
-    "timelineId": null,
-    "source": "ai_generated",
-    "language": "zh-CN",
-    "style": {
-      "preset": "clean",
-      "fontSize": 40,
-      "position": "bottom",
-      "textColor": "#FFFFFF",
-      "background": "rgba(0,0,0,0.35)"
+    "track": {
+      "id": "subtitle-1",
+      "projectId": "project-1",
+      "timelineId": null,
+      "source": "script",
+      "language": "zh-CN",
+      "style": {
+        "preset": "creator-default",
+        "fontSize": 32,
+        "position": "bottom",
+        "textColor": "#FFFFFF",
+        "background": "rgba(0,0,0,0.62)"
+      },
+      "segments": [
+        {
+          "segmentIndex": 0,
+          "text": "第一句。",
+          "startMs": 0,
+          "endMs": 1260,
+          "confidence": null,
+          "locked": false
+        }
+      ],
+      "status": "ready",
+      "createdAt": "2026-04-19T10:18:00Z"
     },
-    "segments": [],
-    "status": "ready",
-    "createdAt": "2026-04-17T10:18:00Z"
+    "task": {
+      "kind": "local-subtitle-generate",
+      "mode": "deterministic-local",
+      "language": "zh-CN",
+      "stylePreset": "creator-default",
+      "segmentCount": 1,
+      "sourceCharacters": 4,
+      "generatedAt": "2026-04-19T10:18:00Z"
+    },
+    "message": "字幕轨道已基于本地文本规则生成。"
   }
 }
 ```
@@ -502,8 +698,14 @@
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/assets` | 查询参数：`type?`、`source?`、`project_id?`、`q?` | `AssetDto[]` | `500` | `fetchAssets` |
+| `GET /api/assets/groups` | 无 | `AssetGroupDto[]` | `500` | 当前前端未直接调用 |
+| `POST /api/assets/groups` | `AssetGroupCreateInput`：`name`、`parentId?` | `AssetGroupDto` | `422`、`500` | 当前前端未直接调用 |
+| `PATCH /api/assets/groups/{group_id}` | 路径参数：`group_id`；`AssetGroupUpdateInput`：`name?`、`parentId?` | `AssetGroupDto` | `400`、`404`、`422`、`500` | 当前前端未直接调用 |
+| `DELETE /api/assets/groups/{group_id}` | 路径参数：`group_id` | `{"deleted": true}` | `404`、`500` | 当前前端未直接调用 |
 | `POST /api/assets` | `AssetCreateInput`：`name`、`type`、`source`、`filePath?`、`projectId?` 等 | `AssetDto` | `422` | 当前前端未直接调用 |
 | `POST /api/assets/import` | `AssetImportInput`：`filePath`、`type`、`source`、`projectId?` 等 | `AssetDto` | `422`、`500` | `importAsset` |
+| `POST /api/assets/batch-delete` | `BatchDeleteAssetsInput`：`assetIds[]` | `{"deletedCount": number}` | `422`、`500` | 当前前端未直接调用 |
+| `POST /api/assets/batch-move-group` | `BatchMoveGroupInput`：`assetIds[]`、`groupId?` | `{"movedCount": number, "groupId": string \| null}` | `404`、`422`、`500` | 当前前端未直接调用 |
 | `GET /api/assets/{asset_id}` | 路径参数：`asset_id` | `AssetDto` | `404` | `fetchAsset` |
 | `PATCH /api/assets/{asset_id}` | `AssetUpdateInput`：`name?`、`tags?`、`metadataJson?` | `AssetDto` | `404`、`422` | `updateAsset` |
 | `DELETE /api/assets/{asset_id}` | 路径参数：`asset_id` | 删除结果对象 | `404` | `deleteAsset` |
@@ -537,19 +739,19 @@
 
 ---
 
-## 11. 账号管理
+## 11. M10 账号管理
 
-**核心返回 DTO**: `AccountDto`、`AccountGroupDto`、`AccountRefreshStatsDto`
+**核心返回 DTO**: `AccountDto`、`AccountGroupDto`、`AccountRefreshStatsDto`、`AccountBindingDto`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/accounts` | 查询参数：`status?`、`platform?`、`group_id?`、`q?` | `AccountDto[]` | `500` | `fetchAccounts` |
-| `POST /api/accounts` | `AccountCreateInput`：`name`、`platform`、`status` 等 | `AccountDto` | `422` | `createAccount` |
+| `POST /api/accounts` | `AccountCreateInput`：`name`、`platform`、`username?`、`status?` 等 | `AccountDto` | `422` | `createAccount` |
 | `GET /api/accounts/{account_id}` | 路径参数：`account_id` | `AccountDto` | `404` | 当前前端未直接调用 |
 | `PATCH /api/accounts/{account_id}` | `AccountUpdateInput` | `AccountDto` | `404`、`422` | 当前前端未直接调用 |
 | `DELETE /api/accounts/{account_id}` | 路径参数：`account_id` | 删除结果对象 | `404` | `deleteAccount` |
 | `POST /api/accounts/{account_id}/refresh-stats` | 路径参数：`account_id` | `AccountRefreshStatsDto` | `404` | `refreshAccountStats` |
-| `POST /api/accounts/{account_id}/status-check` | 与 `refresh-stats` 相同；历史兼容别名 | `AccountRefreshStatsDto` | `404` | `runAccountStatusCheck` |
+| `PUT /api/accounts/{account_id}/binding` | `AccountBindingUpsertInput`：`browserInstanceId`、`status?`、`source?`、`metadataJson?` | `AccountBindingDto` | `404`、`422` | `setAccountBinding` |
 | `GET /api/accounts/groups` | 无 | `AccountGroupDto[]` | `500` | `fetchAccountGroups` |
 | `POST /api/accounts/groups` | `AccountGroupCreateInput`：`name`、`description?`、`color?` | `AccountGroupDto` | `422` | 当前前端未直接调用 |
 | `PATCH /api/accounts/groups/{group_id}` | `AccountGroupUpdateInput` | `AccountGroupDto` | `404`、`422` | 当前前端未直接调用 |
@@ -564,19 +766,23 @@
 {
   "ok": true,
   "data": {
-    "id": "account-1",
+    "id": "binding-1",
+    "accountId": "account-1",
+    "browserInstanceId": "workspace-1",
     "status": "active",
-    "updatedAt": "2026-04-17T10:22:00Z",
-    "providerStatus": "pending_provider"
+    "source": "manual",
+    "maskedMetadataJson": "{\"token\":\"***\",\"profile\":\"main\"}",
+    "createdAt": "2026-04-17T10:22:00Z",
+    "updatedAt": "2026-04-17T10:22:00Z"
   }
 }
 ```
 
 ---
 
-## 12. 设备与工作区管理
+## 12. M11 设备与工作区管理
 
-**核心返回 DTO**: `DeviceWorkspaceDto`、`HealthCheckResultDto`、`BrowserInstanceDto`、`ExecutionBindingDto`
+**核心返回 DTO**: `DeviceWorkspaceDto`、`HealthCheckResultDto`、`DeviceWorkspaceLogDto`、`AccountBindingDto`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
@@ -584,42 +790,61 @@
 | `POST /api/devices/workspaces` | `DeviceWorkspaceCreateInput`：`name`、`root_path` | `DeviceWorkspaceDto` | `422` | `createDeviceWorkspace` |
 | `GET /api/devices/workspaces/{ws_id}` | 路径参数：`ws_id` | `DeviceWorkspaceDto` | `404` | `fetchDeviceWorkspace` |
 | `PATCH /api/devices/workspaces/{ws_id}` | `DeviceWorkspaceUpdateInput`：`name?`、`root_path?`、`status?` | `DeviceWorkspaceDto` | `404`、`422` | `updateDeviceWorkspace` |
-| `DELETE /api/devices/workspaces/{ws_id}` | 路径参数：`ws_id`；删除时会级联清理 browser instances 与 bindings | 删除结果对象 | `404` | `deleteDeviceWorkspace` |
+| `DELETE /api/devices/workspaces/{ws_id}` | 路径参数：`ws_id` | 删除结果对象 | `404` | `deleteDeviceWorkspace` |
 | `POST /api/devices/workspaces/{ws_id}/health-check` | 无 | `HealthCheckResultDto` | `404` | `checkDeviceWorkspaceHealth` |
-| `GET /api/devices/browser-instances` | 查询参数：`workspace_id?` | `BrowserInstanceDto[]` | `500` | `fetchBrowserInstances` |
-| `POST /api/devices/browser-instances` | `BrowserInstanceCreateInput`：`workspace_id`、`name`、`profile_path`、`browser_type` | `BrowserInstanceDto` | `404`、`422` | `createBrowserInstance` |
-| `DELETE /api/devices/browser-instances/{instance_id}` | 路径参数：`instance_id` | 删除结果对象 | `404`、`409` | `removeBrowserInstance` |
-| `GET /api/devices/bindings` | 查询参数：`workspace_id?`、`account_id?` | `ExecutionBindingDto[]` | `500` | `fetchExecutionBindings` |
-| `POST /api/devices/bindings` | `ExecutionBindingCreateInput`：`account_id`、`device_workspace_id`、`browser_instance_id?`、`source?`、`metadata_json?` | `ExecutionBindingDto` | `404`、`422`、`409` | `createExecutionBinding` |
+| `GET /api/devices/workspaces/{ws_id}/logs` | 查询参数：`since?`；前端当前传入 `cursor` 会被后端忽略 | `DeviceWorkspaceLogDto[]` | `404` | `fetchWorkspaceLogs` |
+| `GET /api/devices/browser-instances` | 无；当前是 `workspaces` 列表兼容别名 | `DeviceWorkspaceDto[]` | `500` | `fetchBrowserInstances` |
+| `POST /api/devices/browser-instances` | `DeviceWorkspaceCreateInput`；当前是创建工作区兼容别名 | `DeviceWorkspaceDto` | `422` | `createBrowserInstance` |
+| `GET /api/devices/browser-instances/{ws_id}` | 路径参数：`ws_id`；当前是工作区详情兼容别名 | `DeviceWorkspaceDto` | `404` | 当前前端未直接调用 |
+| `PATCH /api/devices/browser-instances/{ws_id}` | `DeviceWorkspaceUpdateInput`；当前是工作区更新兼容别名 | `DeviceWorkspaceDto` | `404`、`422` | 当前前端未直接调用 |
+| `DELETE /api/devices/browser-instances/{ws_id}` | 路径参数：`ws_id`；当前是工作区删除兼容别名 | 删除结果对象 | `404` | `removeBrowserInstance` |
+| `POST /api/devices/browser-instances/{ws_id}/health-check` | 无；当前是工作区健康检查兼容别名 | `HealthCheckResultDto` | `404` | 当前前端未直接调用 |
+| `GET /api/devices/browser-instances/{ws_id}/logs` | 查询参数：`since?`；当前是工作区日志兼容别名 | `DeviceWorkspaceLogDto[]` | `404` | 当前前端未直接调用 |
+| `GET /api/devices/bindings` | 无 | `AccountBindingDto[]` | `500` | `fetchExecutionBindings` |
+| `PUT /api/devices/bindings/{account_id}` | `AccountBindingUpsertInput` | `AccountBindingDto` | `404`、`422` | 当前前端未直接调用 |
+| `GET /api/devices/bindings/{binding_id}` | 路径参数：`binding_id` | `AccountBindingDto` | `404` | 当前前端未直接调用 |
 | `DELETE /api/devices/bindings/{binding_id}` | 路径参数：`binding_id` | 删除结果对象 | `404` | `removeExecutionBinding` |
+
+**当前差异**
+
+- `BrowserInstanceDto` / `ExecutionBindingDto` 仍是前端兼容类型口径；当前后端 M11 已落地对象仍以 `DeviceWorkspaceDto` 与 `AccountBindingDto` 为主。
 
 **示例**
 
 ```json
 {
-  "ok": false,
-  "error": "当前浏览器实例已被执行绑定引用，无法直接删除。"
+  "ok": true,
+  "data": [
+    {
+      "id": "log-1",
+      "workspaceId": "workspace-1",
+      "kind": "health_check",
+      "level": "INFO",
+      "message": "工作区健康检查通过。",
+      "contextJson": null,
+      "createdAt": "2026-04-17T10:23:00Z"
+    }
+  ]
 }
 ```
 
 ---
 
-## 13. 自动化执行中心
+## 13. M12 自动化执行中心
 
-**核心返回 DTO**: `AutomationTaskDto`、`AutomationTaskRunDto`、`AutomationTaskRunLogsDto`、`TriggerTaskResultDto`
+**核心返回 DTO**: `AutomationTaskDto`、`AutomationTaskRunDto`、`TriggerTaskResultDto`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/automation/tasks` | 无 | `AutomationTaskDto[]` | `500` | `fetchAutomationTasks` |
-| `POST /api/automation/tasks` | `AutomationTaskCreateInput`：`name`、`type`、`cron_expr?`、`config_json?` | `AutomationTaskDto` | `422` | `createAutomationTask` |
+| `GET /api/automation/tasks` | 查询参数：`status?`、`type?` | `AutomationTaskDto[]` | `500` | `fetchAutomationTasks` |
+| `POST /api/automation/tasks` | `AutomationTaskCreateInput`：`name`、`type`、`rule?`、`cron_expr?`、`config_json?` | `AutomationTaskDto` | `422` | `createAutomationTask` |
 | `GET /api/automation/tasks/{task_id}` | 路径参数：`task_id` | `AutomationTaskDto` | `404` | `fetchAutomationTask` |
 | `PATCH /api/automation/tasks/{task_id}` | `AutomationTaskUpdateInput` | `AutomationTaskDto` | `404`、`422` | `updateAutomationTask` |
+| `POST /api/automation/tasks/{task_id}/pause` | 无 | `AutomationTaskDto`，`enabled=false` | `404` | `pauseAutomationTask` |
+| `POST /api/automation/tasks/{task_id}/resume` | 无 | `AutomationTaskDto`，`enabled=true` | `404` | `resumeAutomationTask` |
 | `DELETE /api/automation/tasks/{task_id}` | 路径参数：`task_id` | 删除结果对象 | `404` | `deleteAutomationTask` |
 | `POST /api/automation/tasks/{task_id}/trigger` | 无 | `TriggerTaskResultDto`：`task_id`、`run_id`、`status`、`message` | `404`、`409` | `triggerAutomationTask` |
-| `GET /api/automation/tasks/{task_id}/runs` | 路径参数：`task_id` | `AutomationTaskRunDto[]` | `404` | `fetchAutomationTaskRuns` |
-| `GET /api/automation/runs/{run_id}` | 路径参数：`run_id` | `AutomationTaskRunDto` | `404` | `fetchAutomationRun` |
-| `POST /api/automation/runs/{run_id}/cancel` | 路径参数：`run_id`；仅允许 `queued/running` | `AutomationTaskRunDto` | `404`、`409` | `cancelAutomationRun` |
-| `GET /api/automation/runs/{run_id}/logs` | 路径参数：`run_id` | `AutomationTaskRunLogsDto`：`run_id`、`log_text`、`lines[]` | `404` | `fetchAutomationRunLogs` |
+| `GET /api/automation/tasks/{task_id}/runs` | 路径参数：`task_id`；查询参数：`limit?` | `AutomationTaskRunDto[]` | `404` | `fetchAutomationTaskRuns` |
 
 **示例**
 
@@ -627,33 +852,33 @@
 {
   "ok": true,
   "data": {
+    "task_id": "auto-1",
     "run_id": "run-1",
-    "log_text": "任务开始\n正在执行采集",
-    "lines": [
-      "任务开始",
-      "正在执行采集"
-    ]
+    "status": "running",
+    "message": "任务已触发。"
   }
 }
 ```
 
 ---
 
-## 14. 发布中心
+## 14. M13 发布中心
 
-**核心返回 DTO**: `PublishPlanDto`、`PrecheckResultDto`、`SubmitPlanResultDto`、`PublishReceiptDto`
+**核心返回 DTO**: `PublishPlanDto`、`PublishCalendarDto`、`PrecheckResultDto`、`SubmitPlanResultDto`、`PublishReceiptDto`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/publishing/plans` | 无 | `PublishPlanDto[]` | `500` | `fetchPublishPlans` |
+| `GET /api/publishing/plans` | 查询参数：`status?` | `PublishPlanDto[]` | `500` | `fetchPublishPlans` |
 | `POST /api/publishing/plans` | `PublishPlanCreateInput`：`title`、`account_id?`、`account_name?`、`project_id?`、`video_asset_id?`、`scheduled_at?` | `PublishPlanDto` | `422` | `createPublishPlan` |
+| `GET /api/publishing/calendar` | 前端传 `from?`、`to?`；当前后端忽略日期参数并返回全量日历快照 | `PublishCalendarDto`：`items[]`、`generated_at` | `500` | `fetchPublishingCalendar` |
 | `GET /api/publishing/plans/{plan_id}` | 路径参数：`plan_id` | `PublishPlanDto` | `404` | `fetchPublishPlan` |
 | `PATCH /api/publishing/plans/{plan_id}` | `PublishPlanUpdateInput`：`title?`、`account_name?`、`status?`、`scheduled_at?` | `PublishPlanDto` | `404`、`422` | `updatePublishPlan` |
 | `DELETE /api/publishing/plans/{plan_id}` | 路径参数：`plan_id` | 删除结果对象 | `404` | `deletePublishPlan` |
-| `POST /api/publishing/plans/{plan_id}/precheck` | 无 | `PrecheckResultDto`：`items[]`、`has_errors`、`checked_at`；当前复用 `precheck_result_json` 存储 | `404` | `runPublishingPrecheck` |
+| `POST /api/publishing/plans/{plan_id}/precheck` | 无 | `PrecheckResultDto`：`items[]`、`conflicts[]`、`has_errors`、`checked_at` | `404` | `runPublishingPrecheck` |
 | `POST /api/publishing/plans/{plan_id}/submit` | 无；要求预检无 `error` | `SubmitPlanResultDto`：`plan_id`、`status`、`submitted_at`、`message` | `404`、`409` | `submitPublishPlan` |
 | `POST /api/publishing/plans/{plan_id}/cancel` | 无 | `PublishPlanDto` | `404` | `cancelPublishPlan` |
-| `GET /api/publishing/plans/{plan_id}/receipt` | 路径参数：`plan_id` | `PublishReceiptDto`：`id`、`plan_id`、`status`、`external_url`、`error_message`、`completed_at` | `404` | `fetchPublishReceipt` |
+| `GET /api/publishing/plans/{plan_id}/receipts` | 路径参数：`plan_id` | `PublishReceiptDto[]` | `404` | `fetchPublishReceipts` |
+| `GET /api/publishing/plans/{plan_id}/receipt` | 路径参数：`plan_id` | `PublishReceiptDto` | `404` | `fetchPublishReceipt` |
 
 **示例**
 
@@ -664,9 +889,8 @@
     "id": "receipt-1",
     "plan_id": "plan-1",
     "status": "manual_required",
-    "external_url": null,
-    "error_message": null,
-    "completed_at": null,
+    "platform_response_json": null,
+    "received_at": "2026-04-17T10:25:00Z",
     "created_at": "2026-04-17T10:25:00Z"
   }
 }
@@ -674,16 +898,18 @@
 
 ---
 
-## 15. 渲染与导出中心
+## 15. M14 渲染与导出中心
 
-**核心返回 DTO**: `RenderTaskDto`、`CancelRenderResultDto`、`ExportProfileDto`
+**核心返回 DTO**: `RenderTaskDto`、`CancelRenderResultDto`、`ExportProfileDto`、`RenderResourceUsageDto`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/renders/profiles` | 无；首次访问会补齐默认配置 | `ExportProfileDto[]` | `500` | `fetchExportProfiles` |
 | `POST /api/renders/profiles` | `ExportProfileCreateInput`：`name`、`format`、`resolution`、`fps`、`video_bitrate`、`audio_policy`、`subtitle_policy`、`config_json?` | `ExportProfileDto` | `422` | `createExportProfile` |
-| `GET /api/renders/tasks` | 无 | `RenderTaskDto[]` | `500` | `fetchRenderTasks` |
-| `POST /api/renders/tasks` | `RenderTaskCreateInput`：`project_id?`、`project_name?`、`preset`、`format` | `RenderTaskDto` | `422` | `createRenderTask` |
+| `GET /api/renders/templates` | 无；当前复用导出配置列表 | `ExportProfileDto[]` | `500` | `listRenderTemplates` |
+| `GET /api/renders/resource-usage` | 无 | `RenderResourceUsageDto`：`cpu`、`gpu`、`disk`、`collectedAt` | `500` | `fetchRenderResourceUsage` |
+| `GET /api/renders/tasks` | 查询参数：`status?` | `RenderTaskDto[]` | `500` | `fetchRenderTasks` |
+| `POST /api/renders/tasks` | `RenderTaskCreateInput`：`project_id?`、`project_name?`、`preset`、`format?` | `RenderTaskDto` | `422` | `createRenderTask` |
 | `GET /api/renders/tasks/{task_id}` | 路径参数：`task_id` | `RenderTaskDto` | `404` | `fetchRenderTask` |
 | `PATCH /api/renders/tasks/{task_id}` | `RenderTaskUpdateInput`：`preset?`、`format?`、`status?`、`progress?`、`output_path?`、`error_message?` | `RenderTaskDto` | `404`、`422` | `updateRenderTask` |
 | `DELETE /api/renders/tasks/{task_id}` | 路径参数：`task_id` | 删除结果对象 | `404` | `deleteRenderTask` |
@@ -696,38 +922,45 @@
 {
   "ok": true,
   "data": {
-    "id": "profile-default",
-    "name": "默认竖屏导出",
-    "format": "mp4",
-    "resolution": "1080x1920",
-    "fps": 30,
-    "video_bitrate": "8000k",
-    "audio_policy": "merge_all",
-    "subtitle_policy": "burn_in",
-    "config_json": null,
-    "is_default": true,
-    "created_at": "2026-04-17T10:26:00Z",
-    "updated_at": "2026-04-17T10:26:00Z"
+    "cpu": {
+      "status": "ready",
+      "usagePct": 12,
+      "message": "CPU 负载已读取。"
+    },
+    "gpu": {
+      "status": "unavailable",
+      "usagePct": null,
+      "message": "当前未接入 GPU 监控助手。"
+    },
+    "disk": {
+      "status": "ready",
+      "path": "G:/AI/TK-OPS-ASSISTANT-V3",
+      "totalBytes": 102400,
+      "usedBytes": 51200,
+      "freeBytes": 51200,
+      "usagePct": 50,
+      "message": "磁盘占用统计已读取。"
+    },
+    "collectedAt": "2026-04-17T10:26:00Z"
   }
 }
 ```
 
 ---
 
-## 16. 复盘与优化中心
+## 16. M15 复盘与优化中心
 
-**核心返回 DTO**: `ReviewSummaryDto`、`GenerateReviewSuggestionsResultDto`、`ApplyReviewSuggestionResultDto`
-`ReviewSuggestion` 关键字段：`id`、`code`、`category`、`title`、`description`、`priority`、`status`、`actionLabel`、`sourceType`、`sourceId`、`createdAt`
+**核心返回 DTO**: `ReviewSummaryDto`、`AnalyzeProjectResultDto`、`ProjectSummaryDto`、`ApplySuggestionToScriptResultDto`
+`ReviewSummaryDto.suggestions[]` 当前由 summary 聚合返回；`adopt` 会创建新的项目草稿，`apply-to-script` 会在原项目内生成新的脚本版本并回写建议状态。
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/review/projects/{project_id}/summary` | 路径参数：`project_id` | `ReviewSummaryDto` | `404` | `fetchReviewSummary` |
 | `POST /api/review/projects/{project_id}/analyze` | 路径参数：`project_id` | `AnalyzeProjectResultDto`：`project_id`、`status`、`message`、`analyzed_at` | `404`、`409` | `analyzeReviewProject` |
 | `PATCH /api/review/projects/{project_id}/summary` | `ReviewSummaryUpdateInput`：核心指标字段 | `ReviewSummaryDto` | `404`、`422` | `updateReviewSummary` |
-| `GET /api/review/projects/{project_id}/suggestions` | 路径参数：`project_id` | `ReviewSuggestion[]` | `404` | `fetchReviewSuggestions` |
-| `POST /api/review/projects/{project_id}/suggestions/generate` | 路径参数：`project_id`；当前复用规则生成 | `GenerateReviewSuggestionsResultDto`：`project_id`、`status`、`message`、`generated_count`、`generated_at` | `404`、`409` | `generateReviewSuggestions` |
-| `PATCH /api/review/suggestions/{suggestion_id}` | `ReviewSuggestionUpdateInput`：`status`，仅允许 `pending/applied/dismissed` | `ReviewSuggestion` | `404`、`409`、`422` | `updateReviewSuggestion` |
-| `POST /api/review/suggestions/{suggestion_id}/apply-to-script` | 无；应用后通过 script service 生成新草稿版本 | `ApplyReviewSuggestionResultDto`：`project_id`、`suggestion_id`、`script_revision`、`status`、`message` | `404`、`409` | `applyReviewSuggestionToScript` |
+| `POST /api/review/projects/{project_id}/suggestions/{suggestion_id}/adopt` | 路径参数：`project_id`、`suggestion_id` | `ProjectSummaryDto`：采纳建议后生成的新项目 | `404`、`409` | `adoptReviewSuggestion` |
+| `POST /api/review/suggestions/{suggestion_id}/adopt` | 路径参数：`suggestion_id`；使用当前上下文项目 | `ProjectSummaryDto` | `404`、`409` | 当前前端未直接调用 |
+| `POST /api/review/suggestions/{suggestion_id}/apply-to-script` | 路径参数：`suggestion_id`；在原项目内生成新的脚本版本并回写建议状态 | `ApplySuggestionToScriptResultDto`：`projectId`、`suggestionId`、`status`、`message`、`currentScriptVersion`、`scriptVersion` | `404`、`409`、`500` | `applyReviewSuggestionToScript` |
 
 **示例**
 
@@ -736,10 +969,31 @@
   "ok": true,
   "data": {
     "project_id": "project-1",
-    "status": "ready",
-    "message": "已生成 3 条优化建议。",
-    "generated_count": 3,
-    "generated_at": "2026-04-17T10:28:00Z"
+    "status": "done",
+    "message": "复盘分析已完成。",
+    "analyzed_at": "2026-04-17T10:28:00Z"
+  }
+}
+```
+
+```json
+{
+  "ok": true,
+  "data": {
+    "projectId": "project-1",
+    "suggestionId": "project-1:hook_first_3s",
+    "status": "已应用",
+    "message": "已将复盘建议应用到原项目脚本，并生成新的脚本版本",
+    "currentScriptVersion": 3,
+    "scriptVersion": {
+      "revision": 3,
+      "source": "review_apply",
+      "content": "原脚本内容\n\n【复盘建议】\n提高前 3 秒钩子",
+      "provider": null,
+      "model": null,
+      "aiJobId": null,
+      "createdAt": "2026-04-19T11:28:00Z"
+    }
   }
 }
 ```
@@ -793,7 +1047,7 @@
       "status": "online",
       "port": 8000,
       "uptimeMs": 1200,
-      "version": "0.3.3"
+      "version": "0.3.4"
     },
     "aiProvider": {
       "status": "configured",
@@ -823,7 +1077,7 @@
     },
     "lastSyncAt": "2026-04-17T12:00:00Z",
     "service": "online",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "now": "2026-04-17T12:00:00Z",
     "mode": "development"
   }
@@ -863,13 +1117,16 @@
 
 ## 18. 长任务状态
 
-**核心返回结构**: `TaskDto`
-关键字段：`id`、`kind`、`label`、`status`、`progressPct`、`startedAt`、`finishedAt`、`etaMs`、`projectId`、`ownerRef`、`errorCode`、`errorMessage`、`retryable`、`createdAt`、`updatedAt`
+**核心返回结构**: `TaskInfo`
+当前后端 `TaskManager` 是内存态任务管理器，`/api/tasks` 只返回 `queued/running` 活跃任务。前端 `task-bus.ts` 会把 WebSocket 事件补齐成兼容 `TaskInfo` / 旧 `TaskDto` 的混合字段。
+
+后端字段：`id`、`task_type`、`project_id`、`status`、`progress`、`message`、`created_at`、`updated_at`
+前端兼容字段：`kind`、`label`、`progressPct`、`projectId`、`errorCode`、`errorMessage`、`retryable`、`createdAt`、`updatedAt`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/tasks` | 查询参数：`type?`、`status?`（逗号分隔） | `TaskDto[]` | `500` | `fetchActiveTasks` |
-| `GET /api/tasks/{task_id}` | 路径参数：`task_id` | `TaskDto` | `404` | `fetchTaskStatus` |
+| `GET /api/tasks` | 当前无后端查询参数；前端 wrapper 不传筛选参数 | `TaskInfo[]` | `500` | `fetchActiveTasks` |
+| `GET /api/tasks/{task_id}` | 路径参数：`task_id` | `TaskInfo` | `404` | `fetchTaskStatus` |
 | `POST /api/tasks/{task_id}/cancel` | 路径参数：`task_id` | `{ task_id, status, message }` | `404`、`409`（`task.conflict`） | `cancelTask` |
 
 **示例**
@@ -879,23 +1136,13 @@
   "ok": true,
   "data": {
     "id": "task-1",
-    "kind": "video-import",
-    "label": "导入视频",
+    "task_type": "video_import",
+    "project_id": "project-1",
     "status": "running",
-    "progressPct": 45,
-    "startedAt": "2026-04-17T10:30:00Z",
-    "finishedAt": null,
-    "etaMs": 120000,
-    "projectId": "project-1",
-    "ownerRef": {
-      "kind": "imported-video",
-      "id": "video-1"
-    },
-    "errorCode": null,
-    "errorMessage": null,
-    "retryable": false,
-    "createdAt": "2026-04-17T10:30:00Z",
-    "updatedAt": "2026-04-17T10:30:10Z"
+    "progress": 45,
+    "message": "正在解析视频元信息",
+    "created_at": "2026-04-17T10:30:00Z",
+    "updated_at": "2026-04-17T10:30:10Z"
   }
 }
 ```
@@ -908,7 +1155,14 @@
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `WS /api/ws` | 无；连接建立后用于任务广播与心跳保持 | 服务端主动推送任务事件 | 连接断开时由前端重连 | `task-bus.ts` |
+| `WS /api/ws` | 客户端可发送 `ping` 维持连接；服务端当前只读取并记录文本消息 | 服务端主动推送任务、视频导入阶段、配置和状态类事件 | 连接断开时前端 3 秒后自动重连 | `task-bus.ts` |
+
+**前端 TaskBus 行为**
+
+- WebSocket 地址由 `VITE_RUNTIME_BASE_URL` 推导，默认连接 `ws://127.0.0.1:8000/api/ws`。
+- 心跳间隔为 25 秒，发送文本 `ping`。
+- 可订阅 key 包括 `taskId`、`videoId`、`jobId`、`trackId`、`accountId`、`workspaceId`、`planId`、`projectId`。
+- 接收到带 `taskId` 的事件时，`task-bus.ts` 会同步更新 `tasks` Map；所有事件都会按 key 写入 `lastEvents`。
 
 **当前事件格式（任务类）**
 
@@ -925,15 +1179,63 @@
 }
 ```
 
-**当前已落地事件类型**
+**当前已登记事件类型**
 
 - `task.started`
 - `task.progress`
+- `task.log`
 - `task.completed`
 - `task.failed`
+- `script.ai.stream.chunk`
+- `script.ai.stream.completed`
+- `script.ai.stream.failed`
+- `video.import.stage.started`
+- `video.import.stage.progress`
+- `video.import.stage.completed`
+- `video.import.stage.failed`
+- `render.progress`
+- `account.status.changed`
+- `device.status.changed`
+- `publish.receipt.updated`
 - `config.changed`
 - `ai-capability.changed`
 - `context.project.changed`
+
+**视频导入阶段事件示例**
+
+视频导入 TaskBus pilot 中，`taskId` 等于 `ImportedVideo.id`。通用任务进度通过 `task.progress` 广播，阶段状态通过 `video.import.stage.*` 广播。
+
+```json
+{
+  "schema_version": 1,
+  "type": "video.import.stage.progress",
+  "videoId": "video-1",
+  "stage": "import",
+  "progressPct": 45,
+  "message": "正在解析视频元信息"
+}
+```
+
+**渲染进度事件示例**
+
+```json
+{
+  "schema_version": 1,
+  "type": "render.progress",
+  "taskId": "render-1",
+  "projectId": "project-1",
+  "status": "running",
+  "progressPct": 62,
+  "bitrateKbps": 3800,
+  "outputSec": 9.2,
+  "message": "正在渲染"
+}
+```
+
+**当前差异**
+
+- `tasks.video_tasks` 的 `video.import.stage.*` 广播当前未显式附带 `schema_version`；前端 `task-bus.ts` 只接收带 `schema_version` 的 Runtime 事件。后续修复事件广播时必须同步更新本文件和 `task-bus.spec.ts`。
+- `process_video_import_task` 仍额外广播历史 `video_status_changed` 事件；新页面应以 TaskBus 事件为准，旧事件仅作兼容观察。
 
 **非任务事件示例**
 
@@ -1011,4 +1313,552 @@
 8. `tests/contracts/` 与 `apps/desktop/tests/`
 9. 本文件 `docs/RUNTIME-API-CALLS.md`
 
-当前文档与代码对齐批次：**2026-04-17 Runtime 接口补齐与 M06/M11/M12/M13/M14/M15 收口**
+### 20.1 当前代码一致性异常
+
+以下项目不是文档遗漏，而是当前代码中已经存在的 wrapper / 类型 / 路由差异；后续修复时必须同时改后端、前端、测试和本文档。
+
+| 模块 | 差异 | 当前处理 |
+| --- | --- | --- |
+| Prompt 模板 | 后端已实现 `PUT /api/prompt-templates/{template_id}`，但前端 `runtime-client.ts` 仍用 `PATCH` 且输入字段仍是 `kind/name/template` | 文档以后端 `kind/name/description/content` 为真实契约，并记录前端旧口径 |
+| M11 设备与工作区 | `BrowserInstanceDto` / `ExecutionBindingDto` 仍是前端兼容类型口径，后端真实对象以 `DeviceWorkspaceDto` 与 `AccountBindingDto` 为主 | 文档以当前后端 schema 为真实接口 |
+| M13 发布中心 | 前端 `PublishReceiptDto`、`PublishingCalendarDayDto[]` 仍是旧扁平类型，后端返回 `platform_response_json/received_at` 与 `PublishCalendarDto` 聚合对象 | 文档以当前后端 schema 为真实接口 |
+| M14 渲染导出 | `render_service.py` 与 `domain.models.__init__` 引用 `ExportProfile`，但 `domain.models.render` 当前缺少该 ORM 模型；前端 `RenderResourceUsageDto` 仍是旧扁平类型 | 文档记录已声明接口和当前 schema，后续需修复模型/类型后再确认契约测试 |
+| TaskBus | 视频导入阶段事件当前缺少 `schema_version`，历史 `video_status_changed` 仍存在 | 文档登记为兼容差异，后续实现需统一事件信封 |
+
+当前文档与代码对齐批次：**2026-04-19 review / workspace / subtitles / video-deconstruction / voice 收口，HTTP 接口明细已与当前后端代码全量对齐；后续主要补更多异常样例与前端联调说明**
+
+---
+
+## 21. AI Provider 多模型调用层架构
+
+> **本节定位**：为 Codex（后端）和 Gemini（前端）提供完整的多 AI Provider 调用层实现规格。Codex 读本节写代码，Gemini 读本节对齐前端状态。
+
+### 21.1 现状与缺口总览
+
+| 层级 | 现状 | 缺口 |
+| --- | --- | --- |
+| Provider 目录层 | `_provider_catalog_metadata()` 已定义 24+ Provider | **已完成** |
+| 健康探针层 | `openai` / `openai_compatible` / `anthropic` / `gemini` / `cohere` 均有 `_post_*_probe` | **已完成** |
+| 文本生成 dispatch | `generate_text()` 已使用 `dispatch_text_generation(runtime_config, request)`，按 `ProviderRuntimeConfig.protocol_family` 走统一 registry | **已完成** |
+| TTS 生成 dispatch | `voice_service.py` 的 `generate_track()` 已支持 `blocked / processing` 双路径；当前仅 OpenAI TTS 可真实执行 | **已完成最小真实接入** |
+| Provider 适配器目录 | `apps/py-runtime/src/ai/providers/` 已落地文本 adapter 与 `tts_openai.py`；其他 TTS adapter 仍为预留规格 | **已部分完成** |
+
+### 21.2 Provider 协议族分类
+
+所有 24+ Provider 按 HTTP 协议归为 **5 个协议族**，dispatch 只需实现 5 条路径：
+
+| 协议族 ID | 协议特征 | 覆盖 Provider |
+| --- | --- | --- |
+| `openai_responses` | POST `/responses`，Bearer auth，`{model, instructions, input}` | `openai`（仅 Responses API） |
+| `openai_chat` | POST `/chat/completions`，Bearer auth，`{model, messages}` | `openai_compatible`, `deepseek`, `qwen`, `kimi`, `zhipu`, `minimax`, `doubao`, `baidu_qianfan`, `hunyuan`, `xai`, `mistral`, `openrouter`, `ollama`, `lm_studio`, `vllm`, `localai` |
+| `anthropic_messages` | POST `/messages`，`x-api-key` header + `anthropic-version`，`{model, messages, max_tokens}` | `anthropic` |
+| `gemini_generate` | POST `/models/{model}:generateContent?key=`，无 auth header，`{contents}` | `gemini` |
+| `cohere_chat` | POST `/chat`，Bearer auth，`{model, message}` | `cohere` |
+
+> **规则**：目录中未列出协议族的 Provider（如 `azure_speech`、`elevenlabs` 等）属于 TTS/视频/分析专用，不走文本生成 dispatch。
+
+### 21.3 Provider 适配器接口契约（Codex 实现规格）
+
+#### 21.3.1 文件结构
+
+```
+apps/py-runtime/src/ai/providers/
+├── __init__.py              # 导出 dispatch_text_generation / dispatch_tts / has_tts_adapter
+├── _http.py                 # Provider HTTP 公共层
+├── base.py                  # TextGenerationAdapter / TTSAdapter 抽象基类
+├── errors.py                # ProviderHTTPException
+├── openai_responses.py      # OpenAI Responses API 适配
+├── openai_chat.py           # OpenAI-compatible Chat Completions 适配
+├── anthropic_messages.py    # Anthropic Messages API 适配
+├── gemini_generate.py       # Google Gemini GenerateContent 适配
+├── cohere_chat.py           # Cohere Chat 适配
+└── tts_openai.py            # OpenAI TTS 适配
+```
+
+> 当前状态（2026-04-18）：其他 TTS adapter 仍属预留规格，尚未在 `apps/py-runtime/src/ai/providers/` 目录落地。
+
+#### 21.3.2 TextGenerationAdapter 基类
+
+```python
+# apps/py-runtime/src/ai/providers/base.py
+
+from __future__ import annotations
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class TextGenerationRequest:
+    """统一的文本生成请求"""
+    model: str
+    system_prompt: str       # agentRole + systemPrompt 拼接
+    user_prompt: str         # 模板渲染后的用户 prompt
+    max_tokens: int = 4096
+    temperature: float = 0.7
+    request_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TextGenerationResponse:
+    """统一的文本生成响应"""
+    text: str
+    usage_input_tokens: int | None = None
+    usage_output_tokens: int | None = None
+    raw_response: dict | None = None  # 调试用，不暴露给前端
+
+
+class TextGenerationAdapter(ABC):
+    """文本生成适配器抽象基类"""
+
+    @abstractmethod
+    def generate(
+        self,
+        *,
+        base_url: str,
+        api_key: str,
+        request: TextGenerationRequest,
+    ) -> TextGenerationResponse:
+        """调用 Provider API 生成文本，失败时抛 ProviderError"""
+        ...
+```
+
+#### 21.3.3 Anthropic Messages 适配器（`_call_anthropic_messages`）
+
+**文件**：`apps/py-runtime/src/ai/providers/anthropic_messages.py`
+
+**HTTP 请求规格**：
+
+| 项目 | 值 |
+| --- | --- |
+| Method | `POST` |
+| Endpoint | `{base_url}`（默认 `https://api.anthropic.com/v1/messages`） |
+| Auth Header | `x-api-key: {api_key}`（**不是** Bearer） |
+| 必传 Header | `anthropic-version: 2023-06-01`，`content-type: application/json` |
+| Timeout | 60s |
+
+**请求体**：
+
+```json
+{
+  "model": "{model}",
+  "max_tokens": 4096,
+  "system": "{system_prompt}",
+  "messages": [
+    { "role": "user", "content": "{user_prompt}" }
+  ]
+}
+```
+
+**响应解析**：
+
+```python
+# 成功响应结构
+{
+  "id": "msg_...",
+  "type": "message",
+  "content": [
+    { "type": "text", "text": "生成的文本..." }
+  ],
+  "usage": {
+    "input_tokens": 100,
+    "output_tokens": 200
+  }
+}
+
+# 解析逻辑
+texts = [block["text"] for block in response["content"] if block["type"] == "text"]
+text = "\n".join(texts).strip()
+if not text:
+    raise ProviderError(502, "Anthropic 返回了空文本。")
+```
+
+**错误映射**：
+
+| HTTP Status | error.type | 中文提示 | error_code |
+| --- | --- | --- | --- |
+| 401 | `authentication_error` | API Key 无效或已过期 | `ai_provider_auth_failed` |
+| 429 | `rate_limit_error` | 请求频率超限，请稍后重试 | `ai_provider_rate_limited` |
+| 529 | `overloaded_error` | Anthropic 服务过载，请稍后重试 | `ai_provider_overloaded` |
+| 5xx | — | AI Provider 服务异常 | `ai_provider_server_error` |
+
+#### 21.3.4 Gemini GenerateContent 适配器（`_call_gemini_generate`）
+
+**文件**：`apps/py-runtime/src/ai/providers/gemini_generate.py`
+
+**HTTP 请求规格**：
+
+| 项目 | 值 |
+| --- | --- |
+| Method | `POST` |
+| Endpoint | `{base_url}/{model}:generateContent?key={api_key}`（默认 base `https://generativelanguage.googleapis.com/v1beta/models`） |
+| Auth | **Query param** `key=`（不用 header） |
+| Header | `content-type: application/json` |
+| Timeout | 60s |
+
+**请求体**：
+
+```json
+{
+  "contents": [
+    {
+      "parts": [
+        { "text": "{user_prompt}" }
+      ]
+    }
+  ],
+  "systemInstruction": {
+    "parts": [
+      { "text": "{system_prompt}" }
+    ]
+  },
+  "generationConfig": {
+    "maxOutputTokens": 4096,
+    "temperature": 0.7
+  }
+}
+```
+
+**响应解析**：
+
+```python
+# 成功响应结构
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          { "text": "生成的文本..." }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 100,
+    "candidatesTokenCount": 200
+  }
+}
+
+# 解析逻辑
+candidates = response.get("candidates", [])
+if not candidates:
+    raise ProviderError(502, "Gemini 未返回候选结果。")
+parts = candidates[0].get("content", {}).get("parts", [])
+text = "\n".join(p["text"] for p in parts if "text" in p).strip()
+if not text:
+    raise ProviderError(502, "Gemini 返回了空文本。")
+```
+
+**Endpoint 构造注意**：`model` 必须 URL-encode（`urllib.parse.quote(model, safe="")`），与现有 `_post_gemini_probe` 逻辑一致。
+
+#### 21.3.5 Cohere Chat 适配器（`_call_cohere_chat`）
+
+**文件**：`apps/py-runtime/src/ai/providers/cohere_chat.py`
+
+**HTTP 请求规格**：
+
+| 项目 | 值 |
+| --- | --- |
+| Method | `POST` |
+| Endpoint | `{base_url}/chat`（默认 `https://api.cohere.com/v2/chat`） |
+| Auth | `Authorization: Bearer {api_key}` |
+| Header | `content-type: application/json` |
+| Timeout | 60s |
+
+**请求体**：
+
+```json
+{
+  "model": "{model}",
+  "messages": [
+    { "role": "system", "content": "{system_prompt}" },
+    { "role": "user", "content": "{user_prompt}" }
+  ]
+}
+```
+
+**响应解析**：
+
+```python
+# Cohere V2 Chat API 响应结构
+{
+  "id": "...",
+  "message": {
+    "role": "assistant",
+    "content": [
+      { "type": "text", "text": "生成的文本..." }
+    ]
+  },
+  "usage": {
+    "tokens": { "input_tokens": 100, "output_tokens": 200 }
+  }
+}
+
+# 解析逻辑
+content = response.get("message", {}).get("content", [])
+if isinstance(content, list):
+    text = "\n".join(c["text"] for c in content if c.get("type") == "text").strip()
+elif isinstance(content, str):
+    text = content.strip()
+if not text:
+    raise ProviderError(502, "Cohere 返回了空文本。")
+```
+
+### 21.4 generate_text dispatch（当前实现）
+
+**目标文件**：`apps/py-runtime/src/services/ai_text_generation_service.py`
+
+**当前状态（2026-04-18）**：
+
+- `AITextGenerationService.generate_text()` 已不再维护 `_PROTOCOL_MAP`，也不再按 `provider == 'openai' / 'openai_compatible'` 做硬编码分支。
+- `AICapabilityService.get_provider_runtime_config()` 已返回 `ProviderRuntimeConfig.protocol_family`，由 `ai.providers.dispatch_text_generation(runtime_config, request)` 统一分发。
+- runtime 当前已注册的文本协议族为：`openai_responses`、`openai_chat`、`anthropic_messages`、`gemini_generate`、`cohere_chat`。
+
+```python
+provider_runtime = self._capability_service.get_provider_runtime_config(capability.provider)
+
+output = ai_providers.dispatch_text_generation(
+    provider_runtime,
+    TextGenerationRequest(
+        model=capability.model,
+        system_prompt=instructions,
+        user_prompt=prompt,
+        request_id=request_id,
+    ),
+)
+output_text = output.text
+```
+
+**当前约束**：
+- `dispatch_text_generation(runtime_config, request)` 只依赖 `runtime_config.protocol_family`，不再接收额外 `protocol_family` 参数。
+- 未注册的协议族统一抛 `ai_provider_unsupported`。
+- `GeneratedTextResult`、Prompt 模板渲染以及 `AIJobRepository.create_running / mark_succeeded / mark_failed` 生命周期保持不变。
+
+### 21.5 TTS 调用层规格（Codex 实现规格）
+
+#### 21.5.1 TTS 适配器基类
+
+```python
+# apps/py-runtime/src/ai/providers/base.py（追加）
+
+@dataclass(frozen=True, slots=True)
+class TTSRequest:
+    """统一的 TTS 请求"""
+    text: str
+    voice_id: str
+    model: str | None = None
+    speed: float = 1.0
+    output_format: str = "mp3"  # mp3 / wav / pcm
+    request_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TTSResponse:
+    """统一的 TTS 响应"""
+    audio_bytes: bytes
+    content_type: str          # audio/mpeg, audio/wav, etc.
+    duration_ms: int | None = None
+
+
+class TTSAdapter(ABC):
+    @abstractmethod
+    def synthesize(
+        self,
+        *,
+        base_url: str,
+        api_key: str,
+        request: TTSRequest,
+    ) -> TTSResponse:
+        ...
+```
+
+#### 21.5.2 各 TTS Provider 调用规格
+
+| Provider | Endpoint | Auth | 请求体核心字段 | 响应 |
+| --- | --- | --- | --- | --- |
+| `openai`（当前已落地） | `POST {base_url}/audio/speech` | Bearer | `{model, input, voice, speed, response_format}` | 二进制音频流 |
+
+> 当前状态（2026-04-18）：仅 `tts_openai.py` 已落地。Azure Speech、ElevenLabs、火山语音、MiniMax Speech 等其他 TTS adapter 仍属预留规格，尚未接入 runtime。
+
+#### 21.5.3 voice_service.py 改造要点
+
+**当前状态（2026-04-18）**：
+
+1. `VoiceService.generate_track()` 已支持双路径：
+   - 有可用 OpenAI TTS 配置且 provider 已注册 TTS adapter → 创建 `status="processing"` 的轨道并返回 `kind="ai-voice"` 任务对象。
+   - 无可用 TTS adapter、无配置、缺少必需 secret 或 base_url → 保持兼容 `status="blocked"` + `task=null`。
+2. `ai-voice` 后台任务会调用 `dispatch_tts()`，并将音频落盘到 `{workspace}/voice/{track_id}.{format}`。
+3. 后台任务成功后更新 `file_path`、`provider` 和 `status="ready"`；失败时更新 `status="failed"`。
+4. `regenerate_segment()` 仍走 TaskBus 兼容任务对象，不做真实分段音频拼接或音频回写。
+
+#### 21.5.4 TTS Provider 到 voice_id 映射
+
+`VoiceProfile.provider` 已使用真实 provider ID；当前内建音色均为 `openai`。
+
+| VoiceProfile.provider | voice_id 含义 | 示例 |
+| --- | --- | --- |
+| `openai` | OpenAI voice name | `alloy`、`nova`、`echo`、`shimmer` |
+| 其他 provider | 各家 TTS voice 标识 | 仍属预留规格，待对应 TTS adapter 落地后启用 |
+
+### 21.6 Provider 能力适配矩阵
+
+> Codex 实现时以此表为 dispatch 依据。前端以此表控制 Provider 下拉选项。
+
+> 当前状态（2026-04-18）：`dispatch_tts` 当前仅注册 `openai`。其余虽然在能力元数据中声明了 `tts` capability，但运行时若无已注册 TTS adapter，会在 `VoiceService.generate_track()` 侧回退为 `blocked`。
+
+| Provider ID | text_generation | vision | tts | video_generation | asset_analysis | 协议族 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `openai` | ✅ | ✅ | ✅ | — | — | `openai_responses` |
+| `openai_compatible` | ✅ | ✅ | — | — | — | `openai_chat` |
+| `anthropic` | ✅ | ✅ | — | — | — | `anthropic_messages` |
+| `gemini` | ✅ | ✅ | — | — | ✅ | `gemini_generate` |
+| `deepseek` | ✅ | — | — | — | — | `openai_chat` |
+| `qwen` | ✅ | ✅ | — | — | — | `openai_chat` |
+| `kimi` | ✅ | — | — | — | — | `openai_chat` |
+| `zhipu` | ✅ | ✅ | — | — | — | `openai_chat` |
+| `minimax` | ✅ | — | ✅ | — | — | `openai_chat` |
+| `doubao` | ✅ | ✅ | ✅ | — | — | `openai_chat` |
+| `baidu_qianfan` | ✅ | ✅ | — | — | — | `openai_chat` |
+| `hunyuan` | ✅ | ✅ | — | — | — | `openai_chat` |
+| `xai` | ✅ | — | — | — | — | `openai_chat` |
+| `mistral` | ✅ | — | — | — | — | `openai_chat` |
+| `cohere` | ✅ | — | — | — | — | `cohere_chat` |
+| `openrouter` | ✅ | ✅ | — | — | — | `openai_chat` |
+| `ollama` | ✅ | ✅ | — | — | — | `openai_chat` |
+| `lm_studio` | ✅ | ✅ | — | — | — | `openai_chat` |
+| `vllm` | ✅ | — | — | — | — | `openai_chat` |
+| `localai` | ✅ | — | ✅ | — | — | `openai_chat` |
+| `azure_speech` | — | — | ✅ | — | — | 专用 TTS |
+| `elevenlabs` | — | — | ✅ | — | — | 专用 TTS |
+| `volcengine_speech` | — | — | ✅ | — | — | 专用 TTS |
+| `minimax_speech` | — | — | ✅ | — | — | 专用 TTS |
+
+### 21.7 统一错误码扩展
+
+AI 调用层新增以下 `error_code`，Codex 在服务层抛出，Gemini 在前端映射中文提示：
+
+| error_code | HTTP Status | 中文提示 | 触发场景 |
+| --- | --- | --- | --- |
+| `ai_capability_disabled` | 400 | 当前 AI 能力已停用，请在设置中启用 | `capability.enabled == false` |
+| `ai_provider_not_configured` | 400 | Provider API Key 尚未配置 | 当前 Provider `requires_secret=true` 且 `api_key` 为空 |
+| `ai_provider_base_url_missing` | 400 | Provider Base URL 尚未配置 | `openai_compatible` 等需 base_url 的 provider |
+| `ai_provider_unsupported` | 400 | 当前 Provider 不支持该能力类型 | Provider 不支持文本生成，或 `protocol_family` 未注册到文本 adapter registry |
+| `ai_provider_auth_failed` | 502 | AI Provider 认证失败，请检查 API Key | 远端返回 401/403 |
+| `ai_provider_rate_limited` | 502 | 请求频率超限，请稍后重试 | 远端返回 429 |
+| `ai_provider_overloaded` | 502 | AI Provider 服务过载，请稍后重试 | 远端返回 529（Anthropic）/ 503 |
+| `ai_provider_server_error` | 502 | AI Provider 服务异常 | 远端返回 5xx |
+| `ai_provider_empty_response` | 502 | AI Provider 返回了空内容 | 解析结果为空 |
+| `ai_provider_timeout` | 504 | AI Provider 响应超时 | 60s 超时 |
+| `ai_provider_unreachable` | 502 | 无法连接 AI Provider，请检查网络 | `URLError` |
+| `tts_provider_not_available` | 503 | TTS Provider 尚未接入 | 调用 `dispatch_tts()` 时当前 Provider 未注册 TTS adapter |
+
+---
+
+## 22. 前后端接口漂移修复清单（Gemini 实现规格）
+
+> 本节列出当前前端代码与后端真实接口的不一致项。Gemini 按此表逐项修复前端。
+
+### 22.1 Prompt 模板接口（已知漂移）
+
+| 项 | 当前前端 | 后端真实接口 | 修复动作 |
+| --- | --- | --- | --- |
+| 更新方法 | `runtime-client.ts` 使用 `PATCH` | 后端路由为 `PUT /api/prompt-templates/{template_id}` | 前端改为 `PUT` |
+| 请求字段 | `{ kind, name, template }` | `{ kind, name, description, content }` | 前端字段名 `template` → `content`，新增 `description` |
+
+### 22.2 M11 设备与工作区类型（已知漂移）
+
+| 项 | 当前前端 | 后端真实接口 | 修复动作 |
+| --- | --- | --- | --- |
+| DTO 命名 | `BrowserInstanceDto` / `ExecutionBindingDto` | `DeviceWorkspaceDto` / `AccountBindingDto` | 前端重命名类型并更新 `runtime.ts` 中对应 type |
+| Store 命名 | 检查 `useDeviceStore` 引用的字段名 | 以 `DeviceWorkspaceDto` schema 为准 | 对齐字段 |
+
+### 22.3 M13 发布中心类型（已知漂移）
+
+| 项 | 当前前端 | 后端真实接口 | 修复动作 |
+| --- | --- | --- | --- |
+| 发布回执 | `PublishReceiptDto`（扁平） | 后端返回 `platform_response_json` + `received_at` | 前端 type 补齐嵌套结构 |
+| 日历视图 | `PublishingCalendarDayDto[]`（扁平数组） | 后端返回 `PublishCalendarDto`（聚合对象） | 前端 type 改为聚合结构 |
+
+### 22.4 M14 渲染导出（已知漂移 + 后端缺口）
+
+| 项 | 当前前端 | 后端真实接口 | 修复动作 |
+| --- | --- | --- | --- |
+| 资源用量 | `RenderResourceUsageDto`（扁平） | 后端 schema 结构不同 | 前端对齐后端 schema |
+| ExportProfile | 前端已引用 | `domain.models.render` 缺少 `ExportProfile` ORM 模型 | **Codex 先补 ORM**，Gemini 再对齐 |
+
+### 22.5 TaskBus WebSocket（已知漂移）
+
+| 项 | 当前前端 | 后端真实接口 | 修复动作 |
+| --- | --- | --- | --- |
+| `schema_version` | 部分事件未携带 | 全局约定所有 WS 消息必须带 `schema_version` | **Codex 后端统一补齐**，前端解析时校验 |
+| `video_status_changed` | 仍在监听 | 历史事件，后端可能不再发送 | 前端确认是否仍需监听，否则移除 |
+
+### 22.6 AI 能力配置页面对齐
+
+前端 AI 设置页面需要与 21.6 能力矩阵联动：
+
+| 需求 | 说明 | Gemini 动作 |
+| --- | --- | --- |
+| Provider 选择器过滤 | 用户选择 `capability_id` 后，Provider 下拉只显示支持该能力的 Provider | 读取 `GET /api/settings/ai-providers/catalog` 返回的 `capabilities` 字段做过滤 |
+| 模型选择器联动 | Provider 变更后，模型列表跟随切换 | 调用 `GET /api/settings/ai-providers/{provider_id}/models` 获取可用模型 |
+| 健康状态展示 | 每个已配置 Provider 显示连通状态 | 调用 `POST /api/settings/ai-capabilities/providers/{provider_id}/health-check` |
+| TTS Provider 区分 | TTS 能力配置时只展示 TTS Provider | 前端按 `capabilities` 包含 `"tts"` 过滤 |
+
+---
+
+## 23. 分阶段实施路线图
+
+### Phase 0：Provider 适配器骨架（Codex · 优先级最高）
+
+- [x] 创建 `apps/py-runtime/src/ai/providers/__init__.py` + `base.py`
+- [x] 将现有 `_call_openai_responses` 迁移到 `openai_responses.py`
+- [x] 将现有 `_call_openai_compatible_chat` 迁移到 `openai_chat.py`
+- [x] 改造 `generate_text()` dispatch，改为使用 `ProviderRuntimeConfig.protocol_family` + `dispatch_text_generation(...)`
+- [x] 确保现有 `openai` + `openai_compatible` 行为不变（回归测试）
+
+### Phase 1：补齐三大商业 Provider（Codex）
+
+- [x] 实现 `anthropic_messages.py`（按 21.3.3 规格）
+- [x] 实现 `gemini_generate.py`（按 21.3.4 规格）
+- [x] 实现 `cohere_chat.py`（按 21.3.5 规格）
+- [x] 统一错误码（按 21.7 表）
+- [x] 补齐 `tests/runtime/test_ai_providers.py` 单元测试
+
+### Phase 2：TTS 调用层（Codex）
+
+- [x] 实现 `TTSAdapter` 基类 + `tts_openai.py`（当前只落地 OpenAI TTS）
+- [x] 改造 `voice_service.py`（按 21.5.3 要点）
+- [x] `VoiceProfile.provider` 从占位 provider 改为真实 provider ID
+- [ ] 后续逐个接入 Azure Speech / ElevenLabs / 火山 / MiniMax
+
+### Phase 3：前端对齐（Gemini）
+
+- [ ] 修复 22.1-22.5 所有接口漂移项
+- [ ] AI 设置页面 Provider 选择器联动（按 22.6）
+- [ ] TTS 页面接入真实音频播放（依赖 Phase 2 完成）
+
+---
+
+## 24. ProviderRuntimeConfig 完整字段参考
+
+当前 `ProviderRuntimeConfig` dataclass（`ai_capability_service.py:38`）：
+
+```python
+@dataclass(frozen=True, slots=True)
+class ProviderRuntimeConfig:
+    provider: str                    # Provider ID，如 'anthropic'
+    label: str                       # 展示名，如 'Anthropic'
+    api_key: str | None              # API Key（已从 SecretStore 解密）
+    base_url: str                    # 当前生效的 Base URL
+    secret_source: str               # 'secure_store' | 'env' | 'none'
+    requires_secret: bool            # 当前 Provider 是否必须配置 secret
+    supports_text_generation: bool   # 是否支持文本生成
+    supports_tts: bool               # 是否支持 TTS
+    protocol_family: str             # 文本协议族 ID，供 dispatch 使用
+```
+
+> `requires_secret`、`supports_tts`、`protocol_family` 当前属于 runtime 内部元数据，用于服务层和 adapter dispatch，不直接外泄到现有 HTTP DTO。
+
+---
+
+> **文档版本**：2026-04-19 · review / workspace / subtitles / video-deconstruction / voice 契约对齐 · AI Provider 调用层架构定义首版 · 接口漂移清单 · 分阶段路线图

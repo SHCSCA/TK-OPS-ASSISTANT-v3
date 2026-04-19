@@ -32,3 +32,43 @@ class VideoStageDto(BaseModel):
     errorMessage: str | None = None
     updatedAt: str | None = None
     canRerun: bool
+
+
+class VideoTranscriptDto(BaseModel):
+    id: str
+    videoId: str
+    language: str | None = None
+    text: str | None = None
+    status: str
+    createdAt: str
+    updatedAt: str
+
+
+class VideoSegmentDto(BaseModel):
+    id: str
+    videoId: str
+    segmentIndex: int
+    startMs: int
+    endMs: int
+    label: str | None = None
+    transcriptText: str | None = None
+    metadataJson: str | None = None
+    createdAt: str
+
+
+class VideoStructureExtractionDto(BaseModel):
+    id: str
+    videoId: str
+    status: str
+    scriptJson: str | None = None
+    storyboardJson: str | None = None
+    createdAt: str
+    updatedAt: str
+
+
+class ApplyVideoExtractionResultDto(BaseModel):
+    projectId: str
+    extractionId: str
+    scriptRevision: int
+    status: str
+    message: str
