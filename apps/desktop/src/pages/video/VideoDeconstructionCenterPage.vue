@@ -48,13 +48,11 @@
                 v-for="video in videoImportStore.videos"
                 :key="video.id"
                 class="video-card"
+                :interactive="true"
               >
-                <div class="video-card__preview">
-                   <div class="video-card__overlay">
-                     <span v-if="video.status === 'ready'" class="material-symbols-outlined">play_circle</span>
-                     <span v-else class="material-symbols-outlined spinning">sync</span>
-                   </div>
-                </div>
+                <!-- Real Preview Component -->
+                <AssetPreview :asset="mapToAsset(video)" variant="card" />
+
                 <div class="video-card__body">
                   <div class="video-card__header">
                     <div class="video-card__title">
@@ -122,11 +120,13 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from "vue";
 
+import AssetPreview from "@/components/assets/AssetPreview.vue";
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
 import { useProjectStore } from "@/stores/project";
 import { useTaskBusStore } from "@/stores/task-bus";
 import { useVideoImportStore } from "@/stores/video-import";
 import type { TaskInfo } from "@/types/task-events";
+import type { AssetDto, ImportedVideo } from "@/types/runtime";
 
 import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
@@ -195,7 +195,6 @@ function formatResolution(width: number | null, height: number | null): string {
 function taskForVideo(videoId: string): TaskInfo | undefined {
   const directTask = taskBusSnapshot.value.tasks.get(videoId);
   if (directTask) return directTask;
-  taskBusSnapshot.value.lastEvents.get(videoId);
   return videoImportStore.taskForVideo(videoId);
 }
 
@@ -220,6 +219,25 @@ function formatFrameRate(value: number | null): string {
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Helper to map ImportedVideo to AssetDto for preview component */
+function mapToAsset(v: ImportedVideo): AssetDto {
+  return {
+    id: v.id,
+    name: v.fileName,
+    type: "video",
+    source: "local",
+    filePath: v.filePath,
+    fileSizeBytes: v.fileSizeBytes,
+    durationMs: v.durationSeconds ? v.durationSeconds * 1000 : null,
+    thumbnailPath: null,
+    tags: null,
+    projectId: v.projectId,
+    metadataJson: null,
+    createdAt: v.createdAt,
+    updatedAt: v.createdAt
+  };
 }
 </script>
 
@@ -380,22 +398,10 @@ function formatFileSize(bytes: number): string {
   position: absolute;
 }
 
-.video-card__preview {
-  height: 140px;
-  background: var(--color-bg-muted);
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.video-card :deep(.asset-preview) {
+  height: 160px;
   border-bottom: 1px solid var(--color-border-subtle);
-}
-
-.video-card__overlay {
-  color: var(--color-text-tertiary);
-}
-
-.video-card__overlay .material-symbols-outlined {
-  font-size: 32px;
+  border-radius: 0;
 }
 
 .video-card__body {

@@ -12,27 +12,29 @@
 
     <div class="workspace-preview-stage__body">
       <div class="workspace-preview-stage__frame">
-        <div class="workspace-preview-stage__canvas">
-          <span class="material-symbols-outlined">movie</span>
-          <strong>{{ headline }}</strong>
-          <p>{{ description }}</p>
-        </div>
+        <transition name="preview-fade" mode="out-in">
+          <div :key="headline" class="workspace-preview-stage__canvas">
+            <span class="material-symbols-outlined">movie</span>
+            <strong>{{ headline }}</strong>
+            <p>{{ description }}</p>
+          </div>
+        </transition>
       </div>
 
-      <aside class="workspace-preview-stage__facts">
-        <div>
+      <aside class="workspace-preview-stage__facts scroll-area">
+        <div class="fact-item">
           <small>时间线</small>
           <strong>{{ timeline?.name ?? "未创建" }}</strong>
         </div>
-        <div>
+        <div class="fact-item">
           <small>当前选择</small>
           <strong>{{ selectionLabel }}</strong>
         </div>
-        <div>
+        <div class="fact-item">
           <small>总时长</small>
           <strong>{{ durationLabel }}</strong>
         </div>
-        <div>
+        <div class="fact-item">
           <small>轨道数</small>
           <strong>{{ trackCountLabel }}</strong>
         </div>
@@ -225,6 +227,20 @@ function formatMs(value: number): string {
   gap: 4px;
 }
 
+.scroll-area {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 4px;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
+}
+
 .workspace-preview-stage__transport button {
   align-items: center;
   background: transparent;
@@ -235,6 +251,26 @@ function formatMs(value: number): string {
   height: 34px;
   justify-content: center;
   width: 34px;
+  transition: transform var(--motion-fast) var(--ease-standard);
+  cursor: pointer;
+}
+
+.workspace-preview-stage__transport button:not(:disabled):active {
+  transform: scale(0.92);
+}
+
+/* Transitions */
+.preview-fade-enter-active,
+.preview-fade-leave-active {
+  transition: opacity var(--motion-default) var(--ease-standard), transform var(--motion-default) var(--ease-spring);
+}
+.preview-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.98);
+}
+.preview-fade-leave-to {
+  opacity: 0;
+  transform: scale(1.02);
 }
 
 @media (max-width: 960px) {

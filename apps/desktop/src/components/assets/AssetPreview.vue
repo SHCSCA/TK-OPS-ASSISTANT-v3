@@ -12,7 +12,7 @@
     <video
       v-else-if="previewKind === 'video' && previewUrl"
       :data-testid="`asset-preview-video-${asset.id}`"
-      :src="previewUrl"
+      :src="previewUrl.startsWith('http') || previewUrl.startsWith('asset') ? previewUrl + '#t=0.001' : previewUrl"
       muted
       playsinline
       preload="metadata"
@@ -58,8 +58,6 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
-
 import type { AssetDto } from "@/types/runtime";
 
 const UTF8_TEXT_PREVIEW_LIMIT = 2400;
@@ -74,8 +72,40 @@ const props = withDefaults(
   }
 );
 
-const previewSource = computed(() => props.asset.thumbnailPath || props.asset.filePath || "");
-const previewUrl = computed(() => toPreviewUrl(previewSource.value));
+const previewKind = computed(() => {
+  if (props.asset.type === "image") return "image";
+  
+  if (props.asset.thumbnailPath) {
+    const thumbLower = props.asset.thumbnailPath.toLowerCase();
+    const isVideoExt = /\.(mp4|mov|mkv|webm|avi|flv|wmv)$/.test(thumbLower);
+    if (!isVideoExt) return "image";
+  }
+  
+  if (props.asset.type === "video") return "video";
+  if (props.asset.type === "document") return "document";
+  return "fallback";
+});
+
+const previewUrl = ref("");
+
+async function resolvePreviewUrl(path: string) {
+  if (!path || path === "null" || path === "undefined") return "";
+  if (/^(asset|blob|data|https?):/i.test(path)) return path;
+  
+  try {
+    const { convertFileSrc } = await import(/* @vite-ignore */ "@tauri-apps/api/core");
+    const url = convertFileSrc(path);
+    return url;
+  } catch {
+    return "";
+  }
+}
+
+watch(() => props.asset.id, async () => {
+  const path = previewKind.value === "image" && props.asset.thumbnailPath ? props.asset.thumbnailPath : props.asset.filePath;
+  previewUrl.value = await resolvePreviewUrl(path || "");
+}, { immediate: true });
+
 const textPreview = ref("");
 const textPreviewStatus = ref<"idle" | "loading" | "ready" | "error">("idle");
 const textPreviewError = ref("无法读取 UTF-8 文档预览");
@@ -89,23 +119,11 @@ const fileExtension = computed(() => {
 
 const previewBadge = computed(() => {
   switch (previewKind.value) {
-    case "video":
-      return "视频";
-    case "image":
-      return "图片";
-    case "document":
-      return "文档";
-    default:
-      return "文件";
+    case "video": return "视频";
+    case "image": return "图片";
+    case "document": return "文档";
+    default: return "文件";
   }
-});
-
-const previewKind = computed(() => {
-  if (props.asset.thumbnailPath) return "image";
-  if (props.asset.type === "video") return "video";
-  if (props.asset.type === "image") return "image";
-  if (props.asset.type === "document") return "document";
-  return "fallback";
 });
 
 const isEmbeddableDocument = computed(() => {
@@ -120,10 +138,8 @@ const isUtf8TextDocument = computed(() => {
 
 const fallbackLabel = computed(() => {
   switch (props.asset.type) {
-    case "audio":
-      return "音频资产";
-    default:
-      return "文件资产";
+    case "audio": return "音频资产";
+    default: return "文件资产";
   }
 });
 
@@ -149,7 +165,7 @@ async function playPreview(event: MouseEvent) {
   try {
     await video.play();
   } catch {
-    // 鼠标悬停预览不应打断主流程，播放失败时保留首帧。
+    // ignore
   }
 }
 
@@ -163,20 +179,19 @@ function resetPreview(event: MouseEvent) {
 async function loadUtf8TextPreview(url: string) {
   const requestId = ++textPreviewRequestId;
   textPreview.value = "";
-  textPreviewError.value = "无法读取 UTF-8 文档预览";
   textPreviewStatus.value = "loading";
 
   try {
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`读取失败：${response.status}`);
+    if (!response.ok) throw new Error(`Error: ${response.status}`);
     const content = await response.text();
     if (requestId !== textPreviewRequestId) return;
-    textPreview.value = limitTextPreview(content);
+    textPreview.value = content.length > UTF8_TEXT_PREVIEW_LIMIT ? content.slice(0, UTF8_TEXT_PREVIEW_LIMIT) + "\n..." : content;
     textPreviewStatus.value = "ready";
   } catch {
     if (requestId !== textPreviewRequestId) return;
     textPreviewStatus.value = "error";
-    textPreviewError.value = "无法按 UTF-8 读取该文档";
+    textPreviewError.value = "无法读取文档";
   }
 }
 
@@ -184,22 +199,6 @@ function resetTextPreview() {
   textPreviewRequestId += 1;
   textPreview.value = "";
   textPreviewStatus.value = "idle";
-  textPreviewError.value = "无法读取 UTF-8 文档预览";
-}
-
-function limitTextPreview(content: string) {
-  if (content.length <= UTF8_TEXT_PREVIEW_LIMIT) return content;
-  return `${content.slice(0, UTF8_TEXT_PREVIEW_LIMIT)}\n...`;
-}
-
-function toPreviewUrl(filePath: string): string {
-  if (!filePath) return "";
-  if (/^(asset|blob|data|https?):/i.test(filePath)) return filePath;
-  try {
-    return isTauri() ? convertFileSrc(filePath) : "";
-  } catch {
-    return "";
-  }
 }
 </script>
 
@@ -210,12 +209,12 @@ function toPreviewUrl(filePath: string): string {
   background:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--color-bg-muted, var(--surface-sunken)) 84%, transparent),
-      var(--color-bg-surface, var(--surface-tertiary))
+      color-mix(in srgb, var(--color-bg-muted) 84%, transparent),
+      var(--color-bg-surface)
     );
-  border: 1px solid color-mix(in srgb, var(--color-border-default, var(--border-default)) 82%, transparent);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  color: var(--color-text-tertiary, var(--text-tertiary));
+  color: var(--color-text-tertiary);
   display: flex;
   justify-content: center;
   overflow: hidden;
@@ -236,25 +235,20 @@ function toPreviewUrl(filePath: string): string {
 }
 
 .asset-preview iframe {
-  background: var(--color-bg-surface, var(--surface-primary));
+  background: var(--color-bg-surface);
   pointer-events: none;
 }
 
 .asset-preview__text,
 .asset-preview__document,
 .asset-preview__fallback {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-bg-surface, var(--surface-primary)) 96%, transparent),
-      var(--color-bg-surface, var(--surface-secondary))
-    );
+  background: var(--color-bg-canvas);
   height: 100%;
   width: 100%;
 }
 
 .asset-preview__text {
-  color: var(--color-text-primary, var(--text-primary));
+  color: var(--color-text-primary);
   display: flex;
   overflow: hidden;
   padding: 12px;
@@ -262,7 +256,7 @@ function toPreviewUrl(filePath: string): string {
 
 .asset-preview__text span {
   align-self: center;
-  color: var(--color-text-secondary, var(--text-secondary));
+  color: var(--color-text-secondary);
   font-size: 12px;
   line-height: 1.6;
   text-align: center;
@@ -270,7 +264,7 @@ function toPreviewUrl(filePath: string): string {
 }
 
 .asset-preview__text pre {
-  font: 12px/1.55 ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font: 12px/1.55 var(--font-family-mono);
   margin: 0;
   overflow: hidden;
   text-align: left;
@@ -289,10 +283,10 @@ function toPreviewUrl(filePath: string): string {
 .asset-preview__document span,
 .asset-preview__fallback span {
   align-self: start;
-  background: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 35%, transparent);
+  background: var(--color-bg-active);
+  border: 1px solid var(--color-brand-primary);
   border-radius: var(--radius-sm);
-  color: var(--color-brand-primary, var(--brand-primary));
+  color: var(--color-brand-primary);
   font-size: 11px;
   font-weight: 800;
   justify-self: start;
@@ -302,21 +296,21 @@ function toPreviewUrl(filePath: string): string {
 .asset-preview__document strong,
 .asset-preview__fallback strong {
   align-self: end;
-  color: var(--color-text-primary, var(--text-primary));
+  color: var(--color-text-primary);
   font-size: 13px;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .asset-preview__document em {
-  color: var(--color-text-secondary, var(--text-secondary));
+  color: var(--color-text-secondary);
   font-size: 12px;
   font-style: normal;
 }
 
 .asset-preview__document small,
 .asset-preview__fallback small {
-  color: var(--color-text-secondary, var(--text-secondary));
+  color: var(--color-text-tertiary);
   font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -333,13 +327,11 @@ function toPreviewUrl(filePath: string): string {
   height: 20px;
   padding: 0 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-bg-overlay, rgba(0, 0, 0, 0.42)) 50%, transparent);
+  background: var(--color-bg-overlay);
   backdrop-filter: blur(8px);
-  color: var(--color-text-on-brand, #fff);
+  color: var(--color-text-on-brand);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0;
 }
-
-/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

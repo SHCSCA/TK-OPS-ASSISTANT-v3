@@ -75,40 +75,42 @@
                 <p>从当前项目创建真实导出任务后，这里会显示进度、状态和输出路径。</p>
               </div>
               <div v-else class="task-list">
-                <button
-                  v-for="task in filteredTasks"
-                  :key="task.id"
-                  class="task-card"
-                  :class="{
-                    'is-selected': selectedTaskId === task.id,
-                    'is-blocked': isTaskBlocked(task)
-                  }"
-                  @click="selectedTaskId = task.id"
-                >
-                  <div class="tc-head">
-                    <div class="tc-title">
-                      <strong>{{ task.projectName }}</strong>
-                      <span>{{ task.fileName }}</span>
+                <transition-group name="task-list-transition">
+                  <button
+                    v-for="task in filteredTasks"
+                    :key="task.id"
+                    class="task-card"
+                    :class="{
+                      'is-selected': selectedTaskId === task.id,
+                      'is-blocked': isTaskBlocked(task)
+                    }"
+                    @click="selectedTaskId = task.id"
+                  >
+                    <div class="tc-head">
+                      <div class="tc-title">
+                        <strong>{{ task.projectName }}</strong>
+                        <span>{{ task.fileName }}</span>
+                      </div>
+                      <Chip size="sm" :variant="taskTone(task)">{{ taskStatusLabel(task) }}</Chip>
                     </div>
-                    <Chip size="sm" :variant="taskTone(task)">{{ taskStatusLabel(task) }}</Chip>
-                  </div>
-                  
-                  <div v-if="task.status === 'running' || task.status === 'pending'" class="tc-progress">
-                    <div class="progress-bar">
-                      <div class="progress-fill" :style="{ width: `${task.progress}%` }"></div>
+                    
+                    <div v-if="task.status === 'running' || task.status === 'pending'" class="tc-progress">
+                      <div class="progress-bar">
+                        <div class="progress-fill" :style="{ width: `${task.progress}%` }"></div>
+                      </div>
+                      <span>{{ task.progress }}%</span>
                     </div>
-                    <span>{{ task.progress }}%</span>
-                  </div>
 
-                  <div class="tc-meta">
-                    <span>{{ task.preset }}</span>
-                    <span>{{ task.format }}</span>
-                    <span>{{ formatDateTime(task.createdAt) }}</span>
-                  </div>
-                  <div class="tc-meta" v-if="task.outputPath">
-                    <span>输出 {{ task.outputPath }}</span>
-                  </div>
-                </button>
+                    <div class="tc-meta">
+                      <span>{{ task.preset }}</span>
+                      <span>{{ task.format }}</span>
+                      <span>{{ formatDateTime(task.createdAt) }}</span>
+                    </div>
+                    <div class="tc-meta" v-if="task.outputPath">
+                      <span>输出 {{ task.outputPath }}</span>
+                    </div>
+                  </button>
+                </transition-group>
               </div>
             </div>
           </Card>
@@ -116,6 +118,7 @@
 
         <main class="workspace-main">
           <Card class="detail-card h-full scroll-area" v-if="selectedTask">
+            <div v-if="selectedTask.status === 'running'" class="ai-flow-bar" />
             <div class="detail-card__header">
               <div>
                 <p class="eyebrow">当前任务</p>
@@ -213,19 +216,19 @@
               <form class="drawer-form" @submit.prevent="handleCreateFromDrawer">
                 <div class="form-group">
                   <label>项目 ID</label>
-                  <input v-model="createForm.projectId" type="text" :placeholder="projectIdPlaceholder" class="ui-input-field" required />
+                  <Input v-model="createForm.projectId" :placeholder="projectIdPlaceholder" required />
                 </div>
                 <div class="form-group">
                   <label>项目名称</label>
-                  <input v-model="createForm.projectName" type="text" :placeholder="projectNamePlaceholder" class="ui-input-field" required />
+                  <Input v-model="createForm.projectName" :placeholder="projectNamePlaceholder" required />
                 </div>
                 <div class="form-group">
                   <label>预设</label>
-                  <input v-model="createForm.preset" type="text" placeholder="1080p" class="ui-input-field" />
+                  <Input v-model="createForm.preset" placeholder="1080p" />
                 </div>
                 <div class="form-group">
                   <label>格式</label>
-                  <input v-model="createForm.format" type="text" placeholder="mp4" class="ui-input-field" />
+                  <Input v-model="createForm.format" placeholder="mp4" />
                 </div>
                 <div class="drawer-actions">
                   <Button variant="ghost" @click="showDrawer = false">取消</Button>
@@ -250,6 +253,7 @@ import type { RenderTaskCreateInput, RenderTaskDto } from "@/types/runtime";
 import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
+import Input from "@/components/ui/Input/Input.vue";
 
 type RenderTaskView = RenderTaskDto & { fileName: string; projectId: string | null; projectName: string; status: "pending" | "running" | "completed" | "failed"; };
 type FilterValue = "all" | "queued" | "running" | "completed" | "failed";
@@ -431,6 +435,11 @@ function formatDateTime(value: string) {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: transform var(--motion-fast) var(--ease-spring);
+}
+
+.summary-card:active {
+  transform: scale(0.98);
 }
 
 .sc-label {
@@ -503,7 +512,19 @@ function formatDateTime(value: string) {
 }
 
 .rail-card__body.no-padding { padding: 0; }
-.scroll-area { overflow-y: auto; }
+.scroll-area {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 4px;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
+}
 
 .empty-state {
   display: flex;
@@ -537,10 +558,26 @@ function formatDateTime(value: string) {
   border-bottom: 1px solid var(--color-border-subtle);
   cursor: pointer;
   text-align: left;
-  transition: background-color var(--motion-fast) var(--ease-standard);
+  transition: all var(--motion-fast) var(--ease-standard);
 }
 
 .task-card:hover { background: var(--color-bg-hover); }
+.task-card:active { transform: scale(0.98); transition-duration: var(--motion-instant); }
+
+.task-list-transition-move,
+.task-list-transition-enter-active,
+.task-list-transition-leave-active {
+  transition: all var(--motion-default) var(--ease-spring);
+}
+.task-list-transition-enter-from,
+.task-list-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+.task-list-transition-leave-active {
+  position: absolute;
+  width: 100%;
+}
 
 .task-card.is-selected {
   background: color-mix(in srgb, var(--color-brand-primary) 8%, var(--color-bg-surface));
@@ -604,6 +641,17 @@ function formatDateTime(value: string) {
   padding: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+.ai-flow-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient-ai-primary);
+  background-size: 200% 200%;
+  animation: ai-flow 2.4s linear infinite;
+  z-index: 10;
 }
 
 .detail-card__header {
@@ -792,8 +840,18 @@ function formatDateTime(value: string) {
   margin-top: var(--space-4);
 }
 
-.drawer-enter-active, .drawer-leave-active { transition: opacity 160ms ease; }
-.drawer-enter-from, .drawer-leave-to { opacity: 0; }
+.drawer-enter-active, .drawer-leave-active { 
+  transition: opacity var(--motion-default) var(--ease-standard); 
+}
+.drawer-enter-from, .drawer-leave-to { 
+  opacity: 0; 
+}
+.drawer-enter-active .drawer-panel, .drawer-leave-active .drawer-panel { 
+  transition: transform var(--motion-default) var(--ease-spring); 
+}
+.drawer-enter-from .drawer-panel, .drawer-leave-to .drawer-panel { 
+  transform: translateX(100%); 
+}
 
 @media (max-width: 1200px) {
   .workspace-grid { grid-template-columns: 1fr; }

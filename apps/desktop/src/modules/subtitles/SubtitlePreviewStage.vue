@@ -1,5 +1,6 @@
 <template>
   <section class="panel-shell" data-testid="subtitle-preview-stage">
+    <div v-if="status === 'aligning'" class="ai-flow-bar" />
     <div class="stage-copy">
       <span class="stage-copy__kicker">字幕校对台</span>
       <h2>{{ title }}</h2>
@@ -144,6 +145,17 @@ function formatDate(value: string): string {
     var(--bg-elevated);
   padding: 24px;
   overflow: hidden;
+  position: relative;
+}
+
+.ai-flow-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient-ai-primary);
+  background-size: 200% 200%;
+  animation: ai-flow 2.4s linear infinite;
+  z-index: 10;
 }
 
 .stage-copy {

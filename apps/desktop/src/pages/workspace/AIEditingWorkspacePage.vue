@@ -1,61 +1,63 @@
 <template>
   <ProjectContextGuard>
-    <section class="editing-workspace-runtime" data-workspace-page="editing">
-      <WorkspaceToolbar
-        :blocked-message="blockedMessage"
-        :has-timeline="hasTimeline"
-        :project-name="currentProjectName"
-        :selection-label="selectionLabel"
-        :status="status"
-        :timeline-name="timelineName"
-        @create-draft="handleCreateDraft"
-        @save="handleSave"
-      />
-
-      <WorkspaceStateNotice
-        :blocked-message="blockedMessage"
-        :error-message="error?.message ?? null"
-        :status="status"
-        @create-draft="handleCreateDraft"
-        @retry="handleRetry"
-      />
-
-      <div class="editing-workspace-runtime__stage">
-        <WorkspaceAssetRail :selected-clip="selectedClip" :timeline="timeline" />
-        <WorkspacePreviewStage
+    <transition name="workspace-pop" appear>
+      <section class="editing-workspace-runtime" data-workspace-page="editing">
+        <WorkspaceToolbar
           :blocked-message="blockedMessage"
-          :selected-clip="selectedClip"
-          :selected-track="selectedTrack"
-          :timeline="timeline"
+          :has-timeline="hasTimeline"
+          :project-name="currentProjectName"
+          :selection-label="selectionLabel"
+          :status="status"
+          :timeline-name="timelineName"
+          @create-draft="handleCreateDraft"
+          @save="handleSave"
         />
-        <WorkspaceInspector
+
+        <WorkspaceStateNotice
           :blocked-message="blockedMessage"
           :error-message="error?.message ?? null"
-          :selected-clip="selectedClip"
-          :selected-track="selectedTrack"
+          :status="status"
+          @create-draft="handleCreateDraft"
+          @retry="handleRetry"
+        />
+
+        <div class="editing-workspace-runtime__stage">
+          <WorkspaceAssetRail :selected-clip="selectedClip" :timeline="timeline" />
+          <WorkspacePreviewStage
+            :blocked-message="blockedMessage"
+            :selected-clip="selectedClip"
+            :selected-track="selectedTrack"
+            :timeline="timeline"
+          />
+          <WorkspaceInspector
+            :blocked-message="blockedMessage"
+            :error-message="error?.message ?? null"
+            :selected-clip="selectedClip"
+            :selected-track="selectedTrack"
+            :status="status"
+            :timeline="timeline"
+          />
+        </div>
+
+        <WorkspaceTimeline
+          :selected-clip-id="selectedClipId"
+          :selected-track-id="selectedTrackId"
           :status="status"
           :timeline="timeline"
+          :tracks="orderedTracks"
+          @select-clip="handleSelectClip"
+          @select-track="handleSelectTrack"
         />
-      </div>
 
-      <WorkspaceTimeline
-        :selected-clip-id="selectedClipId"
-        :selected-track-id="selectedTrackId"
-        :status="status"
-        :timeline="timeline"
-        :tracks="orderedTracks"
-        @select-clip="handleSelectClip"
-        @select-track="handleSelectTrack"
-      />
-
-      <WorkspaceAIActions
-        :blocked-message="blockedMessage"
-        :has-timeline="hasTimeline"
-        :selected-clip="selectedClip"
-        :status="status"
-        @magic-cut="handleMagicCut"
-      />
-    </section>
+        <WorkspaceAIActions
+          :blocked-message="blockedMessage"
+          :has-timeline="hasTimeline"
+          :selected-clip="selectedClip"
+          :status="status"
+          @magic-cut="handleMagicCut"
+        />
+      </section>
+    </transition>
   </ProjectContextGuard>
 </template>
 
@@ -212,12 +214,27 @@ function handleSelectClip(payload: { clipId: string; trackId: string }): void {
 .editing-workspace-runtime__stage {
   display: grid;
   gap: 16px;
-  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) minmax(240px, 280px);
+  grid-template-columns: 280px minmax(480px, 1fr) 280px;
+}
+
+.workspace-pop-enter-active {
+  transition: opacity var(--motion-slow) var(--ease-standard), transform var(--motion-slow) var(--ease-spring);
+}
+
+.workspace-pop-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+@media (max-width: 1400px) {
+  .editing-workspace-runtime__stage {
+    grid-template-columns: 240px minmax(400px, 1fr) 240px;
+  }
 }
 
 @media (max-width: 1280px) {
   .editing-workspace-runtime__stage {
-    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+    grid-template-columns: 260px minmax(0, 1fr);
   }
 
   .editing-workspace-runtime__stage > :last-child {

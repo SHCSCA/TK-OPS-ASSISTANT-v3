@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tk-ops-runtime"
-version = "0.3.4"
+version = "0.4.0"
 description = "TK-OPS Python runtime skeleton"
 readme = "README.md"
 requires-python = ">=3.13"

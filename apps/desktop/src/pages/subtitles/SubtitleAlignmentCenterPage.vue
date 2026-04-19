@@ -373,6 +373,11 @@ function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>) {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: transform var(--motion-fast) var(--ease-spring);
+}
+
+.summary-card:active {
+  transform: scale(0.98);
 }
 
 .sc-label {
@@ -447,6 +452,16 @@ function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>) {
   gap: var(--space-4);
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.subtitle-rail::-webkit-scrollbar {
+  width: 4px;
+}
+.subtitle-rail::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
 }
 
 @media (max-width: 1200px) {

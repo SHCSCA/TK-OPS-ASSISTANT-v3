@@ -186,9 +186,9 @@ function confirmDelete(trackId: string): void {
   background: var(--bg-card);
   cursor: pointer;
   transition:
-    border-color 160ms ease,
-    transform 160ms ease,
-    background-color 160ms ease;
+    border-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-spring),
+    background-color var(--motion-fast) var(--ease-standard);
 }
 
 .version-item:hover,
@@ -199,6 +199,10 @@ function confirmDelete(trackId: string): void {
 
 .version-item:hover {
   transform: translateY(-1px);
+}
+
+.version-item:active {
+  transform: scale(0.98);
 }
 
 .version-head {
@@ -287,15 +291,20 @@ function confirmDelete(trackId: string): void {
   line-height: 1.65;
 }
 
+.subtitle-version-move,
 .subtitle-version-enter-active,
 .subtitle-version-leave-active {
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: all var(--motion-default) var(--ease-spring);
 }
 
 .subtitle-version-enter-from,
 .subtitle-version-leave-to {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateX(12px);
+}
+
+.subtitle-version-leave-active {
+  position: absolute;
 }
 
 /* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */

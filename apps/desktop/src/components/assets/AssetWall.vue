@@ -27,7 +27,7 @@
         <span>选中后会同步打开右侧详情面板并保留引用检查结果。</span>
       </div>
 
-      <TransitionGroup class="asset-wall__grid" name="asset-card-list" tag="div">
+      <div class="asset-wall__grid">
         <AssetCard
           v-for="asset in assets"
           :key="asset.id"
@@ -36,7 +36,7 @@
           :tags="parseTags(asset)"
           @select="$emit('select', $event)"
         />
-      </TransitionGroup>
+      </div>
     </div>
   </section>
 </template>
@@ -103,17 +103,22 @@ defineEmits<{
   font-size: 13px;
 }
 
+.asset-card-list-move,
 .asset-card-list-enter-active,
 .asset-card-list-leave-active {
   transition:
-    opacity 180ms ease,
-    transform 180ms ease;
+    opacity var(--motion-default) var(--ease-spring),
+    transform var(--motion-default) var(--ease-spring);
 }
 
 .asset-card-list-enter-from,
 .asset-card-list-leave-to {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(12px) scale(0.96);
+}
+
+.asset-card-list-leave-active {
+  /* Removed position: absolute to prevent grid collapse */
 }
 
 .asset-state {

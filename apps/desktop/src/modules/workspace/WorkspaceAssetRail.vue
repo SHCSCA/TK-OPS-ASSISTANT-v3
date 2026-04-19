@@ -20,22 +20,24 @@
     <div v-else-if="sourceEntries.length === 0" class="workspace-asset-rail__empty">
       当前时间线没有任何真实片段。资产中心、配音中心和字幕对齐接入后会出现在这里。
     </div>
-    <ul v-else class="workspace-asset-rail__list">
-      <li
-        v-for="entry in sourceEntries"
-        :key="entry.id"
-        class="workspace-asset-rail__item"
-        :class="{ 'workspace-asset-rail__item--active': selectedClip?.id === entry.id }"
-      >
-        <div>
-          <strong>{{ entry.label }}</strong>
-          <p>{{ entry.trackName }} · {{ sourceTypeLabel(entry.sourceType) }}</p>
-        </div>
-        <span :data-status="entry.status">
-          {{ entry.status }}
-        </span>
-      </li>
-    </ul>
+    <div v-else class="workspace-asset-rail__list scroll-area">
+      <transition-group name="source-list" tag="ul">
+        <li
+          v-for="entry in sourceEntries"
+          :key="entry.id"
+          class="workspace-asset-rail__item"
+          :class="{ 'workspace-asset-rail__item--active': selectedClip?.id === entry.id }"
+        >
+          <div>
+            <strong>{{ entry.label }}</strong>
+            <p>{{ entry.trackName }} · {{ sourceTypeLabel(entry.sourceType) }}</p>
+          </div>
+          <span :data-status="entry.status">
+            {{ entry.status }}
+          </span>
+        </li>
+      </transition-group>
+    </div>
   </aside>
 </template>
 
@@ -136,6 +138,20 @@ function sourceTypeLabel(sourceType: string): string {
   padding: 0;
 }
 
+.scroll-area {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 4px;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
+}
+
 .workspace-asset-rail__item {
   align-items: center;
   background: var(--surface-tertiary);
@@ -145,6 +161,16 @@ function sourceTypeLabel(sourceType: string): string {
   gap: 10px;
   justify-content: space-between;
   padding: 14px;
+  transition: all var(--motion-fast) var(--ease-standard);
+  cursor: default;
+}
+
+.workspace-asset-rail__item:hover {
+  background: var(--color-bg-hover);
+}
+
+.workspace-asset-rail__item:active {
+  transform: scale(0.98);
 }
 
 .workspace-asset-rail__item--active {
@@ -172,5 +198,17 @@ function sourceTypeLabel(sourceType: string): string {
 .workspace-asset-rail__item span[data-status="missing_source"] {
   background: color-mix(in srgb, var(--color-danger) 16%, transparent);
   color: var(--color-danger);
+}
+
+/* Transitions */
+.source-list-move,
+.source-list-enter-active,
+.source-list-leave-active {
+  transition: all var(--motion-default) var(--ease-spring);
+}
+.source-list-enter-from,
+.source-list-leave-to {
+  opacity: 0;
+  transform: translateX(-8px);
 }
 </style>

@@ -188,9 +188,9 @@ function formatMs(ms: number): string {
   background: var(--bg-card);
   cursor: pointer;
   transition:
-    border-color 160ms ease,
-    transform 160ms ease,
-    background-color 160ms ease;
+    border-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-spring),
+    background-color var(--motion-fast) var(--ease-standard);
 }
 
 .segment-item:hover,
@@ -201,6 +201,10 @@ function formatMs(ms: number): string {
 
 .segment-item:hover {
   transform: translateY(-1px);
+}
+
+.segment-item:active {
+  transform: scale(0.98);
 }
 
 .segment-head {
@@ -285,15 +289,20 @@ textarea:focus {
   line-height: 1.65;
 }
 
+.subtitle-list-move,
 .subtitle-list-enter-active,
 .subtitle-list-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: all var(--motion-default) var(--ease-spring);
 }
 
 .subtitle-list-enter-from,
 .subtitle-list-leave-to {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateX(-12px);
+}
+
+.subtitle-list-leave-active {
+  position: absolute;
 }
 
 /* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */

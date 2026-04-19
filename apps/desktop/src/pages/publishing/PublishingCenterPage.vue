@@ -81,32 +81,34 @@
                 <p>创建一个计划后，可以在这里执行预检、提交和取消。</p>
               </div>
               <div v-else class="task-list">
-                <button
-                  v-for="plan in filteredPlans"
-                  :key="plan.id"
-                  class="task-card"
-                  :class="{
-                    'is-selected': selectedPlanId === plan.id,
-                    'is-blocked': isPlanBlocked(plan)
-                  }"
-                  @click="selectedPlanId = plan.id"
-                >
-                  <div class="tc-head">
-                    <div class="tc-title">
-                      <strong>{{ plan.title || "未命名计划" }}</strong>
-                      <span>{{ plan.status }}</span>
+                <transition-group name="task-list-transition">
+                  <button
+                    v-for="plan in filteredPlans"
+                    :key="plan.id"
+                    class="task-card"
+                    :class="{
+                      'is-selected': selectedPlanId === plan.id,
+                      'is-blocked': isPlanBlocked(plan)
+                    }"
+                    @click="selectedPlanId = plan.id"
+                  >
+                    <div class="tc-head">
+                      <div class="tc-title">
+                        <strong>{{ plan.title || "未命名计划" }}</strong>
+                        <span>{{ plan.status }}</span>
+                      </div>
+                      <Chip size="sm" :variant="planStatusTone(plan)">{{ planStatusLabel(plan) }}</Chip>
                     </div>
-                    <Chip size="sm" :variant="planStatusTone(plan)">{{ planStatusLabel(plan) }}</Chip>
-                  </div>
-                  <div class="tc-meta">
-                    <span>账号: {{ plan.accountLabel }}</span>
-                    <span>项目: {{ plan.projectLabel }}</span>
-                  </div>
-                  <div class="tc-meta">
-                    <span>视频: {{ plan.videoAssetLabel }}</span>
-                    <span>定时: {{ plan.scheduledAtLabel }}</span>
-                  </div>
-                </button>
+                    <div class="tc-meta">
+                      <span>账号: {{ plan.accountLabel }}</span>
+                      <span>项目: {{ plan.projectLabel }}</span>
+                    </div>
+                    <div class="tc-meta">
+                      <span>视频: {{ plan.videoAssetLabel }}</span>
+                      <span>定时: {{ plan.scheduledAtLabel }}</span>
+                    </div>
+                  </button>
+                </transition-group>
               </div>
             </div>
           </Card>
@@ -114,6 +116,7 @@
 
         <main class="workspace-main">
           <Card class="detail-card h-full scroll-area" v-if="selectedPlan">
+            <div v-if="publishingStore.workflowState === 'checking' || publishingStore.workflowState === 'submitting'" class="ai-flow-bar" />
             <div class="detail-card__header">
               <div>
                 <p class="eyebrow">当前计划</p>
@@ -169,14 +172,16 @@
                 </div>
                 <div v-if="precheckItems.length === 0" class="lane-empty">还没有执行预检，先点“执行预检”读取真实结果。</div>
                 <div v-else class="check-list">
-                  <div v-for="item in precheckItems" :key="item.code" class="check-item" :class="item.result">
-                    <span class="material-symbols-outlined check-icon">{{ checkIcon(item.result) }}</span>
-                    <div class="check-content">
-                      <strong>{{ item.label }}</strong>
-                      <p>{{ item.message || "无额外说明" }}</p>
+                  <transition-group name="check-list-transition">
+                    <div v-for="item in precheckItems" :key="item.code" class="check-item" :class="item.result">
+                      <span class="material-symbols-outlined check-icon">{{ checkIcon(item.result) }}</span>
+                      <div class="check-content">
+                        <strong>{{ item.label }}</strong>
+                        <p>{{ item.message || "无额外说明" }}</p>
+                      </div>
+                      <Chip size="sm" :variant="precheckTone(item.result)">{{ item.result }}</Chip>
                     </div>
-                    <Chip size="sm" :variant="precheckTone(item.result)">{{ item.result }}</Chip>
-                  </div>
+                  </transition-group>
                 </div>
               </div>
 
@@ -222,27 +227,27 @@
               <form class="drawer-form" @submit.prevent="handleCreatePlan">
                 <div class="form-group">
                   <label>计划标题</label>
-                  <input v-model="addForm.title" type="text" placeholder="例如：TikTok 周更视频发布" class="ui-input-field" required />
+                  <Input v-model="addForm.title" placeholder="例如：TikTok 周更视频发布" required />
                 </div>
                 <div class="form-group">
                   <label>账号名称</label>
-                  <input v-model="addForm.accountName" type="text" placeholder="账号昵称或 ID" class="ui-input-field" />
+                  <Input v-model="addForm.accountName" placeholder="账号昵称或 ID" />
                 </div>
                 <div class="form-group">
                   <label>账号 ID</label>
-                  <input v-model="addForm.accountId" type="text" placeholder="account-1" class="ui-input-field" />
+                  <Input v-model="addForm.accountId" placeholder="account-1" />
                 </div>
                 <div class="form-group">
                   <label>项目 ID</label>
-                  <input v-model="addForm.projectId" type="text" :placeholder="currentProjectIdPlaceholder" class="ui-input-field" />
+                  <Input v-model="addForm.projectId" :placeholder="currentProjectIdPlaceholder" />
                 </div>
                 <div class="form-group">
                   <label>视频素材 ID</label>
-                  <input v-model="addForm.videoAssetId" type="text" placeholder="asset-1" class="ui-input-field" />
+                  <Input v-model="addForm.videoAssetId" placeholder="asset-1" />
                 </div>
                 <div class="form-group">
                   <label>定时发布</label>
-                  <input v-model="addForm.scheduledAt" type="datetime-local" class="ui-input-field" />
+                  <Input v-model="addForm.scheduledAt" type="datetime-local" />
                 </div>
                 <div class="drawer-actions">
                   <Button variant="ghost" @click="showAddPlan = false">取消</Button>
@@ -269,6 +274,7 @@ import type { PublishPlanCreateInput, PublishPlanDto, PrecheckItemResult, Preche
 import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
+import Input from "@/components/ui/Input/Input.vue";
 
 type PublishPlanView = PublishPlanDto & { accountLabel: string; projectLabel: string; scheduledAtLabel: string; videoAssetLabel: string; };
 type StatusFilterValue = "all" | "draft" | "ready" | "submitting" | "published" | "failed" | "cancelled";
@@ -518,6 +524,11 @@ watch(() => projectStore.currentProject?.projectId, (projectId) => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: transform var(--motion-fast) var(--ease-spring);
+}
+
+.summary-card:active {
+  transform: scale(0.98);
 }
 
 .sc-label {
@@ -590,7 +601,19 @@ watch(() => projectStore.currentProject?.projectId, (projectId) => {
 }
 
 .rail-card__body.no-padding { padding: 0; }
-.scroll-area { overflow-y: auto; }
+.scroll-area {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 4px;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
+}
 
 .empty-state {
   display: flex;
@@ -624,10 +647,26 @@ watch(() => projectStore.currentProject?.projectId, (projectId) => {
   border-bottom: 1px solid var(--color-border-subtle);
   cursor: pointer;
   text-align: left;
-  transition: background-color var(--motion-fast) var(--ease-standard);
+  transition: all var(--motion-fast) var(--ease-standard);
 }
 
 .task-card:hover { background: var(--color-bg-hover); }
+.task-card:active { transform: scale(0.98); transition-duration: var(--motion-instant); }
+
+.task-list-transition-move,
+.task-list-transition-enter-active,
+.task-list-transition-leave-active {
+  transition: all var(--motion-default) var(--ease-spring);
+}
+.task-list-transition-enter-from,
+.task-list-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+.task-list-transition-leave-active {
+  position: absolute;
+  width: 100%;
+}
 
 .task-card.is-selected {
   background: color-mix(in srgb, var(--color-brand-primary) 8%, var(--color-bg-surface));
@@ -669,6 +708,17 @@ watch(() => projectStore.currentProject?.projectId, (projectId) => {
   padding: 0;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+.ai-flow-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient-ai-primary);
+  background-size: 200% 200%;
+  animation: ai-flow 2.4s linear infinite;
+  z-index: 10;
 }
 
 .detail-card__header {
@@ -776,6 +826,17 @@ watch(() => projectStore.currentProject?.projectId, (projectId) => {
   gap: 8px;
 }
 
+.check-list-transition-move,
+.check-list-transition-enter-active,
+.check-list-transition-leave-active {
+  transition: all var(--motion-default) var(--ease-spring);
+}
+.check-list-transition-enter-from,
+.check-list-transition-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
 .check-item {
   display: flex;
   align-items: center;
@@ -857,17 +918,6 @@ watch(() => projectStore.currentProject?.projectId, (projectId) => {
 .form-group { display: flex; flex-direction: column; gap: 8px; }
 .form-group label { font: var(--font-caption); color: var(--color-text-secondary); }
 
-.ui-input-field {
-  height: 38px;
-  padding: 0 12px;
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  font: var(--font-body-md);
-  outline: none;
-}
-
 .drawer-actions {
   display: flex;
   justify-content: flex-end;
@@ -875,8 +925,18 @@ watch(() => projectStore.currentProject?.projectId, (projectId) => {
   margin-top: var(--space-4);
 }
 
-.drawer-enter-active, .drawer-leave-active { transition: opacity 160ms ease; }
-.drawer-enter-from, .drawer-leave-to { opacity: 0; }
+.drawer-enter-active, .drawer-leave-active { 
+  transition: opacity var(--motion-default) var(--ease-standard); 
+}
+.drawer-enter-from, .drawer-leave-to { 
+  opacity: 0; 
+}
+.drawer-enter-active .drawer-panel, .drawer-leave-active .drawer-panel { 
+  transition: transform var(--motion-default) var(--ease-spring); 
+}
+.drawer-enter-from .drawer-panel, .drawer-leave-to .drawer-panel { 
+  transform: translateX(100%); 
+}
 
 @media (max-width: 1200px) {
   .workspace-grid { grid-template-columns: 1fr; }

@@ -99,10 +99,10 @@ function durationLabel(durationMs: number | null) {
   position: relative;
   text-align: left;
   transition:
-    background 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-spring),
+    transform var(--motion-fast) var(--ease-spring);
 }
 
 .asset-card:hover,
@@ -111,6 +111,11 @@ function durationLabel(durationMs: number | null) {
   border-color: color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 70%, var(--border-default));
   box-shadow: 0 14px 32px color-mix(in srgb, var(--color-brand-primary, var(--brand-primary)) 13%, transparent);
   transform: translateY(-2px);
+}
+
+.asset-card:active {
+  transform: scale(0.98) translateY(0);
+  transition-duration: var(--motion-instant);
 }
 
 .asset-card--selected::after {

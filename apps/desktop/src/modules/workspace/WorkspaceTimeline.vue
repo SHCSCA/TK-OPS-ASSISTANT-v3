@@ -20,6 +20,7 @@
       当前时间线还没有轨道，不补示例轨道。
     </div>
     <div v-else class="workspace-timeline__body">
+      <div v-if="status === 'saving'" class="ai-flow-bar" />
       <div class="workspace-timeline__ruler">
         <span
           v-for="marker in markers"
@@ -31,40 +32,44 @@
         </span>
       </div>
 
-      <div class="workspace-timeline__tracks">
-        <article
-          v-for="track in tracks"
-          :key="track.id"
-          class="workspace-track"
-          :class="{ 'workspace-track--selected': selectedTrackId === track.id }"
-        >
-          <button class="workspace-track__label" type="button" @click="$emit('select-track', track.id)">
-            <span class="material-symbols-outlined">{{ trackIcon(track.kind) }}</span>
-            <div>
-              <strong>{{ track.name }}</strong>
-              <small>{{ trackKindLabel(track.kind) }} · {{ track.clips.length }} 个片段</small>
-            </div>
-          </button>
-
-          <div class="workspace-track__lane">
-            <button
-              v-for="clip in track.clips"
-              :key="clip.id"
-              class="workspace-clip"
-              :class="{
-                'workspace-clip--selected': selectedClipId === clip.id
-              }"
-              :data-status="clip.status"
-              type="button"
-              :style="clipStyle(clip)"
-              @click="$emit('select-clip', { clipId: clip.id, trackId: track.id })"
-            >
-              <strong>{{ clip.label }}</strong>
-              <small>{{ sourceTypeLabel(clip.sourceType) }} · {{ formatMs(clip.durationMs) }}</small>
+      <div class="workspace-timeline__tracks scroll-area">
+        <transition-group name="track-list">
+          <article
+            v-for="track in tracks"
+            :key="track.id"
+            class="workspace-track"
+            :class="{ 'workspace-track--selected': selectedTrackId === track.id }"
+          >
+            <button class="workspace-track__label" type="button" @click="$emit('select-track', track.id)">
+              <span class="material-symbols-outlined">{{ trackIcon(track.kind) }}</span>
+              <div>
+                <strong>{{ track.name }}</strong>
+                <small>{{ trackKindLabel(track.kind) }} · {{ track.clips.length }} 个片段</small>
+              </div>
             </button>
-            <span v-if="track.clips.length === 0" class="workspace-track__empty">当前轨道暂无片段</span>
-          </div>
-        </article>
+
+            <div class="workspace-track__lane">
+              <transition-group name="clip-list">
+                <button
+                  v-for="clip in track.clips"
+                  :key="clip.id"
+                  class="workspace-clip"
+                  :class="{
+                    'workspace-clip--selected': selectedClipId === clip.id
+                  }"
+                  :data-status="clip.status"
+                  type="button"
+                  :style="clipStyle(clip)"
+                  @click="$emit('select-clip', { clipId: clip.id, trackId: track.id })"
+                >
+                  <strong>{{ clip.label }}</strong>
+                  <small>{{ sourceTypeLabel(clip.sourceType) }} · {{ formatMs(clip.durationMs) }}</small>
+                </button>
+              </transition-group>
+              <span v-if="track.clips.length === 0" class="workspace-track__empty">当前轨道暂无片段</span>
+            </div>
+          </article>
+        </transition-group>
       </div>
     </div>
   </section>
@@ -213,6 +218,17 @@ function formatMs(value: number): string {
 .workspace-timeline__body {
   display: grid;
   gap: 16px;
+  position: relative;
+}
+
+.ai-flow-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient-ai-primary);
+  background-size: 200% 200%;
+  animation: ai-flow 2.4s linear infinite;
+  z-index: 10;
 }
 
 .workspace-timeline__ruler {
@@ -232,6 +248,20 @@ function formatMs(value: number): string {
 .workspace-timeline__tracks {
   display: grid;
   gap: 12px;
+}
+
+.scroll-area {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 4px;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
 }
 
 .workspace-track {
@@ -277,11 +307,40 @@ function formatMs(value: number): string {
   padding: 10px 12px;
   position: absolute;
   top: 14px;
+  transition: all var(--motion-fast) var(--ease-standard);
+  cursor: pointer;
+}
+
+.workspace-clip:active {
+  transform: scale(0.98);
 }
 
 .workspace-clip--selected {
   border-color: color-mix(in srgb, var(--brand-primary) 38%, var(--border-default));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-primary) 32%, transparent);
+}
+
+/* List Transitions */
+.track-list-move,
+.track-list-enter-active,
+.track-list-leave-active {
+  transition: all var(--motion-default) var(--ease-spring);
+}
+.track-list-enter-from,
+.track-list-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.clip-list-move,
+.clip-list-enter-active,
+.clip-list-leave-active {
+  transition: all var(--motion-default) var(--ease-spring);
+}
+.clip-list-enter-from,
+.clip-list-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
 }
 
 .workspace-clip[data-status="blocked"] {

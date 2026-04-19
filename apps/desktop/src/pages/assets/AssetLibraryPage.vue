@@ -188,8 +188,6 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { open } from "@tauri-apps/plugin-dialog";
-
 import AssetPreview from "@/components/assets/AssetPreview.vue";
 import AssetToolbar from "@/components/assets/AssetToolbar.vue";
 import AssetWall from "@/components/assets/AssetWall.vue";
@@ -363,6 +361,8 @@ async function importFromPaths(filePaths: string[]) {
 
 async function pickAssetFilePaths(): Promise<string[]> {
   try {
+    const dialogModuleName = "@tauri-apps/plugin-dialog";
+    const { open } = await import(/* @vite-ignore */ dialogModuleName);
     const selected = await open({
       multiple: true,
       filters: [{ name: "创作资产", extensions: ["mp4", "mov", "mkv", "webm", "png", "jpg", "jpeg", "webp", "gif", "mp3", "wav", "m4a", "aac", "txt", "md", "srt", "json", "csv", "pdf", "doc", "docx"] }]
@@ -588,6 +588,11 @@ function toTime(value: string) {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: transform var(--motion-fast) var(--ease-spring);
+}
+
+.summary-card:active {
+  transform: scale(0.98);
 }
 
 .sc-label {
@@ -655,6 +660,19 @@ function toTime(value: string) {
   flex-direction: column;
 }
 
+.asset-main :deep(.asset-wall) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.asset-main :deep(.asset-wall)::-webkit-scrollbar {
+  width: 4px;
+}
+.asset-main :deep(.asset-wall)::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
+}
+
 .h-full {
   height: 100%;
 }
@@ -672,6 +690,16 @@ function toTime(value: string) {
   gap: var(--space-4);
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.asset-rail::-webkit-scrollbar {
+  width: 4px;
+}
+.asset-rail::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
 }
 
 .rail-card {

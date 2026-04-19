@@ -21,20 +21,20 @@
       <p>{{ statusDescription }}</p>
     </section>
 
-    <section class="workspace-inspector__facts">
-      <div>
+    <section class="workspace-inspector__facts scroll-area">
+      <div class="fact-item">
         <dt>时间线</dt>
         <dd>{{ timeline?.name ?? "未创建" }}</dd>
       </div>
-      <div>
+      <div class="fact-item">
         <dt>轨道数</dt>
         <dd>{{ timeline?.tracks.length ?? 0 }}</dd>
       </div>
-      <div>
+      <div class="fact-item">
         <dt>选中轨道</dt>
         <dd>{{ selectedTrack?.name ?? "未选择" }}</dd>
       </div>
-      <div>
+      <div class="fact-item">
         <dt>选中片段</dt>
         <dd>{{ selectedClip?.label ?? "未选择" }}</dd>
       </div>
@@ -154,7 +154,6 @@ const actionBoundaryDescription = computed(() => {
 .workspace-inspector__card small {
   color: var(--text-tertiary);
 }
-
 .workspace-inspector__facts {
   background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
@@ -163,6 +162,20 @@ const actionBoundaryDescription = computed(() => {
   gap: 12px;
   margin: 0;
   padding: 14px;
+}
+
+.scroll-area {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 4px;
+}
+.scroll-area::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 99px;
 }
 
 .workspace-inspector__facts div {

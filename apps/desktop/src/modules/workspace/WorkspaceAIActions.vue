@@ -127,6 +127,13 @@ const note = computed(() => {
   gap: 8px;
   height: 38px;
   padding: 0 14px;
+  cursor: pointer;
+  transition: all var(--motion-fast) var(--ease-standard);
+  will-change: transform;
+}
+
+.workspace-ai-bar__button:not(:disabled):active {
+  transform: scale(0.95);
 }
 
 .workspace-ai-bar__button:disabled {
@@ -136,13 +143,33 @@ const note = computed(() => {
 
 .workspace-ai-bar__button--ai {
   background: var(--gradient-ai-primary);
+  background-size: 200% 200%;
+  animation: ai-shimmer 4s ease infinite;
   color: #fff;
+  border: none;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--brand-primary) 20%, transparent);
+}
+
+.workspace-ai-bar__button--ai:not(:disabled):hover {
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--brand-primary) 32%, transparent);
+  transform: translateY(-1px);
+}
+
+@keyframes ai-shimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .workspace-ai-bar__button--ghost {
   background: transparent;
   border-color: var(--border-default);
   color: var(--text-primary);
+}
+
+.workspace-ai-bar__button--ghost:not(:disabled):hover {
+  background: var(--surface-tertiary);
+  border-color: var(--text-tertiary);
 }
 
 .workspace-ai-bar__pill {
