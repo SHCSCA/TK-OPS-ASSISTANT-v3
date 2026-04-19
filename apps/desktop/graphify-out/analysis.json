@@ -1,0 +1,1539 @@
+{
+  "root": "apps/desktop",
+  "detection": {
+    "files": {
+      "code": [
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\vite.config.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\App.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\env.d.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\main.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\app\\runtime-client.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\app\\router\\index.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\app\\router\\route-ids.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\app\\router\\route-manifest.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\bootstrap\\bootstrap-form.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\bootstrap\\BootstrapErrorScreen.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\bootstrap\\BootstrapGate.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\bootstrap\\BootstrapInitializationScreen.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\bootstrap\\BootstrapLicenseScreen.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\bootstrap\\BootstrapLoadingScreen.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\PagePlaceholderState.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\assets\\AssetCard.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\assets\\AssetPreview.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\assets\\AssetToolbar.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\assets\\AssetWall.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\bootstrap\\BootstrapLoadingOverlay.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\common\\EmptyState.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\common\\ProjectContextGuard.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\shell\\details\\AssetDetail.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\shell\\details\\BindingDetail.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\shell\\details\\ContextualDetail.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\shell\\details\\DetailContextRenderer.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\shell\\details\\LogDetail.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\shell\\details\\SystemStatusDetail.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\shell\\status\\EditingStatus.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\shell\\status\\OverviewStatus.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\shell\\status\\TaskProgressStatus.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\ui\\Button\\Button.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\ui\\Card\\Card.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\ui\\Chip\\Chip.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\ui\\Dropdown\\Dropdown.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\ui\\Input\\Input.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\ui\\Modal\\Modal.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\ui\\Progress\\Progress.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\ui\\Tab\\Tab.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\components\\ui\\Toast\\Toast.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\composables\\useMotion.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\layouts\\AppShell.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\layouts\\shell\\ShellDetailPanel.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\layouts\\shell\\ShellSidebar.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\layouts\\shell\\ShellStatusBar.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\layouts\\shell\\ShellTitleBar.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\settings\\components\\AICapabilityInspector.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\settings\\components\\AICapabilityMatrix.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\settings\\components\\ProviderCatalogPanel.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\settings\\components\\SettingsDiagnosticPanel.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\settings\\components\\SettingsSaveBar.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\settings\\components\\SettingsSectionRail.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\settings\\components\\SettingsStatusDock.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\settings\\components\\SettingsSystemFormPanel.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\subtitles\\SubtitlePreviewStage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\subtitles\\SubtitleSegmentList.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\subtitles\\SubtitleStylePanel.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\subtitles\\SubtitleTimingPanel.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\subtitles\\SubtitleVersionPanel.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\voice\\VoiceParamsPanel.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\voice\\VoicePreviewStage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\voice\\VoiceProfileRail.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\voice\\VoiceScriptPanel.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\voice\\VoiceVersionPanel.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\workspace\\WorkspaceAIActions.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\workspace\\WorkspaceAssetRail.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\workspace\\WorkspaceInspector.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\workspace\\WorkspacePreviewStage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\workspace\\WorkspaceStateNotice.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\workspace\\WorkspaceTimeline.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\modules\\workspace\\WorkspaceToolbar.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\accounts\\AccountManagementPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\assets\\AssetLibraryPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\automation\\AutomationConsolePage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\dashboard\\CreatorDashboardPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\dashboard\\components\\DashboardChainRail.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\dashboard\\components\\DashboardHero.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\dashboard\\components\\DashboardProjectEntry.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\dashboard\\components\\DashboardRecentProjects.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\dashboard\\components\\DashboardStatCards.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\dashboard\\components\\DashboardSystemStatus.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\dashboard\\components\\ExceptionQueueCard.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\dashboard\\components\\HealthPanelCard.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\dashboard\\components\\ProjectRecentCard.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\devices\\DeviceWorkspaceManagementPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\publishing\\PublishingCenterPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\renders\\RenderExportCenterPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\review\\ReviewOptimizationCenterPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\scripts\\ScriptTopicCenterPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\AISystemSettingsPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\types.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\use-capability-binding.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\use-prompt-editing.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\use-provider-management.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\use-system-settings.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\use-voice-profiles.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\components\\CapabilityMatrix.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\components\\CapabilityRow.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\components\\PromptTemplateEditor.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\components\\PromptTemplateList.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\components\\ProviderCard.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\components\\ProviderConfigDrawer.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\components\\ProviderHealthResult.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\components\\ProviderList.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\components\\SettingsNav.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\settings\\components\\VoiceProfileGrid.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\setup\\SetupLicenseWizardPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\storyboards\\StoryboardPlanningCenterPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\subtitles\\SubtitleAlignmentCenterPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\video\\VideoDeconstructionCenterPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\voice\\VoiceStudioPage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\pages\\workspace\\AIEditingWorkspacePage.vue",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\account-management.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\ai-capability.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\asset-library.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\automation.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\bootstrap.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\config-bus.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\device-workspaces.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\editing-workspace.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\license.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\project.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\publishing.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\renders.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\review.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\runtime-store-helpers.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\script-studio.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\shell-ui.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\storyboard.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\subtitle-alignment.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\task-bus.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\video-import.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\voice-studio.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\types\\router.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\types\\runtime.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\types\\task-events.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\types\\video.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src-tauri\\build.rs",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src-tauri\\src\\main.rs",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\account-management.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\ai-capability-store.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\ai-editing-workspace-page.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\ai-system-settings.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\app-shell.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\asset-library.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\bootstrap-gate.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\core-runtime-store.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\creator-dashboard.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\device-workspace-management.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\editing-workspace-store.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\project-context-guard.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\review-optimization-center.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\runtime-client-b-s3.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\runtime-client-b-s4.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\runtime-client-b-s5.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\runtime-client-m09-m15.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\runtime-client-settings.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\runtime-client-subtitles.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\runtime-client-voice.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\runtime-client-workspace.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\runtime-helpers.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\runtime-stores-m09-m15.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\script-topic-center.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\setup-license-wizard.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\storyboard-planning-center.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\subtitle-alignment-page.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\subtitle-alignment-store.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\task-bus.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\tauri-capabilities.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\video-deconstruction.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\voice-studio-page.spec.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\voice-studio-store.spec.ts"
+      ],
+      "document": [
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\README.md",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\tests\\README.md"
+      ],
+      "paper": [],
+      "image": [],
+      "video": []
+    },
+    "total_files": 174,
+    "total_words": 90575,
+    "needs_graph": true,
+    "warning": null,
+    "skipped_sensitive": [
+      "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\styles\\tokens.css",
+      "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\styles\\tokens\\colors.css",
+      "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\styles\\tokens\\index.css",
+      "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\styles\\tokens\\spacing.css",
+      "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\styles\\tokens\\typography.css"
+    ],
+    "graphifyignore_patterns": 0
+  },
+  "counts": {
+    "nodes": 577,
+    "edges": 688,
+    "communities": 151,
+    "hyperedges": 1
+  },
+  "community_labels": {
+    "0": "runtime-client.ts / updateRenderTask() / updatePromptTemplate()",
+    "1": "requestRuntime() / updateWorkspaceTimeline() / updateSubtitleTrack()",
+    "2": "createRouteAwareFetch() / voice-studio-store.spec.ts / voice-studio-page.spec.ts",
+    "3": "AssetLibraryPage.vue / AppShell.vue / createRouteDetailContext()",
+    "4": "toRuntimeErrorMessage() / runtime-store-helpers.ts / toRuntimeErrorShape()",
+    "5": "shell-ui.ts / sanitizeTone() / sanitizeDetailContext()",
+    "6": "sampleResponseFor() / runtime-client-m09-m15.spec.ts / now()",
+    "7": "runtime-stores-m09-m15.spec.ts / now() / workspace()",
+    "8": "runtime-helpers.ts / index.ts / createAppRouter()",
+    "9": "SetupLicenseWizardPage.vue / handleActivate() / activateLicense()",
+    "10": "task-bus.ts / buildTaskInfo() / resolveWebSocketUrl()",
+    "11": "handleWindowError() / ShellTitleBar.vue / video-deconstruction.spec.ts",
+    "12": "BootstrapGate.vue / BootstrapLicenseScreen.vue / BootstrapInitializationScreen.vue",
+    "13": "WorkspacePreviewStage.vue / sourceTypeLabel() / formatMs()",
+    "14": "ScriptTopicCenterPage.vue / jobTone() / jobStatusLabel()",
+    "15": "asset-library.spec.ts / now() / assetReference()",
+    "16": "sampleResponse() / runtime-client-b-s3.spec.ts / storyboardShot()",
+    "17": "README / 当前职责 / tests",
+    "18": "bootstrap-form.ts / hasCompletedBootstrapInitialization() / createBootstrapSettingsInput()",
+    "19": "AssetPreview.vue / loadUtf8TextPreview() / limitTextPreview()",
+    "20": "CapabilityRow.vue / handleToggle() / handleProviderChange()",
+    "21": "SubtitleAlignmentCenterPage.vue / loadProjectSubtitles() / handleSave()",
+    "22": "video-import.ts / deriveStageMessage() / stageLabel()",
+    "23": "account-management.spec.ts / now() / groupFixture()",
+    "24": "normalizeTaskInfo() / rerunVideoStage() / regenerateVoiceSegment()",
+    "25": "StoryboardPlanningCenterPage.vue / linkedSegmentTitle() / jobStatusLabel()",
+    "26": "VoiceStudioPage.vue / reloadVoiceStudio() / loadProjectVoice()",
+    "27": "AIEditingWorkspacePage.vue / if() / handleSelectTrack()",
+    "28": "device-workspace-management.spec.ts / workspaceFixture() / now()",
+    "29": "runtime-client-voice.spec.ts / voiceTrack() / now()",
+    "30": "ProjectContextGuard.vue / navigateToDashboard() / EmptyState.vue",
+    "31": "SubtitleVersionPanel.vue / statusText() / confirmDelete()",
+    "32": "VoiceVersionPanel.vue / statusText() / confirmDelete()",
+    "33": "update() / insertVariable() / PromptTemplateEditor.vue",
+    "34": "workspaceTimeline() / now() / ai-editing-workspace-page.spec.ts",
+    "35": "creator-dashboard.spec.ts / errorJsonResponse() / createDeferredResponse()",
+    "36": "review-optimization-center.spec.ts / reviewSummaryWithSuggestions() / errorJsonResponse()",
+    "37": "sampleResponse() / runtime-client-b-s5.spec.ts / assetGroup()",
+    "38": "subtitleTrack() / runtime-client-subtitles.spec.ts / now()",
+    "39": "workspaceTimeline() / runtime-client-workspace.spec.ts / now()",
+    "40": "main.ts / App.vue",
+    "41": "RuntimeRequestError / .constructor()",
+    "42": "handleBackdropClick() / Modal.vue",
+    "43": "useMotion.ts / useMotion()",
+    "44": "openLogs() / ShellStatusBar.vue",
+    "45": "providerStatusLabel() / ProviderCatalogPanel.vue",
+    "46": "formatDate() / VoicePreviewStage.vue",
+    "47": "sourceTypeLabel() / WorkspaceAssetRail.vue",
+    "48": "part() / AccountManagementPage.vue",
+    "49": "animateValue() / HealthPanelCard.vue",
+    "50": "useCapabilityBinding() / use-capability-binding.ts",
+    "51": "usePromptEditing() / use-prompt-editing.ts",
+    "52": "useProviderManagement() / use-provider-management.ts",
+    "53": "useSystemSettings() / use-system-settings.ts",
+    "54": "useVoiceProfiles() / use-voice-profiles.ts",
+    "55": "license.ts / createDefaultLicenseState()",
+    "56": "main() / build.rs",
+    "57": "main.rs / main()",
+    "58": "asset() / app-shell.spec.ts",
+    "59": "sampleResponse() / runtime-client-b-s4.spec.ts",
+    "60": "script-topic-center.spec.ts / cloneValue()",
+    "61": "storyboard-planning-center.spec.ts / cloneValue()",
+    "62": "vite.config.ts",
+    "63": "env.d.ts",
+    "64": "route-ids.ts",
+    "65": "route-manifest.ts",
+    "66": "PagePlaceholderState.vue",
+    "67": "AssetCard.vue",
+    "68": "AssetToolbar.vue",
+    "69": "AssetWall.vue",
+    "70": "BootstrapLoadingOverlay.vue",
+    "71": "AssetDetail.vue",
+    "72": "BindingDetail.vue",
+    "73": "ContextualDetail.vue",
+    "74": "DetailContextRenderer.vue",
+    "75": "LogDetail.vue",
+    "76": "SystemStatusDetail.vue",
+    "77": "EditingStatus.vue",
+    "78": "OverviewStatus.vue",
+    "79": "TaskProgressStatus.vue",
+    "80": "Button.vue",
+    "81": "Card.vue",
+    "82": "Chip.vue",
+    "83": "Dropdown.vue",
+    "84": "Input.vue",
+    "85": "Progress.vue",
+    "86": "Tab.vue",
+    "87": "Toast.vue",
+    "88": "ShellDetailPanel.vue",
+    "89": "ShellSidebar.vue",
+    "90": "AICapabilityInspector.vue",
+    "91": "AICapabilityMatrix.vue",
+    "92": "SettingsDiagnosticPanel.vue",
+    "93": "SettingsSaveBar.vue",
+    "94": "SettingsSectionRail.vue",
+    "95": "SettingsStatusDock.vue",
+    "96": "SettingsSystemFormPanel.vue",
+    "97": "SubtitlePreviewStage.vue",
+    "98": "SubtitleSegmentList.vue",
+    "99": "SubtitleStylePanel.vue",
+    "100": "SubtitleTimingPanel.vue",
+    "101": "VoiceParamsPanel.vue",
+    "102": "VoiceProfileRail.vue",
+    "103": "VoiceScriptPanel.vue",
+    "104": "WorkspaceAIActions.vue",
+    "105": "WorkspaceInspector.vue",
+    "106": "WorkspaceStateNotice.vue",
+    "107": "WorkspaceToolbar.vue",
+    "108": "AutomationConsolePage.vue",
+    "109": "CreatorDashboardPage.vue",
+    "110": "DashboardChainRail.vue",
+    "111": "DashboardHero.vue",
+    "112": "DashboardProjectEntry.vue",
+    "113": "DashboardRecentProjects.vue",
+    "114": "DashboardStatCards.vue",
+    "115": "DashboardSystemStatus.vue",
+    "116": "ExceptionQueueCard.vue",
+    "117": "ProjectRecentCard.vue",
+    "118": "PublishingCenterPage.vue",
+    "119": "RenderExportCenterPage.vue",
+    "120": "ReviewOptimizationCenterPage.vue",
+    "121": "AISystemSettingsPage.vue",
+    "122": "types.ts",
+    "123": "PromptTemplateList.vue",
+    "124": "ProviderCard.vue",
+    "125": "ProviderConfigDrawer.vue",
+    "126": "ProviderHealthResult.vue",
+    "127": "ProviderList.vue",
+    "128": "SettingsNav.vue",
+    "129": "VoiceProfileGrid.vue",
+    "130": "VideoDeconstructionCenterPage.vue",
+    "131": "ai-capability.ts",
+    "132": "bootstrap.ts",
+    "133": "config-bus.ts",
+    "134": "editing-workspace.ts",
+    "135": "project.ts",
+    "136": "script-studio.ts",
+    "137": "storyboard.ts",
+    "138": "subtitle-alignment.ts",
+    "139": "voice-studio.ts",
+    "140": "router.ts",
+    "141": "runtime.ts",
+    "142": "task-events.ts",
+    "143": "video.ts",
+    "144": "ai-capability-store.spec.ts",
+    "145": "bootstrap-gate.spec.ts",
+    "146": "core-runtime-store.spec.ts",
+    "147": "project-context-guard.spec.ts",
+    "148": "runtime-client-settings.spec.ts",
+    "149": "task-bus.spec.ts",
+    "150": "tauri-capabilities.spec.ts"
+  },
+  "communities": {
+    "0": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_app_runtime_client_ts",
+      "runtime_client_adoptreviewsuggestion",
+      "runtime_client_alignsubtitletrack",
+      "runtime_client_applyreviewsuggestiontoscript",
+      "runtime_client_checkaiproviderhealth",
+      "runtime_client_createdashboardproject",
+      "runtime_client_createdeviceworkspace",
+      "runtime_client_createexportprofile",
+      "runtime_client_createprompttemplate",
+      "runtime_client_createpublishplan",
+      "runtime_client_createvoiceprofile",
+      "runtime_client_createworkspacetimeline",
+      "runtime_client_deleteaccount",
+      "runtime_client_deleteasset",
+      "runtime_client_deleteautomationtask",
+      "runtime_client_deletedeviceworkspace",
+      "runtime_client_deleteimportedvideo",
+      "runtime_client_deleteprompttemplate",
+      "runtime_client_deleterendertask",
+      "runtime_client_deletevoicetrack",
+      "runtime_client_extractvideostructure",
+      "runtime_client_fetchaccounts",
+      "runtime_client_fetchactivetasks",
+      "runtime_client_fetchaicapabilitysupportmatrix",
+      "runtime_client_fetchaiprovidercatalog",
+      "runtime_client_fetchaiprovidermodels",
+      "runtime_client_fetchasset",
+      "runtime_client_fetchassetreferences",
+      "runtime_client_fetchassets",
+      "runtime_client_fetchautomationtasks",
+      "runtime_client_fetchbrowserinstances",
+      "runtime_client_fetchcurrentprojectcontext",
+      "runtime_client_fetchdashboardsummary",
+      "runtime_client_fetchdeviceworkspace",
+      "runtime_client_fetchdeviceworkspaces",
+      "runtime_client_fetchexecutionbindings",
+      "runtime_client_fetchexportprofiles",
+      "runtime_client_fetchlicensestatus",
+      "runtime_client_fetchpublishingcalendar",
+      "runtime_client_fetchpublishreceipts",
+      "runtime_client_fetchrendertask",
+      "runtime_client_fetchruntimeconfig",
+      "runtime_client_fetchruntimediagnostics",
+      "runtime_client_fetchscriptdocument",
+      "runtime_client_fetchstoryboarddocument",
+      "runtime_client_fetchsubtitletrack",
+      "runtime_client_fetchsubtitletracks",
+      "runtime_client_fetchvideostages",
+      "runtime_client_fetchvideostructure",
+      "runtime_client_fetchvideotranscript",
+      "runtime_client_fetchvoicetracks",
+      "runtime_client_fetchworkspacetimeline",
+      "runtime_client_generatescriptdocument",
+      "runtime_client_generatescripttitlevariants",
+      "runtime_client_generatestoryboarddocument",
+      "runtime_client_importvideo",
+      "runtime_client_initializedirectories",
+      "runtime_client_listprompttemplates",
+      "runtime_client_listrendertemplates",
+      "runtime_client_listscriptversions",
+      "runtime_client_readenvelope",
+      "runtime_client_refreshaccountstats",
+      "runtime_client_removeexecutionbinding",
+      "runtime_client_restorescriptversion",
+      "runtime_client_rewritescriptdocument",
+      "runtime_client_runpublishingprecheck",
+      "runtime_client_runtimeselfcheck",
+      "runtime_client_savescriptdocument",
+      "runtime_client_savestoryboarddocument",
+      "runtime_client_startvideotranscription",
+      "runtime_client_toruntimerequesterror",
+      "runtime_client_updateaiprovidersecret",
+      "runtime_client_updatecurrentprojectcontext",
+      "runtime_client_updatedeviceworkspace",
+      "runtime_client_updateprompttemplate",
+      "runtime_client_updaterendertask"
+    ],
+    "1": [
+      "runtime_client_analyzereviewproject",
+      "runtime_client_applyvideoextractiontoproject",
+      "runtime_client_batchdeleteassets",
+      "runtime_client_batchmoveassetstogroup",
+      "runtime_client_cancelpublishplan",
+      "runtime_client_cancelrendertask",
+      "runtime_client_canceltask",
+      "runtime_client_checkdeviceworkspacehealth",
+      "runtime_client_createaccount",
+      "runtime_client_createassetgroup",
+      "runtime_client_createautomationtask",
+      "runtime_client_createbrowserinstance",
+      "runtime_client_createrendertask",
+      "runtime_client_createstoryboardshot",
+      "runtime_client_deleteassetgroup",
+      "runtime_client_deletepublishplan",
+      "runtime_client_deletestoryboardshot",
+      "runtime_client_deletesubtitletrack",
+      "runtime_client_exportdiagnosticsbundle",
+      "runtime_client_exportsubtitletrack",
+      "runtime_client_fetchaccountgroups",
+      "runtime_client_fetchaicapabilitysettings",
+      "runtime_client_fetchautomationtask",
+      "runtime_client_fetchautomationtaskruns",
+      "runtime_client_fetchimportedvideos",
+      "runtime_client_fetchpublishplan",
+      "runtime_client_fetchpublishplans",
+      "runtime_client_fetchpublishreceipt",
+      "runtime_client_fetchrenderresourceusage",
+      "runtime_client_fetchrendertasks",
+      "runtime_client_fetchreviewsummary",
+      "runtime_client_fetchruntimehealth",
+      "runtime_client_fetchruntimelogs",
+      "runtime_client_fetchtimelinepreview",
+      "runtime_client_fetchvideosegments",
+      "runtime_client_fetchvoiceprofiles",
+      "runtime_client_fetchvoicetrack",
+      "runtime_client_fetchvoicewaveform",
+      "runtime_client_fetchworkspaceclip",
+      "runtime_client_fetchworkspacelogs",
+      "runtime_client_generatesubtitletrack",
+      "runtime_client_generatevoicetrack",
+      "runtime_client_importasset",
+      "runtime_client_listassetgroups",
+      "runtime_client_liststoryboardtemplates",
+      "runtime_client_listsubtitlestyletemplates",
+      "runtime_client_moveworkspaceclip",
+      "runtime_client_pauseautomationtask",
+      "runtime_client_prechecktimeline",
+      "runtime_client_refreshaiprovidermodels",
+      "runtime_client_removebrowserinstance",
+      "runtime_client_replaceworkspaceclip",
+      "runtime_client_requestruntime",
+      "runtime_client_resolveruntimebaseurl",
+      "runtime_client_resumeautomationtask",
+      "runtime_client_retryrendertask",
+      "runtime_client_rewritescriptsegment",
+      "runtime_client_runvideosegmentation",
+      "runtime_client_runworkspaceaicommand",
+      "runtime_client_searchglobal",
+      "runtime_client_setaccountbinding",
+      "runtime_client_submitpublishplan",
+      "runtime_client_syncstoryboardfromscript",
+      "runtime_client_triggerautomationtask",
+      "runtime_client_trimworkspaceclip",
+      "runtime_client_updateaicapabilitysettings",
+      "runtime_client_updateasset",
+      "runtime_client_updateassetgroup",
+      "runtime_client_updateautomationtask",
+      "runtime_client_updatepublishplan",
+      "runtime_client_updatereviewsummary",
+      "runtime_client_updateruntimeconfig",
+      "runtime_client_updatestoryboardshot",
+      "runtime_client_updatesubtitletrack",
+      "runtime_client_updateworkspacetimeline"
+    ],
+    "2": [
+      "editing_workspace_store_spec_createworkspacefetch",
+      "editing_workspace_store_spec_now",
+      "editing_workspace_store_spec_timeline",
+      "editing_workspace_store_spec_videotrack",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_editing_workspace_store_spec_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_setup_license_wizard_spec_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_subtitle_alignment_page_spec_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_subtitle_alignment_store_spec_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_voice_studio_page_spec_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_voice_studio_store_spec_ts",
+      "runtime_helpers_createrouteawarefetch",
+      "setup_license_wizard_spec_createdeferredresponse",
+      "setup_license_wizard_spec_createsetupfetch",
+      "setup_license_wizard_spec_errorjsonresponse",
+      "setup_license_wizard_spec_mountsetuppage",
+      "subtitle_alignment_page_spec_createsubtitlefetch",
+      "subtitle_alignment_page_spec_mountsubtitlepagewithproject",
+      "subtitle_alignment_page_spec_now",
+      "subtitle_alignment_page_spec_scriptdocument",
+      "subtitle_alignment_page_spec_subtitletrack",
+      "subtitle_alignment_store_spec_createsubtitlefetch",
+      "subtitle_alignment_store_spec_now",
+      "subtitle_alignment_store_spec_scriptdocument",
+      "subtitle_alignment_store_spec_subtitletrack",
+      "subtitle_alignment_store_spec_subtitletrackwithdetails",
+      "voice_studio_page_spec_createvoicefetch",
+      "voice_studio_page_spec_mountvoicestudiowithproject",
+      "voice_studio_page_spec_now",
+      "voice_studio_page_spec_scriptdocument",
+      "voice_studio_page_spec_voiceprofile",
+      "voice_studio_page_spec_voicetrack",
+      "voice_studio_store_spec_createvoicefetch",
+      "voice_studio_store_spec_now",
+      "voice_studio_store_spec_scriptdocument",
+      "voice_studio_store_spec_voiceprofile",
+      "voice_studio_store_spec_voicetrack",
+      "voice_studio_store_spec_voicetrackwithdetails"
+    ],
+    "3": [
+      "appshell_buildassetdetailcontext",
+      "appshell_buildbindingdetailcontext",
+      "appshell_buildcontextualdetailcontext",
+      "appshell_buildlogdetailcontext",
+      "appshell_buildsettingsdetailcontext",
+      "appshell_handletoggledetailpanel",
+      "appshell_mapruntimetone",
+      "appshell_part",
+      "appshell_sanitizemode",
+      "appshell_switch",
+      "appshell_syncdetailcontext",
+      "assetlibrarypage_buildassetdetailcontext",
+      "assetlibrarypage_clearselection",
+      "assetlibrarypage_counttransferfiles",
+      "assetlibrarypage_formatduration",
+      "assetlibrarypage_formatshanghaidatetime",
+      "assetlibrarypage_formatsize",
+      "assetlibrarypage_handledragleave",
+      "assetlibrarypage_handledragover",
+      "assetlibrarypage_handledrop",
+      "assetlibrarypage_handlefiltertype",
+      "assetlibrarypage_handlereload",
+      "assetlibrarypage_handlesearch",
+      "assetlibrarypage_handlesort",
+      "assetlibrarypage_handleupload",
+      "assetlibrarypage_importfrompaths",
+      "assetlibrarypage_inferassettype",
+      "assetlibrarypage_openselectedassetdetail",
+      "assetlibrarypage_totime",
+      "assetlibrarypage_typelabel",
+      "deviceworkspacemanagementpage_part",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_layouts_appshell_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_assets_assetlibrarypage_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_devices_deviceworkspacemanagementpage_vue",
+      "shell_ui_createroutedetailcontext"
+    ],
+    "4": [
+      "account_management_geterrormessage",
+      "asset_library_geterrormessage",
+      "asset_library_upsertasset",
+      "automation_geterrormessage",
+      "device_workspaces_geterrormessage",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_account_management_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_asset_library_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_automation_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_device_workspaces_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_publishing_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_renders_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_review_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_runtime_store_helpers_ts",
+      "publishing_geterrormessage",
+      "renders_geterrormessage",
+      "review_geterrormessage",
+      "runtime_store_helpers_resolvecollectionstatus",
+      "runtime_store_helpers_toruntimeerrormessage",
+      "runtime_store_helpers_toruntimeerrorshape"
+    ],
+    "5": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_shell_ui_ts",
+      "shell_ui_createdefaultstate",
+      "shell_ui_createemptydetailcontext",
+      "shell_ui_getdefaultreducedmotion",
+      "shell_ui_getpreferredtheme",
+      "shell_ui_persiststate",
+      "shell_ui_readpersistedstate",
+      "shell_ui_sanitizeaction",
+      "shell_ui_sanitizedetailcontext",
+      "shell_ui_sanitizefield",
+      "shell_ui_sanitizeitem",
+      "shell_ui_sanitizemetric",
+      "shell_ui_sanitizemode",
+      "shell_ui_sanitizesection",
+      "shell_ui_sanitizetone"
+    ],
+    "6": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_runtime_client_m09_m15_spec_ts",
+      "runtime_client_m09_m15_spec_account",
+      "runtime_client_m09_m15_spec_accountgroup",
+      "runtime_client_m09_m15_spec_asset",
+      "runtime_client_m09_m15_spec_assetreference",
+      "runtime_client_m09_m15_spec_automationrun",
+      "runtime_client_m09_m15_spec_automationtask",
+      "runtime_client_m09_m15_spec_now",
+      "runtime_client_m09_m15_spec_projectsummary",
+      "runtime_client_m09_m15_spec_publishplan",
+      "runtime_client_m09_m15_spec_rendertask",
+      "runtime_client_m09_m15_spec_reviewsummary",
+      "runtime_client_m09_m15_spec_sampleresponsefor",
+      "runtime_client_m09_m15_spec_workspace"
+    ],
+    "7": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_runtime_stores_m09_m15_spec_ts",
+      "runtime_stores_m09_m15_spec_account",
+      "runtime_stores_m09_m15_spec_accountgroup",
+      "runtime_stores_m09_m15_spec_asset",
+      "runtime_stores_m09_m15_spec_assetreference",
+      "runtime_stores_m09_m15_spec_automationrun",
+      "runtime_stores_m09_m15_spec_automationtask",
+      "runtime_stores_m09_m15_spec_now",
+      "runtime_stores_m09_m15_spec_publishplan",
+      "runtime_stores_m09_m15_spec_rendertask",
+      "runtime_stores_m09_m15_spec_reviewsummary",
+      "runtime_stores_m09_m15_spec_workspace"
+    ],
+    "8": [
+      "ai_system_settings_spec_mountapp",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_app_router_index_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_ai_system_settings_spec_ts",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_runtime_helpers_ts",
+      "index_createapprouter",
+      "index_createroutes",
+      "index_findrouteitem",
+      "index_resolveredirecttarget",
+      "runtime_helpers_errorjsonresponse",
+      "runtime_helpers_mountapp",
+      "runtime_helpers_okjsonresponse"
+    ],
+    "9": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_setup_setuplicensewizardpage_vue",
+      "runtime_client_activatelicense",
+      "setuplicensewizardpage_copymachinecode",
+      "setuplicensewizardpage_finishsetup",
+      "setuplicensewizardpage_gotosettings",
+      "setuplicensewizardpage_gotostep",
+      "setuplicensewizardpage_handleactivate",
+      "setuplicensewizardpage_retrycheck",
+      "setuplicensewizardpage_triggerburst"
+    ],
+    "10": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_task_bus_ts",
+      "task_bus_buildtaskinfo",
+      "task_bus_collecteventkeys",
+      "task_bus_infertaskprogress",
+      "task_bus_infertaskstatus",
+      "task_bus_infertasktype",
+      "task_bus_isruntimeevent",
+      "task_bus_resolveruntimebaseurl",
+      "task_bus_resolvewebsocketurl"
+    ],
+    "11": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_layouts_shell_shelltitlebar_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_video_deconstruction_spec_ts",
+      "shelltitlebar_handleclose",
+      "shelltitlebar_handleminimize",
+      "shelltitlebar_handletogglemaximize",
+      "shelltitlebar_handlewindowerror",
+      "video_deconstruction_spec_close",
+      "video_deconstruction_spec_constructor",
+      "video_deconstruction_spec_send"
+    ],
+    "12": [
+      "bootstrapgate_resolveredirecttarget",
+      "bootstrapinitializationscreen_resolveredirecttarget",
+      "bootstraplicensescreen_if",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_bootstrap_bootstraperrorscreen_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_bootstrap_bootstrapgate_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_bootstrap_bootstrapinitializationscreen_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_bootstrap_bootstraplicensescreen_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_bootstrap_bootstraploadingscreen_vue"
+    ],
+    "13": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_workspace_workspacepreviewstage_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_workspace_workspacetimeline_vue",
+      "workspacepreviewstage_formatms",
+      "workspacepreviewstage_sourcetypelabel",
+      "workspacepreviewstage_trackkindlabel",
+      "workspacetimeline_sourcetypelabel",
+      "workspacetimeline_trackkindlabel"
+    ],
+    "14": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_scripts_scripttopiccenterpage_vue",
+      "scripttopiccenterpage_capabilitylabel",
+      "scripttopiccenterpage_formatdatetime",
+      "scripttopiccenterpage_handlecopycontent",
+      "scripttopiccenterpage_jobstatuslabel",
+      "scripttopiccenterpage_jobtone"
+    ],
+    "15": [
+      "asset_library_spec_asset",
+      "asset_library_spec_assetreference",
+      "asset_library_spec_mountassetlibrary",
+      "asset_library_spec_now",
+      "asset_library_spec_waitformicrotasks",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_asset_library_spec_ts"
+    ],
+    "16": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_runtime_client_b_s3_spec_ts",
+      "runtime_client_b_s3_spec_prompttemplate",
+      "runtime_client_b_s3_spec_sampleresponse",
+      "runtime_client_b_s3_spec_scriptdocument",
+      "runtime_client_b_s3_spec_storyboarddocument",
+      "runtime_client_b_s3_spec_storyboardshot"
+    ],
+    "17": [
+      "doc_g_ai_tk_ops_assistant_v3_apps_desktop_readme_md",
+      "doc_g_ai_tk_ops_assistant_v3_apps_desktop_tests_readme_md",
+      "readme",
+      "readme_desktop",
+      "readme_desktop_tests",
+      "readme_tests"
+    ],
+    "18": [
+      "bootstrap_form_applysettingstobootstrapform",
+      "bootstrap_form_clonebootstrapsettingsinput",
+      "bootstrap_form_createbootstrapsettingsinput",
+      "bootstrap_form_hascompletedbootstrapinitialization",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_bootstrap_bootstrap_form_ts"
+    ],
+    "19": [
+      "assetpreview_limittextpreview",
+      "assetpreview_loadutf8textpreview",
+      "assetpreview_resettextpreview",
+      "assetpreview_topreviewurl",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_assets_assetpreview_vue"
+    ],
+    "20": [
+      "capabilityrow_handlemodelchange",
+      "capabilityrow_handleproviderchange",
+      "capabilityrow_handletoggle",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_components_capabilitymatrix_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_components_capabilityrow_vue"
+    ],
+    "21": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_subtitles_subtitlealignmentcenterpage_vue",
+      "subtitlealignmentcenterpage_handleactivesegmentupdate",
+      "subtitlealignmentcenterpage_handlegenerate",
+      "subtitlealignmentcenterpage_handlesave",
+      "subtitlealignmentcenterpage_loadprojectsubtitles"
+    ],
+    "22": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_video_import_ts",
+      "video_import_derivestagemessage",
+      "video_import_derivetaskinfofromvideoevent",
+      "video_import_shouldrefreshvideolist",
+      "video_import_stagelabel"
+    ],
+    "23": [
+      "account_management_spec_accountfixture",
+      "account_management_spec_groupfixture",
+      "account_management_spec_mountaccountpage",
+      "account_management_spec_now",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_account_management_spec_ts"
+    ],
+    "24": [
+      "runtime_client_fetchtaskstatus",
+      "runtime_client_normalizetaskinfo",
+      "runtime_client_regeneratevoicesegment",
+      "runtime_client_rerunvideostage"
+    ],
+    "25": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_storyboards_storyboardplanningcenterpage_vue",
+      "storyboardplanningcenterpage_formatdatetime",
+      "storyboardplanningcenterpage_jobstatuslabel",
+      "storyboardplanningcenterpage_linkedsegmenttitle"
+    ],
+    "26": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_voice_voicestudiopage_vue",
+      "voicestudiopage_handlegenerate",
+      "voicestudiopage_loadprojectvoice",
+      "voicestudiopage_reloadvoicestudio"
+    ],
+    "27": [
+      "aieditingworkspacepage_handleselectclip",
+      "aieditingworkspacepage_handleselecttrack",
+      "aieditingworkspacepage_if",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_workspace_aieditingworkspacepage_vue"
+    ],
+    "28": [
+      "device_workspace_management_spec_mountdevicepage",
+      "device_workspace_management_spec_now",
+      "device_workspace_management_spec_workspacefixture",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_device_workspace_management_spec_ts"
+    ],
+    "29": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_runtime_client_voice_spec_ts",
+      "runtime_client_voice_spec_now",
+      "runtime_client_voice_spec_voiceprofile",
+      "runtime_client_voice_spec_voicetrack"
+    ],
+    "30": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_common_emptystate_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_common_projectcontextguard_vue",
+      "projectcontextguard_navigatetodashboard"
+    ],
+    "31": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_subtitles_subtitleversionpanel_vue",
+      "subtitleversionpanel_confirmdelete",
+      "subtitleversionpanel_statustext"
+    ],
+    "32": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_voice_voiceversionpanel_vue",
+      "voiceversionpanel_confirmdelete",
+      "voiceversionpanel_statustext"
+    ],
+    "33": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_components_prompttemplateeditor_vue",
+      "prompttemplateeditor_insertvariable",
+      "prompttemplateeditor_update"
+    ],
+    "34": [
+      "ai_editing_workspace_page_spec_now",
+      "ai_editing_workspace_page_spec_workspacetimeline",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_ai_editing_workspace_page_spec_ts"
+    ],
+    "35": [
+      "creator_dashboard_spec_createdeferredresponse",
+      "creator_dashboard_spec_errorjsonresponse",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_creator_dashboard_spec_ts"
+    ],
+    "36": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_review_optimization_center_spec_ts",
+      "review_optimization_center_spec_errorjsonresponse",
+      "review_optimization_center_spec_reviewsummarywithsuggestions"
+    ],
+    "37": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_runtime_client_b_s5_spec_ts",
+      "runtime_client_b_s5_spec_assetgroup",
+      "runtime_client_b_s5_spec_sampleresponse"
+    ],
+    "38": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_runtime_client_subtitles_spec_ts",
+      "runtime_client_subtitles_spec_now",
+      "runtime_client_subtitles_spec_subtitletrack"
+    ],
+    "39": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_runtime_client_workspace_spec_ts",
+      "runtime_client_workspace_spec_now",
+      "runtime_client_workspace_spec_workspacetimeline"
+    ],
+    "40": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_app_vue",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_main_ts"
+    ],
+    "41": [
+      "runtime_client_runtimerequesterror",
+      "runtime_client_runtimerequesterror_constructor"
+    ],
+    "42": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_ui_modal_modal_vue",
+      "modal_handlebackdropclick"
+    ],
+    "43": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_composables_usemotion_ts",
+      "usemotion_usemotion"
+    ],
+    "44": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_layouts_shell_shellstatusbar_vue",
+      "shellstatusbar_openlogs"
+    ],
+    "45": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_settings_components_providercatalogpanel_vue",
+      "providercatalogpanel_providerstatuslabel"
+    ],
+    "46": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_voice_voicepreviewstage_vue",
+      "voicepreviewstage_formatdate"
+    ],
+    "47": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_workspace_workspaceassetrail_vue",
+      "workspaceassetrail_sourcetypelabel"
+    ],
+    "48": [
+      "accountmanagementpage_part",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_accounts_accountmanagementpage_vue"
+    ],
+    "49": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_dashboard_components_healthpanelcard_vue",
+      "healthpanelcard_animatevalue"
+    ],
+    "50": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_use_capability_binding_ts",
+      "use_capability_binding_usecapabilitybinding"
+    ],
+    "51": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_use_prompt_editing_ts",
+      "use_prompt_editing_usepromptediting"
+    ],
+    "52": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_use_provider_management_ts",
+      "use_provider_management_useprovidermanagement"
+    ],
+    "53": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_use_system_settings_ts",
+      "use_system_settings_usesystemsettings"
+    ],
+    "54": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_use_voice_profiles_ts",
+      "use_voice_profiles_usevoiceprofiles"
+    ],
+    "55": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_license_ts",
+      "license_createdefaultlicensestate"
+    ],
+    "56": [
+      "build_main",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_tauri_build_rs"
+    ],
+    "57": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_tauri_src_main_rs",
+      "main_main"
+    ],
+    "58": [
+      "app_shell_spec_asset",
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_app_shell_spec_ts"
+    ],
+    "59": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_runtime_client_b_s4_spec_ts",
+      "runtime_client_b_s4_spec_sampleresponse"
+    ],
+    "60": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_script_topic_center_spec_ts",
+      "script_topic_center_spec_clonevalue"
+    ],
+    "61": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_storyboard_planning_center_spec_ts",
+      "storyboard_planning_center_spec_clonevalue"
+    ],
+    "62": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_vite_config_ts"
+    ],
+    "63": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_env_d_ts"
+    ],
+    "64": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_app_router_route_ids_ts"
+    ],
+    "65": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_app_router_route_manifest_ts"
+    ],
+    "66": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_pageplaceholderstate_vue"
+    ],
+    "67": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_assets_assetcard_vue"
+    ],
+    "68": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_assets_assettoolbar_vue"
+    ],
+    "69": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_assets_assetwall_vue"
+    ],
+    "70": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_bootstrap_bootstraploadingoverlay_vue"
+    ],
+    "71": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_shell_details_assetdetail_vue"
+    ],
+    "72": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_shell_details_bindingdetail_vue"
+    ],
+    "73": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_shell_details_contextualdetail_vue"
+    ],
+    "74": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_shell_details_detailcontextrenderer_vue"
+    ],
+    "75": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_shell_details_logdetail_vue"
+    ],
+    "76": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_shell_details_systemstatusdetail_vue"
+    ],
+    "77": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_shell_status_editingstatus_vue"
+    ],
+    "78": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_shell_status_overviewstatus_vue"
+    ],
+    "79": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_shell_status_taskprogressstatus_vue"
+    ],
+    "80": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_ui_button_button_vue"
+    ],
+    "81": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_ui_card_card_vue"
+    ],
+    "82": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_ui_chip_chip_vue"
+    ],
+    "83": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_ui_dropdown_dropdown_vue"
+    ],
+    "84": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_ui_input_input_vue"
+    ],
+    "85": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_ui_progress_progress_vue"
+    ],
+    "86": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_ui_tab_tab_vue"
+    ],
+    "87": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_components_ui_toast_toast_vue"
+    ],
+    "88": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_layouts_shell_shelldetailpanel_vue"
+    ],
+    "89": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_layouts_shell_shellsidebar_vue"
+    ],
+    "90": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_settings_components_aicapabilityinspector_vue"
+    ],
+    "91": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_settings_components_aicapabilitymatrix_vue"
+    ],
+    "92": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_settings_components_settingsdiagnosticpanel_vue"
+    ],
+    "93": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_settings_components_settingssavebar_vue"
+    ],
+    "94": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_settings_components_settingssectionrail_vue"
+    ],
+    "95": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_settings_components_settingsstatusdock_vue"
+    ],
+    "96": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_settings_components_settingssystemformpanel_vue"
+    ],
+    "97": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_subtitles_subtitlepreviewstage_vue"
+    ],
+    "98": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_subtitles_subtitlesegmentlist_vue"
+    ],
+    "99": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_subtitles_subtitlestylepanel_vue"
+    ],
+    "100": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_subtitles_subtitletimingpanel_vue"
+    ],
+    "101": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_voice_voiceparamspanel_vue"
+    ],
+    "102": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_voice_voiceprofilerail_vue"
+    ],
+    "103": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_voice_voicescriptpanel_vue"
+    ],
+    "104": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_workspace_workspaceaiactions_vue"
+    ],
+    "105": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_workspace_workspaceinspector_vue"
+    ],
+    "106": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_workspace_workspacestatenotice_vue"
+    ],
+    "107": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_modules_workspace_workspacetoolbar_vue"
+    ],
+    "108": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_automation_automationconsolepage_vue"
+    ],
+    "109": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_dashboard_creatordashboardpage_vue"
+    ],
+    "110": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_dashboard_components_dashboardchainrail_vue"
+    ],
+    "111": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_dashboard_components_dashboardhero_vue"
+    ],
+    "112": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_dashboard_components_dashboardprojectentry_vue"
+    ],
+    "113": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_dashboard_components_dashboardrecentprojects_vue"
+    ],
+    "114": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_dashboard_components_dashboardstatcards_vue"
+    ],
+    "115": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_dashboard_components_dashboardsystemstatus_vue"
+    ],
+    "116": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_dashboard_components_exceptionqueuecard_vue"
+    ],
+    "117": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_dashboard_components_projectrecentcard_vue"
+    ],
+    "118": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_publishing_publishingcenterpage_vue"
+    ],
+    "119": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_renders_renderexportcenterpage_vue"
+    ],
+    "120": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_review_reviewoptimizationcenterpage_vue"
+    ],
+    "121": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_aisystemsettingspage_vue"
+    ],
+    "122": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_types_ts"
+    ],
+    "123": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_components_prompttemplatelist_vue"
+    ],
+    "124": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_components_providercard_vue"
+    ],
+    "125": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_components_providerconfigdrawer_vue"
+    ],
+    "126": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_components_providerhealthresult_vue"
+    ],
+    "127": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_components_providerlist_vue"
+    ],
+    "128": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_components_settingsnav_vue"
+    ],
+    "129": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_settings_components_voiceprofilegrid_vue"
+    ],
+    "130": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_pages_video_videodeconstructioncenterpage_vue"
+    ],
+    "131": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_ai_capability_ts"
+    ],
+    "132": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_bootstrap_ts"
+    ],
+    "133": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_config_bus_ts"
+    ],
+    "134": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_editing_workspace_ts"
+    ],
+    "135": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_project_ts"
+    ],
+    "136": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_script_studio_ts"
+    ],
+    "137": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_storyboard_ts"
+    ],
+    "138": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_subtitle_alignment_ts"
+    ],
+    "139": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_stores_voice_studio_ts"
+    ],
+    "140": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_types_router_ts"
+    ],
+    "141": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_types_runtime_ts"
+    ],
+    "142": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_types_task_events_ts"
+    ],
+    "143": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_src_types_video_ts"
+    ],
+    "144": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_ai_capability_store_spec_ts"
+    ],
+    "145": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_bootstrap_gate_spec_ts"
+    ],
+    "146": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_core_runtime_store_spec_ts"
+    ],
+    "147": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_project_context_guard_spec_ts"
+    ],
+    "148": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_runtime_client_settings_spec_ts"
+    ],
+    "149": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_task_bus_spec_ts"
+    ],
+    "150": [
+      "g_ai_tk_ops_assistant_v3_apps_desktop_tests_tauri_capabilities_spec_ts"
+    ]
+  },
+  "cohesion": {
+    "0": 0.03,
+    "1": 0.03,
+    "2": 0.07,
+    "3": 0.09,
+    "4": 0.11,
+    "5": 0.25,
+    "6": 0.38,
+    "7": 0.32,
+    "8": 0.2,
+    "9": 0.25,
+    "10": 0.33,
+    "11": 0.31,
+    "12": 0.25,
+    "13": 0.29,
+    "14": 0.33,
+    "15": 0.4,
+    "16": 0.6,
+    "17": 0.33,
+    "18": 0.4,
+    "19": 0.5,
+    "20": 0.4,
+    "21": 0.4,
+    "22": 0.6,
+    "23": 0.6,
+    "24": 0.5,
+    "25": 0.5,
+    "26": 0.5,
+    "27": 0.5,
+    "28": 0.67,
+    "29": 0.67,
+    "30": 0.67,
+    "31": 0.67,
+    "32": 0.67,
+    "33": 1.0,
+    "34": 1.0,
+    "35": 0.67,
+    "36": 0.67,
+    "37": 1.0,
+    "38": 1.0,
+    "39": 1.0,
+    "40": 1.0,
+    "41": 1.0,
+    "42": 1.0,
+    "43": 1.0,
+    "44": 1.0,
+    "45": 1.0,
+    "46": 1.0,
+    "47": 1.0,
+    "48": 1.0,
+    "49": 1.0,
+    "50": 1.0,
+    "51": 1.0,
+    "52": 1.0,
+    "53": 1.0,
+    "54": 1.0,
+    "55": 1.0,
+    "56": 1.0,
+    "57": 1.0,
+    "58": 1.0,
+    "59": 1.0,
+    "60": 1.0,
+    "61": 1.0,
+    "62": 1.0,
+    "63": 1.0,
+    "64": 1.0,
+    "65": 1.0,
+    "66": 1.0,
+    "67": 1.0,
+    "68": 1.0,
+    "69": 1.0,
+    "70": 1.0,
+    "71": 1.0,
+    "72": 1.0,
+    "73": 1.0,
+    "74": 1.0,
+    "75": 1.0,
+    "76": 1.0,
+    "77": 1.0,
+    "78": 1.0,
+    "79": 1.0,
+    "80": 1.0,
+    "81": 1.0,
+    "82": 1.0,
+    "83": 1.0,
+    "84": 1.0,
+    "85": 1.0,
+    "86": 1.0,
+    "87": 1.0,
+    "88": 1.0,
+    "89": 1.0,
+    "90": 1.0,
+    "91": 1.0,
+    "92": 1.0,
+    "93": 1.0,
+    "94": 1.0,
+    "95": 1.0,
+    "96": 1.0,
+    "97": 1.0,
+    "98": 1.0,
+    "99": 1.0,
+    "100": 1.0,
+    "101": 1.0,
+    "102": 1.0,
+    "103": 1.0,
+    "104": 1.0,
+    "105": 1.0,
+    "106": 1.0,
+    "107": 1.0,
+    "108": 1.0,
+    "109": 1.0,
+    "110": 1.0,
+    "111": 1.0,
+    "112": 1.0,
+    "113": 1.0,
+    "114": 1.0,
+    "115": 1.0,
+    "116": 1.0,
+    "117": 1.0,
+    "118": 1.0,
+    "119": 1.0,
+    "120": 1.0,
+    "121": 1.0,
+    "122": 1.0,
+    "123": 1.0,
+    "124": 1.0,
+    "125": 1.0,
+    "126": 1.0,
+    "127": 1.0,
+    "128": 1.0,
+    "129": 1.0,
+    "130": 1.0,
+    "131": 1.0,
+    "132": 1.0,
+    "133": 1.0,
+    "134": 1.0,
+    "135": 1.0,
+    "136": 1.0,
+    "137": 1.0,
+    "138": 1.0,
+    "139": 1.0,
+    "140": 1.0,
+    "141": 1.0,
+    "142": 1.0,
+    "143": 1.0,
+    "144": 1.0,
+    "145": 1.0,
+    "146": 1.0,
+    "147": 1.0,
+    "148": 1.0,
+    "149": 1.0,
+    "150": 1.0
+  },
+  "gods": [
+    {
+      "id": "runtime_client_requestruntime",
+      "label": "requestRuntime()",
+      "degree": 149
+    },
+    {
+      "id": "runtime_client_m09_m15_spec_sampleresponsefor",
+      "label": "sampleResponseFor()",
+      "degree": 13
+    },
+    {
+      "id": "runtime_client_m09_m15_spec_now",
+      "label": "now()",
+      "degree": 12
+    },
+    {
+      "id": "runtime_stores_m09_m15_spec_now",
+      "label": "now()",
+      "degree": 11
+    },
+    {
+      "id": "runtime_store_helpers_toruntimeerrormessage",
+      "label": "toRuntimeErrorMessage()",
+      "degree": 9
+    },
+    {
+      "id": "assetlibrarypage_buildassetdetailcontext",
+      "label": "buildAssetDetailContext()",
+      "degree": 8
+    },
+    {
+      "id": "shell_ui_createroutedetailcontext",
+      "label": "createRouteDetailContext()",
+      "degree": 8
+    },
+    {
+      "id": "runtime_helpers_createrouteawarefetch",
+      "label": "createRouteAwareFetch()",
+      "degree": 7
+    },
+    {
+      "id": "appshell_syncdetailcontext",
+      "label": "syncDetailContext()",
+      "degree": 6
+    },
+    {
+      "id": "shell_ui_sanitizetone",
+      "label": "sanitizeTone()",
+      "degree": 6
+    }
+  ],
+  "surprises": [
+    {
+      "source": "getErrorMessage()",
+      "target": "toRuntimeErrorMessage()",
+      "source_files": [
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\account-management.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\runtime-store-helpers.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `getErrorMessage()` unexpectedly reaches hub `toRuntimeErrorMessage()`"
+    },
+    {
+      "source": "getErrorMessage()",
+      "target": "toRuntimeErrorMessage()",
+      "source_files": [
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\asset-library.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\runtime-store-helpers.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `getErrorMessage()` unexpectedly reaches hub `toRuntimeErrorMessage()`"
+    },
+    {
+      "source": "getErrorMessage()",
+      "target": "toRuntimeErrorMessage()",
+      "source_files": [
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\automation.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\runtime-store-helpers.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `getErrorMessage()` unexpectedly reaches hub `toRuntimeErrorMessage()`"
+    },
+    {
+      "source": "getErrorMessage()",
+      "target": "toRuntimeErrorMessage()",
+      "source_files": [
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\device-workspaces.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\runtime-store-helpers.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `getErrorMessage()` unexpectedly reaches hub `toRuntimeErrorMessage()`"
+    },
+    {
+      "source": "getErrorMessage()",
+      "target": "toRuntimeErrorMessage()",
+      "source_files": [
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\publishing.ts",
+        "G:\\AI\\TK-OPS-ASSISTANT-V3\\apps\\desktop\\src\\stores\\runtime-store-helpers.ts"
+      ],
+      "confidence": "INFERRED",
+      "relation": "calls",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; peripheral node `getErrorMessage()` unexpectedly reaches hub `toRuntimeErrorMessage()`"
+    }
+  ],
+  "suggested_questions": [
+    {
+      "type": "bridge_node",
+      "question": "Why does `requestRuntime()` connect `requestRuntime() / updateWorkspaceTimeline() / updateSubtitleTrack()` to `runtime-client.ts / updateRenderTask() / updatePromptTemplate()`, `SetupLicenseWizardPage.vue / handleActivate() / activateLicense()`?",
+      "why": "High betweenness centrality (0.036) - this node is a cross-community bridge."
+    },
+    {
+      "type": "bridge_node",
+      "question": "Why does `activateLicense()` connect `SetupLicenseWizardPage.vue / handleActivate() / activateLicense()` to `runtime-client.ts / updateRenderTask() / updatePromptTemplate()`, `requestRuntime() / updateWorkspaceTimeline() / updateSubtitleTrack()`?",
+      "why": "High betweenness centrality (0.008) - this node is a cross-community bridge."
+    },
+    {
+      "type": "verify_inferred",
+      "question": "Are the 7 inferred relationships involving `toRuntimeErrorMessage()` (e.g. with `getErrorMessage()` and `getErrorMessage()`) actually correct?",
+      "why": "`toRuntimeErrorMessage()` has 7 INFERRED edges - model-reasoned connections that need verification."
+    },
+    {
+      "type": "isolated_nodes",
+      "question": "What connects `README`, `Desktop Tests`, `desktop` to the rest of the system?",
+      "why": "4 weakly-connected nodes found - possible documentation gaps or missing edges."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `runtime-client.ts / updateRenderTask() / updatePromptTemplate()` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.03 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `requestRuntime() / updateWorkspaceTimeline() / updateSubtitleTrack()` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.03 - nodes in this community are weakly interconnected."
+    },
+    {
+      "type": "low_cohesion",
+      "question": "Should `createRouteAwareFetch() / voice-studio-store.spec.ts / voice-studio-page.spec.ts` be split into smaller, more focused modules?",
+      "why": "Cohesion score 0.07 - nodes in this community are weakly interconnected."
+    }
+  ]
+}
