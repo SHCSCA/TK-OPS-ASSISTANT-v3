@@ -1,7 +1,7 @@
 # Graph Report - C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3  (2026-04-20)
 
 ## Corpus Check
-- 393 files · ~923,841 words
+- 393 files · ~923,815 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -1200,12 +1200,12 @@ Nodes (0):
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `handleReload()` connect `Community 13` to `Community 7`?**
-  _High betweenness centrality (0.070) - this node is a cross-community bridge._
-- **Why does `ok_response()` connect `Community 2` to `Community 0`, `Community 1`, `Community 7`, `Community 9`, `Community 19`, `Community 23`?**
-  _High betweenness centrality (0.068) - this node is a cross-community bridge._
+- **Why does `now()` connect `Community 7` to `Community 0`, `Community 1`, `Community 3`, `Community 5`, `Community 9`, `Community 10`, `Community 17`, `Community 18`, `Community 20`, `Community 21`?**
+  _High betweenness centrality (0.083) - this node is a cross-community bridge._
 - **Why does `create_app()` connect `Community 0` to `Community 1`, `Community 3`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 14`, `Community 16`, `Community 17`, `Community 18`, `Community 19`, `Community 23`?**
-  _High betweenness centrality (0.067) - this node is a cross-community bridge._
+  _High betweenness centrality (0.078) - this node is a cross-community bridge._
+- **Why does `ok_response()` connect `Community 2` to `Community 0`, `Community 1`, `Community 7`, `Community 9`, `Community 19`, `Community 23`?**
+  _High betweenness centrality (0.071) - this node is a cross-community bridge._
 - **Are the 173 inferred relationships involving `HTTPException` (e.g. with `get_license_service()` and `get_task()`) actually correct?**
   _`HTTPException` has 173 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 162 inferred relationships involving `ok_response()` (e.g. with `list_account_groups()` and `create_account_group()`) actually correct?**
