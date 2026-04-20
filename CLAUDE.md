@@ -266,3 +266,12 @@ Project → Script → Storyboard → Timeline → VoiceTrack → SubtitleTrack 
 - 决策三问得出"需要破坏向后兼容"的结论时
 
 每季度由 Claude 主导一次整体 review,修剪过时条款,避免文档堆积成化石。
+
+## graphify
+
+This project has a graphify knowledge graph at graphify-out/.
+
+Rules:
+- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
