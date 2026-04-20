@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.1 - 2026-04-20
+
+### V2 文档治理
+
+- 新增 V2 产品 / 前端 / 后端三件套：`docs/V2-PRODUCT-REQUIREMENTS-2026-04-20.md`、`docs/V2-FRONTEND-REQUIREMENTS-2026-04-20.md`、`docs/V2-BACKEND-REQUIREMENTS-2026-04-20.md`，作为下一阶段需求收口入口。
+- 将本轮 8 条真实用户体验反馈按前后端切分，登记为 `F-01 ~ F-08`（前端）与 `B-01 ~ B-06`（后端），两侧建立交叉索引。
+- 回写 V2 入口到 `docs/PRD.md`（第 17-19 节）与 `docs/UI-DESIGN-PRD.md`（第 16 节）；将 `docs/BACKEND-REQUIREMENTS-2026-04-17.md` 标注为历史快照。
+- 刷新 `docs/PROJECT-STATUS.md`：扩展真源关系表、新增 16 页状态表的 V2 列、在 V2 章节补齐回流闭环与退役规则。
+- 归档旧 Superpowers 计划与规格（20 份 plan + 15 份 spec）到历史位置，仓库内统一收敛到 V2 流程。
+- 新增 `docs/superpowers/plans/2026-04-20-v2-product-doc-pack.md` 与配套 spec，作为本轮文档治理的实施记录。
+
+### 分支治理
+
+- 合并完成的 codex/* 本地与远端分支统一清理，仓库仅保留 `main`。
+
 ## 0.4.0 - 2026-04-19
 
 ### 全站 UI 深度精修 (Precision Sculpting)
