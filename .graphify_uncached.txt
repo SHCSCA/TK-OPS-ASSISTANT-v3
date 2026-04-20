@@ -1,0 +1,119 @@
+AGENTS.md
+CHANGELOG.md
+CLAUDE.md
+GEMINI.md
+README.md
+apps\desktop\index.html
+apps\desktop\README.md
+apps\desktop\graphify-out\graph.html
+apps\desktop\graphify-out\GRAPH_REPORT.md
+apps\desktop\tests\README.md
+apps\py-runtime\README.md
+apps\py-runtime\graphify-out\graph.html
+apps\py-runtime\graphify-out\GRAPH_REPORT.md
+apps\py-runtime\tools\license-issuer\README.md
+docs\ARCHITECTURE-BOOTSTRAP.md
+docs\BACKEND-REQUIREMENTS-2026-04-17.md
+docs\PRD.md
+docs\PROJECT-STATUS.md
+docs\RUNTIME-API-CALLS.md
+docs\UI-BLUEPRINT-2026-04-17.md
+docs\UI-DESIGN-PRD.md
+docs\graphify-out\graph.html
+docs\graphify-out\GRAPH_REPORT.md
+docs\stitch_text_document\_2\code.html
+docs\stitch_text_document\_export_AI内容工厂\code.html
+docs\stitch_text_document\_export_AI文案生成\code.html
+docs\stitch_text_document\_export_TK-OPS 规范重构版 - 数据看板\code.html
+docs\stitch_text_document\_export_下载器\code.html
+docs\stitch_text_document\_export_互动分析\code.html
+docs\stitch_text_document\_export_任务队列\code.html
+docs\stitch_text_document\_export_可视化实验室\code.html
+docs\stitch_text_document\_export_商品标题\code.html
+docs\stitch_text_document\_export_定时发布\code.html
+docs\stitch_text_document\_export_局域网传输\code.html
+docs\stitch_text_document\_export_带货脚本\code.html
+docs\stitch_text_document\_export_批量创作 - 方案一\code.html
+docs\stitch_text_document\_export_数据采集\code.html
+docs\stitch_text_document\_export_爆款标题\code.html
+docs\stitch_text_document\_export_系统管理 - 系统设置\code.html
+docs\stitch_text_document\_export_系统管理 - 网络诊断\code.html
+docs\stitch_text_document\_export_系统管理 - 配置向导\code.html
+docs\stitch_text_document\_export_素材工厂\code.html
+docs\stitch_text_document\_export_脚本提取 - 视觉优化版\code.html
+docs\stitch_text_document\_export_自动回复\code.html
+docs\stitch_text_document\_export_蓝海分析\code.html
+docs\stitch_text_document\_export_视觉编辑器\code.html
+docs\stitch_text_document\_export_运营经理 - 任务调度\code.html
+docs\stitch_text_document\_export_运营经理 - 利润分析\code.html
+docs\stitch_text_document\_export_运营经理 - 客户管理 (CRM)\code.html
+docs\stitch_text_document\_export_运营经理 - 数据报表\code.html
+docs\stitch_text_document\_export_运营经理 - 数据看板\code.html
+docs\stitch_text_document\_export_运营经理 - 竞品监控\code.html
+docs\stitch_text_document\_export_运营经理 - 账号管理\code.html
+docs\superpowers\plans\2026-04-13-shell-dashboard-redesign.md
+docs\superpowers\plans\2026-04-13-video-deconstruction-center.md
+docs\superpowers\plans\2026-04-14-appshell-phase2-hardening.md
+docs\superpowers\plans\2026-04-15-runtime-page-test-hardening.md
+docs\superpowers\plans\2026-04-15-video-import-taskbus-pilot.md
+docs\superpowers\plans\2026-04-15-websocket-task-infra.md
+docs\superpowers\plans\2026-04-15-wire-runtime-pages.md
+docs\superpowers\plans\2026-04-16-ai-system-settings-ui-runtime.md
+docs\superpowers\plans\2026-04-16-m05-ai-editing-workspace-runtime-ui.md
+docs\superpowers\plans\2026-04-16-m07-voice-studio-runtime-ui.md
+docs\superpowers\plans\2026-04-16-m08-subtitle-alignment-runtime-ui.md
+docs\superpowers\plans\2026-04-16-m09-asset-center-ui-runtime.md
+docs\superpowers\plans\2026-04-16-runtime-utc-time-cleanup.md
+docs\superpowers\plans\2026-04-17-frontend-ui-full-refactor.md
+docs\superpowers\plans\2026-04-17-main-branch-consolidation.md
+docs\superpowers\plans\2026-04-17-runtime-contract-backfill-and-backend-gap-closure.md
+docs\superpowers\plans\2026-04-18-ai-provider-adapters-and-tts.md
+docs\superpowers\plans\2026-04-18-runtime-contract-gap-closure.md
+docs\superpowers\plans\video-import-refactor.md
+docs\superpowers\specs\2026-04-12-global-hardening-shell-design.md
+docs\superpowers\specs\2026-04-12-license-offline-design.md
+docs\superpowers\specs\2026-04-15-runtime-page-test-hardening-design.md
+docs\superpowers\specs\2026-04-15-video-import-taskbus-pilot-design.md
+docs\superpowers\specs\2026-04-15-websocket-task-infra-design.md
+docs\superpowers\specs\2026-04-16-ai-system-settings-ui-runtime-design.md
+docs\superpowers\specs\2026-04-16-m05-ai-editing-workspace-runtime-ui-design.md
+docs\superpowers\specs\2026-04-16-m07-voice-studio-runtime-ui-design.md
+docs\superpowers\specs\2026-04-16-m08-subtitle-alignment-runtime-ui-design.md
+docs\superpowers\specs\2026-04-16-m09-asset-center-ui-runtime-design.md
+docs\superpowers\specs\2026-04-16-runtime-utc-time-cleanup-design.md
+docs\superpowers\specs\2026-04-17-frontend-ui-full-refactor-design.md
+docs\superpowers\specs\2026-04-17-main-branch-consolidation-design.md
+docs\superpowers\specs\2026-04-18-ai-provider-adapters-and-tts-design.md
+docs\superpowers\specs\2026-04-18-runtime-contract-gap-closure-design.md
+docs\ui-preview\index.html
+graphify-out\graph.html
+graphify-out\GRAPH_REPORT.md
+tests\contracts\README.md
+tests\runtime\README.md
+docs\stitch_text_document\ai_1\screen.png
+docs\stitch_text_document\ai_2\screen.png
+docs\stitch_text_document\crm\screen.png
+docs\stitch_text_document\tk_ops\screen.png
+docs\stitch_text_document\_1\screen.png
+docs\stitch_text_document\_10\screen.png
+docs\stitch_text_document\_11\screen.png
+docs\stitch_text_document\_12\screen.png
+docs\stitch_text_document\_13\screen.png
+docs\stitch_text_document\_15\screen.png
+docs\stitch_text_document\_16\screen.png
+docs\stitch_text_document\_17\screen.png
+docs\stitch_text_document\_18\screen.png
+docs\stitch_text_document\_19\screen.png
+docs\stitch_text_document\_2\screen.png
+docs\stitch_text_document\_20\screen.png
+docs\stitch_text_document\_21\screen.png
+docs\stitch_text_document\_23\screen.png
+docs\stitch_text_document\_24\screen.png
+docs\stitch_text_document\_25\screen.png
+docs\stitch_text_document\_3\screen.png
+docs\stitch_text_document\_4\screen.png
+docs\stitch_text_document\_5\screen.png
+docs\stitch_text_document\_6\screen.png
+docs\stitch_text_document\_7\screen.png
+docs\stitch_text_document\_8\screen.png
+docs\stitch_text_document\_9\screen.png
