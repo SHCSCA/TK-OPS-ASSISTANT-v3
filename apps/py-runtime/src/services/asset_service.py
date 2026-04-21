@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -12,14 +13,18 @@ from common.time import utc_now_iso
 from domain.models.asset import Asset, AssetGroup, AssetReference
 from repositories.asset_repository import AssetRepository
 from schemas.assets import (
+    AssetAvailabilityDto,
     AssetCreateInput,
     AssetDto,
     AssetGroupCreateInput,
     AssetGroupDto,
     AssetGroupUpdateInput,
     AssetImportInput,
+    AssetReferenceSummaryDto,
     AssetReferenceCreateInput,
     AssetReferenceDto,
+    AssetSourceInfoDto,
+    AssetThumbnailStatusDto,
     AssetUpdateInput,
     BatchDeleteAssetsInput,
     BatchMoveGroupInput,
@@ -284,6 +289,10 @@ class AssetService:
         return {"deleted": True}
 
     def _to_dto(self, asset: Asset) -> AssetDto:
+        source_info = self._build_source_info(asset)
+        availability = self._build_availability(asset)
+        reference_summary = self._build_reference_summary(asset.id)
+        thumbnail_status = self._build_thumbnail_status(asset)
         return AssetDto(
             id=asset.id,
             name=asset.name,
@@ -298,9 +307,127 @@ class AssetService:
             tags=asset.tags,
             projectId=asset.project_id,
             metadataJson=asset.metadata_json,
+            sourceInfo=source_info,
+            availability=availability,
+            referenceSummary=reference_summary,
+            thumbnailStatus=thumbnail_status,
             createdAt=asset.created_at,
             updatedAt=asset.updated_at,
         )
+
+    def _build_source_info(self, asset: Asset) -> AssetSourceInfoDto:
+        return AssetSourceInfoDto(
+            source=asset.source,
+            projectId=asset.project_id,
+            groupId=asset.group_id,
+            filePath=asset.file_path,
+            metadataSummary=self._parse_metadata_summary(asset.metadata_json),
+        )
+
+    def _build_availability(self, asset: Asset) -> AssetAvailabilityDto:
+        file_path = (asset.file_path or "").strip()
+        if file_path == "":
+            return AssetAvailabilityDto(
+                status="missing_source",
+                errorCode="asset.file_path_missing",
+                errorMessage="资产缺少源文件路径，当前不可直接使用。",
+                nextAction="请重新导入文件，或在资产详情里补齐本地路径。",
+            )
+
+        source_path = Path(file_path)
+        if not source_path.exists() or not source_path.is_file():
+            return AssetAvailabilityDto(
+                status="missing_file",
+                errorCode="asset.file_missing",
+                errorMessage="资产源文件不存在，当前无法继续使用。",
+                nextAction="请确认源文件仍在本地磁盘，再重新导入或修复路径。",
+            )
+
+        return AssetAvailabilityDto(
+            status="ready",
+            errorCode=None,
+            errorMessage=None,
+            nextAction=None,
+        )
+
+    def _build_reference_summary(self, asset_id: str) -> AssetReferenceSummaryDto:
+        try:
+            total, reference_types = self._repository.summarize_references(asset_id)
+        except Exception as exc:
+            log.exception("汇总资产引用摘要失败")
+            raise HTTPException(status_code=500, detail="汇总资产引用摘要失败") from exc
+        return AssetReferenceSummaryDto(
+            total=total,
+            referenceTypes=reference_types,
+            blockingDelete=total > 0,
+        )
+
+    def _build_thumbnail_status(self, asset: Asset) -> AssetThumbnailStatusDto:
+        if asset.type not in {"image", "video"}:
+            return AssetThumbnailStatusDto(status="none", path=None, generatedAt=None)
+
+        source_path = Path(asset.file_path) if asset.file_path else None
+        if source_path is None or not source_path.is_file():
+            return AssetThumbnailStatusDto(
+                status="missing_source",
+                path=asset.thumbnail_path,
+                generatedAt=asset.thumbnail_generated_at,
+            )
+
+        task_info = self._active_thumbnail_task(asset.id)
+        if task_info is not None:
+            return AssetThumbnailStatusDto(
+                status=task_info.status,
+                path=asset.thumbnail_path,
+                generatedAt=asset.thumbnail_generated_at,
+            )
+
+        thumbnail_path = Path(asset.thumbnail_path) if asset.thumbnail_path else None
+        if thumbnail_path is not None and thumbnail_path.is_file():
+            return AssetThumbnailStatusDto(
+                status="ready",
+                path=str(thumbnail_path),
+                generatedAt=asset.thumbnail_generated_at,
+            )
+
+        if asset.thumbnail_generated_at and asset.thumbnail_path:
+            return AssetThumbnailStatusDto(
+                status="failed",
+                path=asset.thumbnail_path,
+                generatedAt=asset.thumbnail_generated_at,
+            )
+
+        return AssetThumbnailStatusDto(
+            status="none",
+            path=asset.thumbnail_path,
+            generatedAt=asset.thumbnail_generated_at,
+        )
+
+    def _active_thumbnail_task(self, asset_id: str):  # type: ignore[no-untyped-def]
+        for task_info in self._task_manager.list_active():
+            if task_info.task_type != "asset-thumbnail":
+                continue
+            if task_info.id != asset_id:
+                continue
+            return task_info
+        return None
+
+    def _parse_metadata_summary(
+        self,
+        metadata_json: str | None,
+    ) -> dict[str, object] | None:
+        if metadata_json is None:
+            return None
+        raw_metadata = metadata_json.strip()
+        if raw_metadata == "":
+            return None
+        try:
+            decoded = json.loads(raw_metadata)
+        except Exception:
+            return None
+        if not isinstance(decoded, dict):
+            return None
+        return {str(key): value for key, value in decoded.items()}
 
     def _to_ref_dto(self, reference: AssetReference) -> AssetReferenceDto:
         return AssetReferenceDto(

@@ -1,16 +1,16 @@
 <template>
   <div class="page-container h-full">
     <header class="page-header">
-      <div class="page-header__crumb">首页 / 创作与媒体</div>
+      <div class="page-header__crumb">首页 / 媒体工作室</div>
       <div class="page-header__row">
         <div>
-          <h1 class="page-header__title">配音中心</h1>
-          <div class="page-header__subtitle">把脚本文本组织成可追溯的配音版本。</div>
+          <h1 class="page-header__title">配音工作室</h1>
+          <div class="page-header__subtitle">基于已采用的文案修订版本，为每一段文案配置专属的 AI 角色与音轨参数。</div>
         </div>
         <div class="page-header__actions">
           <Button variant="secondary" :disabled="!currentProjectId || store.status === 'loading'" @click="reloadVoiceStudio">
             <template #leading><span class="material-symbols-outlined">refresh</span></template>
-            {{ store.status === "loading" ? "刷新中..." : "重新读取" }}
+            {{ store.status === "loading" ? "加载中..." : "重新加载" }}
           </Button>
           <Button variant="ai" :running="store.status === 'generating'" :disabled="generateDisabled" @click="handleGenerate">
             <template #leading><span class="material-symbols-outlined">auto_awesome</span></template>
@@ -20,6 +20,7 @@
       </div>
     </header>
 
+    <!-- 顶部警告与状态横幅 -->
     <div v-if="pageStateTone === 'error'" class="dashboard-alert" data-tone="danger">
       <span class="material-symbols-outlined">error</span>
       <span>{{ bannerTitle }} - {{ bannerMessage }}</span>
@@ -28,39 +29,43 @@
       <span class="material-symbols-outlined">warning</span>
       <span>{{ bannerTitle }} - {{ bannerMessage }}</span>
     </div>
-    <div v-else-if="pageStateTone === 'loading'" class="dashboard-alert" data-tone="brand">
+    <div v-else-if="store.activeTask" class="dashboard-alert" data-tone="brand">
       <span class="material-symbols-outlined spinning">sync</span>
-      <span>{{ bannerTitle }} - {{ bannerMessage }}</span>
+      <span>{{ store.activeTask.message }} ({{ store.activeTask.progress }}%)</span>
     </div>
 
+    <!-- 概览指标卡片 -->
     <div class="summary-grid">
       <Card class="summary-card">
         <span class="sc-label">当前项目</span>
         <strong class="sc-val">{{ currentProjectName }}</strong>
       </Card>
       <Card class="summary-card">
-        <span class="sc-label">脚本段落</span>
+        <span class="sc-label">文案段落</span>
         <strong class="sc-val">{{ store.paragraphs.length }} 段</strong>
         <p class="sc-hint">{{ scriptStateLabel }}</p>
       </Card>
       <Card class="summary-card">
-        <span class="sc-label">音色状态</span>
+        <span class="sc-label">配音角色</span>
         <strong class="sc-val">{{ profileStateLabel }}</strong>
       </Card>
       <Card class="summary-card">
-        <span class="sc-label">配音版本</span>
+        <span class="sc-label">配音音轨</span>
         <strong class="sc-val">{{ store.tracks.length }} 条</strong>
         <p class="sc-hint">{{ versionStateLabel }}</p>
       </Card>
     </div>
 
+    <!-- 空状态 -->
     <div v-if="!currentProject" class="empty-state">
       <span class="material-symbols-outlined">mic_off</span>
-      <strong>请先选择项目</strong>
-      <p>配音中心必须读取当前项目的脚本文本和版本记录后，才能进入真实工作台。</p>
+      <strong>请先选择一个项目</strong>
+      <p>配音工作室基于当前项目已采用的文案修订版本。请先前往策划中心完成创作。</p> 
     </div>
 
+    <!-- 主工作区 -->
     <div v-else class="voice-workspace">
+      <!-- 段落选择器 -->
       <VoiceScriptPanel
         :active-index="store.activeParagraphIndex"
         :error-message="store.error?.message ?? null"
@@ -70,6 +75,7 @@
         @select="store.activeParagraphIndex = $event"
       />
 
+      <!-- 预览与试听 -->
       <VoicePreviewStage
         :active-paragraph="activeParagraph"
         :generation-message="store.generationResult?.message ?? null"
@@ -79,6 +85,7 @@
         :status="presentationStatus"
       />
 
+      <!-- 参数与版本导轨 -->
       <aside class="voice-rail">
         <VoiceProfileRail
           :error-message="store.error?.message ?? null"
@@ -148,11 +155,11 @@ const generateDisabled = computed(() => {
 });
 
 const generateButtonLabel = computed(() => {
-  if (!currentProject.value) return "生成入口已锁定";
+  if (!currentProject.value) return "等待项目选择";
   if (store.status === "generating") return "生成中...";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "重新保存阻断草稿";
-  if (!hasEnabledProfile.value) return "音色未就绪";
-  return "生成配音版本";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "重新尝试生成音轨";
+  if (!hasEnabledProfile.value) return "配音角色未开启";
+  return "生成全片音轨";
 });
 
 const pageStateTone = computed(() => {
@@ -167,65 +174,65 @@ const pageStateTone = computed(() => {
 });
 
 const pageStateLabel = computed(() => {
-  const map: Record<string, string> = { blocked: "能力阻断", empty: "空态", error: "错误", loading: "加载中", ready: "已就绪", disabled: "不可用" };
+  const map: Record<string, string> = { blocked: "能力阻断", empty: "空态", error: "错误", loading: "加载中", ready: "已就绪", disabled: "服务禁用" };
   return map[pageStateTone.value];
 });
 
 const scriptStateLabel = computed(() => {
   if (store.status === "loading") return "读取中";
-  if (store.status === "error") return "异常";
+  if (store.status === "error") return "加载失败";
   if (!hasScript.value) return "空态";
-  return "已读取";
+  return "已解析";
 });
 
 const profileStateLabel = computed(() => {
-  if (store.status === "loading") return "读取中";
+  if (store.status === "loading") return "加载中";
   if (store.status === "error") return "异常";
-  if (!selectedProfile.value) return "未选中";
-  if (!selectedProfile.value.enabled) return "已禁用";
-  if (hasBlockedTrack.value) return "阻断";
-  return "可用";
+  if (!selectedProfile.value) return "未选择";
+  if (!selectedProfile.value.enabled) return "不可用";
+  if (hasBlockedTrack.value) return "需要配置";
+  return selectedProfile.value.name;
 });
 
 const versionStateLabel = computed(() => {
   if (store.status === "generating") return "生成中";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "阻断草稿";
-  if (store.status === "error") return "异常";
-  if (!store.tracks.length) return "空态";
-  return "已保存";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "重新尝试生成";
+  if (store.status === "error") return "加载失败";
+  if (!store.tracks.length) return "暂无历史";
+  return "历史就绪";
 });
 
 const bannerTitle = computed(() => {
-  if (!currentProject.value) return "配音入口被阻断";
-  if (store.status === "loading") return "正在同步上下文";
-  if (store.status === "error") return "配音工作台读取失败";
-  if (!hasScript.value) return "脚本为空";
-  if (!hasEnabledProfile.value) return "音色不可用";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "仅保存阻断草稿";
-  if (store.status === "generating") return "正在生成音频";
-  return "配音服务已就绪";
+  if (!currentProject.value) return "配音环境尚未就绪";
+  if (store.status === "loading") return "正在读取环境配置";
+  if (store.status === "error") return "配音工作室遇到异常";
+  if (!hasScript.value) return "文案缺失";
+  if (!hasEnabledProfile.value) return "角色配置未开启";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "生成任务被阻塞";
+  if (store.status === "generating") return "正在生成音轨";
+  return "音轨环境已就绪";
 });
 
 const bannerMessage = computed(() => {
-  if (!currentProject.value) return "先选择真实项目，再读取脚本文本和音色。";
-  if (store.status === "loading") return "脚本、音色和历史版本正在从 Runtime 拉取。";
-  if (store.status === "error") return store.error?.message ?? "配音工作台读取失败，请稍后重试。";
-  if (!hasScript.value) return "脚本文本为空，先在脚本与选题中心写入内容，再继续做配音版本。";
-  if (!hasEnabledProfile.value) return "当前选中的音色不可用，生成入口会保持禁用，直到有可用音色。";
-  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "没有可用 TTS Provider，当前只保存阻断草稿，不生成真实音频。";
-  if (store.status === "generating") return "正在把脚本文本整理成真实配音版本记录。";
-  return "脚本、音色和配音版本记录都来自真实 Runtime 返回值。";
+  if (!currentProject.value) return "请在侧边栏选择一个项目，以读取该项目的策划文案和历史音轨。";
+  if (store.status === "loading") return "同步文案修订版本并检查 Runtime 音轨历史记录中...";
+  if (store.status === "error") return store.error?.message ?? "请求后端配音数据失败，请检查运行时状态。"; 
+  if (!hasScript.value) return "文案中心尚无已采用的版本。请先前往脚本中心生成并采用脚本。";
+  if (!hasEnabledProfile.value) return "选中的配音角色尚未开启（缺失 API Key）。请前往 AI 系统设置开启配音能力。";
+  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "当前未接入可用 TTS Provider。建议前往设置中心检查配音 Provider 配置。";
+  if (store.status === "generating") return "正在通过 AI 模型生成新的音频流，请稍等片刻。";
+  return "您可以试听现有音轨，或点击生成全片音频。";
 });
 
 const panelStateMessage = computed(() => {
-  if (!currentProject.value) return "当前项目未就绪，工作台保持阻断。";
-  if (store.status === "loading") return "正在读取 Runtime 数据。";
-  if (store.status === "error") return store.error?.message ?? "读取失败。";
-  if (!hasScript.value) return "脚本文本为空。";
-  if (!hasEnabledProfile.value) return "当前没有可用音色，参数面板保持锁定。";
-  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "TTS Provider 未接通，当前版本为阻断草稿。";
-  if (store.status === "generating") return "正在生成配音版本。";
-  return "真实音色和版本记录已接通。";
+  if (!currentProject.value) return "环境未就绪";
+  if (store.status === "loading") return "加载中";
+  if (store.status === "error") return store.error?.message ?? "请求异常";
+  if (!hasScript.value) return "文案缺失";
+  if (!hasEnabledProfile.value) return "角色未配置";
+  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "需要配置 Provider";
+  if (store.status === "generating") return "生成中";
+  return "准备就绪";
 });
 
 const parameterLocked = computed(() => {
@@ -235,11 +242,11 @@ const parameterLocked = computed(() => {
 });
 
 const parameterLockedReason = computed(() => {
-  if (!currentProject.value) return "请先选择项目。";
-  if (store.status === "loading") return "正在读取脚本和音色列表。";
-  if (store.status === "error") return store.error?.message ?? "读取失败。";
-  if (!hasScript.value) return "脚本文本为空。";
-  if (!hasEnabledProfile.value) return "没有可用音色，参数暂不可编辑。";
+  if (!currentProject.value) return "未选择项目";
+  if (store.status === "loading") return "加载中";
+  if (store.status === "error") return store.error?.message ?? "加载失败";
+  if (!hasScript.value) return "文案缺失";
+  if (!hasEnabledProfile.value) return "配音能力未配置";
   return "";
 });
 

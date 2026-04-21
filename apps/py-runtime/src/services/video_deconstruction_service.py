@@ -5,6 +5,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import HTTPException
 
@@ -36,23 +37,41 @@ class _StageDefinition:
     rerunnable: bool
 
 
+@dataclass(frozen=True, slots=True)
+class _ResolvedStageState:
+    stage_id: str
+    status: str
+    progress_pct: int
+    result_summary: str | None
+    error_message: str | None
+    updated_at: str | None
+    error_code: str | None
+    next_action: str | None
+    blocked_by_stage_id: str | None
+    active_task: TaskInfo | None
+
+
+_IMPORT_STAGE_ID = "import"
 _TRANSCRIPT_STAGE_ID = "transcribe"
 _SEGMENT_STAGE_ID = "segment"
 _STRUCTURE_STAGE_ID = "extract_structure"
 _PROVIDER_REQUIRED_STATUS = "provider_required"
 _BLOCKED_STATUS = "blocked"
+_ACTIVE_TASK_STATUSES = {"queued", "running"}
+_RETRYABLE_STAGE_STATUSES = {"failed", _BLOCKED_STATUS, _PROVIDER_REQUIRED_STATUS, "cancelled"}
 
-_PROVIDER_REQUIRED_MESSAGE = "\u5f53\u524d\u672a\u63a5\u5165\u53ef\u7528\u8f6c\u5f55 Provider\uff0c\u8f6c\u5f55\u5df2\u963b\u585e\uff1b\u63a5\u5165 Provider \u540e\u53ef\u91cd\u8bd5\u3002"
-_SEGMENT_BLOCKED_MESSAGE = "\u89c6\u9891\u8f6c\u5f55\u5c1a\u672a\u6210\u529f\uff0c\u5206\u6bb5\u5df2\u963b\u585e\uff1b\u8bf7\u5148\u5b8c\u6210\u8f6c\u5f55\u540e\u91cd\u8bd5\u3002"
-_STRUCTURE_BLOCKED_MESSAGE = "\u89c6\u9891\u5206\u6bb5\u5c1a\u672a\u6210\u529f\uff0c\u7ed3\u6784\u63d0\u53d6\u5df2\u963b\u585e\uff1b\u8bf7\u5148\u5b8c\u6210\u5206\u6bb5\u540e\u91cd\u8bd5\u3002"
-_APPLY_BLOCKED_MESSAGE = "\u89c6\u9891\u7ed3\u6784\u63d0\u53d6\u5c1a\u672a\u6210\u529f\uff0c\u65e0\u6cd5\u5e94\u7528\u5230\u9879\u76ee\uff1b\u8bf7\u5148\u5b8c\u6210\u7ed3\u6784\u63d0\u53d6\u540e\u91cd\u8bd5\u3002"
+_PROVIDER_REQUIRED_MESSAGE = "当前未接入可用转录 Provider，转录已阻塞；接入 Provider 后可重试。"
+_SEGMENT_BLOCKED_MESSAGE = "视频转录尚未成功，分段已阻塞；请先完成转录后重试。"
+_STRUCTURE_BLOCKED_MESSAGE = "视频分段尚未成功，结构提取已阻塞；请先完成分段后重试。"
+_APPLY_BLOCKED_MESSAGE = "视频结构提取尚未成功，无法应用到项目；请先完成结构提取后重试。"
 
 _STAGES = (
-    _StageDefinition("import", "\u5bfc\u5165", False),
-    _StageDefinition(_TRANSCRIPT_STAGE_ID, "\u8f6c\u5f55", True),
-    _StageDefinition(_SEGMENT_STAGE_ID, "\u5206\u6bb5", True),
-    _StageDefinition(_STRUCTURE_STAGE_ID, "\u7ed3\u6784\u63d0\u53d6", True),
+    _StageDefinition(_IMPORT_STAGE_ID, "导入", False),
+    _StageDefinition(_TRANSCRIPT_STAGE_ID, "转录", True),
+    _StageDefinition(_SEGMENT_STAGE_ID, "分段", True),
+    _StageDefinition(_STRUCTURE_STAGE_ID, "结构提取", True),
 )
+_STAGE_ORDER = {item.stage_id: index for index, item in enumerate(_STAGES)}
 
 
 class VideoDeconstructionService:
@@ -70,9 +89,26 @@ class VideoDeconstructionService:
     def get_stages(self, video_id: str) -> list[VideoStageDto]:
         video = self._get_video(video_id)
         stage_runs = {item.stage_id: item for item in self._stage_repository.list_stage_runs(video_id)}
-        return [
-            self._build_stage_dto(video, stage_definition, stage_runs.get(stage_definition.stage_id))
+        active_tasks = self._list_active_stage_tasks(video_id)
+
+        resolved_states = [
+            self._resolve_stage_state(
+                video,
+                stage_definition,
+                stage_runs.get(stage_definition.stage_id),
+                active_tasks.get(stage_definition.stage_id),
+            )
             for stage_definition in _STAGES
+        ]
+        current_stage_id = self._resolve_current_stage_id(resolved_states)
+
+        return [
+            self._build_stage_dto(
+                stage_definition,
+                resolved_state,
+                is_current=stage_definition.stage_id == current_stage_id,
+            )
+            for stage_definition, resolved_state in zip(_STAGES, resolved_states, strict=True)
         ]
 
     def start_transcription(self, video_id: str) -> VideoTranscriptDto:
@@ -209,13 +245,17 @@ class VideoDeconstructionService:
             raise HTTPException(status_code=400, detail="当前阶段不能重跑。")
 
         video = self._get_video(video_id)
+        task_id = f"video-stage-{uuid4()}"
+        owner_ref = _stage_owner_ref(video_id, stage_id)
 
         async def _run_stage(progress_callback):
             await self._emit_stage_event(
                 "video.import.stage.started",
                 video_id,
                 stage_id,
-                started_at=_utc_now(),
+                taskId=task_id,
+                ownerRef=owner_ref,
+                startedAt=_utc_now(),
             )
             self._upsert_stage_run(
                 video_id,
@@ -245,7 +285,9 @@ class VideoDeconstructionService:
                         "video.import.stage.completed",
                         video_id,
                         stage_id,
-                        result_summary=_PROVIDER_REQUIRED_MESSAGE,
+                        taskId=task_id,
+                        ownerRef=owner_ref,
+                        resultSummary=_PROVIDER_REQUIRED_MESSAGE,
                     )
                     return
 
@@ -258,7 +300,9 @@ class VideoDeconstructionService:
                             "video.import.stage.completed",
                             video_id,
                             stage_id,
-                            result_summary=_SEGMENT_BLOCKED_MESSAGE,
+                            taskId=task_id,
+                            ownerRef=owner_ref,
+                            resultSummary=_SEGMENT_BLOCKED_MESSAGE,
                         )
                         return
 
@@ -278,7 +322,9 @@ class VideoDeconstructionService:
                         "video.import.stage.completed",
                         video_id,
                         stage_id,
-                        result_summary=summary,
+                        taskId=task_id,
+                        ownerRef=owner_ref,
+                        resultSummary=summary,
                     )
                     return
 
@@ -290,7 +336,9 @@ class VideoDeconstructionService:
                         "video.import.stage.completed",
                         video_id,
                         stage_id,
-                        result_summary=_STRUCTURE_BLOCKED_MESSAGE,
+                        taskId=task_id,
+                        ownerRef=owner_ref,
+                        resultSummary=_STRUCTURE_BLOCKED_MESSAGE,
                     )
                     return
 
@@ -309,10 +357,35 @@ class VideoDeconstructionService:
                     "video.import.stage.completed",
                     video_id,
                     stage_id,
-                    result_summary=summary,
+                    taskId=task_id,
+                    ownerRef=owner_ref,
+                    resultSummary=summary,
                 )
+            except asyncio.CancelledError:
+                error_code = f"video.{stage_id}.cancelled"
+                error_message = f"{stage_definition.label} 阶段已取消。"
+                self._upsert_stage_run(
+                    video_id,
+                    stage_id,
+                    status="cancelled",
+                    progress_pct=0,
+                    result_summary=None,
+                    error_message=error_message,
+                )
+                await self._emit_stage_event(
+                    "video.import.stage.failed",
+                    video_id,
+                    stage_id,
+                    taskId=task_id,
+                    ownerRef=owner_ref,
+                    errorCode=error_code,
+                    errorMessage=error_message,
+                    nextAction=self._build_failed_stage_next_action(stage_id, error_code),
+                )
+                raise
             except Exception as exc:
                 error_message = str(exc) or "阶段重跑失败"
+                error_code = self._build_failed_stage_error_code(stage_id, error_message)
                 self._upsert_stage_run(
                     video_id,
                     stage_id,
@@ -325,7 +398,11 @@ class VideoDeconstructionService:
                     "video.import.stage.failed",
                     video_id,
                     stage_id,
-                    error_message=error_message,
+                    taskId=task_id,
+                    ownerRef=owner_ref,
+                    errorCode=error_code,
+                    errorMessage=error_message,
+                    nextAction=self._build_failed_stage_next_action(stage_id, error_code),
                 )
                 raise
 
@@ -334,10 +411,15 @@ class VideoDeconstructionService:
                 task_type="video-import-stage",
                 coro_factory=_run_stage,
                 project_id=video.project_id,
+                task_id=task_id,
             )
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+        task.owner_ref = owner_ref
+        task.label = f"视频拆解：{stage_definition.label}"
+        if request_id is not None:
+            task.request_id = request_id
         return task
 
     def _get_stage_definition(self, stage_id: str) -> _StageDefinition:
@@ -366,17 +448,6 @@ class VideoDeconstructionService:
             result_summary=_PROVIDER_REQUIRED_MESSAGE,
             error_message=_PROVIDER_REQUIRED_MESSAGE,
         )
-
-    def _assert_dependency_ready(
-        self,
-        video_id: str,
-        stage_id: str,
-        message: str,
-    ) -> StoredVideoStageRun:
-        stored = self._stage_repository.get_stage_run(video_id, stage_id)
-        if stored is None or stored.status != "succeeded":
-            raise HTTPException(status_code=409, detail=message)
-        return stored
 
     def _require_stage_succeeded(
         self,
@@ -544,39 +615,293 @@ class VideoDeconstructionService:
     def _structure_extraction_id(self, video_id: str) -> str:
         return f"extraction-{video_id}"
 
-    def _build_stage_dto(
+    def _resolve_stage_state(
         self,
         video,
         stage_definition: _StageDefinition,
         stored: StoredVideoStageRun | None,
-    ) -> VideoStageDto:
-        if stage_definition.stage_id == "import":
-            status, progress_pct, result_summary, error_message, updated_at = _import_stage_state(video)
+        active_task: TaskInfo | None,
+    ) -> _ResolvedStageState:
+        if stage_definition.stage_id == _IMPORT_STAGE_ID:
+            base_state = self._resolve_import_stage_state(video)
         elif stored is None:
-            status, progress_pct, result_summary, error_message, updated_at = (
-                "pending",
-                0,
-                None,
-                None,
-                None,
+            error_code, next_action = self._derive_stage_feedback(stage_definition.stage_id, "pending", None)
+            base_state = _ResolvedStageState(
+                stage_id=stage_definition.stage_id,
+                status="pending",
+                progress_pct=0,
+                result_summary=None,
+                error_message=None,
+                updated_at=None,
+                error_code=error_code,
+                next_action=next_action,
+                blocked_by_stage_id=self._blocked_by_stage_id(stage_definition.stage_id, "pending"),
+                active_task=None,
             )
         else:
-            status = stored.status
-            progress_pct = stored.progress_pct
-            result_summary = stored.result_summary
-            error_message = stored.error_message
-            updated_at = stored.updated_at
+            error_code, next_action = self._derive_stage_feedback(
+                stage_definition.stage_id,
+                stored.status,
+                stored.error_message,
+            )
+            base_state = _ResolvedStageState(
+                stage_id=stage_definition.stage_id,
+                status=stored.status,
+                progress_pct=stored.progress_pct,
+                result_summary=stored.result_summary,
+                error_message=stored.error_message,
+                updated_at=stored.updated_at,
+                error_code=error_code,
+                next_action=next_action,
+                blocked_by_stage_id=self._blocked_by_stage_id(stage_definition.stage_id, stored.status),
+                active_task=None,
+            )
 
+        if active_task is None:
+            return base_state
+
+        return _ResolvedStageState(
+            stage_id=stage_definition.stage_id,
+            status=active_task.status,
+            progress_pct=active_task.progress,
+            result_summary=active_task.message or base_state.result_summary,
+            error_message=None,
+            updated_at=active_task.updated_at,
+            error_code=None,
+            next_action=self._active_task_next_action(active_task.status),
+            blocked_by_stage_id=None,
+            active_task=active_task,
+        )
+
+    def _resolve_import_stage_state(self, video) -> _ResolvedStageState:
+        status, progress_pct, result_summary, error_message, updated_at = _import_stage_state(video)
+        error_code, next_action = self._derive_stage_feedback(_IMPORT_STAGE_ID, status, error_message)
+        return _ResolvedStageState(
+            stage_id=_IMPORT_STAGE_ID,
+            status=status,
+            progress_pct=progress_pct,
+            result_summary=result_summary,
+            error_message=error_message,
+            updated_at=updated_at,
+            error_code=error_code,
+            next_action=next_action,
+            blocked_by_stage_id=None,
+            active_task=None,
+        )
+
+    def _build_stage_dto(
+        self,
+        stage_definition: _StageDefinition,
+        resolved_state: _ResolvedStageState,
+        *,
+        is_current: bool,
+    ) -> VideoStageDto:
+        active_task = resolved_state.active_task
+        can_cancel = active_task is not None and active_task.status in _ACTIVE_TASK_STATUSES
+        can_retry = (
+            stage_definition.rerunnable
+            and not can_cancel
+            and resolved_state.status in _RETRYABLE_STAGE_STATUSES
+        )
         return VideoStageDto(
             stageId=stage_definition.stage_id,
             label=stage_definition.label,
-            status=status,
-            progressPct=progress_pct,
-            resultSummary=result_summary,
-            errorMessage=error_message,
-            updatedAt=updated_at,
+            status=resolved_state.status,
+            progressPct=resolved_state.progress_pct,
+            resultSummary=resolved_state.result_summary,
+            errorMessage=resolved_state.error_message,
+            errorCode=resolved_state.error_code,
+            nextAction=resolved_state.next_action,
+            blockedByStageId=resolved_state.blocked_by_stage_id,
+            updatedAt=resolved_state.updated_at,
+            isCurrent=is_current,
+            activeTaskId=active_task.id if active_task is not None else None,
+            activeTaskStatus=active_task.status if active_task is not None else None,
+            activeTaskProgress=active_task.progress if active_task is not None else None,
+            activeTaskMessage=active_task.message if active_task is not None else None,
+            canCancel=can_cancel,
+            canRetry=can_retry,
             canRerun=stage_definition.rerunnable,
         )
+
+    def _list_active_stage_tasks(self, video_id: str) -> dict[str, TaskInfo]:
+        tasks_by_stage: dict[str, TaskInfo] = {}
+        for task in self._task_manager.list_active():
+            stage_id = self._match_stage_task(video_id, task)
+            if stage_id is None:
+                continue
+            previous = tasks_by_stage.get(stage_id)
+            if previous is None or self._active_task_sort_key(task) > self._active_task_sort_key(previous):
+                tasks_by_stage[stage_id] = task
+        return tasks_by_stage
+
+    def _match_stage_task(self, video_id: str, task: TaskInfo) -> str | None:
+        owner_ref = getattr(task, "owner_ref", None)
+        if isinstance(owner_ref, dict):
+            owner_kind = str(owner_ref.get("kind") or "")
+            owner_video_id = str(owner_ref.get("videoId") or "")
+            owner_stage_id = str(owner_ref.get("stageId") or "")
+            owner_id = str(owner_ref.get("id") or "")
+            if owner_kind == "video-stage":
+                if owner_video_id == video_id and owner_stage_id in _STAGE_ORDER:
+                    return owner_stage_id
+                if owner_id.startswith(f"{video_id}:"):
+                    candidate_stage_id = owner_id.split(":", 1)[1]
+                    if candidate_stage_id in _STAGE_ORDER:
+                        return candidate_stage_id
+
+        if task.task_type == "video_import" and task.id == video_id:
+            return _IMPORT_STAGE_ID
+        return None
+
+    def _active_task_sort_key(self, task: TaskInfo) -> tuple[int, str, str]:
+        return (
+            1 if task.status == "running" else 0,
+            getattr(task, "updated_at", ""),
+            getattr(task, "id", ""),
+        )
+
+    def _resolve_current_stage_id(self, states: list[_ResolvedStageState]) -> str:
+        active_states = [state for state in states if state.active_task is not None]
+        if active_states:
+            active_states.sort(
+                key=lambda item: (
+                    1 if item.active_task is not None and item.active_task.status == "running" else 0,
+                    -_STAGE_ORDER.get(item.stage_id, 0),
+                    item.updated_at or "",
+                ),
+                reverse=True,
+            )
+            return active_states[0].stage_id
+
+        for state in states:
+            if state.status != "succeeded":
+                return state.stage_id
+        return states[-1].stage_id
+
+    def _derive_stage_feedback(
+        self,
+        stage_id: str,
+        status: str,
+        error_message: str | None,
+    ) -> tuple[str | None, str | None]:
+        if stage_id == _IMPORT_STAGE_ID:
+            return self._derive_import_stage_feedback(status, error_message)
+        if status == "queued":
+            return None, "任务已排队，请等待当前阶段开始执行。"
+        if status == "running":
+            return None, "当前阶段处理中，请等待任务完成或取消当前任务。"
+        if stage_id == _TRANSCRIPT_STAGE_ID:
+            return self._derive_transcript_stage_feedback(status, error_message)
+        if stage_id == _SEGMENT_STAGE_ID:
+            return self._derive_segment_stage_feedback(status, error_message)
+        if stage_id == _STRUCTURE_STAGE_ID:
+            return self._derive_structure_stage_feedback(status, error_message)
+        return None, None
+
+    def _derive_import_stage_feedback(
+        self,
+        status: str,
+        error_message: str | None,
+    ) -> tuple[str | None, str | None]:
+        if status == "queued":
+            return None, "导入任务已进入队列，请等待后台解析启动。"
+        if status == "running":
+            return None, "正在解析视频元数据，请等待导入完成。"
+        if status == "succeeded":
+            return None, "导入已完成，可以继续执行视频转录。"
+
+        error_code = self._build_import_error_code(error_message)
+        if error_code == "media.ffprobe_unavailable":
+            return error_code, "请先修复 FFprobe 或媒体诊断配置后，再重新导入视频。"
+        if error_code == "video.import.file_missing":
+            return error_code, "请确认原始视频文件仍存在于本地路径后，再重新导入视频。"
+        return error_code, "请检查视频文件可读性与 Runtime 日志后，再重新导入视频。"
+
+    def _derive_transcript_stage_feedback(
+        self,
+        status: str,
+        error_message: str | None,
+    ) -> tuple[str | None, str | None]:
+        if status == "pending":
+            return None, "可开始视频转录。"
+        if status == "succeeded":
+            return None, "转录已完成，可以继续执行视频分段。"
+        if status == _PROVIDER_REQUIRED_STATUS:
+            return "provider.required", "请先配置可用转录 Provider 后重试。"
+        if status == _BLOCKED_STATUS:
+            return "task.conflict", "请先完成导入阶段后重试。"
+        error_code = self._build_failed_stage_error_code(_TRANSCRIPT_STAGE_ID, error_message)
+        return error_code, self._build_failed_stage_next_action(_TRANSCRIPT_STAGE_ID, error_code)
+
+    def _derive_segment_stage_feedback(
+        self,
+        status: str,
+        error_message: str | None,
+    ) -> tuple[str | None, str | None]:
+        if status == "pending":
+            return None, "请先完成转录，再执行视频分段。"
+        if status == "succeeded":
+            return None, "分段已完成，可以继续执行结构提取。"
+        if status == _BLOCKED_STATUS:
+            return "task.conflict", "请先完成转录阶段后重试。"
+        error_code = self._build_failed_stage_error_code(_SEGMENT_STAGE_ID, error_message)
+        return error_code, self._build_failed_stage_next_action(_SEGMENT_STAGE_ID, error_code)
+
+    def _derive_structure_stage_feedback(
+        self,
+        status: str,
+        error_message: str | None,
+    ) -> tuple[str | None, str | None]:
+        if status == "pending":
+            return None, "请先完成分段，再执行结构提取。"
+        if status == "succeeded":
+            return None, "结构提取已完成，可以将结果应用到项目。"
+        if status == _BLOCKED_STATUS:
+            return "task.conflict", "请先完成分段阶段后重试。"
+        error_code = self._build_failed_stage_error_code(_STRUCTURE_STAGE_ID, error_message)
+        return error_code, self._build_failed_stage_next_action(_STRUCTURE_STAGE_ID, error_code)
+
+    def _build_import_error_code(self, error_message: str | None) -> str:
+        if error_message and "FFprobe" in error_message:
+            return "media.ffprobe_unavailable"
+        if error_message and "文件不存在" in error_message:
+            return "video.import.file_missing"
+        return "video.import.failed"
+
+    def _build_failed_stage_error_code(self, stage_id: str, error_message: str | None) -> str:
+        if error_message and "文件不存在" in error_message:
+            return f"video.{stage_id}.file_missing"
+        return f"video.{stage_id}.failed"
+
+    def _build_failed_stage_next_action(self, stage_id: str, error_code: str) -> str:
+        if error_code.endswith(".file_missing"):
+            return "请确认原始视频文件仍存在于本地路径后，再重试当前阶段。"
+        if error_code.endswith(".cancelled"):
+            return "当前阶段已取消，如仍需继续可重新发起该阶段。"
+        if stage_id == _TRANSCRIPT_STAGE_ID:
+            return "请检查 Provider 配置、视频文件与 Runtime 日志后，再重试转录。"
+        if stage_id == _SEGMENT_STAGE_ID:
+            return "请检查转录结果与视频文件状态后，再重试视频分段。"
+        if stage_id == _STRUCTURE_STAGE_ID:
+            return "请检查分段结果与视频文件状态后，再重试结构提取。"
+        return "请检查当前阶段依赖与 Runtime 日志后，再重试。"
+
+    def _active_task_next_action(self, task_status: str) -> str:
+        if task_status == "queued":
+            return "当前阶段已排队，请等待任务开始执行。"
+        return "当前阶段处理中，可等待完成或取消当前任务。"
+
+    def _blocked_by_stage_id(self, stage_id: str, status: str) -> str | None:
+        if status != _BLOCKED_STATUS:
+            return None
+        if stage_id == _TRANSCRIPT_STAGE_ID:
+            return _IMPORT_STAGE_ID
+        if stage_id == _SEGMENT_STAGE_ID:
+            return _TRANSCRIPT_STAGE_ID
+        if stage_id == _STRUCTURE_STAGE_ID:
+            return _SEGMENT_STAGE_ID
+        return None
 
     async def _emit_stage_event(self, event_type: str, video_id: str, stage_id: str, **payload: object) -> None:
         message = {
@@ -591,10 +916,29 @@ class VideoDeconstructionService:
 def _import_stage_state(video) -> tuple[str, int, str | None, str | None, str]:
     if video.status == "error":
         return "failed", 0, None, video.error_message, video.created_at
-    if video.status in {"ready", "imported"}:
+    if video.status == "failed_degraded":
+        return (
+            "failed_degraded",
+            80,
+            "FFprobe 不可用，导入解析失败，暂缺时长与分辨率等元数据。",
+            video.error_message,
+            video.created_at,
+        )
+    if video.status == "ready":
         summary = video.error_message or f"已导入 {video.file_name}"
         return "succeeded", 100, summary, None, video.created_at
+    if video.status == "imported":
+        return "queued", 0, "已接收导入请求，等待后台解析。", None, video.created_at
     return "running", 50, None, None, video.created_at
+
+
+def _stage_owner_ref(video_id: str, stage_id: str) -> dict[str, str]:
+    return {
+        "kind": "video-stage",
+        "id": f"{video_id}:{stage_id}",
+        "videoId": video_id,
+        "stageId": stage_id,
+    }
 
 
 def _utc_now() -> str:

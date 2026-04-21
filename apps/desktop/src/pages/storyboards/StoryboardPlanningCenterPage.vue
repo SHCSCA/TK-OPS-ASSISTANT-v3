@@ -2,21 +2,25 @@
   <ProjectContextGuard>
     <div class="page-container">
       <header class="page-header">
-        <div class="page-header__crumb">首页 / 创作策划</div>
+        <div class="page-header__crumb">首页 / 策划中心</div>
         <div class="page-header__row">
           <div>
             <h1 class="page-header__title">分镜规划中心</h1>
-            <div class="page-header__subtitle">把脚本结构转成真实分镜版本，当前生成状态、脚本引用和镜头内容都直接回到项目主链。</div>
+            <div class="page-header__subtitle">分镜规划基于已采用的文案修订版本。当文案修订版更新时，请及时同步。</div>
           </div>
           <div class="page-header__actions">
-            <!-- 视图切换 mock -->
+            <!-- 视图切换 (mock) -->
             <div class="view-switch">
-              <button class="view-btn is-active">卡片瀑布</button>
-              <button class="view-btn" disabled>时间线节奏</button>
-              <button class="view-btn" disabled>结构对比</button>
+              <button class="view-btn is-active">列表视图</button>
+              <button class="view-btn" disabled>大纲视图</button>
+              <button class="view-btn" disabled>预览模式</button>
             </div>
-            
-            <Button variant="ai" :running="isGenerating" :disabled="generateDisabled" @click="handleGenerate">
+
+            <Button v-if="isOutdated" variant="warning" :running="isBusy" @click="handleSync">
+              <template #leading><span class="material-symbols-outlined">sync</span></template>
+              同步最新文案
+            </Button>
+            <Button variant="ai" :running="isGenerating" :disabled="generateDisabled" @click="handleGenerate">  
               <template #leading><span class="material-symbols-outlined">auto_awesome</span></template>
               AI 生成分镜
             </Button>
@@ -26,22 +30,32 @@
             </Button>
           </div>
         </div>
+        
+        <!-- 版本冲突警告横幅 -->
+        <div v-if="isOutdated && !isBusy" class="outdated-banner">
+          <span class="material-symbols-outlined">warning</span>
+          <p>
+            检测到当前项目有更新的文案版本 (v{{ scriptRevision }})。当前分镜仍基于 v{{ basedOnScriptRevision }}。
+            建议在编辑前<strong>同步最新文案</strong>，以确保分镜逻辑一致。
+          </p>
+          <Button variant="secondary" size="sm" @click="handleSync">立即同步</Button>
+        </div>
       </header>
 
       <div class="storyboard-workspace">
-        <!-- 左侧 脚本段落导航 -->
+        <!-- 左侧 脚本对照区域 -->
         <aside class="storyboard-panel storyboard-panel--script">
           <Card class="storyboard-card h-full">
             <div class="storyboard-card__header">
-              <h3>脚本段落导航</h3>
+              <h3>文案对照（只读）</h3>
               <Chip size="sm">{{ scriptSegments.length }} 段</Chip>
             </div>
             <div class="storyboard-card__body scroll-area no-padding">
               <div v-if="scriptSegments.length === 0" class="empty-text">
-                脚本中心尚无可引用正文，先完成脚本生成或保存。
+                当前项目尚无已采用的文案版本，请先前往脚本中心生成并采用脚本。
               </div>
               <div v-else class="segment-list">
-                <button
+                <div
                   v-for="segment in scriptSegments"
                   :key="segment.id"
                   class="segment-item"
@@ -50,40 +64,42 @@
                 >
                   <strong>{{ segment.title }}</strong>
                   <p>{{ segment.excerpt }}</p>
-                </button>
+                </div>
               </div>
             </div>
           </Card>
         </aside>
 
-        <!-- 右侧 分镜卡片瀑布流 -->
+        <!-- 中间 分镜规划工作台 -->
         <main class="storyboard-panel storyboard-panel--board">
           <Card class="storyboard-card h-full board-card" :class="{ 'is-generating': isGenerating }">
             <div class="ai-flow-bar" v-if="isGenerating"></div>
-            
+
             <div class="board-header">
               <div class="board-header__copy">
-                <h3>镜头规划板</h3>
+                <h3>当前分镜面</h3>
                 <span class="board-meta">{{ boardMeta }}</span>
               </div>
               <div class="board-tags">
-                <Chip v-if="currentRevisionLabel !== '-'">v{{ currentRevisionLabel }}</Chip>
-                <Chip size="sm">{{ scenes.length }} 个镜头</Chip>
+                <Chip v-if="currentRevisionLabel !== '-'" :variant="isOutdated ? 'warning' : 'default'">
+                  基于文案 v{{ basedOnScriptRevision }}
+                </Chip>
+                <Chip size="sm">{{ scenes.length }} 个分镜</Chip>
               </div>
             </div>
 
             <div class="board-body scroll-area bg-canvas">
               <div v-if="pageState === 'loading'" class="board-empty">
                 <span class="material-symbols-outlined spinning">progress_activity</span>
-                <p>正在同步分镜版本与脚本引用...</p>
+                <p>正在拉取当前项目分镜详情...</p>
               </div>
               <div v-else-if="!hasScriptContent" class="board-empty">
                 <span class="material-symbols-outlined">description</span>
-                <p>脚本尚未准备好<br/><small>分镜规划依赖真实脚本内容，当前不会展示伪造场景卡。</small></p>
+                <p>文案内容为空<br/><small>分镜规划必须依赖有效的文案版本。请先在文案中心生成并采用文案。</small></p>
               </div>
               <div v-else-if="scenes.length === 0" class="board-empty">
                 <span class="material-symbols-outlined">view_carousel</span>
-                <p>当前项目还没有分镜版本<br/><small>点击“AI 生成分镜”后，Runtime 返回的真实场景会直接落在这里。</small></p>
+                <p>当前项目还没有生成分镜脚本<br/><small>您可以点击右上角的 AI 生成分镜，或者等待 Runtime 自动同步文案变更后手动编辑。</small></p>
               </div>
             <div v-else class="scene-grid">
                 <transition-group name="scene-list">
@@ -96,20 +112,20 @@
                   >
                     <div class="scene-header">
                       <div class="scene-header__title">
-                        <Chip size="sm">镜头 {{ index + 1 }}</Chip>
+                        <Chip size="sm">分镜 {{ index + 1 }}</Chip>
                         <strong>{{ linkedSegmentTitle(index) }}</strong>
                       </div>
                     </div>
 
                     <div class="scene-fields">
                       <div class="form-group">
-                        <Input v-model="scene.title" label="标题" />
+                        <Input v-model="scene.title" label="分镜标题" />
                       </div>
                       <div class="form-group">
-                        <Input v-model="scene.summary" label="摘要" multiline :rows="2" />
+                        <Input v-model="scene.summary" label="画面摘要" multiline :rows="2" />
                       </div>
                       <div class="form-group">
-                        <Input v-model="scene.visualPrompt" label="视觉提示" multiline :rows="3" />
+                        <Input v-model="scene.visualPrompt" label="视觉提示词" multiline :rows="3" />
                       </div>
                     </div>
 
@@ -156,7 +172,13 @@ const selectedSegmentId = ref<string | null>(null);
 
 const currentProjectId = computed(() => projectStore.currentProject?.projectId ?? "");
 const projectName = computed(() => projectStore.currentProject?.projectName ?? "未选择项目");
-const basedOnScriptRevision = computed(() => storyboardStore.document?.basedOnScriptRevision ?? "-");
+const basedOnScriptRevision = computed(() => storyboardStore.document?.basedOnScriptRevision ?? 0);
+const scriptRevision = computed(() => scriptStudioStore.document?.currentVersion?.revision ?? 0);
+const isOutdated = computed(() => {
+  if (basedOnScriptRevision.value === 0 || scriptRevision.value === 0) return false;
+  return basedOnScriptRevision.value < scriptRevision.value;
+});
+
 const versions = computed(() => storyboardStore.document?.versions ?? []);
 const recentJobs = computed(() => storyboardStore.document?.recentJobs ?? []);
 const latestJob = computed(() => recentJobs.value[0] ?? null);
@@ -199,11 +221,11 @@ const pageStateLabel = computed(() => {
 });
 
 const pageStateDescription = computed(() => {
-  if (pageState.value === "loading") return "页面正在同时读取脚本引用和分镜版本，不生成伪场景卡。";
-  if (pageState.value === "error") return storyboardStore.error?.message ?? scriptStudioStore.error?.message ?? "分镜请求失败，请稍后重试。";
-  if (pageState.value === "blocked") return latestJob.value?.error ?? "最近一次 AI 分镜作业被阻断，当前仍可继续手动编辑已有版本。";
-  if (pageState.value === "empty") return hasScriptContent.value ? "脚本已就绪，但当前项目还没有分镜版本。" : "先完成真实脚本，再进入分镜生成。";
-  return "当前页面展示真实脚本引用、场景版本和最近生成状态。";
+  if (pageState.value === "loading") return "正在通过真实运行时环境拉取文案对应的分镜规划结果和最近作业。";
+  if (pageState.value === "error") return storyboardStore.error?.message ?? scriptStudioStore.error?.message ?? "分镜加载失败，请检查运行时状态。";
+  if (pageState.value === "blocked") return latestJob.value?.error ?? "分镜生成任务被阻断，当前可手动调整规划逻辑。";
+  if (pageState.value === "empty") return hasScriptContent.value ? "当前项目已具备文案，点击生成或同步以开始规划分镜。" : "分镜规划基于文案，请先前往脚本中心完成创作。";
+  return "当前页面使用真实文案修订版和分镜模型生成的工作流反馈。";
 });
 
 const scriptSegments = computed(() =>
@@ -216,18 +238,18 @@ const selectedScene = computed(() =>
 
 const boardMeta = computed(() => {
   if (currentVersion.value) {
-    return `基于脚本 v${currentVersion.value.basedOnScriptRevision} 生成 · 写入于 ${formatDateTime(currentVersion.value.createdAt)}`;
+    return `基于文案 v${currentVersion.value.basedOnScriptRevision} 生成于 ${formatDateTime(currentVersion.value.createdAt)}`;
   }
   if (hasScriptContent.value) {
-    return `脚本 v${basedOnScriptRevision.value} 已就绪，等待生成首个分镜版本。`;
+    return `当前文案 v${scriptRevision.value} 已就绪，请点击同步或生成分镜。`;
   }
-  return "等待脚本内容进入分镜规划链路。";
+  return "等待文案修订版同步以开始分镜规划。";
 });
 
 const currentRevisionLabel = computed(() => currentVersion.value?.revision ?? "-");
-const currentRevisionDisplay = computed(() => currentVersion.value ? `修订 ${currentVersion.value.revision}` : "尚无分镜修订");
-const currentVersionTimestamp = computed(() => currentVersion.value ? formatDateTime(currentVersion.value.createdAt) : "尚未生成");
-const versionSourceLabel = computed(() => currentVersion.value?.source ?? "等待版本");
+const currentRevisionDisplay = computed(() => currentVersion.value ? `修订 ${currentVersion.value.revision}` : "尚未生成分镜修订版");
+const currentVersionTimestamp = computed(() => currentVersion.value ? formatDateTime(currentVersion.value.createdAt) : "尚未同步");
+const versionSourceLabel = computed(() => currentVersion.value?.source ?? "本地规划");
 
 const generateDisabled = computed(() => isBusy.value || !hasScriptContent.value);
 const saveDisabled = computed(() => isBusy.value || scenes.value.length === 0);
@@ -249,7 +271,7 @@ watch(scriptSegments, (value) => {
   selectedSegmentId.value = value[0]?.id ?? null;
 }, { immediate: true });
 
-watch([projectName, selectedScene, currentVersion, pageState, recentJobs, scriptSegments], () => {
+watch([projectName, selectedScene, currentVersion, pageState, recentJobs, scriptSegments, isOutdated], () => {
   shellUiStore.setDetailContext(
     createRouteDetailContext("contextual", {
       icon: "view_timeline",
@@ -258,44 +280,32 @@ watch([projectName, selectedScene, currentVersion, pageState, recentJobs, script
       description: pageStateDescription.value,
       badge: {
         label: pageStateLabel.value,
-        tone: pageState.value === "error" ? "danger" : pageState.value === "blocked" ? "warning" : "brand"
+        tone: pageState.value === "error" ? "danger" : isOutdated.value ? "warning" : "brand"      
       },
       metrics: [
-        { id: "revision", label: "当前修订", value: currentRevisionDisplay.value },
-        { id: "segments", label: "脚本段落", value: String(scriptSegments.value.length) },
-        { id: "scenes", label: "镜头数", value: String(scenes.value.length) }
+        { id: "revision", label: "分镜修订版", value: currentRevisionDisplay.value },
+        { id: "segments", label: "文案段落", value: String(scriptSegments.value.length) },
+        { id: "scenes", label: "分镜数", value: String(scenes.value.length) }
       ],
       sections: [
         {
           id: "reference",
-          title: "脚本引用",
+          title: "版本追踪",
           fields: [
-            { id: "script", label: "脚本修订", value: `v${basedOnScriptRevision.value}` },
-            { id: "scene", label: "当前镜头", value: selectedScene.value?.title ?? "未选择" }
+            { id: "script", label: "文案版本", value: `v${basedOnScriptRevision.value}` + (isOutdated.value ? " (已过期)" : "") },
+            { id: "scene", label: "当前选定分镜", value: selectedScene.value?.title ?? "未选择" }
           ]
         },
         {
           id: "jobs",
-          title: "最近作业",
-          emptyLabel: "当前没有真实 AI 分镜作业。",
+          title: "AI 生成作业",
+          emptyLabel: "当前没有真实 AI 分镜生成记录。",
           items: recentJobs.value.slice(0, 3).map((job) => ({
             id: job.id,
             title: job.provider,
             description: job.model,
             meta: jobStatusLabel(job.status),
             tone: job.status === "blocked" ? "warning" : job.status === "failed" ? "danger" : "brand"
-          }))
-        },
-        {
-          id: "history",
-          title: "历史版本",
-          emptyLabel: "还没有分镜版本。",
-          items: versions.value.slice(0, 3).map((v) => ({
-            id: String(v.revision),
-            title: `修订 ${v.revision}`,
-            description: `${v.source} · ${v.provider ?? "手动"}`,
-            meta: formatDateTime(v.createdAt),
-            tone: "neutral"
           }))
         }
       ]
@@ -311,13 +321,20 @@ async function handleGenerate(): Promise<void> {
   await storyboardStore.generate();
 }
 
+async function handleSync(): Promise<void> {
+  if (scenes.value.length > 0) {
+    if (!confirm("同步最新文案将覆盖当前未保存的分镜改动。确定继续吗？")) return;
+  }
+  await storyboardStore.syncFromScript();
+}
+
 async function handleSave(): Promise<void> {
-  const basedOnRevision = currentVersion.value?.basedOnScriptRevision ?? storyboardStore.document?.basedOnScriptRevision ?? 1;
+  const basedOnRevision = storyboardStore.document?.basedOnScriptRevision ?? scriptRevision.value;
   await storyboardStore.save(basedOnRevision, scenes.value);
 }
 
 function linkedSegmentTitle(index: number): string {
-  return scriptSegments.value[index]?.title ?? `脚本段落 ${index + 1}`;
+  return scriptSegments.value[index]?.title ?? `段落 ${index + 1}`;
 }
 
 function jobStatusLabel(status: string): string {
@@ -337,11 +354,11 @@ function formatDateTime(value: string): string {
 }
 
 function parseScriptSegments(value: string): Array<{ excerpt: string; id: string; title: string }> {
-  return value.split(/\n\s*\n/).map((segment) => segment.trim()).filter(Boolean).map((segment, index) => {
+  return value.split(/\n\s*\n/).map((segment) => segment.trim()).filter(Boolean).map((segment, index) => {      
     const lines = segment.split("\n").map((line) => line.trim()).filter(Boolean);
     const rawTitle = lines[0] ?? `段落 ${index + 1}`;
     return {
-      excerpt: lines.slice(1).join(" ").slice(0, 88) || "等待补充脚本段落。",
+      excerpt: lines.slice(1).join(" ").slice(0, 88) || "暂无文案正文，请先补充内容。",
       id: `segment-${index + 1}`,
       title: rawTitle.replace(/^#+\s*/, "")
     };
@@ -430,7 +447,29 @@ function parseScriptSegments(value: string): Array<{ excerpt: string; id: string
   box-shadow: var(--shadow-sm);
 }
 
-/* 工作区网格 */
+.outdated-banner {
+  margin-top: var(--space-4);
+  background: color-mix(in srgb, var(--color-status-warning) 12%, transparent);
+  border: 1px solid var(--color-status-warning);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.outdated-banner .material-symbols-outlined {
+  color: var(--color-status-warning);
+}
+
+.outdated-banner p {
+  flex: 1;
+  margin: 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-primary);
+}
+
+/* 布局网格 */
 .storyboard-workspace {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -511,17 +550,13 @@ function parseScriptSegments(value: string): Array<{ excerpt: string; id: string
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--color-border-subtle);
-  cursor: pointer;
+  cursor: default;
   text-align: left;
   transition: background-color var(--motion-fast) var(--ease-standard);
 }
 
 .segment-item:hover {
   background: var(--color-bg-hover);
-}
-
-.segment-item:active {
-  transform: scale(0.98);
 }
 
 .segment-item.is-active {

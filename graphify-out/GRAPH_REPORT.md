@@ -1,11 +1,11 @@
-# Graph Report - C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3  (2026-04-20)
+# Graph Report - C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3  (2026-04-21)
 
 ## Corpus Check
-- 393 files · ~923,815 words
+- 393 files · ~895,537 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2400 nodes · 5870 edges · 182 communities detected
+- 2402 nodes · 5872 edges · 182 communities detected
 - Extraction: 59% EXTRACTED · 41% INFERRED · 0% AMBIGUOUS · INFERRED: 2410 edges (avg confidence: 0.73)
 - Token cost: 0 input · 0 output
 
@@ -206,58 +206,58 @@
 10. `VideoDeconstructionService` - 43 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `createRouteAwareFetch()` --calls--> `createVoiceFetch()`  [INFERRED]
-  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\runtime-helpers.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\voice-studio-store.spec.ts
 - `now()` --calls--> `_utc_now()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\voice-studio-store.spec.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\devtools\seed_data.py
 - `now()` --calls--> `_utc_now()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\voice-studio-store.spec.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\services\video_deconstruction_service.py
-- `utc_now_iso()` --calls--> `test_utc_now_iso_uses_z_suffix()`  [INFERRED]
+- `utc_now()` --calls--> `test_utc_now_returns_timezone_aware_utc_datetime()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\common\time.py → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\tests\runtime\test_runtime_time_helpers.py
-- `handleCopyContent()` --calls--> `error()`  [INFERRED]
-  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\pages\scripts\ScriptTopicCenterPage.vue → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\scripts\run-runtime-dev.mjs
+- `run()` --calls--> `test_generate_keypair_script_creates_public_and_private_key()`  [INFERRED]
+  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\scripts\run-runtime-dev.mjs → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\tests\runtime\test_license_tools.py
+- `run()` --calls--> `test_issue_license_script_rejects_missing_private_key()`  [INFERRED]
+  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\scripts\run-runtime-dev.mjs → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\tests\runtime\test_license_tools.py
 
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.02
-Nodes (108): AIJobRepository, StoredAIJobRecord, _utc_now(), AITextGenerationService, GeneratedTextResult, _render_template(), CreateProjectInput, CurrentProjectContextDto (+100 more)
+Cohesion: 0.03
+Nodes (75): AccountService, _mask_sensitive_json(), _mask_value(), _utc_now(), AccountBindingDto, AccountBindingUpsertInput, AccountCreateInput, AccountDto (+67 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.02
-Nodes (85): AccountRepository, _utc_now(), runtime_app(), error_response(), create_app(), PromptTemplateRepository, StoredPromptTemplate, _utc_now() (+77 more)
+Cohesion: 0.03
+Nodes (90): AICapabilityConfigListInput, AIProviderHealthCheckInput, AIProviderSecretInput, BaseModel, CreateProjectInput, CurrentProjectContextDto, DashboardSummaryDto, ProjectSummaryDto (+82 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.03
-Nodes (160): add_group_member(), create_account(), create_account_group(), delete_account(), delete_account_group(), get_account(), list_account_groups(), list_accounts() (+152 more)
+Cohesion: 0.02
+Nodes (75): AccountRepository, _utc_now(), AssetRepository, _utc_now(), runtime_app(), error_response(), create_app(), RenderRepository (+67 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.03
-Nodes (56): AccountService, _mask_sensitive_json(), _mask_value(), _utc_now(), AccountBindingDto, AccountBindingUpsertInput, AccountCreateInput, AccountDto (+48 more)
-
-### Community 4 - "Community 4"
 Cohesion: 0.02
 Nodes (156): activateLicense(), adoptReviewSuggestion(), alignSubtitleTrack(), analyzeReviewProject(), applyReviewSuggestionToScript(), applyVideoExtractionToProject(), batchDeleteAssets(), batchMoveAssetsToGroup() (+148 more)
 
+### Community 4 - "Community 4"
+Cohesion: 0.03
+Nodes (151): add_group_member(), create_account(), create_account_group(), delete_account(), delete_account_group(), get_account(), list_account_groups(), list_accounts() (+143 more)
+
 ### Community 5 - "Community 5"
 Cohesion: 0.03
-Nodes (96): Account, AccountGroup, AccountGroupMember, 更新 updated_at（用于 refresh-stats V1 占位）, AIProviderSetting, AIJobRecord, Asset, AssetGroup (+88 more)
+Nodes (87): ABC, AIJobRepository, StoredAIJobRecord, _utc_now(), AITextGenerationService, GeneratedTextResult, _render_template(), AnthropicMessagesTextGenerationAdapter (+79 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.04
-Nodes (60): TTSRequest, TTSResponse, BootstrapDirectoryItemDto, BootstrapDirectoryReportDto, RuntimeSelfCheckItemDto, RuntimeSelfCheckReportDto, BootstrapService, _check_port_listening() (+52 more)
+Cohesion: 0.03
+Nodes (98): Account, AccountGroup, AccountGroupMember, 更新 updated_at（用于 refresh-stats V1 占位）, AICapabilityConfig, AIProviderSetting, AIJobRecord, Asset (+90 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.04
-Nodes (60): add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad, upgrade(), if(), BaseModel, load_runtime_config(), _load_runtime_version(), RuntimeConfig, activate_license() (+52 more)
+Cohesion: 0.03
+Nodes (68): add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad, upgrade(), if(), handleReload(), load_runtime_config(), _load_runtime_version(), RuntimeConfig, create_app() (+60 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.05
-Nodes (53): ABC, AnthropicMessagesTextGenerationAdapter, TextGenerationAdapter, TextGenerationRequest, TextGenerationResponse, TTSAdapter, CohereChatTextGenerationAdapter, ProviderHTTPException (+45 more)
+Nodes (49): TTSRequest, TTSResponse, main(), canRun(), ensureSuccess(), resolvePythonCommand(), run(), test_provider_dataclasses_expose_defaults_and_fields() (+41 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.06
-Nodes (50): AICapabilityConfigDto, AICapabilityConfigListInput, AICapabilityModelOptionDto, AICapabilitySettingsDto, AICapabilitySupportItemDto, AICapabilitySupportMatrixDto, AIModelCatalogItemDto, AIModelCatalogRefreshResultDto (+42 more)
+Cohesion: 0.07
+Nodes (46): AICapabilityConfigDto, AICapabilityModelOptionDto, AICapabilitySettingsDto, AICapabilitySupportItemDto, AICapabilitySupportMatrixDto, AIModelCatalogItemDto, AIModelCatalogRefreshResultDto, AIProviderCatalogItemDto (+38 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.04
@@ -268,52 +268,52 @@ Cohesion: 0.08
 Nodes (31): runtime_client(), _create_timeline(), _make_workspace_service(), test_create_project_timeline_stores_empty_draft(), test_fetch_clip_returns_detail_with_metadata(), test_get_project_timeline_returns_empty_state(), test_move_clip_updates_timeline_atomically(), test_precheck_returns_unavailable_when_helper_missing() (+23 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.08
-Nodes (25): AssetRepository, _utc_now(), AssetService, _utc_now(), AssetCreateInput, AssetDto, AssetGroupCreateInput, AssetGroupDto (+17 more)
+Cohesion: 0.06
+Nodes (20): PrecheckConflictDto, PrecheckItemResult, PrecheckResultDto, PublishCalendarDto, PublishCalendarItemDto, PublishPlanCreateInput, PublishPlanDto, PublishPlanUpdateInput (+12 more)
 
 ### Community 13 - "Community 13"
 Cohesion: 0.07
-Nodes (34): buildAssetDetailContext(), buildBindingDetailContext(), buildContextualDetailContext(), buildLogDetailContext(), buildSettingsDetailContext(), mapRuntimeTone(), syncDetailContext(), buildAssetDetailContext() (+26 more)
+Nodes (33): buildAssetDetailContext(), buildBindingDetailContext(), buildContextualDetailContext(), buildLogDetailContext(), buildSettingsDetailContext(), mapRuntimeTone(), syncDetailContext(), buildAssetDetailContext() (+25 more)
 
 ### Community 14 - "Community 14"
 Cohesion: 0.11
-Nodes (18): _BuiltinSubtitleStyleTemplate, SubtitleService, SubtitleExportDto, SubtitleExportInput, SubtitleSegmentDto, SubtitleStyleDto, SubtitleStyleTemplateDto, SubtitleTrackAlignInput (+10 more)
+Nodes (25): AssetGroup, AssetReference, AssetService, _utc_now(), AssetCreateInput, AssetDto, AssetGroupCreateInput, AssetGroupDto (+17 more)
 
 ### Community 15 - "Community 15"
 Cohesion: 0.06
-Nodes (22): mountApp(), createWorkspaceFetch(), now(), timeline(), createAppRouter(), createRoutes(), createRouteAwareFetch(), mountApp() (+14 more)
+Nodes (23): mountApp(), createWorkspaceFetch(), now(), timeline(), createAppRouter(), createRoutes(), createRouteAwareFetch(), mountApp() (+15 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.1
 Nodes (12): AutomationTaskCreateInput, AutomationTaskDto, AutomationTaskRuleDto, AutomationTaskRuleInput, AutomationTaskRunDto, AutomationTaskUpdateInput, AutomationRepository, AutomationService (+4 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.12
-Nodes (17): ExportProfile, RenderService, CancelRenderResultDto, DiskUsageSnapshotDto, ExportProfileCreateInput, ExportProfileDto, RenderResourceUsageDto, RenderTaskCreateInput (+9 more)
+Cohesion: 0.11
+Nodes (12): PromptTemplateRepository, StoredPromptTemplate, _utc_now(), PromptTemplateService, create_prompt_template(), delete_prompt_template(), get_prompt_template_service(), list_prompt_templates() (+4 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.08
-Nodes (20): configure_logging(), JsonLogFormatter, _resolve_level(), error(), formatDateTime(), handleCopyContent(), handleClose(), handleMinimize() (+12 more)
+Cohesion: 0.11
+Nodes (23): build_parser(), main(), build_parser(), copy_to_clipboard(), main(), resolve_machine_code(), resolve_private_key_path(), _base64url_decode() (+15 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.12
-Nodes (12): GlobalSearchResultDto, search_global(), SearchAccountResultDto, SearchAssetResultDto, SearchProjectResultDto, SearchScriptResultDto, SearchTaskResultDto, SearchWorkspaceResultDto (+4 more)
+Cohesion: 0.14
+Nodes (10): GlobalSearchResultDto, search_global(), SearchAccountResultDto, SearchAssetResultDto, SearchProjectResultDto, SearchScriptResultDto, SearchTaskResultDto, SearchWorkspaceResultDto (+2 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.12
-Nodes (22): build_parser(), main(), build_parser(), copy_to_clipboard(), main(), resolve_machine_code(), resolve_private_key_path(), normalize_machine_code() (+14 more)
+Cohesion: 0.1
+Nodes (13): error(), formatDateTime(), handleCopyContent(), formatDateTime(), collectMarkdownFiles(), collectUsersPathLines(), getCargoVersion(), getPyprojectVersion() (+5 more)
 
 ### Community 21 - "Community 21"
+Cohesion: 0.21
+Nodes (9): BootstrapDirectoryItemDto, BootstrapDirectoryReportDto, RuntimeSelfCheckItemDto, RuntimeSelfCheckReportDto, BootstrapService, _check_port_listening(), test_utc_now_iso_uses_z_suffix(), test_utc_now_returns_timezone_aware_utc_datetime() (+1 more)
+
+### Community 22 - "Community 22"
 Cohesion: 0.2
 Nodes (18): attachCommonChildHandlers(), canRun(), ensureNpmSuccess(), ensurePathExists(), ensurePortAvailable(), ensureSuccess(), info(), isPortAvailable() (+10 more)
 
-### Community 22 - "Community 22"
+### Community 23 - "Community 23"
 Cohesion: 0.11
 Nodes (9): getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), toRuntimeErrorMessage() (+1 more)
-
-### Community 23 - "Community 23"
-Cohesion: 0.18
-Nodes (9): PromptTemplateService, create_prompt_template(), delete_prompt_template(), get_prompt_template_service(), list_prompt_templates(), PromptTemplateDto, PromptTemplateInput, PromptTemplateUpdateInput (+1 more)
 
 ### Community 24 - "Community 24"
 Cohesion: 0.38
@@ -1200,12 +1200,12 @@ Nodes (0):
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `now()` connect `Community 7` to `Community 0`, `Community 1`, `Community 3`, `Community 5`, `Community 9`, `Community 10`, `Community 17`, `Community 18`, `Community 20`, `Community 21`?**
-  _High betweenness centrality (0.083) - this node is a cross-community bridge._
-- **Why does `create_app()` connect `Community 0` to `Community 1`, `Community 3`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 14`, `Community 16`, `Community 17`, `Community 18`, `Community 19`, `Community 23`?**
-  _High betweenness centrality (0.078) - this node is a cross-community bridge._
-- **Why does `ok_response()` connect `Community 2` to `Community 0`, `Community 1`, `Community 7`, `Community 9`, `Community 19`, `Community 23`?**
-  _High betweenness centrality (0.071) - this node is a cross-community bridge._
+- **Why does `ok_response()` connect `Community 4` to `Community 1`, `Community 2`, `Community 7`, `Community 9`, `Community 17`, `Community 19`?**
+  _High betweenness centrality (0.089) - this node is a cross-community bridge._
+- **Why does `create_app()` connect `Community 7` to `Community 0`, `Community 1`, `Community 2`, `Community 5`, `Community 6`, `Community 8`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 14`, `Community 16`, `Community 17`, `Community 19`, `Community 21`?**
+  _High betweenness centrality (0.062) - this node is a cross-community bridge._
+- **Why does `now()` connect `Community 7` to `Community 0`, `Community 1`, `Community 2`, `Community 5`, `Community 6`, `Community 9`, `Community 10`, `Community 17`, `Community 18`, `Community 20`, `Community 22`?**
+  _High betweenness centrality (0.061) - this node is a cross-community bridge._
 - **Are the 173 inferred relationships involving `HTTPException` (e.g. with `get_license_service()` and `get_task()`) actually correct?**
   _`HTTPException` has 173 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 162 inferred relationships involving `ok_response()` (e.g. with `list_account_groups()` and `create_account_group()`) actually correct?**

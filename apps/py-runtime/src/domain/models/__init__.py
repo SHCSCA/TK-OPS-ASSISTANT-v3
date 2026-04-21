@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 from domain.models.account import Account, AccountGroup, AccountGroupMember
-from domain.models.ai_capability import AICapabilityConfig, AIProviderSetting
+from domain.models.ai_capability import (
+    AICapabilityConfig,
+    AIProviderHealth,
+    AIProviderModel,
+    AIProviderSetting,
+)
 from domain.models.ai_job import AIJobRecord
 from domain.models.asset import Asset, AssetGroup, AssetReference
 from domain.models.automation import AutomationTask, AutomationTaskRun
 from domain.models.base import Base, generate_uuid
-from domain.models.device_workspace import DeviceWorkspace, DeviceWorkspaceLog, ExecutionBinding
+from domain.models.device_workspace import (
+    BrowserInstance,
+    DeviceWorkspace,
+    DeviceWorkspaceLog,
+    ExecutionBinding,
+)
 from domain.models.imported_video import ImportedVideo
 from domain.models.license import LicenseGrant
 from domain.models.project import Project
@@ -26,6 +36,8 @@ __all__ = [
     'AccountGroup',
     'AccountGroupMember',
     'AICapabilityConfig',
+    'AIProviderHealth',
+    'AIProviderModel',
     'AIJobRecord',
     'AIProviderSetting',
     'Asset',
@@ -34,6 +46,7 @@ __all__ = [
     'AutomationTask',
     'AutomationTaskRun',
     'Base',
+    'BrowserInstance',
     'DeviceWorkspace',
     'DeviceWorkspaceLog',
     'ExecutionBinding',

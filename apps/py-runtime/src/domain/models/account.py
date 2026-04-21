@@ -21,6 +21,7 @@ class Account(Base):
     video_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tags: Mapped[str | None] = mapped_column(Text, nullable=True)    # JSON array string
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_validated_at: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[str] = mapped_column(Text, nullable=False)
 

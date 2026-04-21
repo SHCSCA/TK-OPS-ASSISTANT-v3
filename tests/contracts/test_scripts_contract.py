@@ -55,7 +55,22 @@ def test_script_document_contracts_use_scripts_prefix_and_expected_shape(runtime
     read_payload = read_response.json()
     assert set(read_payload) == {'ok', 'data'}
     assert read_payload['ok'] is True
-    assert set(read_payload['data']) == {'projectId', 'currentVersion', 'versions', 'recentJobs'}
+    assert set(read_payload['data']) == {
+        'projectId',
+        'currentVersion',
+        'versions',
+        'recentJobs',
+        'isSaved',
+        'latestRevision',
+        'saveSource',
+        'latestAiJob',
+        'lastOperation',
+    }
+    assert read_payload['data']['isSaved'] is False
+    assert read_payload['data']['latestRevision'] is None
+    assert read_payload['data']['saveSource'] is None
+    assert read_payload['data']['latestAiJob'] is None
+    assert read_payload['data']['lastOperation'] is None
 
     save_response = client.put(
         f'/api/scripts/projects/{project_id}/document',
@@ -66,7 +81,17 @@ def test_script_document_contracts_use_scripts_prefix_and_expected_shape(runtime
     save_payload = save_response.json()
     assert set(save_payload) == {'ok', 'data'}
     assert save_payload['ok'] is True
-    assert set(save_payload['data']) == {'projectId', 'currentVersion', 'versions', 'recentJobs'}
+    assert set(save_payload['data']) == {
+        'projectId',
+        'currentVersion',
+        'versions',
+        'recentJobs',
+        'isSaved',
+        'latestRevision',
+        'saveSource',
+        'latestAiJob',
+        'lastOperation',
+    }
     assert set(save_payload['data']['currentVersion']) == {
         'revision',
         'source',
@@ -76,6 +101,19 @@ def test_script_document_contracts_use_scripts_prefix_and_expected_shape(runtime
         'aiJobId',
         'createdAt',
     }
+    assert save_payload['data']['isSaved'] is True
+    assert save_payload['data']['latestRevision'] == 1
+    assert save_payload['data']['saveSource'] == 'manual'
+    assert save_payload['data']['latestAiJob'] is None
+    assert set(save_payload['data']['lastOperation']) == {
+        'revision',
+        'source',
+        'createdAt',
+        'aiJobId',
+        'aiJobStatus',
+    }
+    assert save_payload['data']['lastOperation']['source'] == 'manual'
+    assert save_payload['data']['lastOperation']['aiJobStatus'] is None
 
     generate_response = client.post(
         f'/api/scripts/projects/{project_id}/generate',
@@ -86,7 +124,17 @@ def test_script_document_contracts_use_scripts_prefix_and_expected_shape(runtime
     generate_payload = generate_response.json()
     assert set(generate_payload) == {'ok', 'data'}
     assert generate_payload['ok'] is True
-    assert set(generate_payload['data']) == {'projectId', 'currentVersion', 'versions', 'recentJobs'}
+    assert set(generate_payload['data']) == {
+        'projectId',
+        'currentVersion',
+        'versions',
+        'recentJobs',
+        'isSaved',
+        'latestRevision',
+        'saveSource',
+        'latestAiJob',
+        'lastOperation',
+    }
     assert set(generate_payload['data']['recentJobs'][0]) == {
         'id',
         'capabilityId',
@@ -98,6 +146,11 @@ def test_script_document_contracts_use_scripts_prefix_and_expected_shape(runtime
         'createdAt',
         'completedAt',
     }
+    assert generate_payload['data']['latestRevision'] == 2
+    assert generate_payload['data']['saveSource'] == 'ai_generate'
+    assert generate_payload['data']['latestAiJob']['capabilityId'] == 'script_generation'
+    assert generate_payload['data']['lastOperation']['source'] == 'ai_generate'
+    assert generate_payload['data']['lastOperation']['aiJobStatus'] == 'succeeded'
 
 
 def test_script_rewrite_contract_keeps_json_envelope(runtime_app) -> None:
@@ -125,7 +178,21 @@ def test_script_rewrite_contract_keeps_json_envelope(runtime_app) -> None:
     rewrite_payload = rewrite_response.json()
     assert set(rewrite_payload) == {'ok', 'data'}
     assert rewrite_payload['ok'] is True
-    assert set(rewrite_payload['data']) == {'projectId', 'currentVersion', 'versions', 'recentJobs'}
+    assert set(rewrite_payload['data']) == {
+        'projectId',
+        'currentVersion',
+        'versions',
+        'recentJobs',
+        'isSaved',
+        'latestRevision',
+        'saveSource',
+        'latestAiJob',
+        'lastOperation',
+    }
+    assert rewrite_payload['data']['saveSource'] == 'ai_rewrite'
+    assert rewrite_payload['data']['latestAiJob']['capabilityId'] == 'script_rewrite'
+    assert rewrite_payload['data']['lastOperation']['source'] == 'ai_rewrite'
+    assert rewrite_payload['data']['lastOperation']['aiJobStatus'] == 'succeeded'
 
 
 def test_script_versions_title_variants_and_segment_rewrite_contract(runtime_app) -> None:
@@ -176,10 +243,36 @@ def test_script_versions_title_variants_and_segment_rewrite_contract(runtime_app
     assert rewrite_response.status_code == 200
     rewrite_payload = rewrite_response.json()
     assert set(rewrite_payload) == {'ok', 'data'}
-    assert set(rewrite_payload['data']) == {'projectId', 'currentVersion', 'versions', 'recentJobs'}
+    assert set(rewrite_payload['data']) == {
+        'projectId',
+        'currentVersion',
+        'versions',
+        'recentJobs',
+        'isSaved',
+        'latestRevision',
+        'saveSource',
+        'latestAiJob',
+        'lastOperation',
+    }
+    assert rewrite_payload['data']['saveSource'] == 'ai_segment_rewrite'
+    assert rewrite_payload['data']['lastOperation']['source'] == 'ai_segment_rewrite'
+    assert rewrite_payload['data']['lastOperation']['aiJobStatus'] == 'succeeded'
 
     restore_response = client.post(f'/api/scripts/projects/{project_id}/restore/1')
     assert restore_response.status_code == 200
     restore_payload = restore_response.json()
     assert set(restore_payload) == {'ok', 'data'}
-    assert set(restore_payload['data']) == {'projectId', 'currentVersion', 'versions', 'recentJobs'}
+    assert set(restore_payload['data']) == {
+        'projectId',
+        'currentVersion',
+        'versions',
+        'recentJobs',
+        'isSaved',
+        'latestRevision',
+        'saveSource',
+        'latestAiJob',
+        'lastOperation',
+    }
+    assert restore_payload['data']['saveSource'] == 'restore'
+    assert restore_payload['data']['lastOperation']['source'] == 'restore'
+    assert restore_payload['data']['lastOperation']['aiJobStatus'] is None

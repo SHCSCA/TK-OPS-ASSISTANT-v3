@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -32,6 +33,8 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 def initialize_domain_schema(engine: Engine) -> None:
     Base.metadata.create_all(engine)
+    _repair_legacy_voice_track_schema(engine)
+    _repair_legacy_subtitle_track_schema(engine)
     _repair_legacy_asset_schema(engine)
     _repair_legacy_render_task_schema(engine)
     _repair_legacy_publish_plan_schema(engine)
@@ -130,6 +133,237 @@ def _repair_legacy_asset_schema(engine: Engine) -> None:
         _rebuild_legacy_asset_table(engine)
 
 
+def _repair_legacy_voice_track_schema(engine: Engine) -> None:
+    required_columns = {
+        "version": "INTEGER NOT NULL DEFAULT 1",
+        "config_json": "TEXT NOT NULL DEFAULT '{}'",
+        "updated_at": "TEXT NOT NULL DEFAULT ''",
+    }
+
+    fallback_time = datetime.now(UTC).isoformat()
+
+    with engine.begin() as connection:
+        columns = _table_columns(connection, "voice_tracks")
+        if not columns:
+            return
+
+        for column_name, column_sql in required_columns.items():
+            if column_name in columns:
+                continue
+            connection.execute(
+                text(f"ALTER TABLE voice_tracks ADD COLUMN {column_name} {column_sql}")
+            )
+
+        rows = connection.execute(
+            text(
+                """
+                SELECT
+                    id,
+                    source,
+                    provider,
+                    voice_name,
+                    file_path,
+                    status,
+                    segments_json,
+                    created_at,
+                    updated_at,
+                    version,
+                    config_json
+                FROM voice_tracks
+                """
+            )
+        ).mappings().all()
+
+        for row in rows:
+            config_json = str(row.get("config_json") or "").strip()
+            updated_at = str(row.get("updated_at") or "").strip()
+            version = row.get("version")
+            needs_update = False
+            payload: dict[str, object] | None = None
+
+            if config_json == "":
+                segments_json = str(row.get("segments_json") or "[]")
+                segment_count = 0
+                try:
+                    segments = json.loads(segments_json)
+                except json.JSONDecodeError:
+                    segments = []
+                if isinstance(segments, list):
+                    segment_count = len(segments)
+                payload = {
+                    "parameterSource": "legacy",
+                    "profileId": None,
+                    "provider": row.get("provider"),
+                    "voiceId": None,
+                    "voiceName": row.get("voice_name"),
+                    "locale": None,
+                    "model": None,
+                    "speed": None,
+                    "pitch": None,
+                    "emotion": None,
+                    "sourceText": None,
+                    "sourceLineCount": segment_count or None,
+                    "lastOperation": {
+                        "kind": "legacy_backfill",
+                        "status": row.get("status"),
+                        "updatedAt": fallback_time,
+                    },
+                }
+                needs_update = True
+
+            if updated_at == "":
+                updated_at = str(row.get("created_at") or fallback_time)
+                needs_update = True
+
+            if version is None or int(version) <= 0:
+                version = 1
+                needs_update = True
+
+            if payload is not None:
+                connection.execute(
+                    text(
+                        """
+                        UPDATE voice_tracks
+                        SET config_json = :config_json,
+                            version = :version,
+                            updated_at = :updated_at
+                        WHERE id = :track_id
+                        """
+                    ),
+                    {
+                        "track_id": row["id"],
+                        "config_json": json.dumps(payload, ensure_ascii=False),
+                        "version": int(version),
+                        "updated_at": updated_at,
+                    },
+                )
+                continue
+
+            if needs_update:
+                connection.execute(
+                    text(
+                        """
+                        UPDATE voice_tracks
+                        SET version = :version,
+                            updated_at = :updated_at
+                        WHERE id = :track_id
+                        """
+                    ),
+                    {
+                        "track_id": row["id"],
+                        "version": int(version),
+                        "updated_at": updated_at,
+                    },
+                )
+
+
+def _repair_legacy_subtitle_track_schema(engine: Engine) -> None:
+    required_columns = {
+        "metadata_json": "TEXT NOT NULL DEFAULT '{}'",
+        "updated_at": "TEXT NOT NULL DEFAULT ''",
+    }
+
+    fallback_time = datetime.now(UTC).isoformat()
+
+    with engine.begin() as connection:
+        columns = _table_columns(connection, "subtitle_tracks")
+        if not columns:
+            return
+
+        for column_name, column_sql in required_columns.items():
+            if column_name in columns:
+                continue
+            connection.execute(
+                text(f"ALTER TABLE subtitle_tracks ADD COLUMN {column_name} {column_sql}")
+            )
+
+        rows = connection.execute(
+            text(
+                """
+                SELECT
+                    id,
+                    status,
+                    segments_json,
+                    created_at,
+                    updated_at,
+                    metadata_json
+                FROM subtitle_tracks
+                """
+            )
+        ).mappings().all()
+
+        for row in rows:
+            metadata_json = str(row.get("metadata_json") or "").strip()
+            updated_at = str(row.get("updated_at") or "").strip()
+            needs_update = False
+
+            if updated_at == "":
+                updated_at = str(row.get("created_at") or fallback_time)
+                needs_update = True
+
+            if metadata_json == "":
+                segments_json = str(row.get("segments_json") or "[]")
+                try:
+                    segments = json.loads(segments_json)
+                except json.JSONDecodeError:
+                    segments = []
+                has_valid_timecodes = False
+                if isinstance(segments, list):
+                    has_valid_timecodes = all(
+                        isinstance(item, dict)
+                        and item.get("startMs") is not None
+                        and item.get("endMs") is not None
+                        and int(item.get("endMs")) > int(item.get("startMs"))
+                        for item in segments
+                    )
+                payload = {
+                    "sourceVoice": None,
+                    "alignment": {
+                        "status": "aligned" if has_valid_timecodes else "needs_alignment",
+                        "diffSummary": None,
+                        "errorCode": None if has_valid_timecodes else "subtitle.timecode_incomplete",
+                        "errorMessage": None if has_valid_timecodes else "字幕片段缺少有效时间码，无法完成对齐或导出。",
+                        "nextAction": (
+                            "可继续导出字幕，或回到字幕编辑中微调文案。"
+                            if has_valid_timecodes
+                            else "请重新执行字幕对齐，补齐字幕时间码。"
+                        ),
+                        "updatedAt": updated_at,
+                    },
+                }
+                connection.execute(
+                    text(
+                        """
+                        UPDATE subtitle_tracks
+                        SET metadata_json = :metadata_json,
+                            updated_at = :updated_at
+                        WHERE id = :track_id
+                        """
+                    ),
+                    {
+                        "track_id": row["id"],
+                        "metadata_json": json.dumps(payload, ensure_ascii=False),
+                        "updated_at": updated_at,
+                    },
+                )
+                continue
+
+            if needs_update:
+                connection.execute(
+                    text(
+                        """
+                        UPDATE subtitle_tracks
+                        SET updated_at = :updated_at
+                        WHERE id = :track_id
+                        """
+                    ),
+                    {
+                        "track_id": row["id"],
+                        "updated_at": updated_at,
+                    },
+                )
+
+
 def _repair_legacy_render_task_schema(engine: Engine) -> None:
     required_columns = {
         "project_name": "TEXT",
@@ -200,6 +434,7 @@ def _repair_legacy_publish_plan_schema(engine: Engine) -> None:
 def _repair_legacy_account_schema(engine: Engine) -> None:
     required_columns = {
         "name": "TEXT NOT NULL DEFAULT ''",
+        "last_validated_at": "TEXT",
         "created_at": "TEXT NOT NULL DEFAULT ''",
         "updated_at": "TEXT NOT NULL DEFAULT ''",
     }

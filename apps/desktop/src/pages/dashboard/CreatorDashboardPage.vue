@@ -58,12 +58,20 @@
       </transition-group>
     </section>
 
-    <!-- 待办与异常 (双列) -->
-    <section class="dashboard-section two-col">
+    <!-- 待办、异常与后台任务 (三列) -->
+    <section class="dashboard-section three-col">
+      <ExceptionQueueCard
+        title="后台运行任务"
+        :badge-count="activeTaskItems.length"
+        badge-tone="brand"
+        empty-message="当前没有正在后台运行的任务。"
+        :items="activeTaskItems"
+      />
+
       <ExceptionQueueCard
         title="待办（紧急）"
         :badge-count="todoItems.length"
-        badge-tone="brand"
+        badge-tone="warning"
         empty-message="当前没有需要紧急处理的待办事项。"
         :items="todoItems"
       />
@@ -117,6 +125,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useConfigBusStore } from "@/stores/config-bus";
 import { useLicenseStore } from "@/stores/license";
 import { useProjectStore } from "@/stores/project";
+import { useTaskBusStore } from "@/stores/task-bus";
 
 import Button from "@/components/ui/Button/Button.vue";
 import DashboardHero from "./components/DashboardHero.vue";
@@ -127,6 +136,7 @@ import HealthPanelCard from "./components/HealthPanelCard.vue";
 const configBusStore = useConfigBusStore();
 const licenseStore = useLicenseStore();
 const projectStore = useProjectStore();
+const taskBusStore = useTaskBusStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -206,6 +216,23 @@ const projectActionDisabled = computed(
   () => dashboardState.value === "error" || projectStore.status === "saving" || configBusStore.status === "saving" || licenseStore.status === "submitting"
 );
 
+// 全局后台活跃任务
+const activeTaskItems = computed<ExceptionItem[]>(() => {
+  const items: ExceptionItem[] = [];
+  taskBusStore.tasks.forEach((task) => {
+    if (task.status === "running" || task.status === "queued" || task.status === "pending") {
+      items.push({
+        id: task.id,
+        icon: "progress_activity",
+        title: task.message || task.kind || "后台任务",
+        meta: `进度: ${Math.round(task.progress)}%`,
+        tone: "brand"
+      });
+    }
+  });
+  return items;
+});
+
 // 异常与待办分类
 const issueItems = computed<ExceptionItem[]>(() => {
   const items: ExceptionItem[] = [];
@@ -248,10 +275,12 @@ const todoItems = computed(() => issueItems.value.filter(i => i.tone !== "danger
 const errorItems = computed(() => issueItems.value.filter(i => i.tone === "danger"));
 
 onMounted(() => {
+  taskBusStore.connect();
   if (projectStore.status === "idle") {
     void projectStore.load();
   }
 });
+
 
 async function handleCreateProject(): Promise<void> {
   const created = await projectStore.createProject({
@@ -448,6 +477,13 @@ async function resumeRedirectIfNeeded(): Promise<void> {
   align-items: stretch;
 }
 
+.three-col {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
 .health-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -495,8 +531,14 @@ async function resumeRedirectIfNeeded(): Promise<void> {
   border-width: 0 !important;
 }
 
+@media (max-width: 1200px) {
+  .three-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 960px) {
-  .two-col, .health-row {
+  .two-col, .three-col, .health-row {
     grid-template-columns: minmax(0, 1fr);
   }
 }

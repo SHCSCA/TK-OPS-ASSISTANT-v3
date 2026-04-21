@@ -22,6 +22,28 @@ class SubtitleSegmentDto(BaseModel):
     locked: bool = False
 
 
+class SubtitleSourceVoiceDto(BaseModel):
+    trackId: str
+    revision: int
+    updatedAt: str
+
+
+class SubtitleAlignmentDiffSummaryDto(BaseModel):
+    segmentCountChanged: bool
+    timingChangedSegments: int
+    textChangedSegments: int
+    lockedSegments: int
+
+
+class SubtitleAlignmentDto(BaseModel):
+    status: str
+    diffSummary: SubtitleAlignmentDiffSummaryDto | None = None
+    errorCode: str | None = None
+    errorMessage: str | None = None
+    nextAction: str | None = None
+    updatedAt: str
+
+
 class SubtitleTrackDto(BaseModel):
     id: str
     projectId: str
@@ -32,12 +54,16 @@ class SubtitleTrackDto(BaseModel):
     segments: list[SubtitleSegmentDto]
     status: str
     createdAt: str
+    updatedAt: str
+    sourceVoice: SubtitleSourceVoiceDto | None = None
+    alignment: SubtitleAlignmentDto
 
 
 class SubtitleTrackGenerateInput(BaseModel):
     sourceText: str
     language: str = "zh-CN"
     stylePreset: str = "creator-default"
+    sourceVoiceTrackId: str | None = None
 
 
 class SubtitleTrackUpdateInput(BaseModel):

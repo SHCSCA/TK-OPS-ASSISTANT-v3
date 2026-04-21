@@ -74,6 +74,18 @@ class AssetRepository:
                 )
             ) or 0
 
+    def summarize_references(self, asset_id: str) -> tuple[int, list[str]]:
+        with self._session_factory() as session:
+            refs = session.execute(
+                select(AssetReference.reference_type).where(
+                    AssetReference.asset_id == asset_id
+                )
+            ).all()
+            reference_types = sorted(
+                {str(row[0]) for row in refs if row and row[0] is not None}
+            )
+            return len(refs), reference_types
+
     def update_asset(self, asset_id: str, *, changes: dict[str, object]) -> Asset | None:
         with self._session_factory() as session:
             asset = session.get(Asset, asset_id)

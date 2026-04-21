@@ -96,6 +96,19 @@ class RuntimeDiagnosticsDto(BaseModel):
     healthStatus: str
 
 
+class FfprobeDiagnosticsDto(BaseModel):
+    status: str
+    path: str | None = None
+    version: str | None = None
+    errorCode: str | None = None
+    errorMessage: str | None = None
+
+
+class MediaDiagnosticsDto(BaseModel):
+    ffprobe: FfprobeDiagnosticsDto
+    checkedAt: str
+
+
 class RuntimeLogItemDto(BaseModel):
     timestamp: str
     level: str

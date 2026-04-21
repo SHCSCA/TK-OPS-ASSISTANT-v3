@@ -269,6 +269,7 @@ import { useConfigBusStore } from "@/stores/config-bus";
 import { useLicenseStore } from "@/stores/license";
 import { useProjectStore } from "@/stores/project";
 import { usePublishingStore } from "@/stores/publishing";
+import { useTaskBusStore } from "@/stores/task-bus";
 import type { PublishPlanCreateInput, PublishPlanDto, PrecheckItemResult, PrecheckResultDto } from "@/types/runtime";
 
 import Button from "@/components/ui/Button/Button.vue";
@@ -276,27 +277,41 @@ import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 import Input from "@/components/ui/Input/Input.vue";
 
-type PublishPlanView = PublishPlanDto & { accountLabel: string; projectLabel: string; scheduledAtLabel: string; videoAssetLabel: string; };
+type PublishPlanView = PublishPlanDto & { accountLabel: string; projectLabel: string; scheduledAtLabel: string; videoAssetLabel: string; errorMessage?: string | null };
 type StatusFilterValue = "all" | "draft" | "ready" | "submitting" | "published" | "failed" | "cancelled";
 
 const publishingStore = usePublishingStore();
 const projectStore = useProjectStore();
 const configBusStore = useConfigBusStore();
 const licenseStore = useLicenseStore();
+const taskBusStore = useTaskBusStore();
 
 const selectedPlanId = ref<string | null>(null);
 const statusFilter = ref<StatusFilterValue>("all");
 const showAddPlan = ref(false);
 const addForm = ref({ title: "", accountName: "", accountId: "", projectId: "", videoAssetId: "", scheduledAt: "" });
 
+function normalizePublishStatus(taskStatus: string): PublishPlanDto["status"] {
+  if (taskStatus === "running" || taskStatus === "queued" || taskStatus === "pending") return "submitting";
+  if (taskStatus === "succeeded") return "published";
+  if (taskStatus === "failed") return "failed";
+  return "draft";
+}
+
 const plans = computed<PublishPlanView[]>(() =>
-  publishingStore.plans.map((plan) => ({
-    ...plan,
-    accountLabel: plan.account_name || plan.account_id || "未绑定",
-    projectLabel: plan.project_id || "未绑定",
-    scheduledAtLabel: plan.scheduled_at ? formatDateTime(plan.scheduled_at) : "立即发布",
-    videoAssetLabel: plan.video_asset_id || "未绑定"
-  }))
+  publishingStore.plans.map((plan) => {
+    const liveTask = taskBusStore.tasks.get(plan.id);
+    const liveStatus = liveTask ? normalizePublishStatus(liveTask.status) : plan.status;
+    return {
+      ...plan,
+      status: liveStatus as any,
+      errorMessage: liveTask?.errorMessage ?? plan.error_message,
+      accountLabel: plan.account_name || plan.account_id || "未绑定",
+      projectLabel: plan.project_id || "未绑定",
+      scheduledAtLabel: plan.scheduled_at ? formatDateTime(plan.scheduled_at) : "立即发布",
+      videoAssetLabel: plan.video_asset_id || "未绑定"
+    };
+  })
 );
 
 const currentProjectLabel = computed(() => projectStore.currentProject?.projectName || projectStore.currentProject?.projectId || "未选择");
@@ -365,7 +380,11 @@ const selectedPlanBlockReason = computed(() => {
   return "可继续提交";
 });
 
-onMounted(() => { void publishingStore.loadPlans(); });
+onMounted(() => { 
+  publishingStore.initializeWebSocket();
+  void publishingStore.loadPlans(); 
+});
+
 
 watch(() => plans.value.map((plan) => plan.id).join("|"), () => {
   if (!selectedPlanId.value && plans.value.length > 0) selectedPlanId.value = plans.value[0].id;

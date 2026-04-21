@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-SRC_DIR = Path(__file__).resolve().parents[2] / 'apps' / 'py-runtime' / 'src'
-ROUTES_DIR = SRC_DIR / 'api' / 'routes'
+SRC_DIR = Path(__file__).resolve().parents[2] / "apps" / "py-runtime" / "src"
+ROUTES_DIR = SRC_DIR / "api" / "routes"
 if str(ROUTES_DIR) not in sys.path:
     sys.path.insert(0, str(ROUTES_DIR))
 if str(SRC_DIR) not in sys.path:
@@ -33,14 +33,14 @@ from voice import router as voice_router
 class _FakeAICapabilityService:
     def __init__(self, runtime: ProviderRuntimeConfig) -> None:
         self._runtime = runtime
-        self._capability = SimpleNamespace(provider='openai', model='gpt-4o-mini-tts')
+        self._capability = SimpleNamespace(provider="openai", model="gpt-4o-mini-tts")
 
     def get_provider_runtime_config(self, provider_id: str) -> ProviderRuntimeConfig:
         assert provider_id == self._runtime.provider
         return self._runtime
 
     def get_capability(self, capability_id: str):
-        assert capability_id == 'tts_generation'
+        assert capability_id == "tts_generation"
         return self._capability
 
 
@@ -55,8 +55,45 @@ class _FakeSettingsService:
 
 
 def _assert_ok(payload: dict[str, object]) -> object:
-    assert payload['ok'] is True
-    return payload['data']
+    assert payload["ok"] is True
+    return payload["data"]
+
+
+def _field(value: object, name: str) -> object:
+    if isinstance(value, dict):
+        return value[name]
+    return getattr(value, name)
+
+
+def _assert_voice_track_contract(
+    track: dict[str, object],
+    *,
+    expected_status: str,
+    preview_statuses: set[str],
+    active_task_statuses: set[str] | None = None,
+) -> None:
+    assert track["status"] == expected_status
+    assert track["version"]
+    assert track["updatedAt"]
+    assert track["config"]
+    assert track["preview"]
+    assert "activeTask" in track
+
+    version = track["version"]
+    config = track["config"]
+    preview = track["preview"]
+    active_task = track["activeTask"]
+
+    assert _field(version, "revision") >= 1
+    assert _field(version, "updatedAt")
+    assert _field(config, "parameterSource") in {"profile", "runtime", "manual", "seed"}
+    assert _field(preview, "status") in preview_statuses
+
+    if active_task is None:
+        assert active_task_statuses is None
+    else:
+        assert active_task_statuses is not None
+        assert _field(active_task, "status") in active_task_statuses
 
 
 def _build_app(
@@ -66,17 +103,17 @@ def _build_app(
     tts_dispatcher=None,
     artifact_store=None,
 ) -> FastAPI:
-    engine = create_runtime_engine(tmp_path / 'runtime.db')
+    engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
     now = utc_now_iso()
     with session_factory() as session:
         session.add(
             Project(
-                id='project-voice',
-                name='配音项目',
-                description='',
-                status='active',
+                id="project-voice",
+                name="配音项目",
+                description="",
+                status="active",
                 current_script_version=0,
                 current_storyboard_version=0,
                 created_at=now,
@@ -86,12 +123,12 @@ def _build_app(
         )
         session.add(
             VoiceTrack(
-                id='voice-track-1',
-                project_id='project-voice',
+                id="voice-track-1",
+                project_id="project-voice",
                 timeline_id=None,
-                source='tts',
-                provider='openai',
-                voice_name='标准女声',
+                source="tts",
+                provider="openai",
+                voice_name="标准女声",
                 file_path=None,
                 segments_json="""
                 [
@@ -99,7 +136,7 @@ def _build_app(
                   {"segmentIndex": 1, "text": "第二段文本", "startMs": null, "endMs": null, "audioAssetId": null}
                 ]
                 """.strip(),
-                status='ready',
+                status="ready",
                 created_at=now,
             )
         )
@@ -120,7 +157,7 @@ def _build_app(
 
     @app.exception_handler(StarletteHTTPException)
     async def handle_http_exception(request: Request, exc: StarletteHTTPException):  # type: ignore[no-untyped-def]
-        message = exc.detail if isinstance(exc.detail, str) else '请求失败'
+        message = exc.detail if isinstance(exc.detail, str) else "请求失败"
         return JSONResponse(
             status_code=exc.status_code,
             content=error_response(message),
@@ -133,25 +170,25 @@ def test_voice_profiles_contract_persists_custom_profile(tmp_path: Path) -> None
     client = TestClient(_build_app(tmp_path))
 
     create_response = client.post(
-        '/api/voice/profiles',
+        "/api/voice/profiles",
         json={
-            'provider': 'openai',
-            'voiceId': 'shimmer',
-            'displayName': '清亮女声',
-            'locale': 'zh-CN',
-            'tags': ['清亮', '通用'],
-            'enabled': True,
+            "provider": "openai",
+            "voiceId": "shimmer",
+            "displayName": "清亮女声",
+            "locale": "zh-CN",
+            "tags": ["清亮", "通用"],
+            "enabled": True,
         },
     )
     assert create_response.status_code == 201
     created = _assert_ok(create_response.json())
-    assert created['voiceId'] == 'shimmer'
-    assert created['displayName'] == '清亮女声'
+    assert created["voiceId"] == "shimmer"
+    assert created["displayName"] == "清亮女声"
 
-    list_response = client.get('/api/voice/profiles')
+    list_response = client.get("/api/voice/profiles")
     assert list_response.status_code == 200
     profiles = _assert_ok(list_response.json())
-    assert any(profile['voiceId'] == 'shimmer' for profile in profiles)
+    assert any(profile["voiceId"] == "shimmer" for profile in profiles)
 
 
 def test_voice_generate_track_contract_returns_blocked_when_tts_is_unavailable(
@@ -160,126 +197,150 @@ def test_voice_generate_track_contract_returns_blocked_when_tts_is_unavailable(
     client = TestClient(_build_app(tmp_path))
 
     response = client.post(
-        '/api/voice/projects/project-voice/tracks/generate',
+        "/api/voice/projects/project-voice/tracks/generate",
         json={
-            'profileId': 'alloy-zh',
-            'sourceText': '第一句\n第二句',
-            'speed': 1.0,
-            'pitch': 0,
-            'emotion': 'calm',
+            "profileId": "alloy-zh",
+            "sourceText": "第一句\n第二句",
+            "speed": 1.0,
+            "pitch": 0,
+            "emotion": "calm",
         },
     )
 
     assert response.status_code == 200
     data = _assert_ok(response.json())
-    assert data['track']['status'] == 'blocked'
-    assert data['track']['provider'] == 'openai'
-    assert data['task'] is None
-    assert '未配置可用 TTS Provider' in data['message']
+    track = data["track"]
+    _assert_voice_track_contract(
+        track,
+        expected_status="blocked",
+        preview_statuses={"blocked", "missing_audio"},
+    )
+    assert track["provider"] == "openai"
+    assert data["task"] is None
+    assert track["activeTask"] is None
+    assert "TTS Provider" in data["message"]
 
 
 def test_voice_generate_track_contract_returns_processing_task_when_tts_is_available(
     tmp_path: Path,
 ) -> None:
     runtime = ProviderRuntimeConfig(
-        provider='openai',
-        label='OpenAI',
-        api_key='sk-test-openai',
-        base_url='https://api.openai.com/v1/responses',
-        secret_source='test',
+        provider="openai",
+        label="OpenAI",
+        api_key="sk-test-openai",
+        base_url="https://api.openai.com/v1/responses",
+        secret_source="test",
         requires_secret=True,
         supports_text_generation=True,
         supports_tts=True,
-        protocol_family='openai_responses',
+        protocol_family="openai_responses",
     )
     client = TestClient(
         _build_app(
             tmp_path,
             ai_capability_service=_FakeAICapabilityService(runtime),
             tts_dispatcher=lambda runtime_config, request: TTSResponse(
-                audio_bytes=b'voice-bytes',
-                content_type='audio/mpeg',
-                provider='openai',
+                audio_bytes=b"voice-bytes",
+                content_type="audio/mpeg",
+                provider="openai",
                 model=request.model,
             ),
             artifact_store=VoiceArtifactStore(
-                settings_service=_FakeSettingsService(tmp_path / 'workspace')
+                settings_service=_FakeSettingsService(tmp_path / "workspace")
             ),
         )
     )
 
     response = client.post(
-        '/api/voice/projects/project-voice/tracks/generate',
+        "/api/voice/projects/project-voice/tracks/generate",
         json={
-            'profileId': 'alloy-zh',
-            'sourceText': '第一句\n第二句',
-            'speed': 1.0,
-            'pitch': 0,
-            'emotion': 'calm',
+            "profileId": "alloy-zh",
+            "sourceText": "第一句\n第二句",
+            "speed": 1.0,
+            "pitch": 0,
+            "emotion": "calm",
         },
     )
 
     assert response.status_code == 200
     data = _assert_ok(response.json())
-    assert data['track']['status'] == 'processing'
-    assert data['track']['provider'] == 'openai'
-    assert data['task']['kind'] == 'ai-voice'
-    assert data['task']['projectId'] == 'project-voice'
-    assert data['task']['ownerRef'] == {'kind': 'voice-track', 'id': data['track']['id']}
-    assert data['task']['status'] in {'queued', 'running'}
-    assert isinstance(data['task']['message'], str)
+    track = data["track"]
+    task = data["task"]
+    _assert_voice_track_contract(
+        track,
+        expected_status="processing",
+        preview_statuses={"processing"},
+        active_task_statuses={"queued", "running"},
+    )
+    assert track["provider"] == "openai"
+    assert _field(track["activeTask"], "id") == task["id"]
+    assert _field(track["activeTask"], "status") == task["status"]
+    assert _field(track["activeTask"], "progress") == task["progress"]
+    assert task["kind"] == "ai-voice"
+    assert task["projectId"] == "project-voice"
+    assert task["ownerRef"] == {"kind": "voice-track", "id": track["id"]}
+    assert task["status"] in {"queued", "running"}
+    assert isinstance(task["message"], str)
 
 
 def test_voice_segment_regenerate_contract_returns_taskbus_task(
     tmp_path: Path,
 ) -> None:
     runtime = ProviderRuntimeConfig(
-        provider='openai',
-        label='OpenAI',
-        api_key='sk-test-openai',
-        base_url='https://api.openai.com/v1/responses',
-        secret_source='test',
+        provider="openai",
+        label="OpenAI",
+        api_key="sk-test-openai",
+        base_url="https://api.openai.com/v1/responses",
+        secret_source="test",
         requires_secret=True,
         supports_text_generation=True,
         supports_tts=True,
-        protocol_family='openai_responses',
+        protocol_family="openai_responses",
     )
     client = TestClient(
         _build_app(
             tmp_path,
             ai_capability_service=_FakeAICapabilityService(runtime),
             tts_dispatcher=lambda runtime_config, request: TTSResponse(
-                audio_bytes=b'segment-bytes',
-                content_type='audio/mpeg',
-                provider='openai',
+                audio_bytes=b"segment-bytes",
+                content_type="audio/mpeg",
+                provider="openai",
                 model=request.model,
             ),
             artifact_store=VoiceArtifactStore(
-                settings_service=_FakeSettingsService(tmp_path / 'workspace')
+                settings_service=_FakeSettingsService(tmp_path / "workspace")
             ),
         )
     )
 
     response = client.post(
-        '/api/voice/tracks/voice-track-1/segments/1/regenerate',
+        "/api/voice/tracks/voice-track-1/segments/1/regenerate",
         json={
-            'profileId': 'alloy-zh',
-            'speed': 1.0,
-            'pitch': 0,
-            'emotion': 'calm',
+            "profileId": "alloy-zh",
+            "speed": 1.0,
+            "pitch": 0,
+            "emotion": "calm",
         },
     )
 
     assert response.status_code == 200
     data = _assert_ok(response.json())
-    assert data['task']['kind'] == 'ai-voice'
-    assert data['task']['ownerRef'] == {'kind': 'voice-track', 'id': 'voice-track-1'}
-    assert data['task']['status'] in {'queued', 'running', 'succeeded'}
-    assert data['track']['segments'][1]['regeneration']['profileId'] == 'alloy-zh'
-    assert data['track']['segments'][1]['regeneration']['status'] in {
-        'queued',
-        'running',
-        'succeeded',
+    track = data["track"]
+    task = data["task"]
+    _assert_voice_track_contract(
+        track,
+        expected_status="processing",
+        preview_statuses={"processing"},
+        active_task_statuses={"queued", "running", "succeeded"},
+    )
+    assert task["kind"] == "ai-voice"
+    assert task["ownerRef"] == {"kind": "voice-track", "id": "voice-track-1"}
+    assert task["status"] in {"queued", "running", "succeeded"}
+    assert track["segments"][1]["regeneration"]["profileId"] == "alloy-zh"
+    assert track["segments"][1]["regeneration"]["status"] in {
+        "queued",
+        "running",
+        "succeeded",
     }
 
 
@@ -289,21 +350,47 @@ def test_voice_segment_regenerate_contract_returns_blocked_when_tts_is_unavailab
     client = TestClient(_build_app(tmp_path))
 
     response = client.post(
-        '/api/voice/tracks/voice-track-1/segments/1/regenerate',
+        "/api/voice/tracks/voice-track-1/segments/1/regenerate",
         json={
-            'profileId': 'alloy-zh',
-            'speed': 1.0,
-            'pitch': 0,
-            'emotion': 'calm',
+            "profileId": "alloy-zh",
+            "speed": 1.0,
+            "pitch": 0,
+            "emotion": "calm",
         },
     )
 
     assert response.status_code == 200
     data = _assert_ok(response.json())
-    assert data['task']['status'] == 'blocked'
-    assert data['task']['retryable'] is True
-    assert data['track']['segments'][1]['regeneration']['status'] == 'blocked'
-    assert 'TTS Provider' in data['message']
+    track = data["track"]
+    task = data["task"]
+    assert track["status"] == "blocked"
+    assert track["version"]
+    assert track["updatedAt"]
+    assert track["config"]
+    assert track["preview"]
+    assert track["preview"]["status"] in {"blocked", "missing_audio"}
+    assert task["status"] == "blocked"
+    assert task["retryable"] is True
+    assert track["segments"][1]["regeneration"]["status"] == "blocked"
+    assert "TTS Provider" in data["message"]
+
+
+def test_voice_track_contract_returns_ready_snapshot_with_version_and_preview(
+    tmp_path: Path,
+) -> None:
+    client = TestClient(_build_app(tmp_path))
+
+    response = client.get("/api/voice/tracks/voice-track-1")
+
+    assert response.status_code == 200
+    track = _assert_ok(response.json())
+    _assert_voice_track_contract(
+        track,
+        expected_status="ready",
+        preview_statuses={"ready", "missing_audio"},
+    )
+    assert track["provider"] == "openai"
+    assert track["activeTask"] is None
 
 
 def test_voice_waveform_contract_returns_missing_audio_when_no_audio_file(
@@ -311,35 +398,35 @@ def test_voice_waveform_contract_returns_missing_audio_when_no_audio_file(
 ) -> None:
     client = TestClient(_build_app(tmp_path))
 
-    response = client.get('/api/voice/tracks/voice-track-1/waveform')
+    response = client.get("/api/voice/tracks/voice-track-1/waveform")
 
     assert response.status_code == 200
     data = _assert_ok(response.json())
-    assert data['status'] == 'missing_audio'
-    assert data['points'] == []
-    assert '音频文件' in data['message']
+    assert data["status"] == "missing_audio"
+    assert data["points"] == []
+    assert "音频文件" in data["message"]
 
 
 def test_voice_waveform_contract_returns_deterministic_summary_for_local_audio_file(
     tmp_path: Path,
 ) -> None:
     client = TestClient(_build_app(tmp_path))
-    audio_path = tmp_path / 'workspace' / 'voice' / 'voice-track-1.mp3'
+    audio_path = tmp_path / "workspace" / "voice" / "voice-track-1.mp3"
     audio_path.parent.mkdir(parents=True, exist_ok=True)
-    audio_path.write_bytes(b'voice-waveform-test-bytes-00112233445566778899')
+    audio_path.write_bytes(b"voice-waveform-test-bytes-00112233445566778899")
     client.app.state.voice_repository.update_track(
-        'voice-track-1',
+        "voice-track-1",
         file_path=str(audio_path),
     )
 
-    first_response = client.get('/api/voice/tracks/voice-track-1/waveform')
-    second_response = client.get('/api/voice/tracks/voice-track-1/waveform')
+    first_response = client.get("/api/voice/tracks/voice-track-1/waveform")
+    second_response = client.get("/api/voice/tracks/voice-track-1/waveform")
 
     assert first_response.status_code == 200
     assert second_response.status_code == 200
     first = _assert_ok(first_response.json())
     second = _assert_ok(second_response.json())
-    assert first['status'] == 'ready'
-    assert first['points']
-    assert first['points'] == second['points']
-    assert first['durationMs'] == second['durationMs']
+    assert first["status"] == "ready"
+    assert first["points"]
+    assert first["points"] == second["points"]
+    assert first["durationMs"] == second["durationMs"]

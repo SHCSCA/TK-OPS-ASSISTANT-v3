@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
-from urllib.parse import quote
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from domain.models.timeline import Timeline
 from repositories.timeline_repository import TimelineRepository
 from schemas.workspace import (
+    AssetReferenceStatusDto,
     ClipMoveInput,
     ClipReplaceInput,
     ClipTrimInput,
@@ -21,19 +22,21 @@ from schemas.workspace import (
     TimelinePreviewDto,
     TimelineTrackDto,
     TimelineUpdateInput,
+    TimelineVersionDto,
     WorkspaceAICommandInput,
     WorkspaceAICommandResultDto,
+    WorkspaceActiveTaskDto,
     WorkspaceClipDetailDto,
+    WorkspaceSaveStateDto,
     WorkspaceTimelineResultDto,
 )
-from services.task_manager import TaskManager, task_manager as default_task_manager
+from services.task_manager import TaskInfo, TaskManager, task_manager as default_task_manager
 
 log = logging.getLogger(__name__)
 
 SUPPORTED_TRACK_KINDS = {"video", "audio", "subtitle"}
-
-_UNAVAILABLE_PREVIEW_MESSAGE = "时间线预览能力不可用，尚未接入真实媒体帮助器。"
-_UNAVAILABLE_PRECHECK_MESSAGE = "时间线预检能力不可用，尚未接入真实媒体帮助器。"
+PROCESSING_CLIP_STATUSES = {"queued", "running", "pending", "processing"}
+FAILED_CLIP_STATUSES = {"failed", "error", "missing", "invalid"}
 
 
 class WorkspaceService:
@@ -56,12 +59,16 @@ class WorkspaceService:
         if timeline is None:
             return WorkspaceTimelineResultDto(
                 timeline=None,
+                activeTask=None,
+                saveState=None,
                 message="当前项目还没有时间线草稿。",
             )
 
-        return WorkspaceTimelineResultDto(
-            timeline=self._to_dto(timeline),
+        return self._build_timeline_result(
+            timeline,
             message="已读取时间线草稿。",
+            save_source="load",
+            save_message="已从本地存储读取最新时间线版本。",
         )
 
     def create_project_timeline(
@@ -76,9 +83,11 @@ class WorkspaceService:
             log.exception("创建时间线草稿失败")
             raise HTTPException(status_code=500, detail="创建时间线草稿失败。") from exc
 
-        return WorkspaceTimelineResultDto(
-            timeline=self._to_dto(timeline),
+        return self._build_timeline_result(
+            timeline,
             message="已创建时间线草稿。",
+            save_source="create",
+            save_message="已确认创建并保存时间线草稿。",
         )
 
     def update_timeline(
@@ -106,13 +115,15 @@ class WorkspaceService:
         if timeline is None:
             raise HTTPException(status_code=404, detail="时间线不存在。")
 
-        return WorkspaceTimelineResultDto(
-            timeline=self._to_dto(timeline),
+        return self._build_timeline_result(
+            timeline,
             message="已保存时间线草稿。",
+            save_source="save",
+            save_message="已确认保存时间线草稿。",
         )
 
     def fetch_clip(self, clip_id: str) -> WorkspaceClipDetailDto:
-        timeline, track_index, clip_index, clip = self._find_clip_context(clip_id)
+        timeline, track_index, _, clip = self._find_clip_context(clip_id)
         track = self._parse_tracks(timeline.tracks_json)[track_index]
         return WorkspaceClipDetailDto(
             id=clip.id,
@@ -157,7 +168,13 @@ class WorkspaceService:
             source_track["clips"].pop(clip_index)
             target_track["clips"].append(moved_clip)
 
-        return self._save_tracks(timeline, tracks, "片段已移动。")
+        return self._save_tracks(
+            timeline,
+            tracks,
+            "片段已移动。",
+            "clip_move",
+            "已确认保存片段位置变更。",
+        )
 
     def trim_clip(
         self,
@@ -171,7 +188,13 @@ class WorkspaceService:
             if input_data.get(field) is not None:
                 trimmed_clip[field] = input_data[field]
         tracks[track_index]["clips"][clip_index] = trimmed_clip
-        return self._save_tracks(timeline, tracks, "片段已裁剪。")
+        return self._save_tracks(
+            timeline,
+            tracks,
+            "片段已裁剪。",
+            "clip_trim",
+            "已确认保存片段裁剪结果。",
+        )
 
     def replace_clip(
         self,
@@ -185,13 +208,18 @@ class WorkspaceService:
         replaced_clip["sourceId"] = input_data.get("sourceId")
         replaced_clip["label"] = str(input_data["label"])
         replaced_clip["prompt"] = input_data.get("prompt")
-        resolution = input_data.get("resolution")
-        replaced_clip["resolution"] = resolution
+        replaced_clip["resolution"] = input_data.get("resolution")
         editable_fields = input_data.get("editableFields")
         replaced_clip["editableFields"] = editable_fields if editable_fields is not None else []
         replaced_clip["status"] = "ready"
         tracks[track_index]["clips"][clip_index] = replaced_clip
-        return self._save_tracks(timeline, tracks, "片段已替换。")
+        return self._save_tracks(
+            timeline,
+            tracks,
+            "片段已替换。",
+            "clip_replace",
+            "已确认保存片段素材替换。",
+        )
 
     def fetch_timeline_preview(self, timeline_id: str) -> TimelinePreviewDto:
         timeline = self._load_timeline(timeline_id)
@@ -203,7 +231,7 @@ class WorkspaceService:
             raise
         except Exception as exc:
             log.exception("生成时间线本地预览失败")
-            raise HTTPException(status_code=500, detail="生成时间线本地预览失败") from exc
+            raise HTTPException(status_code=500, detail="生成时间线本地预览失败。") from exc
 
         return TimelinePreviewDto(
             timelineId=timeline_id,
@@ -216,12 +244,12 @@ class WorkspaceService:
         timeline = self._load_timeline(timeline_id)
         try:
             tracks = self._parse_tracks(timeline.tracks_json)
-            issues = self._build_timeline_precheck_issues(timeline, tracks)
+            issues = self._build_timeline_precheck_issues(tracks)
         except HTTPException:
             raise
         except Exception as exc:
             log.exception("执行时间线本地预检失败")
-            raise HTTPException(status_code=500, detail="执行时间线本地预检失败") from exc
+            raise HTTPException(status_code=500, detail="执行时间线本地预检失败。") from exc
 
         if issues:
             status = "warning"
@@ -265,6 +293,7 @@ class WorkspaceService:
         task.label = f"AI 命令：{payload.capabilityId}"
         task.owner_ref = {"kind": "timeline", "id": timeline.id}
         task.message = f"AI 命令 {payload.capabilityId} 已进入任务队列。"
+
         task_data = task.to_dict()
         task_data["kind"] = task.kind
         task_data["label"] = task.label
@@ -277,6 +306,25 @@ class WorkspaceService:
             status=task.status,
             task=task_data,
             message="AI 命令已进入任务队列，正在通过 TaskBus 处理。",
+        )
+
+    def _build_timeline_result(
+        self,
+        timeline: Timeline,
+        *,
+        message: str,
+        save_source: str,
+        save_message: str,
+    ) -> WorkspaceTimelineResultDto:
+        return WorkspaceTimelineResultDto(
+            timeline=self._to_dto(timeline),
+            activeTask=self._resolve_active_task(timeline),
+            saveState=self._build_save_state(
+                timeline,
+                source=save_source,
+                message=save_message,
+            ),
+            message=message,
         )
 
     def _resolve_command_timeline(
@@ -300,6 +348,8 @@ class WorkspaceService:
         timeline: Timeline,
         tracks: list[dict[str, object]],
         message: str,
+        save_source: str,
+        save_message: str,
     ) -> WorkspaceTimelineResultDto:
         tracks_json = json.dumps(tracks, ensure_ascii=False)
         try:
@@ -316,9 +366,11 @@ class WorkspaceService:
         if updated is None:
             raise HTTPException(status_code=404, detail="时间线不存在。")
 
-        return WorkspaceTimelineResultDto(
-            timeline=self._to_dto(updated),
+        return self._build_timeline_result(
+            updated,
             message=message,
+            save_source=save_source,
+            save_message=save_message,
         )
 
     def _find_clip_context(
@@ -363,6 +415,8 @@ class WorkspaceService:
             tracks=[TimelineTrackDto.model_validate(track) for track in tracks],
             createdAt=timeline.created_at,
             updatedAt=timeline.updated_at,
+            version=self._build_version(timeline, tracks),
+            assetReferenceStatus=self._build_asset_reference_status(tracks),
         )
 
     def _parse_tracks(self, tracks_json: str) -> list[dict[str, object]]:
@@ -406,6 +460,124 @@ class WorkspaceService:
             if str(track.get("id")) == track_id:
                 return index
         return None
+
+    def _build_version(
+        self,
+        timeline: Timeline,
+        tracks: list[dict[str, object]],
+    ) -> TimelineVersionDto:
+        clip_count = sum(1 for _ in self._iter_clips(tracks))
+        version_token = f"{timeline.id}:{timeline.updated_at}:{len(tracks)}:{clip_count}"
+        return TimelineVersionDto(
+            versionToken=version_token,
+            updatedAt=timeline.updated_at,
+            trackCount=len(tracks),
+            clipCount=clip_count,
+        )
+
+    def _build_asset_reference_status(
+        self,
+        tracks: list[dict[str, object]],
+    ) -> AssetReferenceStatusDto:
+        total_clips = 0
+        ready_clips = 0
+        processing_clips = 0
+        failed_clips = 0
+        missing_reference_clips = 0
+        manual_clips = 0
+        referenced_clips = 0
+
+        for clip in self._iter_clips(tracks):
+            total_clips += 1
+            source_type = str(clip.get("sourceType") or "manual")
+            source_id = clip.get("sourceId")
+            normalized_status = str(clip.get("status") or "ready").strip().lower()
+            has_reference = isinstance(source_id, str) and bool(source_id.strip())
+
+            if normalized_status in FAILED_CLIP_STATUSES:
+                failed_clips += 1
+            elif normalized_status in PROCESSING_CLIP_STATUSES:
+                processing_clips += 1
+            else:
+                ready_clips += 1
+
+            if source_type == "manual":
+                manual_clips += 1
+            if has_reference:
+                referenced_clips += 1
+            if source_type != "manual" and not has_reference:
+                missing_reference_clips += 1
+
+        return AssetReferenceStatusDto(
+            totalClips=total_clips,
+            readyClips=ready_clips,
+            processingClips=processing_clips,
+            failedClips=failed_clips,
+            missingReferenceClips=missing_reference_clips,
+            manualClips=manual_clips,
+            referencedClips=referenced_clips,
+        )
+
+    def _resolve_active_task(self, timeline: Timeline) -> WorkspaceActiveTaskDto | None:
+        candidates: list[TaskInfo] = []
+        for task in self._task_manager.list_active():
+            if task.project_id != timeline.project_id:
+                continue
+
+            owner_ref = getattr(task, "owner_ref", None)
+            if not isinstance(owner_ref, dict):
+                continue
+            if owner_ref.get("kind") != "timeline" or str(owner_ref.get("id")) != timeline.id:
+                continue
+
+            candidates.append(task)
+
+        if not candidates:
+            return None
+
+        candidates.sort(key=self._active_task_sort_key, reverse=True)
+        active_task = candidates[0]
+        return WorkspaceActiveTaskDto(
+            id=active_task.id,
+            taskType=active_task.task_type,
+            status=active_task.status,
+            progress=active_task.progress,
+            message=active_task.message,
+            updatedAt=active_task.updated_at,
+        )
+
+    def _active_task_sort_key(self, task: TaskInfo) -> tuple[int, int, str]:
+        return (
+            1 if task.task_type == "ai-workspace-command" else 0,
+            1 if task.status == "running" else 0,
+            task.updated_at,
+        )
+
+    def _build_save_state(
+        self,
+        timeline: Timeline,
+        *,
+        source: str,
+        message: str,
+    ) -> WorkspaceSaveStateDto:
+        return WorkspaceSaveStateDto(
+            saved=True,
+            updatedAt=timeline.updated_at,
+            source=source,
+            message=message,
+        )
+
+    def _iter_clips(
+        self,
+        tracks: list[dict[str, object]],
+    ) -> list[dict[str, object]]:
+        clips: list[dict[str, object]] = []
+        for track in tracks:
+            raw_clips = track.get("clips")
+            if not isinstance(raw_clips, list):
+                continue
+            clips.extend(clip for clip in raw_clips if isinstance(clip, dict))
+        return clips
 
     def _build_timeline_preview_payload(
         self,
@@ -470,7 +642,6 @@ class WorkspaceService:
 
     def _build_timeline_precheck_issues(
         self,
-        timeline: Timeline,
         tracks: list[dict[str, object]],
     ) -> list[str]:
         issues: list[str] = []

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, status
 
 from schemas.accounts import AccountBindingUpsertInput
 from schemas.device_workspaces import (
+    BrowserInstanceCreateInput,
     DeviceWorkspaceCreateInput,
     DeviceWorkspaceUpdateInput,
 )
@@ -75,6 +76,66 @@ def list_workspace_logs(
 ) -> dict[str, object]:
     logs = _svc(request).list_logs(ws_id, since=since)
     return ok_response([entry.model_dump(mode="json") for entry in logs])
+
+
+@router.get("/workspaces/{ws_id}/browser-instances")
+def list_browser_instances(ws_id: str, request: Request) -> dict[str, object]:
+    items = _svc(request).list_browser_instances(ws_id)
+    return ok_response([item.model_dump(mode="json") for item in items])
+
+
+@router.post("/workspaces/{ws_id}/browser-instances", status_code=status.HTTP_201_CREATED)
+def create_browser_instance(
+    ws_id: str,
+    payload: BrowserInstanceCreateInput,
+    request: Request,
+) -> dict[str, object]:
+    item = _svc(request).create_browser_instance(
+        ws_id,
+        name=payload.name,
+        profile_path=payload.profilePath,
+    )
+    return ok_response(item.model_dump(mode="json"))
+
+
+@router.get("/workspaces/{ws_id}/browser-instances/{instance_id}")
+def get_browser_instance(
+    ws_id: str,
+    instance_id: str,
+    request: Request,
+) -> dict[str, object]:
+    item = _svc(request).get_browser_instance(ws_id, instance_id)
+    return ok_response(item.model_dump(mode="json"))
+
+
+@router.post("/workspaces/{ws_id}/browser-instances/{instance_id}/start")
+def start_browser_instance(
+    ws_id: str,
+    instance_id: str,
+    request: Request,
+) -> dict[str, object]:
+    result = _svc(request).start_browser_instance(ws_id, instance_id)
+    return ok_response(result.model_dump(mode="json"))
+
+
+@router.post("/workspaces/{ws_id}/browser-instances/{instance_id}/stop")
+def stop_browser_instance(
+    ws_id: str,
+    instance_id: str,
+    request: Request,
+) -> dict[str, object]:
+    result = _svc(request).stop_browser_instance(ws_id, instance_id)
+    return ok_response(result.model_dump(mode="json"))
+
+
+@router.post("/workspaces/{ws_id}/browser-instances/{instance_id}/health-check")
+def health_check_browser_instance(
+    ws_id: str,
+    instance_id: str,
+    request: Request,
+) -> dict[str, object]:
+    result = _svc(request).health_check_browser_instance(ws_id, instance_id)
+    return ok_response(result.model_dump(mode="json"))
 
 
 @router.get("/bindings")

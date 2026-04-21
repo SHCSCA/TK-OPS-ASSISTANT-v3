@@ -6,6 +6,31 @@ from typing import Literal
 from pydantic import BaseModel
 
 
+class RenderSuggestedActionDto(BaseModel):
+    key: str
+    label: str
+
+
+class RenderStageDto(BaseModel):
+    code: str
+    label: str
+
+
+class RenderOutputStatusDto(BaseModel):
+    path: str | None = None
+    exists: bool
+    size_bytes: int | None = None
+    last_checked_at: datetime
+    can_open: bool
+
+
+class RenderFailureDto(BaseModel):
+    error_code: str | None = None
+    error_message: str | None = None
+    next_action: RenderSuggestedActionDto | None = None
+    retryable: bool
+
+
 class RenderTaskCreateInput(BaseModel):
     project_id: str | None = None
     project_name: str | None = None
@@ -32,6 +57,9 @@ class RenderTaskDto(BaseModel):
     progress: int
     output_path: str | None = None
     error_message: str | None = None
+    stage: RenderStageDto
+    output: RenderOutputStatusDto
+    failure: RenderFailureDto
     started_at: datetime | None = None
     finished_at: datetime | None = None
     created_at: datetime

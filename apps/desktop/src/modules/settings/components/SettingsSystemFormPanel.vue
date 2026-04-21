@@ -117,8 +117,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "update", patch: any): void;
-  (e: "pick-directory", field: string): void;
+  (e: "update", patch: Partial<AppSettingsUpdateInput>): void;
+  (e: "pick-directory", field: "runtime.workspaceRoot" | "paths.cacheDir" | "paths.exportDir" | "paths.logDir"): void;
 }>();
 
 const configBusStore = useConfigBusStore();
@@ -133,7 +133,7 @@ const cacheItems = computed(() => {
   ];
 });
 
-function updateForm(patch: any) {
+function updateForm(patch: Partial<AppSettingsUpdateInput>) {
   emit("update", patch);
 }
 

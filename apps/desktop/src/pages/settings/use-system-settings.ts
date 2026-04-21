@@ -34,24 +34,25 @@ export function useSystemSettings() {
     systemDirty.value = true;
   }
 
-  async function handlePickDirectory(field: string) {
+  type SettingsPath = "runtime.workspaceRoot" | "paths.cacheDir" | "paths.exportDir" | "paths.logDir";
+
+  async function handlePickDirectory(field: SettingsPath) {
+    let selected: string | null = null;
     try {
       const dialogModuleName = "@tauri-apps/plugin-dialog";
       const dialog = await import(/* @vite-ignore */ dialogModuleName);
-      const selected = await dialog.open({ directory: true, multiple: false });
-      if (typeof selected === "string" && selected) {
-        const [parent, child] = field.split(".");
-        (systemForm as any)[parent][child] = selected;
-        systemDirty.value = true;
-      }
+      const result = await dialog.open({ directory: true, multiple: false });
+      if (typeof result === "string") selected = result;
     } catch {
-      const current = field.split(".").reduce((obj: any, key: string) => obj?.[key], systemForm) as string;
-      const path = window.prompt("请输入本地目录路径", current);
-      if (path !== null && path.trim() !== "") {
-        const [parent, child] = field.split(".");
-        (systemForm as any)[parent][child] = path.trim();
-        systemDirty.value = true;
-      }
+      const [parent, child] = field.split(".") as ["runtime" | "paths", string];
+      const current = (systemForm[parent] as Record<string, string>)[child];
+      selected = window.prompt("请输入本地目录路径", current);
+    }
+
+    if (selected && selected.trim() !== "") {
+      const [parent, child] = field.split(".") as ["runtime" | "paths", string];
+      (systemForm[parent] as Record<string, string>)[child] = selected.trim();
+      systemDirty.value = true;
     }
   }
 

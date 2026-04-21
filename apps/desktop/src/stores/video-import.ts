@@ -4,14 +4,16 @@ import {
   RuntimeRequestError,
   deleteImportedVideo,
   fetchImportedVideos,
-  importVideo
+  importVideo,
+  applyVideoExtractionToProject
 } from "@/app/runtime-client";
 import { useTaskBusStore } from "@/stores/task-bus";
+import { useProjectStore } from "@/stores/project";
 import type { TaskEvent, TaskInfo } from "@/types/task-events";
 import type { RuntimeRequestErrorShape } from "@/types/runtime";
 import type { ImportedVideo } from "@/types/video";
 
-export type VideoImportStatus = "idle" | "loading" | "ready" | "importing" | "error";
+export type VideoImportStatus = "idle" | "loading" | "ready" | "importing" | "error" | "applying";
 
 type VideoImportState = {
   error: RuntimeRequestErrorShape | null;
@@ -60,6 +62,26 @@ export const useVideoImportStore = defineStore("video-import", {
       } catch (error) {
         this.applyRuntimeError(error, "导入视频失败。");
         return null;
+      }
+    },
+    async applyExtraction(videoId: string): Promise<void> {
+      this.status = "applying";
+      this.error = null;
+
+      try {
+        // Extraction ID follows the convention defined in backend: extraction-{video_id}
+        const extractionId = `extraction-${videoId}`;
+        await applyVideoExtractionToProject(extractionId);
+        
+        // Refresh project store to reflect new script/storyboard versions
+        const projectStore = useProjectStore();
+        if (projectStore.currentProject) {
+          await projectStore.load(projectStore.currentProject.projectId);
+        }
+        
+        this.status = "ready";
+      } catch (error) {
+        this.applyRuntimeError(error, "应用视频提取结果失败。");
       }
     },
     async removeVideo(videoId: string): Promise<void> {

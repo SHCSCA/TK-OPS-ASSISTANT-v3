@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
@@ -107,3 +107,37 @@ class AIModelCatalogRefreshResultDto(BaseModel):
     provider: str
     status: str
     message: str
+
+
+class AIProviderHealthAggregateItemDto(BaseModel):
+    provider: str
+    label: str
+    readiness: str
+    lastCheckedAt: str | None = None
+    latencyMs: int | None = None
+    errorCode: str | None = None
+    errorMessage: str | None = None
+
+
+class AIProviderHealthOverviewDto(BaseModel):
+    providers: list[AIProviderHealthAggregateItemDto]
+    refreshedAt: str | None = None
+
+
+class AIProviderModelUpsertInput(BaseModel):
+    displayName: str = Field(min_length=1)
+    capabilityKinds: list[str]
+    inputModalities: list[str] = Field(default_factory=list)
+    outputModalities: list[str] = Field(default_factory=list)
+    contextWindow: int | None = None
+    defaultFor: list[str] = Field(default_factory=list)
+    enabled: bool = True
+
+
+class AIProviderModelWriteReceiptDto(BaseModel):
+    saved: bool
+    wasUpsert: bool
+    updatedAt: str
+    versionOrRevision: str
+    objectSummary: dict[str, str]
+    model: AIModelCatalogItemDto

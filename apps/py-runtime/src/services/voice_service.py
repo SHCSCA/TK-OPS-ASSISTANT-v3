@@ -23,8 +23,12 @@ from schemas.voice import (
     VoiceTrackDto,
     VoiceTrackGenerateInput,
     VoiceTrackGenerateResultDto,
+    VoiceTrackPreviewDto,
     VoiceTrackRegenerateResultDto,
+    VoiceTrackTaskDto,
     VoiceTrackSegmentDto,
+    VoiceTrackVoiceConfigDto,
+    VoiceTrackVersionDto,
     VoiceWaveformDto,
     VoiceWaveformPointDto,
 )
@@ -120,6 +124,8 @@ class VoiceService:
 
         runtime_config = self._resolve_tts_runtime(profile.provider)
         initial_status = "processing" if runtime_config is not None else "blocked"
+        resolved_model = self._resolve_tts_model(profile.provider)
+        now = utc_now_iso()
         track = VoiceTrack(
             id=str(uuid4()),
             project_id=project_id,
@@ -133,7 +139,24 @@ class VoiceService:
                 ensure_ascii=False,
             ),
             status=initial_status,
-            created_at=utc_now_iso(),
+            version=1,
+            config_json=json.dumps(
+                self._build_voice_config_payload(
+                    profile=profile,
+                    source_text=payload.sourceText,
+                    model=resolved_model,
+                    speed=payload.speed,
+                    pitch=payload.pitch,
+                    emotion=payload.emotion,
+                    operation_kind="generate",
+                    operation_status=initial_status,
+                    source_line_count=len(segments),
+                    updated_at=now,
+                ),
+                ensure_ascii=False,
+            ),
+            created_at=now,
+            updated_at=now,
         )
 
         try:
@@ -152,7 +175,7 @@ class VoiceService:
         tts_request = TTSRequest(
             text=payload.sourceText,
             voice_id=profile.voiceId,
-            model=self._resolve_tts_model(profile.provider),
+            model=resolved_model,
             speed=payload.speed,
             output_format="mp3",
         )
@@ -177,20 +200,66 @@ class VoiceService:
                     file_path=file_path,
                     status="ready",
                     provider=tts_response.provider or profile.provider,
+                    config_json=self._update_track_config_json(
+                        saved.config_json,
+                        updates={
+                            "provider": tts_response.provider or profile.provider,
+                            "model": resolved_model,
+                        },
+                        last_operation={
+                            "kind": "generate",
+                            "status": "succeeded",
+                            "taskId": task_info.id,
+                            "segmentIndex": None,
+                            "updatedAt": utc_now_iso(),
+                        },
+                    ),
                 )
                 if updated is None:
                     raise HTTPException(status_code=404, detail="配音轨不存在。")
                 await progress_callback(100, "配音生成完成。")
             except Exception:
                 log.exception("配音生成失败: track=%s provider=%s", saved.id, profile.provider)
-                self._mark_track_failed(saved.id, profile.provider)
+                self._mark_track_failed(
+                    saved.id,
+                    profile.provider,
+                    operation_kind="generate",
+                    task_id=task_info.id,
+                )
                 raise
 
         try:
             task_info = self._submit_task("ai-voice", _job, project_id=project_id)
         except Exception:
-            self._mark_track_failed(saved.id, profile.provider)
+            self._mark_track_failed(saved.id, profile.provider, operation_kind="generate")
             raise
+
+        saved = self._repository.update_track(
+            saved.id,
+            config_json=self._update_track_config_json(
+                saved.config_json,
+                updates={
+                    "parameterSource": "profile",
+                    "provider": profile.provider,
+                    "voiceId": profile.voiceId,
+                    "voiceName": profile.displayName,
+                    "locale": profile.locale,
+                    "model": resolved_model,
+                    "speed": payload.speed,
+                    "pitch": payload.pitch,
+                    "emotion": payload.emotion,
+                    "sourceText": payload.sourceText,
+                    "sourceLineCount": len(segments),
+                },
+                last_operation={
+                    "kind": "generate",
+                    "status": "queued",
+                    "taskId": task_info.id,
+                    "segmentIndex": None,
+                    "updatedAt": utc_now_iso(),
+                },
+            ),
+        ) or saved
 
         task_data = self._task_payload(
             task_info,
@@ -219,6 +288,7 @@ class VoiceService:
 
         profile_id = payload.profileId or self.list_profiles()[0].id
         profile = self._get_profile(profile_id)
+        resolved_model = self._resolve_tts_model(profile.provider)
         runtime_config = self._resolve_tts_runtime(profile.provider)
         task_id = str(uuid4())
         label = f"片段重生成：{segment.segmentIndex + 1}"
@@ -237,6 +307,14 @@ class VoiceService:
                 message=SEGMENT_REGENERATE_BLOCKED_MESSAGE,
                 track_status="blocked",
                 provider=profile.provider,
+                source_text=segment_text,
+                voice_id=profile.voiceId,
+                voice_name=profile.displayName,
+                locale=profile.locale,
+                model=resolved_model,
+                speed=payload.speed,
+                pitch=payload.pitch,
+                emotion=payload.emotion,
             )
             return VoiceTrackRegenerateResultDto(
                 track=self._to_dto(updated),
@@ -260,12 +338,20 @@ class VoiceService:
             message=SEGMENT_REGENERATE_MESSAGE,
             track_status="processing",
             provider=profile.provider,
+            source_text=segment_text,
+            voice_id=profile.voiceId,
+            voice_name=profile.displayName,
+            locale=profile.locale,
+            model=resolved_model,
+            speed=payload.speed,
+            pitch=payload.pitch,
+            emotion=payload.emotion,
         )
 
         tts_request = TTSRequest(
             text=segment_text,
             voice_id=profile.voiceId,
-            model=self._resolve_tts_model(profile.provider),
+            model=resolved_model,
             speed=payload.speed,
             output_format="mp3",
         )
@@ -296,6 +382,14 @@ class VoiceService:
                     audio_asset_id=file_path,
                     track_status="ready",
                     provider=tts_response.provider or profile.provider,
+                    source_text=segment_text,
+                    voice_id=profile.voiceId,
+                    voice_name=profile.displayName,
+                    locale=profile.locale,
+                    model=resolved_model,
+                    speed=payload.speed,
+                    pitch=payload.pitch,
+                    emotion=payload.emotion,
                 )
                 await progress_callback(100, SEGMENT_REGENERATE_SUCCEEDED_MESSAGE)
             except Exception:
@@ -315,6 +409,14 @@ class VoiceService:
                     message=SEGMENT_REGENERATE_FAILED_MESSAGE,
                     track_status="failed",
                     provider=profile.provider,
+                    source_text=segment_text,
+                    voice_id=profile.voiceId,
+                    voice_name=profile.displayName,
+                    locale=profile.locale,
+                    model=resolved_model,
+                    speed=payload.speed,
+                    pitch=payload.pitch,
+                    emotion=payload.emotion,
                 )
                 raise
 
@@ -336,6 +438,14 @@ class VoiceService:
                 message=SEGMENT_REGENERATE_FAILED_MESSAGE,
                 track_status="failed",
                 provider=profile.provider,
+                source_text=segment_text,
+                voice_id=profile.voiceId,
+                voice_name=profile.displayName,
+                locale=profile.locale,
+                model=resolved_model,
+                speed=payload.speed,
+                pitch=payload.pitch,
+                emotion=payload.emotion,
             )
             raise
 
@@ -456,6 +566,14 @@ class VoiceService:
         audio_asset_id: str | None = None,
         track_status: str | None = None,
         provider: str | None = None,
+        source_text: str,
+        voice_id: str,
+        voice_name: str,
+        locale: str,
+        model: str,
+        speed: float,
+        pitch: int,
+        emotion: str,
     ) -> VoiceTrack:
         track = self._get_track(track_id)
         segments = self._load_segment_records(track.segments_json)
@@ -478,12 +596,43 @@ class VoiceService:
         if audio_asset_id is not None:
             target["audioAssetId"] = audio_asset_id
 
+        config_json = self._update_track_config_json(
+            track.config_json,
+            updates={
+                "parameterSource": "manual",
+                "profileId": profile_id,
+                "provider": provider or track.provider,
+                "voiceId": voice_id,
+                "voiceName": voice_name,
+                "locale": locale,
+                "model": model,
+                "speed": speed,
+                "pitch": pitch,
+                "emotion": emotion,
+                "sourceText": source_text,
+                "sourceLineCount": len(segments),
+            },
+            last_operation={
+                "kind": "segment_regenerate",
+                "segmentIndex": segment_index,
+                "status": status,
+                "profileId": profile_id,
+                "taskId": task_id,
+                "retryable": retryable,
+                "message": message,
+                "audioAssetId": audio_asset_id,
+                "updatedAt": utc_now_iso(),
+            },
+        )
+
         try:
             saved = self._repository.update_track(
                 track_id,
                 segments_json=json.dumps(segments, ensure_ascii=False),
                 status=track_status or track.status,
                 provider=provider,
+                config_json=config_json,
+                bump_version=status == "succeeded" and audio_asset_id is not None,
             )
         except Exception as exc:
             log.exception("保存片段重生状态失败: track=%s segment=%s", track_id, segment_index)
@@ -492,6 +641,193 @@ class VoiceService:
         if saved is None:
             raise HTTPException(status_code=404, detail="配音片段不存在。")
         return saved
+
+    def _task_info_to_dto(self, task_info: TaskInfo) -> VoiceTrackTaskDto:
+        owner_ref = getattr(task_info, "owner_ref", None)
+        label = getattr(task_info, "label", None)
+        return VoiceTrackTaskDto(
+            id=task_info.id,
+            kind=task_info.task_type,
+            taskType=task_info.task_type,
+            projectId=task_info.project_id,
+            ownerRef=owner_ref if isinstance(owner_ref, dict) else None,
+            label=str(label) if label is not None else None,
+            message=task_info.message,
+            status=task_info.status,
+            progress=task_info.progress,
+            createdAt=task_info.created_at,
+            updatedAt=task_info.updated_at,
+        )
+
+    def _active_task_for_track(self, track_id: str) -> VoiceTrackTaskDto | None:
+        for task_info in self._task_manager.list_active():
+            owner_ref = getattr(task_info, "owner_ref", None)
+            if not isinstance(owner_ref, dict):
+                continue
+            if owner_ref.get("kind") != "voice-track" or owner_ref.get("id") != track_id:
+                continue
+            return self._task_info_to_dto(task_info)
+        return None
+
+    def _decode_track_config(self, config_json: str) -> dict[str, object]:
+        raw_config = config_json.strip()
+        if raw_config == "":
+            return {}
+        try:
+            decoded = json.loads(raw_config)
+        except json.JSONDecodeError as exc:
+            log.exception("解析配音配置失败")
+            raise HTTPException(status_code=500, detail="解析配音配置失败。") from exc
+        if not isinstance(decoded, dict):
+            raise HTTPException(status_code=500, detail="解析配音配置失败。")
+        return dict(decoded)
+
+    def _track_voice_config_to_dto(
+        self,
+        track: VoiceTrack,
+        config_data: dict[str, object],
+    ) -> VoiceTrackVoiceConfigDto:
+        last_operation = config_data.get("lastOperation")
+        if not isinstance(last_operation, dict):
+            last_operation = None
+        return VoiceTrackVoiceConfigDto(
+            parameterSource=str(config_data.get("parameterSource") or "seed"),
+            profileId=self._string_or_none(config_data.get("profileId")),
+            provider=self._string_or_none(config_data.get("provider"), fallback=track.provider),
+            voiceId=self._string_or_none(config_data.get("voiceId")),
+            voiceName=self._string_or_none(config_data.get("voiceName"), fallback=track.voice_name),
+            locale=self._string_or_none(config_data.get("locale")),
+            model=self._string_or_none(config_data.get("model")),
+            speed=self._float_or_none(config_data.get("speed")),
+            pitch=self._int_or_none(config_data.get("pitch")),
+            emotion=self._string_or_none(config_data.get("emotion")),
+            sourceText=self._string_or_none(config_data.get("sourceText")),
+            sourceLineCount=self._int_or_none(config_data.get("sourceLineCount")),
+            lastOperation=last_operation,
+        )
+
+    def _track_version_to_dto(self, track: VoiceTrack) -> VoiceTrackVersionDto:
+        return VoiceTrackVersionDto(
+            revision=int(track.version or 1),
+            updatedAt=track.updated_at or track.created_at,
+        )
+
+    def _track_audition_resource_status(self, track: VoiceTrack) -> str:
+        file_path = (track.file_path or "").strip()
+        if file_path == "":
+            if track.status in {"blocked", "failed"}:
+                return track.status
+            if track.status in {"queued", "processing", "running"}:
+                return "processing"
+            return "missing_audio"
+
+        audio_path = Path(file_path)
+        if audio_path.is_file():
+            return "ready"
+        return "missing_audio"
+
+    def _track_preview_message(self, track: VoiceTrack, status: str) -> str:
+        if status == "ready":
+            return "已生成可试听音频资源。"
+        if status == "processing":
+            return PROCESSING_MESSAGE
+        if status == "blocked":
+            return BLOCKED_PROVIDER_MESSAGE
+        if status == "failed":
+            return "配音生成失败，请检查 Runtime 日志后重试。"
+        return WAVEFORM_MISSING_AUDIO_MESSAGE
+
+    def _track_preview_to_dto(self, track: VoiceTrack) -> VoiceTrackPreviewDto:
+        status = self._track_audition_resource_status(track)
+        file_path = self._string_or_none(track.file_path)
+        return VoiceTrackPreviewDto(
+            status=status,
+            resourceId=track.id if file_path is not None else None,
+            filePath=file_path,
+            message=self._track_preview_message(track, status),
+        )
+
+    def _fallback_task_status(self, track_status: str) -> str | None:
+        if track_status in {"queued", "processing", "running"}:
+            return track_status
+        return None
+
+    def _string_or_none(self, value: object, *, fallback: str | None = None) -> str | None:
+        if value is None:
+            return fallback
+        text_value = str(value).strip()
+        if text_value == "":
+            return fallback
+        return text_value
+
+    def _float_or_none(self, value: object) -> float | None:
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _int_or_none(self, value: object) -> int | None:
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _build_voice_config_payload(
+        self,
+        *,
+        profile: VoiceProfileDto,
+        source_text: str,
+        model: str,
+        speed: float,
+        pitch: int,
+        emotion: str,
+        operation_kind: str,
+        operation_status: str,
+        source_line_count: int,
+        updated_at: str,
+        parameter_source: str = "profile",
+        task_id: str | None = None,
+        segment_index: int | None = None,
+    ) -> dict[str, object]:
+        return {
+            "parameterSource": parameter_source,
+            "profileId": profile.id,
+            "provider": profile.provider,
+            "voiceId": profile.voiceId,
+            "voiceName": profile.displayName,
+            "locale": profile.locale,
+            "model": model,
+            "speed": speed,
+            "pitch": pitch,
+            "emotion": emotion,
+            "sourceText": source_text,
+            "sourceLineCount": source_line_count,
+            "lastOperation": {
+                "kind": operation_kind,
+                "status": operation_status,
+                "taskId": task_id,
+                "segmentIndex": segment_index,
+                "updatedAt": updated_at,
+            },
+        }
+
+    def _update_track_config_json(
+        self,
+        config_json: str,
+        *,
+        updates: dict[str, object] | None = None,
+        last_operation: dict[str, object] | None = None,
+    ) -> str:
+        config = self._decode_track_config(config_json)
+        for key, value in (updates or {}).items():
+            config[key] = value
+        if last_operation is not None:
+            config["lastOperation"] = last_operation
+        return json.dumps(config, ensure_ascii=False)
 
     def _blocked_task_payload(
         self,
@@ -635,9 +971,35 @@ class VoiceService:
             return default_model
         return model
 
-    def _mark_track_failed(self, track_id: str, provider: str | None) -> None:
+    def _mark_track_failed(
+        self,
+        track_id: str,
+        provider: str | None,
+        *,
+        operation_kind: str,
+        task_id: str | None = None,
+    ) -> None:
         try:
-            self._repository.update_track(track_id, status="failed", provider=provider)
+            track = self._repository.get_track(track_id)
+            config_json = None
+            if track is not None:
+                config_json = self._update_track_config_json(
+                    track.config_json,
+                    updates={"provider": provider or track.provider},
+                    last_operation={
+                        "kind": operation_kind,
+                        "status": "failed",
+                        "taskId": task_id,
+                        "segmentIndex": None,
+                        "updatedAt": utc_now_iso(),
+                    },
+                )
+            self._repository.update_track(
+                track_id,
+                status="failed",
+                provider=provider,
+                config_json=config_json,
+            )
         except Exception:
             log.exception("更新配音轨失败状态失败: track=%s", track_id)
 
@@ -713,6 +1075,8 @@ class VoiceService:
         return [str(item) for item in raw_tags]
 
     def _to_dto(self, track: VoiceTrack) -> VoiceTrackDto:
+        config_data = self._decode_track_config(track.config_json)
+        active_task = self._active_task_for_track(track.id)
         return VoiceTrackDto(
             id=track.id,
             projectId=track.project_id,
@@ -723,7 +1087,12 @@ class VoiceService:
             filePath=track.file_path,
             segments=self._decode_segments(track.segments_json),
             status=track.status,
+            version=self._track_version_to_dto(track),
+            config=self._track_voice_config_to_dto(track, config_data),
+            preview=self._track_preview_to_dto(track),
+            activeTask=active_task,
             createdAt=track.created_at,
+            updatedAt=track.updated_at,
         )
 
     def _decode_segments(self, segments_json: str) -> list[VoiceTrackSegmentDto]:

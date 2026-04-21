@@ -1,7 +1,7 @@
 """add voice profiles
 
 Revision ID: 0005_add_voice_profiles
-Revises: 0004_extend_runtime_modules
+Revises: 0004_add_prompt_templates_and_video_stage_runs
 Create Date: 2026-04-17
 """
 from __future__ import annotations
@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "0005_add_voice_profiles"
-down_revision = "0004_extend_runtime_modules"
+down_revision = "0004_add_prompt_templates_and_video_stage_runs"
 branch_labels = None
 depends_on = None
 

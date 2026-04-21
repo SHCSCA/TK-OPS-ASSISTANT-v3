@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Float, ForeignKey, String, Text
+from sqlalchemy import Float, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from domain.models.base import Base
@@ -44,7 +44,24 @@ class VoiceTrack(Base):
     file_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     segments_json: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
+    version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default=text("1"),
+    )
+    config_json: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'{}'"),
+    )
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("datetime('now')"),
+    )
+
+
 class SubtitleTrack(Base):
     __tablename__ = "subtitle_tracks"
 
@@ -63,5 +80,15 @@ class SubtitleTrack(Base):
     language: Mapped[str] = mapped_column(String, nullable=False)
     style_json: Mapped[str] = mapped_column(Text, nullable=False)
     segments_json: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'{}'"),
+    )
     status: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("datetime('now')"),
+    )

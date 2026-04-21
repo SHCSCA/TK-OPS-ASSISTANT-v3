@@ -7,6 +7,8 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
+from persistence.engine import create_runtime_engine, initialize_domain_schema
+
 
 def test_alembic_upgrade_creates_core_operational_tables(
     tmp_path: Path,
@@ -39,7 +41,10 @@ def test_alembic_upgrade_creates_core_operational_tables(
         "voice_tracks",
         "subtitle_tracks",
         "assets",
+        "ai_provider_models",
+        "ai_provider_health",
         "accounts",
+        "browser_instances",
         "device_workspaces",
         "execution_bindings",
         "automation_tasks",
@@ -48,3 +53,37 @@ def test_alembic_upgrade_creates_core_operational_tables(
         "prompt_templates",
         "video_stage_runs",
     }.issubset(tables)
+
+
+def test_initialize_domain_schema_repairs_legacy_projects_table_deleted_at_column(
+    tmp_path: Path,
+) -> None:
+    database_path = tmp_path / "runtime.db"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE projects (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                status TEXT NOT NULL,
+                current_script_version INTEGER NOT NULL,
+                current_storyboard_version INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_accessed_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.commit()
+
+    engine = create_runtime_engine(database_path)
+    initialize_domain_schema(engine)
+
+    with sqlite3.connect(database_path) as connection:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(projects)").fetchall()
+        }
+
+    assert "deleted_at" in columns

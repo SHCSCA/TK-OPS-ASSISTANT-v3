@@ -6,7 +6,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from common.time import utc_now
-from domain.models.device_workspace import DeviceWorkspace, DeviceWorkspaceLog, ExecutionBinding
+from domain.models.device_workspace import (
+    BrowserInstance,
+    DeviceWorkspace,
+    DeviceWorkspaceLog,
+    ExecutionBinding,
+)
 
 
 class DeviceWorkspaceRepository:
@@ -186,3 +191,92 @@ class DeviceWorkspaceRepository:
             session.refresh(log_entry)
             session.expunge(log_entry)
             return log_entry
+
+    def get_latest_log(
+        self,
+        workspace_id: str,
+        *,
+        kind: str | None = None,
+    ) -> DeviceWorkspaceLog | None:
+        with self._session_factory() as session:
+            stmt = (
+                select(DeviceWorkspaceLog)
+                .where(DeviceWorkspaceLog.workspace_id == workspace_id)
+                .order_by(DeviceWorkspaceLog.created_at.desc())
+            )
+            if kind is not None:
+                stmt = stmt.where(DeviceWorkspaceLog.kind == kind)
+            log_entry = session.scalar(stmt)
+            if log_entry is not None:
+                session.expunge(log_entry)
+            return log_entry
+
+    # --- Browser instances ---
+
+    def list_browser_instances(self, workspace_id: str) -> list[BrowserInstance]:
+        with self._session_factory() as session:
+            items = session.scalars(
+                select(BrowserInstance)
+                .where(BrowserInstance.workspace_id == workspace_id)
+                .order_by(BrowserInstance.created_at.asc())
+            ).all()
+            session.expunge_all()
+            return list(items)
+
+    def create_browser_instance(
+        self,
+        *,
+        workspace_id: str,
+        name: str,
+        profile_path: str,
+    ) -> BrowserInstance:
+        with self._session_factory() as session:
+            instance = BrowserInstance(
+                workspace_id=workspace_id,
+                name=name,
+                profile_path=profile_path,
+            )
+            session.add(instance)
+            session.commit()
+            session.refresh(instance)
+            session.expunge(instance)
+            return instance
+
+    def get_browser_instance(
+        self,
+        workspace_id: str,
+        instance_id: str,
+    ) -> BrowserInstance | None:
+        with self._session_factory() as session:
+            instance = session.scalar(
+                select(BrowserInstance).where(
+                    BrowserInstance.workspace_id == workspace_id,
+                    BrowserInstance.id == instance_id,
+                )
+            )
+            if instance is not None:
+                session.expunge(instance)
+            return instance
+
+    def update_browser_instance(
+        self,
+        workspace_id: str,
+        instance_id: str,
+        **kwargs: object,
+    ) -> BrowserInstance | None:
+        with self._session_factory() as session:
+            instance = session.scalar(
+                select(BrowserInstance).where(
+                    BrowserInstance.workspace_id == workspace_id,
+                    BrowserInstance.id == instance_id,
+                )
+            )
+            if instance is None:
+                return None
+            for key, value in kwargs.items():
+                setattr(instance, key, value)
+            instance.updated_at = utc_now()
+            session.commit()
+            session.refresh(instance)
+            session.expunge(instance)
+            return instance

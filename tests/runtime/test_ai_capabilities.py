@@ -346,3 +346,111 @@ def test_ai_capability_support_matrix_limits_models_by_capability(
         item['provider'] == 'video_generation_provider'
         for item in capabilities['video_generation']['models']
     )
+
+def test_ai_provider_health_refresh_persists_aggregate_snapshots(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+    client.put(
+        '/api/settings/ai-capabilities/providers/openai/secret',
+        json={'apiKey': 'sk-test-openai-health'},
+    )
+
+    def fake_probe(runtime, model: str):
+        return {
+            'status': 'ready' if runtime.provider in {'openai', 'ollama'} else 'offline',
+            'message': f'{runtime.provider}:{model}',
+            'latency_ms': 123,
+        }
+
+    monkeypatch.setattr(
+        runtime_app.state.ai_capability_service,
+        '_probe_provider_connectivity',
+        fake_probe,
+    )
+
+    refresh_response = client.post('/api/ai-providers/health/refresh')
+    assert refresh_response.status_code == 200
+    refresh_payload = refresh_response.json()['data']
+    assert refresh_payload['refreshedAt']
+    providers = {item['provider']: item for item in refresh_payload['providers']}
+    assert providers['openai']['readiness'] == 'ready'
+    assert providers['openai']['latencyMs'] == 123
+    assert providers['openai']['errorCode'] is None
+    assert providers['openai']['lastCheckedAt']
+
+    from app.factory import create_app
+
+    reloaded_client = TestClient(create_app())
+    health_response = reloaded_client.get('/api/ai-providers/health')
+    assert health_response.status_code == 200
+    persisted = {item['provider']: item for item in health_response.json()['data']['providers']}
+    assert persisted['openai']['readiness'] == 'ready'
+    assert persisted['openai']['errorMessage'] is None
+
+
+def test_ai_provider_model_upsert_persists_and_support_matrix_reads_capability_kinds(
+    runtime_client: TestClient,
+) -> None:
+    invalid_response = runtime_client.put(
+        '/api/ai-providers/openai/models/runtime-writer',
+        json={
+            'displayName': 'Runtime Writer',
+            'capabilityKinds': [],
+            'inputModalities': ['text'],
+            'outputModalities': ['text'],
+            'contextWindow': 64000,
+            'defaultFor': ['script_generation'],
+            'enabled': True,
+        },
+    )
+    assert invalid_response.status_code == 400
+    assert invalid_response.json()['error_code'] == 'provider.model.capability_required'
+
+    create_response = runtime_client.put(
+        '/api/ai-providers/openai/models/runtime-writer',
+        json={
+            'displayName': 'Runtime Writer',
+            'capabilityKinds': ['text_generation'],
+            'inputModalities': ['text'],
+            'outputModalities': ['text'],
+            'contextWindow': 64000,
+            'defaultFor': ['script_generation'],
+            'enabled': True,
+        },
+    )
+    assert create_response.status_code == 200
+    assert create_response.json()['data']['wasUpsert'] is False
+
+    update_response = runtime_client.put(
+        '/api/ai-providers/openai/models/runtime-writer',
+        json={
+            'displayName': 'Runtime Writer v2',
+            'capabilityKinds': ['text_generation'],
+            'inputModalities': ['text'],
+            'outputModalities': ['text'],
+            'contextWindow': 128000,
+            'defaultFor': ['script_generation'],
+            'enabled': True,
+        },
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()['data']['wasUpsert'] is True
+
+    models_response = runtime_client.get('/api/settings/ai-providers/openai/models')
+    assert models_response.status_code == 200
+    models = {item['modelId']: item for item in models_response.json()['data']}
+    assert models['runtime-writer']['displayName'] == 'Runtime Writer v2'
+    assert models['runtime-writer']['contextWindow'] == 128000
+
+    matrix_response = runtime_client.get('/api/settings/ai-capabilities/support-matrix')
+    assert matrix_response.status_code == 200
+    capabilities = {
+        item['capabilityId']: item
+        for item in matrix_response.json()['data']['capabilities']
+    }
+    assert any(
+        item['provider'] == 'openai' and item['modelId'] == 'runtime-writer'
+        for item in capabilities['script_generation']['models']
+    )

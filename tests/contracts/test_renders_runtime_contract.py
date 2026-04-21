@@ -34,6 +34,8 @@ def _build_app(tmp_path: Path) -> FastAPI:
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
     now = utc_now()
+    output_file = tmp_path / "contract-output.mp4"
+    output_file.write_bytes(b"render-output")
     with session_factory() as session:
         session.add(
             Project(
@@ -55,12 +57,12 @@ def _build_app(tmp_path: Path) -> FastAPI:
                 project_name="渲染项目",
                 preset="1080p",
                 format="mp4",
-                status="rendering",
-                progress=35,
-                output_path=None,
+                status="completed",
+                progress=100,
+                output_path=str(output_file),
                 error_message=None,
                 started_at=now,
-                finished_at=None,
+                finished_at=now,
             )
         )
         session.commit()
@@ -74,7 +76,10 @@ def _build_app(tmp_path: Path) -> FastAPI:
         message = exc.detail if isinstance(exc.detail, str) else "请求失败"
         return JSONResponse(
             status_code=exc.status_code,
-            content=error_response(message),
+            content=error_response(
+                message,
+                error_code=getattr(exc, "error_code", None),
+            ),
         )
 
     return app
@@ -89,6 +94,19 @@ def test_render_templates_contract_returns_builtin_profiles(tmp_path: Path) -> N
     templates = _assert_ok(response.json())
     assert templates
     assert templates[0]["is_default"] is True
+
+
+def test_render_task_contract_exposes_stage_output_and_failure(tmp_path: Path) -> None:
+    client = TestClient(_build_app(tmp_path))
+
+    response = client.get("/api/renders/tasks/render-task-1")
+
+    assert response.status_code == 200
+    task = _assert_ok(response.json())
+    assert {"stage", "output", "failure"}.issubset(task)
+    assert task["stage"]["code"] == "completed"
+    assert task["output"]["exists"] is True
+    assert task["failure"]["error_code"] is None
 
 
 def test_render_resource_usage_contract_returns_real_disk_usage(tmp_path: Path) -> None:
@@ -120,3 +138,13 @@ def test_render_retry_contract_updates_task_status(tmp_path: Path) -> None:
     assert data["status"] == "queued"
     assert data["progress"] == 0
     assert data["error_message"] is None
+
+
+def test_render_cancel_contract_returns_structured_conflict(tmp_path: Path) -> None:
+    client = TestClient(_build_app(tmp_path))
+
+    response = client.post("/api/renders/tasks/render-task-1/cancel")
+
+    assert response.status_code == 409
+    error = response.json()
+    assert error["error_code"] == "render.task_not_cancellable"
