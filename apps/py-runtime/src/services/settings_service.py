@@ -21,7 +21,9 @@ from schemas.settings import (
     AppSettingsUpdateInput,
     AIProviderHealthDto,
     DiagnosticsBundleDto,
+    FfprobeDiagnosticsDto,
     LicenseHealthDto,
+    MediaDiagnosticsDto,
     PublishingQueueHealthDto,
     RenderQueueHealthDto,
     RuntimeDiagnosticsDto,
@@ -31,6 +33,7 @@ from schemas.settings import (
     RuntimeLogPageDto,
     TaskBusHealthDto,
 )
+from services.ffprobe import get_ffprobe_availability
 from services.license_service import LicenseService
 from services.task_manager import TaskManager
 
@@ -137,6 +140,19 @@ class SettingsService:
             revision=settings.revision,
             mode=settings.runtime.mode,
             healthStatus="online",
+        )
+
+    def get_media_diagnostics(self) -> MediaDiagnosticsDto:
+        ffprobe = get_ffprobe_availability()
+        return MediaDiagnosticsDto(
+            ffprobe=FfprobeDiagnosticsDto(
+                status=ffprobe.status,
+                path=ffprobe.path,
+                version=ffprobe.version,
+                errorCode=ffprobe.error_code,
+                errorMessage=ffprobe.error_message,
+            ),
+            checkedAt=_utc_now_iso(),
         )
 
     def get_runtime_logs(

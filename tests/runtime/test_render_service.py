@@ -76,7 +76,7 @@ def test_fetch_resource_usage_returns_real_disk_snapshot(tmp_path: Path) -> None
     assert usage.gpu.status == "unavailable"
 
 
-def test_update_task_broadcasts_render_progress_event(
+def test_update_task_broadcasts_render_progress_and_status_events(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -94,10 +94,11 @@ def test_update_task_broadcasts_render_progress_event(
     )
 
     assert updated.progress == 42
-    assert captured
-    assert captured[-1]["type"] == "render.progress"
-    assert captured[-1]["taskId"] == "render-task-1"
-    assert captured[-1]["progressPct"] == 42
+    assert len(captured) == 2
+    assert captured[0]["type"] == "render.progress"
+    assert captured[0]["taskId"] == "render-task-1"
+    assert captured[1]["type"] == "render.status.changed"
+    assert captured[1]["stage"]["code"] == "rendering"
 
 
 def test_retry_task_keeps_existing_reset_semantics(tmp_path: Path) -> None:
@@ -112,6 +113,60 @@ def test_retry_task_keeps_existing_reset_semantics(tmp_path: Path) -> None:
     assert retried.status == "queued"
     assert retried.progress == 0
     assert retried.error_message is None
+    assert retried.failure.error_code is None
+
+
+def test_task_detail_reports_existing_output_file(tmp_path: Path) -> None:
+    service = _make_render_service(tmp_path)
+    output_file = tmp_path / "render-output.mp4"
+    output_file.write_bytes(b"render-bytes")
+
+    task = service.update_task(
+        "render-task-1",
+        RenderTaskUpdateInput(
+            status="completed",
+            progress=100,
+            output_path=str(output_file),
+        ),
+    )
+
+    assert task.stage.code == "completed"
+    assert task.output.exists is True
+    assert task.output.size_bytes == len(b"render-bytes")
+    assert task.output.can_open is True
+    assert task.failure.error_code is None
+
+
+def test_task_detail_reports_missing_output_file_as_failure(tmp_path: Path) -> None:
+    service = _make_render_service(tmp_path)
+    missing_output = tmp_path / "missing-output.mp4"
+
+    task = service.update_task(
+        "render-task-1",
+        RenderTaskUpdateInput(
+            status="completed",
+            progress=100,
+            output_path=str(missing_output),
+        ),
+    )
+
+    assert task.output.exists is False
+    assert task.failure.error_code == "render.output_not_found"
+    assert task.failure.retryable is True
+
+
+def test_cancel_task_returns_structured_conflict_when_not_cancellable(tmp_path: Path) -> None:
+    service = _make_render_service(tmp_path)
+    service.update_task(
+        "render-task-1",
+        RenderTaskUpdateInput(status="completed", progress=100),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.cancel_task("render-task-1")
+
+    assert exc_info.value.status_code == 409
+    assert getattr(exc_info.value, "error_code", None) == "render.task_not_cancellable"
 
 
 def test_create_profile_rejects_empty_name(tmp_path: Path) -> None:

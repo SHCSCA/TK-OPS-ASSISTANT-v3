@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
 
+from common.time import utc_now_iso
 from domain.models import Base
+from domain.models.account import Account
 from persistence.engine import create_runtime_engine, create_session_factory
+from repositories.account_repository import AccountRepository
 from repositories.dashboard_repository import DashboardRepository
+from repositories.device_workspace_repository import DeviceWorkspaceRepository
 from repositories.publishing_repository import PublishingRepository
 from repositories.review_repository import ReviewRepository
 from repositories.script_repository import ScriptRepository
@@ -21,7 +26,57 @@ from services.review_service import ReviewService
 def _make_publishing_service(tmp_path: Path) -> PublishingService:
     engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
-    return PublishingService(PublishingRepository(session_factory=create_session_factory(engine)))
+    session_factory = create_session_factory(engine)
+    return PublishingService(
+        PublishingRepository(session_factory=session_factory),
+        account_repository=AccountRepository(session_factory=session_factory),
+        device_workspace_repository=DeviceWorkspaceRepository(session_factory=session_factory),
+    )
+
+
+def _prepare_ready_publish_account(
+    tmp_path: Path,
+    service: PublishingService,
+) -> tuple[str, str]:
+    assert service._account_repository is not None
+    assert service._device_workspace_repository is not None
+
+    now = utc_now_iso()
+    account_id = str(uuid4())
+    service._account_repository.create_account(
+        Account(
+            id=account_id,
+            name="发布账号",
+            platform="tiktok",
+            username="publisher_ready",
+            avatar_url=None,
+            status="active",
+            auth_expires_at=None,
+            follower_count=None,
+            following_count=None,
+            video_count=None,
+            tags=None,
+            notes=None,
+            last_validated_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+
+    workspace_root = tmp_path / "publish-workspace"
+    workspace_root.mkdir()
+    workspace = service._device_workspace_repository.create_workspace(
+        name="发布工作区",
+        root_path=str(workspace_root),
+    )
+    service._device_workspace_repository.update_workspace(workspace.id, status="ready")
+    service._device_workspace_repository.upsert_binding(
+        account_id=account_id,
+        browser_instance_id=workspace.id,
+        status="active",
+        source="manual",
+    )
+    return account_id, str(workspace_root)
 
 
 def _make_review_service(
@@ -45,21 +100,24 @@ def _make_review_service(
 
 def test_publishing_receipt_history_and_calendar_conflicts(tmp_path: Path) -> None:
     service = _make_publishing_service(tmp_path)
+    ready_account_id, _ = _prepare_ready_publish_account(tmp_path, service)
 
     scheduled_at = datetime(2026, 4, 17, 8, 30, tzinfo=timezone.utc)
     first = service.create_plan(
         PublishPlanCreateInput(
             title="首发计划 A",
-            account_id="account-1",
+            account_id=ready_account_id,
             project_id="project-1",
+            video_asset_id="asset-1",
             scheduled_at=scheduled_at,
         )
     )
     service.create_plan(
         PublishPlanCreateInput(
             title="冲突计划 B",
-            account_id="account-1",
+            account_id=ready_account_id,
             project_id="project-2",
+            video_asset_id="asset-2",
             scheduled_at=scheduled_at,
         )
     )
@@ -68,6 +126,7 @@ def test_publishing_receipt_history_and_calendar_conflicts(tmp_path: Path) -> No
     assert precheck.has_errors is True
     assert len(precheck.conflicts) == 1
     assert precheck.conflicts[0].conflicting_plan_id is not None
+    assert precheck.readiness.can_submit is False
 
     with pytest.raises(HTTPException):
         service.submit(first.id)
@@ -75,9 +134,10 @@ def test_publishing_receipt_history_and_calendar_conflicts(tmp_path: Path) -> No
     clean_plan = service.create_plan(
         PublishPlanCreateInput(
             title="首发计划 C",
-            account_id="account-2",
+            account_id=ready_account_id,
             project_id="project-3",
-            scheduled_at=scheduled_at,
+            video_asset_id="asset-3",
+            scheduled_at=datetime(2026, 4, 17, 9, 0, tzinfo=timezone.utc),
         )
     )
 
@@ -90,10 +150,70 @@ def test_publishing_receipt_history_and_calendar_conflicts(tmp_path: Path) -> No
     assert len(receipts) == 2
     latest = service.get_latest_receipt(clean_plan.id)
     assert latest.id == receipts[0].id
+    assert latest.status == "receipt_pending"
 
     calendar = service.get_calendar()
     assert len(calendar.items) >= 1
     assert any(item.conflict_count >= 1 for item in calendar.items)
+
+
+def test_publishing_plan_summary_includes_readiness_and_receipt(tmp_path: Path) -> None:
+    service = _make_publishing_service(tmp_path)
+    ready_account_id, _ = _prepare_ready_publish_account(tmp_path, service)
+
+    plan = service.create_plan(
+        PublishPlanCreateInput(
+            title="发布计划摘要",
+            account_id=ready_account_id,
+            project_id="project-ready",
+            video_asset_id="asset-ready",
+            scheduled_at=datetime(2026, 4, 17, 10, 0, tzinfo=timezone.utc),
+        )
+    )
+
+    precheck = service.precheck(plan.id)
+    assert precheck.has_errors is False
+    assert precheck.readiness.can_submit is True
+    assert precheck.blocking_count == 0
+
+    submitted = service.submit(plan.id)
+    assert submitted.receipt_status == "receipt_pending"
+    assert submitted.receipt is not None
+    assert submitted.receipt.summary == "已提交平台，等待平台回执。"
+
+    refreshed = service.get_plan(plan.id)
+    assert refreshed.publish_readiness.can_submit is True
+    assert refreshed.precheck_summary.status == "ready"
+    assert refreshed.latest_receipt is not None
+    assert refreshed.latest_receipt.status == "receipt_pending"
+    assert refreshed.recovery.can_cancel is True
+
+
+def test_publishing_precheck_blocks_when_workspace_missing(tmp_path: Path) -> None:
+    service = _make_publishing_service(tmp_path)
+    ready_account_id, workspace_root = _prepare_ready_publish_account(tmp_path, service)
+    Path(workspace_root).rmdir()
+
+    plan = service.create_plan(
+        PublishPlanCreateInput(
+            title="工作区缺失发布计划",
+            account_id=ready_account_id,
+            project_id="project-blocked",
+            video_asset_id="asset-blocked",
+            scheduled_at=datetime(2026, 4, 17, 11, 0, tzinfo=timezone.utc),
+        )
+    )
+
+    precheck = service.precheck(plan.id)
+    assert precheck.has_errors is True
+    device_item = next(item for item in precheck.items if item.code == "device_binding")
+    assert device_item.error_code == "publishing.device_binding_required"
+    assert precheck.readiness.can_submit is False
+    assert precheck.readiness.error_code == "publishing.device_binding_required"
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.submit(plan.id)
+    assert exc_info.value.status_code == 409
 
 
 def test_review_adopt_creates_child_project_and_copies_context(tmp_path: Path) -> None:

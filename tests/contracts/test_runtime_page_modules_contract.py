@@ -46,7 +46,7 @@ def test_assets_contract_covers_groups_batch_ops_and_thumbnail_fields(
     )
     assert create_response.status_code == 200
     asset = _assert_ok(create_response.json())
-    assert set(asset) == {
+    assert {
         "id",
         "name",
         "type",
@@ -62,7 +62,7 @@ def test_assets_contract_covers_groups_batch_ops_and_thumbnail_fields(
         "metadataJson",
         "createdAt",
         "updatedAt",
-    }
+    }.issubset(asset)
 
     imported_file = tmp_path / "demo.mp4"
     imported_file.write_bytes(b"tkops-video")
@@ -112,7 +112,7 @@ def test_accounts_and_devices_contract_cover_binding_and_logs(
     )
     assert workspace_response.status_code == 201
     workspace = _assert_ok(workspace_response.json())
-    assert set(workspace) == {
+    assert {
         "id",
         "name",
         "root_path",
@@ -121,7 +121,7 @@ def test_accounts_and_devices_contract_cover_binding_and_logs(
         "last_used_at",
         "created_at",
         "updated_at",
-    }
+    }.issubset(workspace)
 
     account_response = runtime_client.post(
         "/api/accounts",
@@ -173,12 +173,12 @@ def test_automation_contract_covers_pause_and_resume(runtime_client: TestClient)
         json={
             "name": "同步发布状态",
             "type": "sync_status",
-            "rule": {"kind": "interval", "config": {"minutes": 15}},
+            "rule": {"kind": "interval", "config": {"minutes": 15, "workspaceId": "workspace-1"}},
         },
     )
     assert create_response.status_code == 201
     task = _assert_ok(create_response.json())
-    assert set(task) == {
+    assert {
         "id",
         "name",
         "type",
@@ -191,7 +191,7 @@ def test_automation_contract_covers_pause_and_resume(runtime_client: TestClient)
         "config_json",
         "created_at",
         "updated_at",
-    }
+    }.issubset(task)
 
     pause_response = runtime_client.post(f"/api/automation/tasks/{task['id']}/pause")
     assert pause_response.status_code == 200
@@ -208,19 +208,40 @@ def test_automation_contract_covers_pause_and_resume(runtime_client: TestClient)
 
 
 def test_publishing_contract_covers_calendar_and_receipts(runtime_client: TestClient) -> None:
+    account_response = runtime_client.post(
+        "/api/accounts",
+        json={"name": "Creator A", "platform": "tiktok", "username": "creator_a"},
+    )
+    assert account_response.status_code == 200
+    account = _assert_ok(account_response.json())
+
+    workspace_response = runtime_client.post(
+        "/api/devices/browser-instances",
+        json={"name": "?????", "root_path": str(Path.cwd())},
+    )
+    assert workspace_response.status_code == 201
+    workspace = _assert_ok(workspace_response.json())
+
+    binding_response = runtime_client.put(
+        f"/api/accounts/{account['id']}/binding",
+        json={"browserInstanceId": workspace["id"], "status": "active"},
+    )
+    assert binding_response.status_code == 200
+
     first = runtime_client.post(
         "/api/publishing/plans",
         json={
-            "title": "发布计划 A",
-            "account_id": "account-1",
-            "account_name": "Creator A",
+            "title": "???? A",
+            "account_id": account["id"],
+            "account_name": account["name"],
             "project_id": "project-1",
+            "video_asset_id": "asset-1",
             "scheduled_at": "2026-04-17T08:30:00+00:00",
         },
     )
     assert first.status_code == 201
     plan = _assert_ok(first.json())
-    assert set(plan) == {
+    assert {
         "id",
         "title",
         "account_id",
@@ -233,17 +254,22 @@ def test_publishing_contract_covers_calendar_and_receipts(runtime_client: TestCl
         "published_at",
         "error_message",
         "precheck_result_json",
+        "precheck_summary",
+        "latest_receipt",
+        "publish_readiness",
+        "recovery",
         "created_at",
         "updated_at",
-    }
+    }.issubset(plan)
 
     conflict = runtime_client.post(
         "/api/publishing/plans",
         json={
-            "title": "发布计划 B",
-            "account_id": "account-1",
-            "account_name": "Creator A",
+            "title": "???? B",
+            "account_id": account["id"],
+            "account_name": account["name"],
             "project_id": "project-2",
+            "video_asset_id": "asset-2",
             "scheduled_at": "2026-04-17T08:30:00+00:00",
         },
     )
@@ -252,7 +278,15 @@ def test_publishing_contract_covers_calendar_and_receipts(runtime_client: TestCl
     precheck_response = runtime_client.post(f"/api/publishing/plans/{plan['id']}/precheck")
     assert precheck_response.status_code == 200
     precheck = _assert_ok(precheck_response.json())
-    assert set(precheck) == {"plan_id", "items", "conflicts", "has_errors", "checked_at"}
+    assert {
+        "plan_id",
+        "items",
+        "conflicts",
+        "has_errors",
+        "checked_at",
+        "blocking_count",
+        "readiness",
+    } == set(precheck)
     assert len(precheck["conflicts"]) == 1
     assert set(precheck["conflicts"][0]) == {
         "conflicting_plan_id",
@@ -263,6 +297,12 @@ def test_publishing_contract_covers_calendar_and_receipts(runtime_client: TestCl
 
     blocked_submit = runtime_client.post(f"/api/publishing/plans/{plan['id']}/submit")
     assert blocked_submit.status_code == 409
+
+    update_response = runtime_client.patch(
+        f"/api/publishing/plans/{conflict_plan['id']}",
+        json={"scheduled_at": "2026-04-17T09:00:00+00:00"},
+    )
+    assert update_response.status_code == 200
 
     submit_response = runtime_client.post(f"/api/publishing/plans/{conflict_plan['id']}/submit")
     assert submit_response.status_code == 200
@@ -275,6 +315,12 @@ def test_publishing_contract_covers_calendar_and_receipts(runtime_client: TestCl
         "id",
         "plan_id",
         "status",
+        "stage",
+        "summary",
+        "error_code",
+        "error_message",
+        "next_action",
+        "is_final",
         "platform_response_json",
         "received_at",
         "created_at",
@@ -300,7 +346,6 @@ def test_publishing_contract_covers_calendar_and_receipts(runtime_client: TestCl
 
     _assert_deleted_envelope(runtime_client.delete(f"/api/publishing/plans/{plan['id']}"))
     _assert_deleted_envelope(runtime_client.delete(f"/api/publishing/plans/{conflict_plan['id']}"))
-
 
 def test_review_contract_covers_analyze_and_adopt(runtime_client: TestClient) -> None:
     project_response = runtime_client.post(

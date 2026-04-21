@@ -5,8 +5,10 @@ import {
   fetchScriptDocument,
   generateScriptDocument,
   rewriteScriptDocument,
-  saveScriptDocument
+  saveScriptDocument,
+  restoreScriptVersion
 } from "@/app/runtime-client";
+import { useProjectStore } from "./project";
 import type { RuntimeRequestErrorShape, ScriptDocument } from "@/types/runtime";
 
 export type ScriptStudioStatus = "idle" | "loading" | "saving" | "generating" | "ready" | "error";
@@ -79,6 +81,28 @@ export const useScriptStudioStore = defineStore("script-studio", {
       try {
         this.document = await rewriteScriptDocument(this.projectId, instructions);
         this.status = "ready";
+      } catch (error) {
+        this.applyRuntimeError(error);
+      }
+    },
+    async adoptVersion(revision: number): Promise<void> {
+      if (!this.projectId) {
+        return;
+      }
+
+      this.status = "saving";
+      this.error = null;
+
+      try {
+        // Use restoreScriptVersion as the adoption mechanism
+        this.document = await restoreScriptVersion(this.projectId, String(revision));
+        this.status = "ready";
+        
+        // Update project store to reflect new script revision if needed
+        const projectStore = useProjectStore();
+        if (projectStore.currentProject?.projectId === this.projectId) {
+          await projectStore.load(this.projectId);
+        }
       } catch (error) {
         this.applyRuntimeError(error);
       }

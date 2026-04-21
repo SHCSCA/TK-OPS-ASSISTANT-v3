@@ -30,7 +30,17 @@ class VideoStageDto(BaseModel):
     progressPct: int
     resultSummary: str | None = None
     errorMessage: str | None = None
+    errorCode: str | None = None
+    nextAction: str | None = None
+    blockedByStageId: str | None = None
     updatedAt: str | None = None
+    isCurrent: bool = False
+    activeTaskId: str | None = None
+    activeTaskStatus: str | None = None
+    activeTaskProgress: int | None = None
+    activeTaskMessage: str | None = None
+    canCancel: bool = False
+    canRetry: bool = False
     canRerun: bool
 
 

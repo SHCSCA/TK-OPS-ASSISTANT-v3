@@ -29,6 +29,13 @@ class StoredProjectContext:
     updated_at: str
 
 
+@dataclass(frozen=True, slots=True)
+class DeletedProjectResult:
+    project_id: str
+    deleted_at: str
+    cleared_current_project: bool
+
+
 class DashboardRepository:
     def __init__(self, *, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
@@ -37,6 +44,7 @@ class DashboardRepository:
         with self._session_factory() as session:
             projects = session.scalars(
                 select(Project)
+                .where(Project.deleted_at.is_(None))
                 .order_by(Project.last_accessed_at.desc(), Project.updated_at.desc())
                 .limit(limit)
             ).all()
@@ -64,7 +72,11 @@ class DashboardRepository:
 
     def get_project(self, project_id: str) -> StoredProject | None:
         with self._session_factory() as session:
-            project = session.get(Project, project_id)
+            project = session.scalar(
+                select(Project)
+                .where(Project.id == project_id)
+                .where(Project.deleted_at.is_(None))
+            )
 
         return self._to_project(project) if project is not None else None
 
@@ -100,6 +112,30 @@ class DashboardRepository:
         return StoredProjectContext(
             project_id=context.current_project_id,
             updated_at=context.updated_at,
+        )
+
+    def soft_delete_project(self, project_id: str) -> DeletedProjectResult:
+        deleted_at = _utc_now()
+        with self._session_factory() as session:
+            project = session.get(Project, project_id)
+            if project is None or project.deleted_at is not None:
+                raise KeyError(project_id)
+
+            context = session.get(SessionContext, 1)
+            cleared_current_project = False
+            if context is not None and context.current_project_id == project_id:
+                context.current_project_id = None
+                context.updated_at = deleted_at
+                cleared_current_project = True
+
+            project.deleted_at = deleted_at
+            project.updated_at = deleted_at
+            session.commit()
+
+        return DeletedProjectResult(
+            project_id=project_id,
+            deleted_at=deleted_at,
+            cleared_current_project=cleared_current_project,
         )
 
     def update_project_versions(

@@ -10,7 +10,9 @@ from repositories.ai_job_repository import AIJobRepository, StoredAIJobRecord
 from repositories.storyboard_repository import StoryboardRepository, StoredStoryboardVersion
 from schemas.scripts import AIJobRecordDto
 from schemas.storyboards import (
+    StoryboardConflictSummaryDto,
     StoryboardDocumentDto,
+    StoryboardLastOperationDto,
     StoryboardSceneDto,
     StoryboardShotDto,
     StoryboardShotInput,
@@ -41,21 +43,36 @@ class StoryboardService:
     def get_document(self, project_id: str) -> StoryboardDocumentDto:
         project = self._dashboard_service.require_project(project_id)
         versions = self._repository.list_versions(project_id)
+        version_dtos = [self._to_version_dto(item) for item in versions]
+        recent_jobs = [
+            self._to_job_dto(item)
+            for item in self._ai_job_repository.list_recent(
+                project_id=project_id,
+                capability_ids=('storyboard_generation',),
+            )
+        ]
+        current_version = version_dtos[0] if version_dtos else None
+        current_script_revision = project.currentScriptVersion
         based_on_script_revision = (
-            versions[0].based_on_script_revision if versions else project.currentScriptVersion
+            current_version.basedOnScriptRevision if current_version else current_script_revision
+        )
+        latest_ai_job = recent_jobs[0] if recent_jobs else None
+        job_by_id = {item.id: item for item in recent_jobs}
+        sync_status, conflict_summary = self._build_sync_state(
+            current_version=current_version,
+            current_script_revision=current_script_revision,
         )
         return StoryboardDocumentDto(
             projectId=project.id,
             basedOnScriptRevision=based_on_script_revision,
-            currentVersion=self._to_version_dto(versions[0]) if versions else None,
-            versions=[self._to_version_dto(item) for item in versions],
-            recentJobs=[
-                self._to_job_dto(item)
-                for item in self._ai_job_repository.list_recent(
-                    project_id=project_id,
-                    capability_ids=('storyboard_generation',),
-                )
-            ],
+            currentScriptRevision=current_script_revision,
+            currentVersion=current_version,
+            versions=version_dtos,
+            recentJobs=recent_jobs,
+            syncStatus=sync_status,
+            conflictSummary=conflict_summary,
+            latestAiJob=latest_ai_job,
+            lastOperation=self._to_last_operation_dto(current_version, job_by_id),
         )
 
     def save_document(
@@ -258,6 +275,92 @@ class StoryboardService:
             durationMs=stored.duration_ms,
             createdAt=stored.created_at,
             completedAt=stored.completed_at,
+        )
+
+    def _to_last_operation_dto(
+        self,
+        current_version: StoryboardVersionDto | None,
+        job_by_id: dict[str, AIJobRecordDto],
+    ) -> StoryboardLastOperationDto | None:
+        if current_version is None:
+            return None
+
+        ai_job = (
+            job_by_id.get(current_version.aiJobId)
+            if current_version.aiJobId is not None
+            else None
+        )
+        return StoryboardLastOperationDto(
+            revision=current_version.revision,
+            source=current_version.source,
+            createdAt=current_version.createdAt,
+            aiJobId=current_version.aiJobId,
+            aiJobStatus=ai_job.status if ai_job is not None else None,
+        )
+
+    def _build_sync_state(
+        self,
+        *,
+        current_version: StoryboardVersionDto | None,
+        current_script_revision: int,
+    ) -> tuple[str, StoryboardConflictSummaryDto]:
+        if current_script_revision <= 0:
+            return (
+                'missing_script',
+                StoryboardConflictSummaryDto(
+                    hasConflict=False,
+                    reason='当前项目还没有脚本版本，暂时无法同步分镜。',
+                    currentScriptRevision=current_script_revision,
+                    basedOnScriptRevision=current_version.basedOnScriptRevision if current_version else None,
+                    storyboardRevision=current_version.revision if current_version else None,
+                ),
+            )
+
+        if current_version is None:
+            return (
+                'missing_storyboard',
+                StoryboardConflictSummaryDto(
+                    hasConflict=False,
+                    reason='当前项目还没有分镜版本，可以从脚本同步生成。',
+                    currentScriptRevision=current_script_revision,
+                    basedOnScriptRevision=None,
+                    storyboardRevision=None,
+                ),
+            )
+
+        if current_version.basedOnScriptRevision == current_script_revision:
+            return (
+                'synced',
+                StoryboardConflictSummaryDto(
+                    hasConflict=False,
+                    reason=None,
+                    currentScriptRevision=current_script_revision,
+                    basedOnScriptRevision=current_version.basedOnScriptRevision,
+                    storyboardRevision=current_version.revision,
+                ),
+            )
+
+        if current_version.basedOnScriptRevision < current_script_revision:
+            return (
+                'outdated',
+                StoryboardConflictSummaryDto(
+                    hasConflict=True,
+                    reason='当前分镜基于旧脚本版本，建议先重新同步再继续编辑。',
+                    currentScriptRevision=current_script_revision,
+                    basedOnScriptRevision=current_version.basedOnScriptRevision,
+                    storyboardRevision=current_version.revision,
+                ),
+            )
+
+        return (
+            'conflict',
+            StoryboardConflictSummaryDto(
+                hasConflict=True,
+                reason='当前分镜引用的脚本版本高于项目当前脚本版本，请检查版本恢复链路。',
+                currentScriptRevision=current_script_revision,
+                basedOnScriptRevision=current_version.basedOnScriptRevision,
+                storyboardRevision=current_version.revision,
+            ),
         )
 
     def _get_current_version(self, project_id: str) -> StoredStoryboardVersion | None:

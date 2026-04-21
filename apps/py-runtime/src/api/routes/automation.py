@@ -64,7 +64,7 @@ def delete_task(task_id: str, request: Request) -> dict[str, object]:
 
 
 @router.post("/{task_id}/trigger")
-def trigger_task(task_id: str, request: Request) -> dict[str, object]:
+async def trigger_task(task_id: str, request: Request) -> dict[str, object]:
     result = _svc(request).trigger_task(task_id)
     return ok_response(result.model_dump(mode="json"))
 

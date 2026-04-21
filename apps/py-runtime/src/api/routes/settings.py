@@ -48,6 +48,12 @@ def get_runtime_diagnostics(request: Request) -> dict[str, object]:
     return ok_response(diagnostics.model_dump(mode="json"))
 
 
+@router.get("/diagnostics/media")
+def get_runtime_media_diagnostics(request: Request) -> dict[str, object]:
+    diagnostics = get_settings_service(request).get_media_diagnostics()
+    return ok_response(diagnostics.model_dump(mode="json"))
+
+
 @router.get("/logs")
 def get_runtime_logs(
     request: Request,

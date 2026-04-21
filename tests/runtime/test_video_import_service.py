@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -10,7 +11,7 @@ from fastapi import HTTPException
 from domain.models import Base, ImportedVideo, Project
 from persistence.engine import create_runtime_engine, create_session_factory
 from repositories.imported_video_repository import ImportedVideoRepository
-from runtime_tasks.video_tasks import process_video_import_task
+from runtime_tasks.video_tasks import FFPROBE_UNAVAILABLE_MESSAGE, process_video_import_task
 from services.video_import_service import VideoImportService
 
 
@@ -19,7 +20,18 @@ class RecordingTaskManager:
         self.submissions: list[dict[str, object]] = []
 
     def submit(self, **kwargs):
-        self.submissions.append(kwargs)
+        task = SimpleNamespace(
+            id=str(kwargs["task_id"]),
+            task_type=str(kwargs["task_type"]),
+            project_id=str(kwargs["project_id"]),
+            status="queued",
+            progress=0,
+            message="任务已排队",
+            created_at="2026-04-13T00:00:00Z",
+            updated_at="2026-04-13T00:00:00Z",
+        )
+        self.submissions.append({**kwargs, "task": task})
+        return task
 
 
 def _make_repository(tmp_path: Path) -> ImportedVideoRepository:
@@ -89,6 +101,14 @@ def test_import_video_starts_async_task(tmp_path: Path) -> None:
     assert submission["task_type"] == "video_import"
     assert submission["project_id"] == "project-1"
     assert submission["task_id"] == video["id"]
+    assert submission["task"].owner_ref == {
+        "kind": "video-stage",
+        "id": f"{video['id']}:import",
+        "videoId": video["id"],
+        "stageId": "import",
+    }
+    assert submission["task"].label == "视频拆解：导入"
+    assert submission["task"].message == "导入阶段任务已进入队列。"
 
 
 def test_import_nonexistent_file_raises_http_error(tmp_path: Path) -> None:
@@ -141,24 +161,21 @@ def test_process_video_import_task_reports_progress_when_ffprobe_unavailable(
         progress_events.append((progress, message))
 
     with patch("runtime_tasks.video_tasks.probe_video", return_value=None):
-        asyncio.run(
-            process_video_import_task(
-                video_id="video-progress",
-                file_path=str(fake_video),
-                repository=repository,
-                progress_callback=progress_callback,
+            asyncio.run(
+                process_video_import_task(
+                    video_id="video-progress",
+                    task_id="video-progress",
+                    file_path=str(fake_video),
+                    repository=repository,
+                    progress_callback=progress_callback,
+                )
             )
-        )
 
     updated = repository.get("video-progress")
     assert updated is not None
-    assert updated.status == "imported"
-    assert updated.error_message == "FFprobe 不可用，已仅记录文件路径和大小。"
-    assert progress_events == [
-        (10, "正在读取视频文件"),
-        (40, "正在解析视频元信息"),
-        (80, "正在保存解析结果"),
-    ]
+    assert updated.status == "failed_degraded"
+    assert updated.error_message == FFPROBE_UNAVAILABLE_MESSAGE
+    assert [item[0] for item in progress_events] == [10, 40, 80]
 
 
 def test_process_video_import_task_marks_error_and_reraises(
@@ -186,13 +203,14 @@ def test_process_video_import_task_marks_error_and_reraises(
 
     with patch("runtime_tasks.video_tasks.probe_video", side_effect=RuntimeError("ffprobe failed")):
         with pytest.raises(RuntimeError, match="ffprobe failed"):
-            asyncio.run(
-                process_video_import_task(
-                    video_id="video-error",
-                    file_path=str(fake_video),
-                    repository=repository,
+                asyncio.run(
+                    process_video_import_task(
+                        video_id="video-error",
+                        task_id="video-error",
+                        file_path=str(fake_video),
+                        repository=repository,
+                    )
                 )
-            )
 
     updated = repository.get("video-error")
     assert updated is not None

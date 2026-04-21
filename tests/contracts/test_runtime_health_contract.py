@@ -61,3 +61,22 @@ def test_diagnostics_export_contract_returns_zip_bundle(
         assert "settings.json" in names
         assert "health.json" in names
         assert "diagnostics.json" in names
+
+
+def test_media_diagnostics_contract_uses_settings_prefix_and_expected_shape(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get("/api/settings/diagnostics/media")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {"ok", "data"}
+    assert payload["ok"] is True
+    assert set(payload["data"]) == {"ffprobe", "checkedAt"}
+    assert set(payload["data"]["ffprobe"]) == {
+        "status",
+        "path",
+        "version",
+        "errorCode",
+        "errorMessage",
+    }

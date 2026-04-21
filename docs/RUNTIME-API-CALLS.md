@@ -1,8 +1,8 @@
-> 更新日期：2026-04-19；本文以当前 `main` 分支代码为接口真源，记录已落地 Runtime 接口与前端调用关系。
+> 更新日期：2026-04-21；本文以当前开发分支代码为接口真源，记录已落地 Runtime 接口与前端调用关系。
 
 # Runtime API 与前端调用真源
 
-**当前状态（2026-04-19）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。本轮补齐 `review / workspace / subtitles / video-deconstruction / voice` 契约对齐，§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
+**当前状态（2026-04-21）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。本分支继续补齐 `bootstrap.readiness / dashboard.delete / settings.diagnostics.media / devices.browser-instances / ai-providers runtime / dashboard summary` 契约对齐，§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
 **接口版本**: V1（统一 JSON 信封，无独立版本号前缀）
 **唯一真源约束**: 后端路由、服务、前端 `runtime-client.ts`、Pinia store、契约测试发生变化时，必须在同一次改动中更新本文件。
 **编码约束**: 本文档必须使用 UTF-8 无 BOM 保存，所有读取、生成、校验脚本都按 UTF-8 处理，避免中文出现乱码。
@@ -50,9 +50,22 @@
 | `request.validation_failed` | 请求体验证失败 | 统一由 `error_response(..., error_code=...)` 返回 |
 | `runtime.not-ready` | Runtime 自检未通过 | 适用于版本、依赖、数据库等启动前检查 |
 | `runtime.port-not-listening` | Runtime 端口未监听 | 适用于 `/api/bootstrap/runtime-selfcheck` 的端口检查；监听中返回 `ok`，未监听返回 `warning` |
+| `license.not_activated` | 许可证未激活 | 适用于 `GET /api/bootstrap/readiness` 的阻断项 |
 | `project.not_found` | 项目不存在 | 适用于 dashboard / script / storyboard 等项目主链 |
 | `task.not_found` | 长任务不存在 | 适用于 `/api/tasks/{task_id}` |
 | `task.conflict` | 长任务不可取消或状态冲突 | 适用于 `/api/tasks/{task_id}/cancel` |
+| `project.delete_blocked` | 项目删除被阻断 | 项目仍存在未完成任务，禁止软删除 |
+| `provider.health.refresh_failed` | AI Provider 聚合健康刷新失败 | 适用于 `/api/ai-providers/health/refresh` 的单 Provider 刷新失败场景 |
+| `provider.model.capability_required` | AI Provider 模型能力声明缺失 | 适用于 `PUT /api/ai-providers/{provider_id}/models/{model_id}` |
+| `media.ffprobe_unavailable` | ffprobe 不可用 | 适用于 `/api/settings/diagnostics/media` 与视频拆解链路 |
+| `media.ffprobe_incompatible` | ffprobe 版本或输出不兼容 | 适用于 `/api/settings/diagnostics/media` 与视频拆解链路 |
+| `account.status_inactive` | 账号当前未启用 | 适用于账号发布校验 |
+| `account.username_missing` | 账号缺少用户名 | 适用于账号发布校验 |
+| `account.authorization_expired` | 账号授权已过期 | 适用于账号发布校验 |
+| `account.binding_required` | 账号缺少可用执行环境绑定 | 适用于账号发布校验 |
+| `workspace.root_path_missing` | 工作区根目录不存在 | 适用于工作区环境校验与健康检查 |
+| `workspace.root_path_invalid` | 工作区根路径不是目录 | 适用于工作区环境校验与健康检查 |
+| `workspace.browser_instance_error` | 工作区下存在异常浏览器实例 | 适用于工作区环境校验与健康检查 |
 
 ### 1.3 模块索引
 
@@ -82,9 +95,9 @@
 
 ## 1.5 文档-代码差异矩阵（V1）
 
-- HTTP 文档路由数（提取）：169
-- HTTP 代码路由数（去重）：169
-- HTTP 文档与代码一致：169
+- HTTP 文档路由数（提取）：181
+- HTTP 代码路由数（去重）：181
+- HTTP 文档与代码一致：181
 - HTTP 代码未写入文档（需补充）：0
 - HTTP 文档有但代码未见（需补齐）：0
 
@@ -92,8 +105,8 @@
 
 | 状态 | 数量 | 说明 |
 | --- | --- | --- |
-| 已实现并已文档化 | 169 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
-| 已实现但未文档化 | 0 | 本轮已补齐剩余高级接口登记 |
+| 已实现并已文档化 | 181 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
+| 已实现但未文档化 | 0 | 本轮已补齐 `bootstrap / dashboard / settings / devices / ai-providers` 新增运行时接口登记 |
 | 文档已写但未实现 | 0 | 本轮已补齐 `/api/video-deconstruction` 文档要求的 7 个接口，并完成剩余接口登记 |
 | 字段仍可继续细化 | 若干 | 主要是高级接口的错误码、更多响应示例和边界说明 |
 
@@ -108,6 +121,11 @@
 - 已按文档补齐 `/api/video-deconstruction/extractions/{extraction_id}/apply-to-project`
 - 已补登记 `/api/video-deconstruction/videos/{video_id}/stages`
 - 已补登记 `/api/video-deconstruction/videos/{video_id}/stages/{stage_id}/rerun`
+- 已补登记 `GET /api/bootstrap/readiness`
+- 已补登记 `DELETE /api/dashboard/projects/{project_id}`
+- 已补登记 `GET /api/settings/diagnostics/media`
+- 已补登记 `/api/devices/workspaces/{ws_id}/browser-instances*`
+- 已补登记 `GET /api/ai-providers/health`、`POST /api/ai-providers/health/refresh`、`PUT /api/ai-providers/{provider_id}/models/{model_id}`
 
 ### 仍待细化的高优先模块
 
@@ -164,12 +182,13 @@
 
 ## 2.1 首启运行时初始化
 
-**核心返回 DTO**: `BootstrapDirectoryReportDto`、`RuntimeSelfCheckReportDto`
+**核心返回 DTO**: `BootstrapDirectoryReportDto`、`RuntimeSelfCheckReportDto`、`BootstrapReadinessDto`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `POST /api/bootstrap/initialize-directories` | 无；按当前 settings/config 与 runtime data root 创建并校验目录 | `BootstrapDirectoryReportDto`：`rootDir`、`databasePath`、`status`、`directories[]`、`checkedAt` | `500` | `initializeDirectories` |
 | `POST /api/bootstrap/runtime-selfcheck` | 无；执行端口、版本、依赖、数据库聚合自检 | `RuntimeSelfCheckReportDto`：`status`、`runtimeVersion`、`checkedAt`、`items[]` | `500`；端口项未监听时返回 `runtime.port-not-listening` | `runtimeSelfCheck` |
+| `GET /api/bootstrap/readiness` | 无；聚合许可证、目录初始化、Runtime 自检、媒体依赖，返回首启可继续状态与阻断项 | `BootstrapReadinessDto`：`status`、`canContinue`、`items[]`、`blockers[]` | `500`；许可证未激活时返回阻断项并标记 `license.not_activated` | 当前前端未直接调用 |
 
 **端口检查语义**
 
@@ -232,12 +251,13 @@
 
 ## 3. 创作总览
 
-**核心返回 DTO**: `DashboardSummaryDto`、`ProjectSummaryDto`、`CurrentProjectContextDto`
+**核心返回 DTO**: `DashboardSummaryDto`、`ProjectSummaryDto`、`CurrentProjectContextDto`、`DashboardTaskDto`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/dashboard/summary` | 无 | `DashboardSummaryDto`：`greeting`、`heroContext`、`recentProjects[]`、`todos[]`、`exceptions[]`、`health`、`generatedAt`、`currentProject` | `500` | `fetchDashboardSummary` |
+| `GET /api/dashboard/summary` | 无 | `DashboardSummaryDto`：`recentProjects[]`、`currentProject`、`recentTasks[]`、`pendingItems[]`、`riskSummary`、`currentAction`、`generatedAt` | `500` | `fetchDashboardSummary` |
 | `POST /api/dashboard/projects` | `CreateProjectInput`：`name`、`description` | `ProjectSummaryDto` | `422`、`500` | `createDashboardProject` |
+| `DELETE /api/dashboard/projects/{project_id}` | 路径参数：`project_id`；软删除项目，若被未完成任务占用则阻断 | `DeleteProjectResultDto`：`deleted`、`projectId`、`clearedCurrentProject`、`deletedAt` | `404`、`409`；阻断时返回 `project.delete_blocked` | 当前前端未直接调用 |
 | `GET /api/dashboard/context` | 无 | `CurrentProjectContextDto \| null` | `500` | `fetchCurrentProjectContext` |
 | `PUT /api/dashboard/context` | `SetCurrentProjectInput`：`projectId`，支持 `null` 清空当前项目 | `CurrentProjectContextDto \| null` | `404`、`422` | `updateCurrentProjectContext` |
 
@@ -247,33 +267,14 @@
 {
   "ok": true,
   "data": {
-    "greeting": {
-      "title": "上午进度",
-      "subtitle": "聚焦当前项目与核心任务。"
-    },
-    "heroContext": {
-      "currentProject": {
-        "id": "project-1",
-        "name": "TikTok 选题 A",
-        "status": "active",
-        "lastEditedAt": "2026-04-17T08:30:00Z"
-      },
-      "primaryAction": {
-        "label": "继续项目",
-        "action": "resume-project",
-        "targetProjectId": "project-1"
-      },
-      "pendingTasks": 0,
-      "blockingIssues": 0
-    },
     "recentProjects": [
       {
         "id": "project-1",
         "name": "TikTok 选题 A",
         "description": "创作总览演示项目",
         "status": "active",
-        "currentScriptVersion": 2,
-        "currentStoryboardVersion": 1,
+        "currentScriptVersion": 1,
+        "currentStoryboardVersion": 0,
         "createdAt": "2026-04-17T08:00:00Z",
         "updatedAt": "2026-04-17T08:30:00Z",
         "lastAccessedAt": "2026-04-17T08:30:00Z"
@@ -284,12 +285,48 @@
       "projectName": "TikTok 选题 A",
       "status": "active"
     },
-    "todos": [],
-    "exceptions": [],
-    "health": {
-      "runtimeStatus": "online",
-      "aiProviderStatus": "ready",
-      "taskBusStatus": "idle"
+    "recentTasks": [
+      {
+        "taskId": "task-1",
+        "taskType": "video_import",
+        "projectId": "project-1",
+        "status": "running",
+        "progress": 42,
+        "message": "正在解析视频元数据",
+        "createdAt": "2026-04-17T08:20:00Z",
+        "updatedAt": "2026-04-17T08:25:00Z"
+      }
+    ],
+    "pendingItems": [
+      {
+        "id": "task-task-1",
+        "kind": "active_task",
+        "title": "当前项目有正在处理的任务",
+        "detail": "video_import 正处于 running，先处理当前任务再继续下一步。",
+        "action": "open-task",
+        "targetProjectId": "project-1",
+        "targetTaskId": "task-1"
+      }
+    ],
+    "riskSummary": {
+      "total": 1,
+      "blocking": 0,
+      "items": [
+        {
+          "id": "delete-guard-task-1",
+          "level": "warning",
+          "title": "当前项目暂不支持删除",
+          "detail": "项目仍有未完成任务，删除操作会被后端阻断。",
+          "targetProjectId": "project-1",
+          "targetTaskId": "task-1"
+        }
+      ]
+    },
+    "currentAction": {
+      "label": "继续当前任务",
+      "action": "open-task",
+      "targetProjectId": "project-1",
+      "targetTaskId": "task-1"
     },
     "generatedAt": "2026-04-17T08:30:00Z"
   }
@@ -300,17 +337,17 @@
 
 ## 4. 脚本与选题中心
 
-**核心返回 DTO**: `ScriptDocumentDto`
-关键字段：`projectId`、`currentVersion`、`versions[]`、`recentJobs[]`
+**核心返回 DTO**: `ScriptDocumentDto`、`ScriptLastOperationDto`
+关键字段：`projectId`、`currentVersion`、`versions[]`、`recentJobs[]`、`isSaved`、`latestRevision`、`saveSource`、`latestAiJob`、`lastOperation`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/scripts/projects/{project_id}/document` | 路径参数：`project_id` | `ScriptDocumentDto` | `404`、`500` | `fetchScriptDocument` |
+| `GET /api/scripts/projects/{project_id}/document` | 路径参数：`project_id` | `ScriptDocumentDto`：`currentVersion`、`versions[]`、`recentJobs[]`、`isSaved`、`latestRevision`、`saveSource`、`latestAiJob`、`lastOperation` | `404`、`500` | `fetchScriptDocument` |
 | `GET /api/scripts/projects/{project_id}/versions` | 路径参数：`project_id` | `ScriptVersionDto[]` | `404` | 当前前端未直接调用 |
-| `PUT /api/scripts/projects/{project_id}/document` | `ScriptSaveInput`：`content` | `ScriptDocumentDto` | `404`、`422` | `saveScriptDocument` |
-| `POST /api/scripts/projects/{project_id}/generate` | `ScriptGenerateInput`：`topic` | `ScriptDocumentDto` | `404`、`409`、`500` | `generateScriptDocument` |
+| `PUT /api/scripts/projects/{project_id}/document` | `ScriptSaveInput`：`content` | `ScriptDocumentDto`；保存结果通过 `isSaved/latestRevision/saveSource/lastOperation` 返回 | `404`、`422` | `saveScriptDocument` |
+| `POST /api/scripts/projects/{project_id}/generate` | `ScriptGenerateInput`：`topic` | `ScriptDocumentDto`；生成作业状态通过 `latestAiJob/recentJobs[]/lastOperation` 返回 | `404`、`409`、`500` | `generateScriptDocument` |
 | `POST /api/scripts/projects/{project_id}/title-variants` | `ScriptTitleVariantsInput`：`topic`、`count` | `ScriptTitleVariantDto[]` | `404`、`422`、`502` | `generateScriptTitleVariants` |
-| `POST /api/scripts/projects/{project_id}/rewrite` | `ScriptRewriteInput`：`instructions` | `ScriptDocumentDto` | `404`、`409`、`500` | `rewriteScriptDocument` |
+| `POST /api/scripts/projects/{project_id}/rewrite` | `ScriptRewriteInput`：`instructions` | `ScriptDocumentDto`；改写结果通过 `latestAiJob/recentJobs[]/lastOperation` 返回 | `400`、`404`、`409`、`500`；无脚本版本时返回中文阻断信息 | `rewriteScriptDocument` |
 | `POST /api/scripts/projects/{project_id}/restore/{version_id}` | 路径参数：`project_id`、`version_id` | `ScriptDocumentDto` | `404` | `restoreScriptVersion` |
 | `POST /api/scripts/projects/{project_id}/segments/{segment_id}/rewrite` | 路径参数：`project_id`、`segment_id`；`ScriptSegmentRewriteInput`：`instructions`、`promptTemplateId?` | `ScriptDocumentDto` | `400`、`404`、`422` | `rewriteScriptSegment` |
 
@@ -331,7 +368,28 @@
       "createdAt": "2026-04-17T10:00:00Z"
     },
     "versions": [],
-    "recentJobs": []
+    "recentJobs": [],
+    "isSaved": true,
+    "latestRevision": 3,
+    "saveSource": "video_extraction",
+    "latestAiJob": {
+      "id": "job-1",
+      "capabilityId": "script_generation",
+      "provider": "openai",
+      "model": "gpt-5",
+      "status": "succeeded",
+      "error": null,
+      "durationMs": 21,
+      "createdAt": "2026-04-17T10:00:00Z",
+      "completedAt": "2026-04-17T10:00:21Z"
+    },
+    "lastOperation": {
+      "revision": 3,
+      "source": "video_extraction",
+      "createdAt": "2026-04-17T10:00:00Z",
+      "aiJobId": null,
+      "aiJobStatus": null
+    }
   }
 }
 ```
@@ -378,16 +436,24 @@
 
 ## 5. 分镜规划中心
 
-**核心返回 DTO**: `StoryboardDocumentDto`
-关键字段：`projectId`、`basedOnScriptRevision`、`currentVersion`、`versions[]`、`recentJobs[]`
+**核心返回 DTO**: `StoryboardDocumentDto`、`StoryboardConflictSummaryDto`、`StoryboardLastOperationDto`
+关键字段：`projectId`、`basedOnScriptRevision`、`currentScriptRevision`、`currentVersion`、`versions[]`、`recentJobs[]`、`syncStatus`、`conflictSummary`、`latestAiJob`、`lastOperation`
+
+**最小字段约束**
+
+- `StoryboardDocumentDto` 外层固定返回：`projectId`、`basedOnScriptRevision`、`currentVersion`、`versions[]`、`recentJobs[]`
+- `StoryboardVersionDto` 固定返回：`revision`、`basedOnScriptRevision`、`source`、`scenes[]`、`provider`、`model`、`aiJobId`、`createdAt`
+- `StoryboardSceneDto` / `StoryboardShotDto` 固定返回：`sceneId`、`title`、`summary`、`visualPrompt`
+- `StoryboardTemplateDto` 固定返回：`id`、`name`、`description`、`shots[]`
+- `source` 当前已落地值包含：`manual`、`ai_generate`、`sync_from_script`、`shot_create`、`shot_update`、`shot_delete`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/storyboards/projects/{project_id}/document` | 路径参数：`project_id` | `StoryboardDocumentDto` | `404`、`500` | `fetchStoryboardDocument` |
+| `GET /api/storyboards/projects/{project_id}/document` | 路径参数：`project_id` | `StoryboardDocumentDto`：`basedOnScriptRevision`、`currentScriptRevision`、`syncStatus`、`conflictSummary`、`latestAiJob`、`lastOperation` | `404`、`500` | `fetchStoryboardDocument` |
 | `GET /api/storyboards/templates` | 无 | `StoryboardTemplateDto[]` | `500` | `fetchStoryboardTemplates` |
-| `PUT /api/storyboards/projects/{project_id}/document` | `StoryboardSaveInput`：`basedOnScriptRevision`、`scenes[]` | `StoryboardDocumentDto` | `404`、`422` | `saveStoryboardDocument` |
-| `POST /api/storyboards/projects/{project_id}/generate` | 路径参数：`project_id` | `StoryboardDocumentDto` | `404`、`409`、`500` | `generateStoryboardDocument` |
-| `POST /api/storyboards/projects/{project_id}/sync-from-script` | 路径参数：`project_id` | `StoryboardDocumentDto` | `400`、`404` | `syncStoryboardFromScript` |
+| `PUT /api/storyboards/projects/{project_id}/document` | `StoryboardSaveInput`：`basedOnScriptRevision`、`scenes[]` | `StoryboardDocumentDto`；保存结果通过 `lastOperation` 返回 | `404`、`422` | `saveStoryboardDocument` |
+| `POST /api/storyboards/projects/{project_id}/generate` | 路径参数：`project_id` | `StoryboardDocumentDto`；生成状态通过 `latestAiJob/recentJobs[]/lastOperation` 返回 | `400`、`404`、`409`、`500` | `generateStoryboardDocument` |
+| `POST /api/storyboards/projects/{project_id}/sync-from-script` | 路径参数：`project_id` | `StoryboardDocumentDto`；同步结果通过 `syncStatus/conflictSummary/lastOperation` 返回 | `400`、`404` | `syncStoryboardFromScript` |
 | `POST /api/storyboards/projects/{project_id}/shots` | 路径参数：`project_id`；`StoryboardShotInput`：`title`、`summary`、`visualPrompt` | `StoryboardDocumentDto` | `400`、`404`、`422` | `createStoryboardShot` |
 | `PATCH /api/storyboards/projects/{project_id}/shots/{shot_id}` | 路径参数：`project_id`、`shot_id`；`StoryboardShotUpdateInput` | `StoryboardDocumentDto` | `404`、`422` | `updateStoryboardShot` |
 | `DELETE /api/storyboards/projects/{project_id}/shots/{shot_id}` | 路径参数：`project_id`、`shot_id` | `StoryboardDocumentDto` | `404` | `deleteStoryboardShot` |
@@ -400,10 +466,11 @@
   "data": {
     "projectId": "project-1",
     "basedOnScriptRevision": 3,
+    "currentScriptRevision": 4,
     "currentVersion": {
       "revision": 1,
       "basedOnScriptRevision": 3,
-      "source": "manual",
+      "source": "sync_from_script",
       "scenes": [
         {
           "sceneId": "scene-1",
@@ -418,8 +485,57 @@
       "createdAt": "2026-04-17T10:05:00Z"
     },
     "versions": [],
-    "recentJobs": []
+    "recentJobs": [],
+    "syncStatus": "outdated",
+    "conflictSummary": {
+      "hasConflict": true,
+      "reason": "当前分镜基于旧脚本版本，建议先重新同步再继续编辑。",
+      "currentScriptRevision": 4,
+      "basedOnScriptRevision": 3,
+      "storyboardRevision": 1
+    },
+    "latestAiJob": {
+      "id": "job-2",
+      "capabilityId": "storyboard_generation",
+      "provider": "openai",
+      "model": "gpt-5-mini",
+      "status": "succeeded",
+      "error": null,
+      "durationMs": 18,
+      "createdAt": "2026-04-17T10:05:00Z",
+      "completedAt": "2026-04-17T10:05:18Z"
+    },
+    "lastOperation": {
+      "revision": 1,
+      "source": "manual",
+      "createdAt": "2026-04-17T10:05:00Z",
+      "aiJobId": null,
+      "aiJobStatus": null
+    }
   }
+}
+```
+
+**模板示例**
+
+```json
+{
+  "ok": true,
+  "data": [
+    {
+      "id": "hook-problem-solution",
+      "name": "钩子-问题-解决",
+      "description": "适合短视频创作的基础三段式分镜模板。",
+      "shots": [
+        {
+          "sceneId": "shot-1",
+          "title": "开场钩子",
+          "summary": "快速抛出冲突或吸引点。",
+          "visualPrompt": "强节奏开场，镜头推进。"
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -429,15 +545,22 @@
 
 **核心返回 DTO**: `WorkspaceTimelineResultDto`、`TimelineDto`、`WorkspaceAICommandResultDto`
 
+- `TimelineDto` 新增：
+  - `version`：`versionToken`、`updatedAt`、`trackCount`、`clipCount`
+  - `assetReferenceStatus`：`totalClips`、`readyClips`、`processingClips`、`failedClips`、`missingReferenceClips`、`manualClips`、`referencedClips`
+- `WorkspaceTimelineResultDto` 新增：
+  - `activeTask`：当前时间线的活跃任务快照；当前无活跃任务时返回 `null`
+  - `saveState`：`saved`、`updatedAt`、`source`、`message`
+
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/workspace/projects/{project_id}/timeline` | 路径参数：`project_id` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`500` | `fetchWorkspaceTimeline` |
-| `POST /api/workspace/projects/{project_id}/timeline` | `TimelineCreateInput`：`name` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`422` | `createWorkspaceTimeline` |
-| `PATCH /api/workspace/timelines/{timeline_id}` | `TimelineUpdateInput`：`name?`、`durationSeconds?`、`tracks[]` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`422` | `updateWorkspaceTimeline` |
+| `GET /api/workspace/projects/{project_id}/timeline` | 路径参数：`project_id` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState?`、`message` | `404`、`500` | `fetchWorkspaceTimeline` |
+| `POST /api/workspace/projects/{project_id}/timeline` | `TimelineCreateInput`：`name` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `createWorkspaceTimeline` |
+| `PATCH /api/workspace/timelines/{timeline_id}` | `TimelineUpdateInput`：`name?`、`durationSeconds?`、`tracks[]` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `updateWorkspaceTimeline` |
 | `GET /api/workspace/clips/{clip_id}` | 路径参数：`clip_id` | `WorkspaceClipDetailDto` | `404` | `fetchWorkspaceClip` |
-| `POST /api/workspace/clips/{clip_id}/move` | 路径参数：`clip_id`；`ClipMoveInput`：`targetTrackId`、`startMs` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`422` | `moveWorkspaceClip` |
-| `POST /api/workspace/clips/{clip_id}/trim` | 路径参数：`clip_id`；`ClipTrimInput`：`startMs?`、`durationMs?`、`inPointMs?`、`outPointMs?` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`422` | `trimWorkspaceClip` |
-| `POST /api/workspace/clips/{clip_id}/replace` | 路径参数：`clip_id`；`ClipReplaceInput`：`sourceType`、`sourceId?`、`label`、`prompt?`、`resolution?`、`editableFields[]` | `WorkspaceTimelineResultDto`：`timeline`、`message` | `404`、`422` | `replaceWorkspaceClip` |
+| `POST /api/workspace/clips/{clip_id}/move` | 路径参数：`clip_id`；`ClipMoveInput`：`targetTrackId`、`startMs` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `moveWorkspaceClip` |
+| `POST /api/workspace/clips/{clip_id}/trim` | 路径参数：`clip_id`；`ClipTrimInput`：`startMs?`、`durationMs?`、`inPointMs?`、`outPointMs?` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `trimWorkspaceClip` |
+| `POST /api/workspace/clips/{clip_id}/replace` | 路径参数：`clip_id`；`ClipReplaceInput`：`sourceType`、`sourceId?`、`label`、`prompt?`、`resolution?`、`editableFields[]` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `replaceWorkspaceClip` |
 | `GET /api/workspace/timelines/{timeline_id}/preview` | 路径参数：`timeline_id` | `TimelinePreviewDto`：`status=ready`，`previewUrl` 为本地 `data:application/json` manifest | `404`、`500` | `fetchTimelinePreview` |
 | `POST /api/workspace/timelines/{timeline_id}/precheck` | 路径参数：`timeline_id` | `TimelinePrecheckDto`：`status=ready/warning`、`issues[]` | `404`、`500` | `precheckTimeline` |
 | `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandInput`：`timelineId?`、`capabilityId`、`parameters` | `WorkspaceAICommandResultDto`；当前最小实现返回 `status=queued` 并创建真实 TaskBus 任务 | `404`、`422` | `runWorkspaceAICommand` |
@@ -446,6 +569,10 @@
 
 - `GET /preview` 不伪造渲染画面，返回基于真实轨道、片段与时长统计生成的本地 manifest。
 - `POST /precheck` 校验轨道类型、片段时长、起始时间与片段数据格式；空轨道会返回可见问题列表。
+- `TimelineDto.version` 不伪造整数版号，使用真实 `timeline.id + updatedAt + trackCount + clipCount` 生成 `versionToken` 作为当前时间线版本信号。
+- `TimelineDto.assetReferenceStatus` 基于真实片段 `sourceType/sourceId/status` 聚合，不编造素材可用性。
+- `WorkspaceTimelineResultDto.activeTask` 只返回当前 Runtime 进程内、且 `ownerRef` 绑定到该时间线的活跃任务，优先 `ai-workspace-command`。
+- `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`save`、`clip_move`、`clip_trim`、`clip_replace`。
 
 **示例**
 
@@ -453,100 +580,177 @@
 {
   "ok": true,
   "data": {
-    "status": "queued",
-    "task": {
-      "kind": "ai-workspace-command",
-      "projectId": "project-1"
+    "timeline": {
+      "id": "timeline-1",
+      "projectId": "project-1",
+      "version": {
+        "versionToken": "timeline-1:2026-04-21T10:00:00Z:2:3",
+        "updatedAt": "2026-04-21T10:00:00Z",
+        "trackCount": 2,
+        "clipCount": 3
+      },
+      "assetReferenceStatus": {
+        "totalClips": 3,
+        "readyClips": 2,
+        "processingClips": 1,
+        "failedClips": 0,
+        "missingReferenceClips": 0,
+        "manualClips": 1,
+        "referencedClips": 2
+      }
     },
-    "message": "AI 命令已进入任务队列，正在通过 TaskBus 处理。"
+    "activeTask": null,
+    "saveState": {
+      "saved": true,
+      "updatedAt": "2026-04-21T10:00:00Z",
+      "source": "save",
+      "message": "已确认保存时间线草稿。"
+    },
+    "message": "已保存时间线草稿。"
   }
 }
 ```
 
 ---
 
-## 7. 视频拆解中心
+## 7. ??????
 
-**核心返回 DTO**: `ImportedVideoDto`、`VideoTranscriptDto`、`VideoSegmentDto`、`VideoStructureExtractionDto`、`ApplyVideoExtractionResultDto`
+**???? DTO**: `ImportedVideoDto`?`VideoStageDto`?`VideoTranscriptDto`?`VideoSegmentDto`?`VideoStructureExtractionDto`?`ApplyVideoExtractionResultDto`
 
-| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
+**??????**
+
+- `GET /api/video-deconstruction/videos/{video_id}/stages` ??????????????????????? `stageId`?`label`?`status`?`progressPct`?`resultSummary`?`errorMessage`?`errorCode`?`nextAction`?`blockedByStageId`?`isCurrent`?
+- `VideoStageDto` ????????`stageId`?`label`?`status`?`progressPct`?`resultSummary`?`errorMessage`?`errorCode`?`nextAction`?`blockedByStageId`?`updatedAt`?`isCurrent`?`activeTaskId`?`activeTaskStatus`?`activeTaskProgress`?`activeTaskMessage`?`canCancel`?`canRetry`?`canRerun`?
+- ???? HTTP ???????? `activeTaskId`?`canCancel`?`canRetry`???????????????? `activeTaskId` ?? `POST /api/tasks/{task_id}/cancel` ? `/api/tasks` ???????
+- `POST /api/video-deconstruction/projects/{project_id}/import` ????? `ImportedVideoDto`????????? `video.id` ?? task id??????????????? `GET /stages` ?????????? `ImportedVideoDto` ???
+
+| ?? | ???? | ???? | ??? | ??????? |
 | --- | --- | --- | --- | --- |
-| `POST /api/video-deconstruction/projects/{project_id}/import` | `ImportVideoInput`：`filePath` | `ImportedVideoDto` | `404`、`422` | `importVideo` |
-| `GET /api/video-deconstruction/projects/{project_id}/videos` | 路径参数：`project_id` | `ImportedVideoDto[]` | `404` | `fetchImportedVideos` |
-| `DELETE /api/video-deconstruction/videos/{video_id}` | 路径参数：`video_id` | `null` | `404` | `deleteImportedVideo` |
-| `POST /api/video-deconstruction/videos/{video_id}/transcribe` | 无 | `VideoTranscriptDto`；无 Provider 时 `status=provider_required` 且 `text=null` | `404`、`500` | `startVideoTranscription` |
-| `GET /api/video-deconstruction/videos/{video_id}/transcript` | 无 | `VideoTranscriptDto` | `404` | `fetchVideoTranscript` |
-| `POST /api/video-deconstruction/videos/{video_id}/segment` | 无 | `VideoSegmentDto[]` | `404`、`409`、`500` | `runVideoSegmentation` |
-| `GET /api/video-deconstruction/videos/{video_id}/segments` | 无 | `VideoSegmentDto[]` | `404` | `fetchVideoSegments` |
-| `POST /api/video-deconstruction/videos/{video_id}/extract-structure` | 无 | `VideoStructureExtractionDto`；依赖 `segment` 成功 | `404`、`409`、`500` | `extractVideoStructure` |
-| `GET /api/video-deconstruction/videos/{video_id}/structure` | 无 | `VideoStructureExtractionDto` | `404` | `fetchVideoStructure` |
-| `POST /api/video-deconstruction/extractions/{extraction_id}/apply-to-project` | 无 | `ApplyVideoExtractionResultDto`：`projectId`、`extractionId`、`scriptRevision`、`status`、`message` | `404`、`409`、`500` | `applyVideoExtractionToProject` |
-| `GET /api/video-deconstruction/videos/{video_id}/stages` | 无 | `VideoStageDto[]`：返回 `import / transcribe / segment / extract_structure` 四阶段状态 | `404` | `fetchVideoStages` |
-| `POST /api/video-deconstruction/videos/{video_id}/stages/{stage_id}/rerun` | 路径参数：`stage_id` 允许 `transcribe / segment / extract_structure` | `TaskInfo` | `400`、`404`、`409` | `rerunVideoStage` |
+| `POST /api/video-deconstruction/projects/{project_id}/import` | `ImportVideoInput`?`filePath` | `ImportedVideoDto` | `404`?`422` | `importVideo` |
+| `GET /api/video-deconstruction/projects/{project_id}/videos` | ?????`project_id` | `ImportedVideoDto[]` | `404` | `fetchImportedVideos` |
+| `DELETE /api/video-deconstruction/videos/{video_id}` | ?????`video_id` | `null` | `404` | `deleteImportedVideo` |
+| `POST /api/video-deconstruction/videos/{video_id}/transcribe` | ? | `VideoTranscriptDto`?? Provider ? `status=provider_required` ? `text=null` | `404`?`500` | `startVideoTranscription` |
+| `GET /api/video-deconstruction/videos/{video_id}/transcript` | ? | `VideoTranscriptDto` | `404` | `fetchVideoTranscript` |
+| `POST /api/video-deconstruction/videos/{video_id}/segment` | ? | `VideoSegmentDto[]` | `404`?`409`?`500` | `runVideoSegmentation` |
+| `GET /api/video-deconstruction/videos/{video_id}/segments` | ? | `VideoSegmentDto[]` | `404` | `fetchVideoSegments` |
+| `POST /api/video-deconstruction/videos/{video_id}/extract-structure` | ? | `VideoStructureExtractionDto`??? `segment` ?? | `404`?`409`?`500` | `extractVideoStructure` |
+| `GET /api/video-deconstruction/videos/{video_id}/structure` | ? | `VideoStructureExtractionDto` | `404` | `fetchVideoStructure` |
+| `POST /api/video-deconstruction/extractions/{extraction_id}/apply-to-project` | ? | `ApplyVideoExtractionResultDto`?`projectId`?`extractionId`?`scriptRevision`?`status`?`message` | `404`?`409`?`500` | `applyVideoExtractionToProject` |
+| `GET /api/video-deconstruction/videos/{video_id}/stages` | ? | `VideoStageDto[]`??? `import / transcribe / segment / extract_structure` ?????????????????????/????? | `404` | `fetchVideoStages` |
+| `POST /api/video-deconstruction/videos/{video_id}/stages/{stage_id}/rerun` | ?????`stage_id` ?? `transcribe / segment / extract_structure` | `TaskInfo`?`id`?`taskType`?`projectId`?`status`?`progress`?`message`?`createdAt`?`updatedAt` | `400`?`404`?`409` | `rerunVideoStage` |
 
-**当前实现说明**
+**??????**
 
-- `POST /transcribe` 在无转录 Provider 时返回 `status=provider_required`，不再伪造转写文本。
-- `POST /segment` 依赖转录阶段成功；条件不满足时返回 `409`，并把 `segment` 阶段写成 `blocked`。
-- `POST /extract-structure` 依赖分段阶段成功；条件不满足时返回 `409`，并把 `extract_structure` 阶段写成 `blocked`。
-- `POST /apply-to-project` 仅在 `extract_structure.status=succeeded` 时允许回写；失败统一走 JSON 错误信封。
-- `POST /stages/{stage_id}/rerun` 会写入真实阶段状态；重跑 `transcribe` 且无 Provider 时仍返回 `provider_required`。
+- `POST /transcribe` ???? Provider ??? `status=provider_required`??????????
+- `POST /segment` ????????????????? `409`??? `segment` ???? `blocked`????? `errorCode=task.conflict`?`blockedByStageId=transcribe`?
+- `POST /extract-structure` ????????????????? `409`??? `extract_structure` ???? `blocked`????? `errorCode=task.conflict`?`blockedByStageId=segment`?
+- `POST /apply-to-project` ?? `extract_structure.status=succeeded` ??????????? JSON ?????
+- `POST /stages/{stage_id}/rerun` ???????????? `transcribe` ?? Provider ???? `provider_required`???? `activeTaskId` ?????????
+- ????????? FFprobe ??????????? `status=failed_degraded`???? WebSocket ?? `video.import.stage.failed`??? `errorCode=media.ffprobe_unavailable`?`nextAction=???? FFprobe ?????????????????`?
 
-**示例**
+**??????**
+
+- ??????? `isCurrent=true` ????????????????????????????????????????? `running / queued / provider_required / blocked / failed / failed_degraded`?
+- ??????
+  - `import.status=failed_degraded`?????????????? FFprobe ????????
+  - `transcribe.status=provider_required`?????????????????? Provider?
+  - `segment.status=blocked`?????????????????
+  - `extract_structure.status=blocked`???????????????????
+
+**??**
 
 ```json
 {
   "ok": true,
-  "data": {
-    "id": "transcript-1",
-    "videoId": "video-1",
-    "language": "zh-CN",
-    "text": null,
-    "status": "provider_required",
-    "createdAt": "2026-04-17T10:10:00Z",
-    "updatedAt": "2026-04-17T10:10:00Z"
-  }
+  "data": [
+    {
+      "stageId": "import",
+      "label": "??",
+      "status": "failed_degraded",
+      "progressPct": 80,
+      "resultSummary": "FFprobe ????????????????????????",
+      "errorMessage": "FFprobe ?????????????????????????????",
+      "errorCode": "media.ffprobe_unavailable",
+      "nextAction": "???? FFprobe ?????????????????",
+      "blockedByStageId": null,
+      "updatedAt": "2026-04-21T10:10:00Z",
+      "isCurrent": true,
+      "activeTaskId": null,
+      "activeTaskStatus": null,
+      "activeTaskProgress": null,
+      "activeTaskMessage": null,
+      "canCancel": false,
+      "canRetry": false,
+      "canRerun": false
+    },
+    {
+      "stageId": "segment",
+      "label": "??",
+      "status": "blocked",
+      "progressPct": 0,
+      "resultSummary": "?????????????????????????",
+      "errorMessage": "?????????????????????????",
+      "errorCode": "task.conflict",
+      "nextAction": "????????????",
+      "blockedByStageId": "transcribe",
+      "updatedAt": "2026-04-21T10:12:00Z",
+      "isCurrent": false,
+      "activeTaskId": null,
+      "activeTaskStatus": null,
+      "activeTaskProgress": null,
+      "activeTaskMessage": null,
+      "canCancel": false,
+      "canRetry": true,
+      "canRerun": true
+    }
+  ]
 }
 ```
 
 ```json
 {
   "ok": false,
-  "error": "视频转录尚未成功，分段已阻塞；请先完成转录后重试。",
+  "error": "?????????????????????????",
   "error_code": "task.conflict"
 }
 ```
 
 ---
-
 ## 8. 配音中心
 
-**核心返回 DTO**: `VoiceProfileDto`、`VoiceTrackDto`、`VoiceTrackGenerateResultDto`
+**核心返回 DTO**: `VoiceProfileDto`、`VoiceTrackDto`、`VoiceTrackGenerateResultDto`、`VoiceTrackRegenerateResultDto`
+
+**当前契约重点**
+
+- `VoiceTrackDto` 返回真实轨道快照：`id`、`projectId`、`timelineId`、`source`、`provider`、`voiceName`、`filePath`、`segments[]`、`status`、`version`、`config`、`preview`、`activeTask`、`createdAt`、`updatedAt`
+- `version` 是对象：`revision`、`updatedAt`，用于前端判断配音版本与最近落库时间
+- `config` 返回参数来源和最近一次操作：`parameterSource`、`profileId`、`provider`、`voiceId`、`voiceName`、`locale`、`model`、`speed`、`pitch`、`emotion`、`sourceText`、`sourceLineCount`、`lastOperation`
+- `preview` 返回试听资源状态：`status`、`resourceId`、`filePath`、`message`
+- `activeTask` 返回当前活跃的 `ai-voice` 任务，无任务时为 `null`
+- `VoiceTrackGenerateResultDto` 和 `VoiceTrackRegenerateResultDto` 统一返回 `track`、`task`、`message`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/voice/profiles` | 无 | `VoiceProfileDto[]` | `500` | `fetchVoiceProfiles` |
 | `POST /api/voice/profiles` | `VoiceProfileCreateInput`：`provider`、`voiceId`、`displayName`、`locale`、`tags[]`、`enabled` | `VoiceProfileDto` | `422`、`500`、`503` | `createVoiceProfile` |
-| `GET /api/voice/projects/{project_id}/tracks` | 路径参数：`project_id` | `VoiceTrackDto[]` | `404` | `fetchVoiceTracks` |
-| `POST /api/voice/projects/{project_id}/tracks/generate` | `VoiceTrackGenerateInput`：`profileId`、`sourceText`、`speed`、`pitch`、`emotion` | `VoiceTrackGenerateResultDto`：`track`、`task`、`message` | `404`、`422`、`409` | `generateVoiceTrack` |
-| `POST /api/voice/tracks/{track_id}/segments/{segment_id}/regenerate` | 路径参数：`track_id`、`segment_id`；`VoiceSegmentRegenerateInput`：`profileId?`、`speed`、`pitch`、`emotion` | `VoiceTrackRegenerateResultDto`：`track`、`task`、`message` | `404`、`422`、`409` | `regenerateVoiceSegment` |
-| `GET /api/voice/tracks/{track_id}/waveform` | 路径参数：`track_id` | `VoiceWaveformDto`；本地音频存在时 `status=ready`，缺少音频时 `status=missing_audio` | `404`、`500` | `fetchVoiceWaveform` |
-| `GET /api/voice/tracks/{track_id}` | 路径参数：`track_id` | `VoiceTrackDto` | `404` | `fetchVoiceTrack` |
-| `DELETE /api/voice/tracks/{track_id}` | 路径参数：`track_id` | `null` | `404` | `deleteVoiceTrack` |
+| `GET /api/voice/projects/{project_id}/tracks` | 路径参数 `project_id` | `VoiceTrackDto[]` | `404` | `fetchVoiceTracks` |
+| `POST /api/voice/projects/{project_id}/tracks/generate` | `VoiceTrackGenerateInput`：`profileId`、`sourceText`、`speed`、`pitch`、`emotion` | `VoiceTrackGenerateResultDto` | `404`、`422`、`500` | `generateVoiceTrack` |
+| `POST /api/voice/tracks/{track_id}/segments/{segment_id}/regenerate` | 路径参数 `track_id`、`segment_id`；`VoiceSegmentRegenerateInput`：可选 `profileId`、`speed`、`pitch`、`emotion` | `VoiceTrackRegenerateResultDto` | `404`、`422`、`500` | `regenerateVoiceSegment` |
+| `GET /api/voice/tracks/{track_id}/waveform` | 路径参数 `track_id` | `VoiceWaveformDto` | `404`、`500` | `fetchVoiceWaveform` |
+| `GET /api/voice/tracks/{track_id}` | 路径参数 `track_id` | `VoiceTrackDto` | `404` | `fetchVoiceTrack` |
+| `DELETE /api/voice/tracks/{track_id}` | 路径参数 `track_id` | `null` | `404` | `deleteVoiceTrack` |
 
 **当前实现说明**
 
-- `POST /api/voice/projects/{project_id}/tracks/generate` 当前是双路径：
-  - 无可用 TTS adapter、无可用配置、缺少必需 secret 或 base_url 时，返回 `track.status="blocked"`、`task=null`。
-  - 可用 OpenAI TTS 时，返回 `track.status="processing"`，并附带 `kind="ai-voice"` 的任务对象；后台成功后轨道状态更新为 `ready`，失败后更新为 `failed`。
-- `POST /api/voice/tracks/{track_id}/segments/{segment_id}/regenerate` 会真实写入 `segments[].regeneration`；无 Provider 时返回 `blocked + retryable=true`，有 Provider 时写入真实任务与成功/失败状态。
-- `GET /api/voice/tracks/{track_id}/waveform` 在本地存在音频文件时返回确定性波形摘要；未找到音频时返回 `missing_audio`。
-- 内建 `VoiceProfile.provider` 已使用真实 provider，当前内建音色均为 `openai`。
+- `POST /api/voice/projects/{project_id}/tracks/generate` 会走真实 Provider 能力判断。无可用 TTS 配置时，返回 `track.status="blocked"` 和 `task=null`，同时保留草稿轨道。
+- 存在可用 TTS Runtime 时，返回 `track.status="processing"`，创建 `kind="ai-voice"` 任务，任务成功后写入真实音频文件并切换到 `ready`，失败时切到 `failed`。
+- `POST /api/voice/tracks/{track_id}/segments/{segment_id}/regenerate` 会更新真实 `segments[].regeneration`。无 Provider 时返回 `blocked` 且 `retryable=true`；有 Provider 时返回真实任务状态，成功后更新片段音频资源和配音版本。
+- `GET /api/voice/tracks/{track_id}/waveform` 只基于本地真实音频文件生成波形摘要，缺少音频文件时明确返回 `missing_audio`。
+- `config.parameterSource` 当前可能为 `seed`、`profile`、`manual`、`runtime`，分别表示旧数据种子、按音色生成、手动片段重生和运行时回填。
 
 **示例**
 
-阻塞路径：
-
+blocked：
 ```json
 {
   "ok": true,
@@ -557,11 +761,31 @@
       "timelineId": null,
       "source": "tts",
       "provider": "openai",
-      "voiceName": "清晰女声",
+      "voiceName": "标准女声",
       "filePath": null,
       "segments": [],
       "status": "blocked",
-      "createdAt": "2026-04-18T10:15:00Z"
+      "version": {
+        "revision": 1,
+        "updatedAt": "2026-04-21T10:15:00Z"
+      },
+      "config": {
+        "parameterSource": "profile",
+        "voiceId": "alloy",
+        "voiceName": "标准女声",
+        "speed": 1.0,
+        "pitch": 0,
+        "emotion": "calm"
+      },
+      "preview": {
+        "status": "blocked",
+        "resourceId": null,
+        "filePath": null,
+        "message": "当前未配置可用 TTS Provider，已保留配音轨草稿。"
+      },
+      "activeTask": null,
+      "createdAt": "2026-04-21T10:15:00Z",
+      "updatedAt": "2026-04-21T10:15:00Z"
     },
     "task": null,
     "message": "当前未配置可用 TTS Provider，已保留配音轨草稿。"
@@ -569,8 +793,7 @@
 }
 ```
 
-处理路径：
-
+processing：
 ```json
 {
   "ok": true,
@@ -581,15 +804,51 @@
       "timelineId": null,
       "source": "tts",
       "provider": "openai",
-      "voiceName": "清晰女声",
+      "voiceName": "标准女声",
       "filePath": null,
       "segments": [],
       "status": "processing",
-      "createdAt": "2026-04-18T10:18:00Z"
+      "version": {
+        "revision": 2,
+        "updatedAt": "2026-04-21T10:18:00Z"
+      },
+      "config": {
+        "parameterSource": "profile",
+        "voiceId": "alloy",
+        "voiceName": "标准女声",
+        "speed": 1.0,
+        "pitch": 0,
+        "emotion": "calm"
+      },
+      "preview": {
+        "status": "processing",
+        "resourceId": null,
+        "filePath": null,
+        "message": "配音生成任务已提交。"
+      },
+      "activeTask": {
+        "id": "task-voice-1",
+        "kind": "ai-voice",
+        "taskType": "ai-voice",
+        "projectId": "project-1",
+        "ownerRef": {
+          "kind": "voice-track",
+          "id": "voice-2"
+        },
+        "status": "queued",
+        "progress": 0,
+        "label": "配音生成：标准女声",
+        "message": "配音生成任务已提交。",
+        "createdAt": "2026-04-21T10:18:00Z",
+        "updatedAt": "2026-04-21T10:18:00Z"
+      },
+      "createdAt": "2026-04-21T10:18:00Z",
+      "updatedAt": "2026-04-21T10:18:00Z"
     },
     "task": {
       "id": "task-voice-1",
       "kind": "ai-voice",
+      "taskType": "ai-voice",
       "projectId": "project-1",
       "ownerRef": {
         "kind": "voice-track",
@@ -597,16 +856,17 @@
       },
       "status": "queued",
       "progress": 0,
-      "label": "配音生成：清晰女声",
-      "message": "配音生成任务已提交。"
+      "label": "配音生成：标准女声",
+      "message": "配音生成任务已提交。",
+      "createdAt": "2026-04-21T10:18:00Z",
+      "updatedAt": "2026-04-21T10:18:00Z"
     },
     "message": "配音生成任务已提交。"
   }
 }
 ```
 
-波形缺失音频示例：
-
+waveform 缺少音频：
 ```json
 {
   "ok": true,
@@ -621,36 +881,47 @@
 }
 ```
 
----
+## 9. ??????
 
-## 9. 字幕对齐中心
+**???? DTO**: `SubtitleTrackDto`?`SubtitleTrackGenerateResultDto`
 
-**核心返回 DTO**: `SubtitleTrackDto`、`SubtitleTrackGenerateResultDto`
+**??????**
 
-| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
+- `SubtitleTrackDto` ???? `sourceVoice`?`alignment`?`updatedAt`?????????????????????????????????????
+- `sourceVoice` ??????`trackId`?`revision`?`updatedAt`?
+- `alignment` ???`status`?`diffSummary`?`errorCode`?`errorMessage`?`nextAction`?`updatedAt`?
+- `diffSummary` ?????`segmentCountChanged`?`timingChangedSegments`?`textChangedSegments`?`lockedSegments`?
+- `SubtitleTrackGenerateInput` ???????? `sourceVoiceTrackId`????????????????
+
+| ?? | ???? | ???? | ??? | ??????? |
 | --- | --- | --- | --- | --- |
-| `GET /api/subtitles/projects/{project_id}/tracks` | 路径参数：`project_id` | `SubtitleTrackDto[]` | `404` | `fetchSubtitleTracks` |
-| `POST /api/subtitles/projects/{project_id}/tracks/generate` | `SubtitleTrackGenerateInput`：`sourceText`、`language`、`stylePreset` | `SubtitleTrackGenerateResultDto`：`track`、`task`、`message` | `400`、`404`、`500` | `generateSubtitleTrack` |
-| `GET /api/subtitles/style-templates` | 无 | `SubtitleStyleTemplateDto[]` | `500` | `listSubtitleStyleTemplates` |
-| `POST /api/subtitles/tracks/{track_id}/align` | 路径参数：`track_id`；`SubtitleTrackAlignInput`：`segments[]` | `SubtitleTrackDto` | `404`、`422`、`500` | `alignSubtitleTrack` |
-| `POST /api/subtitles/tracks/{track_id}/export` | 路径参数：`track_id`；`SubtitleExportInput`：`format` | `SubtitleExportDto` | `400`、`404`、`422` | `exportSubtitleTrack` |
-| `GET /api/subtitles/tracks/{track_id}` | 路径参数：`track_id` | `SubtitleTrackDto` | `404` | `fetchSubtitleTrack` |
-| `PATCH /api/subtitles/tracks/{track_id}` | `SubtitleTrackUpdateInput`：`segments[]`、`style` | `SubtitleTrackDto` | `404`、`422` | `updateSubtitleTrack` |
-| `DELETE /api/subtitles/tracks/{track_id}` | 路径参数：`track_id` | `null` | `404` | `deleteSubtitleTrack` |
+| `GET /api/subtitles/projects/{project_id}/tracks` | ?????`project_id` | `SubtitleTrackDto[]` | `404` | `fetchSubtitleTracks` |
+| `POST /api/subtitles/projects/{project_id}/tracks/generate` | `SubtitleTrackGenerateInput`?`sourceText`?`language`?`stylePreset`?`sourceVoiceTrackId?` | `SubtitleTrackGenerateResultDto`?`track`?`task`?`message` | `400`?`404`?`500` | `generateSubtitleTrack` |
+| `GET /api/subtitles/style-templates` | ? | `SubtitleStyleTemplateDto[]` | `500` | `listSubtitleStyleTemplates` |
+| `POST /api/subtitles/tracks/{track_id}/align` | ?????`track_id`?`SubtitleTrackAlignInput`?`segments[]` | `SubtitleTrackDto` | `400`?`404`?`422`?`500` | `alignSubtitleTrack` |
+| `POST /api/subtitles/tracks/{track_id}/export` | ?????`track_id`?`SubtitleExportInput`?`format` | `SubtitleExportDto` | `400`?`404`?`422` | `exportSubtitleTrack` |
+| `GET /api/subtitles/tracks/{track_id}` | ?????`track_id` | `SubtitleTrackDto` | `404` | `fetchSubtitleTrack` |
+| `PATCH /api/subtitles/tracks/{track_id}` | `SubtitleTrackUpdateInput`?`segments[]`?`style` | `SubtitleTrackDto` | `404`?`422` | `updateSubtitleTrack` |
+| `DELETE /api/subtitles/tracks/{track_id}` | ?????`track_id` | `null` | `404` | `deleteSubtitleTrack` |
 
-**当前实现说明**
+**??????**
 
-- `POST /generate` 不再返回 `blocked` 占位，而是直接生成 `status=ready` 的本地确定性字幕轨道。
-- 生成规则基于真实输入文本分段和时长估算，不伪装 AI 识别结果。
+- `POST /generate` ??? deterministic local ?????? AI ?????
+- ?? `sourceVoiceTrackId` ??`alignment.status="draft"`????????????????
+- ?? `sourceVoiceTrackId` ?????? `voice_tracks` ????????? `sourceVoice`??? `alignment.status` ?? `pending_alignment`?
+- `POST /align` ??? segments ?? segments ?????????? `diffSummary`????? `alignment.status` ??? `aligned`?
+- `PATCH /tracks/{track_id}` ??????????????????????? `alignment.status` ?? `needs_alignment`????????????
+- `POST /export` ?????????????????????????????????????
 
-**示例**
+**??**
 
+??????????
 ```json
 {
   "ok": true,
   "data": {
     "track": {
-      "id": "subtitle-1",
+      "id": "subtitle-2",
       "projectId": "project-1",
       "timelineId": null,
       "source": "script",
@@ -665,15 +936,29 @@
       "segments": [
         {
           "segmentIndex": 0,
-          "text": "第一句。",
+          "text": "????",
           "startMs": 0,
           "endMs": 1260,
           "confidence": null,
           "locked": false
         }
       ],
+      "sourceVoice": {
+        "trackId": "voice-track-1",
+        "revision": 3,
+        "updatedAt": "2026-04-21T10:08:00Z"
+      },
+      "alignment": {
+        "status": "pending_alignment",
+        "diffSummary": null,
+        "errorCode": null,
+        "errorMessage": null,
+        "nextAction": "??????????????????????",
+        "updatedAt": "2026-04-21T10:18:00Z"
+      },
       "status": "ready",
-      "createdAt": "2026-04-19T10:18:00Z"
+      "createdAt": "2026-04-21T10:18:00Z",
+      "updatedAt": "2026-04-21T10:18:00Z"
     },
     "task": {
       "kind": "local-subtitle-generate",
@@ -682,9 +967,35 @@
       "stylePreset": "creator-default",
       "segmentCount": 1,
       "sourceCharacters": 4,
-      "generatedAt": "2026-04-19T10:18:00Z"
+      "generatedAt": "2026-04-21T10:18:00Z",
+      "sourceVoiceTrackId": "voice-track-1"
     },
-    "message": "字幕轨道已基于本地文本规则生成。"
+    "message": "????????????????"
+  }
+}
+```
+
+?????
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "subtitle-2",
+    "projectId": "project-1",
+    "alignment": {
+      "status": "aligned",
+      "diffSummary": {
+        "segmentCountChanged": false,
+        "timingChangedSegments": 2,
+        "textChangedSegments": 1,
+        "lockedSegments": 1
+      },
+      "errorCode": null,
+      "errorMessage": null,
+      "nextAction": "?????????????????????",
+      "updatedAt": "2026-04-21T10:22:00Z"
+    },
+    "updatedAt": "2026-04-21T10:22:00Z"
   }
 }
 ```
@@ -695,6 +1006,18 @@
 
 **核心返回 DTO**: `AssetDto`、`AssetReferenceDto`
 
+**当前契约要点**
+
+- `AssetDto` 现在除了基础字段，还会返回 4 组运行时摘要：
+  - `sourceInfo`：来源与归属
+  - `availability`：文件可用性与下一步动作
+  - `referenceSummary`：引用关系与删除阻断状态
+  - `thumbnailStatus`：缩略图生成状态
+- `sourceInfo` 关键字段：`source`、`projectId`、`groupId`、`filePath`、`metadataSummary`
+- `availability` 关键字段：`status`、`errorCode`、`errorMessage`、`nextAction`
+- `referenceSummary` 关键字段：`total`、`referenceTypes[]`、`blockingDelete`
+- `thumbnailStatus` 关键字段：`status`、`path`、`generatedAt`
+
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/assets` | 查询参数：`type?`、`source?`、`project_id?`、`q?` | `AssetDto[]` | `500` | `fetchAssets` |
@@ -702,55 +1025,118 @@
 | `POST /api/assets/groups` | `AssetGroupCreateInput`：`name`、`parentId?` | `AssetGroupDto` | `422`、`500` | 当前前端未直接调用 |
 | `PATCH /api/assets/groups/{group_id}` | 路径参数：`group_id`；`AssetGroupUpdateInput`：`name?`、`parentId?` | `AssetGroupDto` | `400`、`404`、`422`、`500` | 当前前端未直接调用 |
 | `DELETE /api/assets/groups/{group_id}` | 路径参数：`group_id` | `{"deleted": true}` | `404`、`500` | 当前前端未直接调用 |
-| `POST /api/assets` | `AssetCreateInput`：`name`、`type`、`source`、`filePath?`、`projectId?` 等 | `AssetDto` | `422` | 当前前端未直接调用 |
-| `POST /api/assets/import` | `AssetImportInput`：`filePath`、`type`、`source`、`projectId?` 等 | `AssetDto` | `422`、`500` | `importAsset` |
+| `POST /api/assets` | `AssetCreateInput`：`name`、`type`、`source`、`filePath?`、`projectId?` 等 | `AssetDto` | `400`、`422`、`500` | 当前前端未直接调用 |
+| `POST /api/assets/import` | `AssetImportInput`：`filePath`、`type`、`source`、`projectId?` 等 | `AssetDto` | `400`、`422`、`500` | `importAsset` |
 | `POST /api/assets/batch-delete` | `BatchDeleteAssetsInput`：`assetIds[]` | `{"deletedCount": number}` | `422`、`500` | 当前前端未直接调用 |
 | `POST /api/assets/batch-move-group` | `BatchMoveGroupInput`：`assetIds[]`、`groupId?` | `{"movedCount": number, "groupId": string \| null}` | `404`、`422`、`500` | 当前前端未直接调用 |
 | `GET /api/assets/{asset_id}` | 路径参数：`asset_id` | `AssetDto` | `404` | `fetchAsset` |
-| `PATCH /api/assets/{asset_id}` | `AssetUpdateInput`：`name?`、`tags?`、`metadataJson?` | `AssetDto` | `404`、`422` | `updateAsset` |
-| `DELETE /api/assets/{asset_id}` | 路径参数：`asset_id` | 删除结果对象 | `404` | `deleteAsset` |
+| `PATCH /api/assets/{asset_id}` | `AssetUpdateInput`：`name?`、`tags?`、`metadataJson?` | `AssetDto` | `400`、`404`、`422`、`500` | `updateAsset` |
+| `DELETE /api/assets/{asset_id}` | 路径参数：`asset_id` | 删除结果对象 | `404`、`409`、`500` | `deleteAsset` |
 | `GET /api/assets/{asset_id}/references` | 路径参数：`asset_id` | `AssetReferenceDto[]` | `404` | `fetchAssetReferences` |
 | `POST /api/assets/{asset_id}/references` | `AssetReferenceCreateInput`：`referenceType`、`referenceId` | `AssetReferenceDto` | `404`、`422` | 当前前端未直接调用 |
 | `GET /api/assets/references/{ref_id}` | 路径参数：`ref_id` | `AssetReferenceDto` | `404` | 当前前端未直接调用 |
 | `DELETE /api/assets/references/{ref_id}` | 路径参数：`ref_id` | 删除结果对象 | `404` | 当前前端未直接调用 |
 
+**状态语义**
+
+- `sourceInfo` 会把 `source / projectId / groupId / filePath / metadataJson` 中可稳定消费的信息整理为结构化摘要。
+- `availability.status` 用来表达资产当前是否可继续使用：
+  - `missing_source`：没有文件路径
+  - `missing_file`：有路径但本地文件不存在
+  - `ready`：源文件存在且可访问
+- `referenceSummary` 会汇总引用数量和引用类型；当 `blockingDelete=true` 时，删除接口会被阻断。
+- `thumbnailStatus.status` 用于表达缩略图链路状态：
+  - `none`：当前没有缩略图，也没有进行中的缩略图任务
+  - `queued` / `running`：存在进行中的缩略图任务
+  - `ready`：缩略图文件已生成
+  - `failed`：记录存在但缩略图文件缺失
+  - `missing_source`：源文件不可用，因此无法生成缩略图
+
 **示例**
 
+导入成功：
 ```json
 {
   "ok": true,
   "data": {
     "id": "asset-1",
-    "name": "成片封面",
-    "type": "image",
-    "source": "imported",
-    "filePath": "C:/workspace/assets/cover.png",
+    "name": "opening.mp4",
+    "type": "video",
+    "source": "local",
+    "filePath": "C:/workspace/assets/opening.mp4",
     "fileSizeBytes": 204800,
     "durationMs": null,
     "thumbnailPath": null,
-    "tags": "[\"封面\",\"竖屏\"]",
+    "tags": "[\"开场\"]",
     "projectId": "project-1",
     "metadataJson": "{\"width\":1080,\"height\":1920}",
-    "createdAt": "2026-04-17T10:20:00Z",
-    "updatedAt": "2026-04-17T10:20:00Z"
+    "sourceInfo": {
+      "source": "local",
+      "projectId": "project-1",
+      "groupId": null,
+      "filePath": "C:/workspace/assets/opening.mp4",
+      "metadataSummary": {
+        "width": 1080,
+        "height": 1920
+      }
+    },
+    "availability": {
+      "status": "ready",
+      "errorCode": null,
+      "errorMessage": null,
+      "nextAction": null
+    },
+    "referenceSummary": {
+      "total": 0,
+      "referenceTypes": [],
+      "blockingDelete": false
+    },
+    "thumbnailStatus": {
+      "status": "none",
+      "path": null,
+      "generatedAt": null
+    },
+    "createdAt": "2026-04-21T10:20:00Z",
+    "updatedAt": "2026-04-21T10:20:00Z"
   }
 }
 ```
+
+删除阻断：
+- 当 `referenceSummary.total > 0` 且 `blockingDelete=true` 时，`DELETE /api/assets/{asset_id}` 会返回 `409`。
+- UI 应优先引导用户查看引用详情，再决定解除引用或更换素材。
 
 ---
 
 ## 11. M10 账号管理
 
-**核心返回 DTO**: `AccountDto`、`AccountGroupDto`、`AccountRefreshStatsDto`、`AccountBindingDto`
+**核心返回 DTO**: `AccountDto`、`AccountGroupDto`、`AccountRefreshStatsDto`、`AccountBindingDto`、`AccountPublishReadinessDto`
+
+**当前契约要点**
+
+- `AccountDto` 现在会附带 `publishReadiness`，用于直接表达账号是否可发布。
+- `publishReadiness` 关键字段：
+  - `canPublish`
+  - `status`
+  - `lastValidatedAt`
+  - `errorCode`
+  - `errorMessage`
+  - `suggestedAction`
+  - `binding`
+- 发布校验基于真实已存数据，不再只返回笼统状态：
+  - `account.status`
+  - `username`
+  - `authExpiresAt`
+  - `execution binding` 是否存在且为 `active`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/accounts` | 查询参数：`status?`、`platform?`、`group_id?`、`q?` | `AccountDto[]` | `500` | `fetchAccounts` |
+| `GET /api/accounts` | 查询参数：`status?`、`platform?`、`group_id?`、`q?` | `AccountDto[]`；每项包含 `publishReadiness` | `500` | `fetchAccounts` |
 | `POST /api/accounts` | `AccountCreateInput`：`name`、`platform`、`username?`、`status?` 等 | `AccountDto` | `422` | `createAccount` |
-| `GET /api/accounts/{account_id}` | 路径参数：`account_id` | `AccountDto` | `404` | 当前前端未直接调用 |
-| `PATCH /api/accounts/{account_id}` | `AccountUpdateInput` | `AccountDto` | `404`、`422` | 当前前端未直接调用 |
+| `GET /api/accounts/{account_id}` | 路径参数：`account_id` | `AccountDto`；包含 `publishReadiness` | `404` | 当前前端未直接调用 |
+| `PATCH /api/accounts/{account_id}` | `AccountUpdateInput` | `AccountDto`；包含最新 `publishReadiness` | `404`、`422` | 当前前端未直接调用 |
 | `DELETE /api/accounts/{account_id}` | 路径参数：`account_id` | 删除结果对象 | `404` | `deleteAccount` |
-| `POST /api/accounts/{account_id}/refresh-stats` | 路径参数：`account_id` | `AccountRefreshStatsDto` | `404` | `refreshAccountStats` |
+| `POST /api/accounts/{account_id}/refresh-stats` | 路径参数：`account_id`；执行一次真实账号发布校验并更新时间戳 | `AccountRefreshStatsDto`：`id`、`status`、`updatedAt`、`providerStatus`、`publishReadiness` | `404` | `refreshAccountStats` |
 | `PUT /api/accounts/{account_id}/binding` | `AccountBindingUpsertInput`：`browserInstanceId`、`status?`、`source?`、`metadataJson?` | `AccountBindingDto` | `404`、`422` | `setAccountBinding` |
 | `GET /api/accounts/groups` | 无 | `AccountGroupDto[]` | `500` | `fetchAccountGroups` |
 | `POST /api/accounts/groups` | `AccountGroupCreateInput`：`name`、`description?`、`color?` | `AccountGroupDto` | `422` | 当前前端未直接调用 |
@@ -778,21 +1164,92 @@
 }
 ```
 
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "account-1",
+    "name": "TikTok 主账号",
+    "platform": "tiktok",
+    "username": "creator_main",
+    "avatarUrl": null,
+    "status": "active",
+    "authExpiresAt": "2099-01-01T00:00:00Z",
+    "followerCount": null,
+    "followingCount": null,
+    "videoCount": null,
+    "tags": null,
+    "notes": null,
+    "publishReadiness": {
+      "canPublish": true,
+      "status": "ready",
+      "lastValidatedAt": "2026-04-21T08:30:00Z",
+      "errorCode": null,
+      "errorMessage": null,
+      "suggestedAction": null,
+      "binding": {
+        "bindingId": "binding-1",
+        "browserInstanceId": "workspace-1",
+        "status": "active",
+        "source": "manual",
+        "updatedAt": "2026-04-21T08:28:00Z"
+      }
+    },
+    "createdAt": "2026-04-21T08:20:00Z",
+    "updatedAt": "2026-04-21T08:30:00Z"
+  }
+}
+```
+
+**状态语义**
+
+- `publishReadiness.status` 当前包含：
+  - `ready`
+  - `blocked`
+  - `action_required`
+  - `expired`
+  - `binding_required`
+- `suggestedAction` 用于给前端直接呈现下一步动作，不需要页面自行猜测。
+- `lastValidatedAt` 仅在执行过 `refresh-stats` 后更新，表示最近一次真实校验时间。
+
 ---
 
 ## 12. M11 设备与工作区管理
 
-**核心返回 DTO**: `DeviceWorkspaceDto`、`HealthCheckResultDto`、`DeviceWorkspaceLogDto`、`AccountBindingDto`
+**核心返回 DTO**: `DeviceWorkspaceDto`、`HealthCheckResultDto`、`DeviceWorkspaceLogDto`、`AccountBindingDto`、`DeviceWorkspaceEnvironmentStatusDto`、`DeviceWorkspaceBindingSummaryDto`、`DeviceWorkspaceHealthSummaryDto`
+
+**当前契约要点**
+
+- `DeviceWorkspaceDto` 现在会附带 3 组真实运行时摘要：
+  - `environmentStatus`
+  - `bindingSummary`
+  - `healthSummary`
+- `environmentStatus` 基于真实文件系统和实例状态派生：
+  - `root_path` 是否存在
+  - `root_path` 是否为目录
+  - `browserInstances` 数量与运行数量
+  - 是否存在异常浏览器实例
+- `bindingSummary` 基于真实 `execution_bindings` 聚合：
+  - `totalBindings`
+  - `activeBindings`
+  - `accountIds`
+- `healthSummary` 基于最近一次 `health-check` 结果日志聚合；没有历史记录时返回 `unknown`。
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/devices/workspaces` | 无 | `DeviceWorkspaceDto[]` | `500` | `fetchDeviceWorkspaces` |
+| `GET /api/devices/workspaces` | 无 | `DeviceWorkspaceDto[]`；每项包含 `environmentStatus / bindingSummary / healthSummary` | `500` | `fetchDeviceWorkspaces` |
 | `POST /api/devices/workspaces` | `DeviceWorkspaceCreateInput`：`name`、`root_path` | `DeviceWorkspaceDto` | `422` | `createDeviceWorkspace` |
-| `GET /api/devices/workspaces/{ws_id}` | 路径参数：`ws_id` | `DeviceWorkspaceDto` | `404` | `fetchDeviceWorkspace` |
-| `PATCH /api/devices/workspaces/{ws_id}` | `DeviceWorkspaceUpdateInput`：`name?`、`root_path?`、`status?` | `DeviceWorkspaceDto` | `404`、`422` | `updateDeviceWorkspace` |
+| `GET /api/devices/workspaces/{ws_id}` | 路径参数：`ws_id` | `DeviceWorkspaceDto`；包含 `environmentStatus / bindingSummary / healthSummary` | `404` | `fetchDeviceWorkspace` |
+| `PATCH /api/devices/workspaces/{ws_id}` | `DeviceWorkspaceUpdateInput`：`name?`、`root_path?`、`status?` | `DeviceWorkspaceDto`；包含最新摘要 | `404`、`422` | `updateDeviceWorkspace` |
 | `DELETE /api/devices/workspaces/{ws_id}` | 路径参数：`ws_id` | 删除结果对象 | `404` | `deleteDeviceWorkspace` |
-| `POST /api/devices/workspaces/{ws_id}/health-check` | 无 | `HealthCheckResultDto` | `404` | `checkDeviceWorkspaceHealth` |
+| `POST /api/devices/workspaces/{ws_id}/health-check` | 无；执行一次真实工作区环境校验并记录最新结果 | `HealthCheckResultDto`：`workspace_id`、`status`、`checked_at`、`errorCode`、`errorMessage`、`nextAction`、`environmentStatus`、`bindingSummary` | `404` | `checkDeviceWorkspaceHealth` |
 | `GET /api/devices/workspaces/{ws_id}/logs` | 查询参数：`since?`；前端当前传入 `cursor` 会被后端忽略 | `DeviceWorkspaceLogDto[]` | `404` | `fetchWorkspaceLogs` |
+| `GET /api/devices/workspaces/{ws_id}/browser-instances` | 路径参数：`ws_id`；列出工作区下的真实浏览器实例 | `BrowserInstanceDto[]` | `404` | 当前前端未直接调用 |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances` | 路径参数：`ws_id`；`BrowserInstanceCreateInput`：`name`、`profilePath` | `BrowserInstanceDto` | `404`、`422` | 当前前端未直接调用 |
+| `GET /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}` | 路径参数：`ws_id`、`instance_id` | `BrowserInstanceDto` | `404` | 当前前端未直接调用 |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/start` | 路径参数：`ws_id`、`instance_id`；启动浏览器实例并广播状态变更 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | 当前前端未直接调用 |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/stop` | 路径参数：`ws_id`、`instance_id`；停止浏览器实例并广播状态变更 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | 当前前端未直接调用 |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/health-check` | 路径参数：`ws_id`、`instance_id`；检查 profile 目录与实例状态 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | 当前前端未直接调用 |
 | `GET /api/devices/browser-instances` | 无；当前是 `workspaces` 列表兼容别名 | `DeviceWorkspaceDto[]` | `500` | `fetchBrowserInstances` |
 | `POST /api/devices/browser-instances` | `DeviceWorkspaceCreateInput`；当前是创建工作区兼容别名 | `DeviceWorkspaceDto` | `422` | `createBrowserInstance` |
 | `GET /api/devices/browser-instances/{ws_id}` | 路径参数：`ws_id`；当前是工作区详情兼容别名 | `DeviceWorkspaceDto` | `404` | 当前前端未直接调用 |
@@ -808,6 +1265,7 @@
 **当前差异**
 
 - `BrowserInstanceDto` / `ExecutionBindingDto` 仍是前端兼容类型口径；当前后端 M11 已落地对象仍以 `DeviceWorkspaceDto` 与 `AccountBindingDto` 为主。
+- `health-check` 现在会直接返回中文可读的错误原因与下一步动作，前端不需要再自行猜测“根目录不存在”或“环境异常”的文案。
 
 **示例**
 
@@ -828,6 +1286,48 @@
 }
 ```
 
+```json
+{
+  "ok": true,
+  "data": {
+    "workspace_id": "workspace-1",
+    "status": "ready",
+    "checked_at": "2026-04-21T08:40:00Z",
+    "errorCode": null,
+    "errorMessage": null,
+    "nextAction": "如需执行发布或自动化，请先创建浏览器实例。",
+    "environmentStatus": {
+      "status": "ready_without_browser",
+      "rootPathExists": true,
+      "isDirectory": true,
+      "browserInstanceCount": 0,
+      "runningBrowserInstanceCount": 0,
+      "errorCode": null,
+      "errorMessage": "工作区已就绪，但还没有浏览器实例。",
+      "nextAction": "如需执行发布或自动化，请先创建浏览器实例。"
+    },
+    "bindingSummary": {
+      "totalBindings": 1,
+      "activeBindings": 1,
+      "accountIds": ["account-1"]
+    }
+  }
+}
+```
+
+**状态语义**
+
+- `environmentStatus.status` 当前包含：
+  - `ready`
+  - `ready_without_browser`
+  - `degraded`
+  - `missing_root`
+  - `invalid_root`
+- 当根目录不存在或路径非法时，`health-check` 会返回结构化错误：
+  - `workspace.root_path_missing`
+  - `workspace.root_path_invalid`
+- 当工作区下存在异常浏览器实例时，`environmentStatus` 会返回 `workspace.browser_instance_error`。
+
 ---
 
 ## 13. M12 自动化执行中心
@@ -836,15 +1336,43 @@
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/automation/tasks` | 查询参数：`status?`、`type?` | `AutomationTaskDto[]` | `500` | `fetchAutomationTasks` |
+| `GET /api/automation/tasks` | 查询参数：`status?`、`type?` | `AutomationTaskDto[]`：补充 `source`、`queue`、`latestResult`、`retry` | `500` | `fetchAutomationTasks` |
 | `POST /api/automation/tasks` | `AutomationTaskCreateInput`：`name`、`type`、`rule?`、`cron_expr?`、`config_json?` | `AutomationTaskDto` | `422` | `createAutomationTask` |
-| `GET /api/automation/tasks/{task_id}` | 路径参数：`task_id` | `AutomationTaskDto` | `404` | `fetchAutomationTask` |
+| `GET /api/automation/tasks/{task_id}` | 路径参数：`task_id` | `AutomationTaskDto`：详情结构与列表一致，包含当前来源、队列状态、最近结果、可重试语义 | `404` | `fetchAutomationTask` |
 | `PATCH /api/automation/tasks/{task_id}` | `AutomationTaskUpdateInput` | `AutomationTaskDto` | `404`、`422` | `updateAutomationTask` |
 | `POST /api/automation/tasks/{task_id}/pause` | 无 | `AutomationTaskDto`，`enabled=false` | `404` | `pauseAutomationTask` |
 | `POST /api/automation/tasks/{task_id}/resume` | 无 | `AutomationTaskDto`，`enabled=true` | `404` | `resumeAutomationTask` |
 | `DELETE /api/automation/tasks/{task_id}` | 路径参数：`task_id` | 删除结果对象 | `404` | `deleteAutomationTask` |
-| `POST /api/automation/tasks/{task_id}/trigger` | 无 | `TriggerTaskResultDto`：`task_id`、`run_id`、`status`、`message` | `404`、`409` | `triggerAutomationTask` |
-| `GET /api/automation/tasks/{task_id}/runs` | 路径参数：`task_id`；查询参数：`limit?` | `AutomationTaskRunDto[]` | `404` | `fetchAutomationTaskRuns` |
+| `POST /api/automation/tasks/{task_id}/trigger` | 无 | `TriggerTaskResultDto`：`task_id`、`run_id`、`status`、`queueStatus`、`queuePosition`、`activeRunId`、`nextAction`、`message` | `404`、`409 automation.task_disabled`、`409 automation.task_already_running`、`409 automation.binding_required`、`409 automation.config_missing` | `triggerAutomationTask` |
+| `GET /api/automation/tasks/{task_id}/runs` | 路径参数：`task_id`；查询参数：`limit?` | `AutomationTaskRunDto[]`：补充 `resultSummary`、`errorCode`、`errorMessage`、`retryable`、`nextAction` | `404` | `fetchAutomationTaskRuns` |
+
+**关键字段约束**
+
+- `AutomationTaskDto.source`
+  - `kind`：任务来源类型，默认优先取 `rule.kind` 或配置里的 `sourceKind`
+  - `projectId / accountId / workspaceId`：从 `config_json` 或 `rule.config` 解析出的真实来源上下文
+  - `label`：前端可直接展示的来源摘要
+- `AutomationTaskDto.queue`
+  - `status`：`idle | queued | running`
+  - `position`：只有真实处于 `queued` 时返回序号，否则返回 `null`
+  - `activeRunId`：当前活跃运行实例 ID
+- `AutomationTaskDto.latestResult`
+  - `status`：`idle | queued | running | succeeded | failed | cancelled`
+  - `summary`：最近一次运行摘要，默认取最近日志的最后一行
+  - `errorCode / errorMessage`：仅在失败或取消时返回
+- `AutomationTaskDto.retry`
+  - `canRetry`：是否允许当前任务直接重试
+  - `errorCode`：重试阻断原因，当前覆盖 `automation.task_disabled`、`automation.binding_required`、`automation.config_missing`、`automation.task_already_running`
+  - `nextAction`：中文下一步动作，前端可直接展示
+- `AutomationTaskRunDto`
+  - `resultSummary`：单次运行摘要
+  - `retryable`：该次失败是否允许重试
+  - `nextAction`：失败或取消后的恢复动作
+
+**说明**
+
+- 当前自动化中心保留原有路由，不新增新路由；本轮主要补齐的是任务实例生命周期契约。
+- `409` 不再是空泛冲突：必须伴随明确 `error_code` 返回，供前端直接区分“任务停用 / 正在运行 / 缺少绑定 / 缺少配置”。
 
 **示例**
 
@@ -854,94 +1382,192 @@
   "data": {
     "task_id": "auto-1",
     "run_id": "run-1",
-    "status": "running",
-    "message": "任务已触发。"
+    "status": "queued",
+    "queueStatus": "queued",
+    "queuePosition": 1,
+    "activeRunId": "run-1",
+    "nextAction": "可在运行历史中查看最新状态与执行日志。",
+    "message": "自动化任务已进入执行队列。"
   }
 }
 ```
 
 ---
 
-## 14. M13 发布中心
+## 14. M13 ????
 
-**核心返回 DTO**: `PublishPlanDto`、`PublishCalendarDto`、`PrecheckResultDto`、`SubmitPlanResultDto`、`PublishReceiptDto`
+**???? DTO**: `PublishPlanDto`?`PublishCalendarDto`?`PrecheckResultDto`?`SubmitPlanResultDto`?`PublishReceiptDto`
 
-| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
+`PublishPlanDto` ????????????????
+- `precheck_summary`: ????????????????
+- `latest_receipt`: ??????????
+- `publish_readiness`: ????????????????????????????
+- `recovery`: ?????????????????
+
+`PrecheckResultDto.items[]` ?????????????
+- `account_readiness`
+- `device_binding`
+- `publish_config`
+- `video_asset`
+- `schedule`
+
+`PublishReceiptDto` ?????????
+- `stage`
+- `summary`
+- `error_code`
+- `error_message`
+- `next_action`
+- `is_final`
+
+| ?? | ???? | ???? | ??? | ??????? |
 | --- | --- | --- | --- | --- |
-| `GET /api/publishing/plans` | 查询参数：`status?` | `PublishPlanDto[]` | `500` | `fetchPublishPlans` |
-| `POST /api/publishing/plans` | `PublishPlanCreateInput`：`title`、`account_id?`、`account_name?`、`project_id?`、`video_asset_id?`、`scheduled_at?` | `PublishPlanDto` | `422` | `createPublishPlan` |
-| `GET /api/publishing/calendar` | 前端传 `from?`、`to?`；当前后端忽略日期参数并返回全量日历快照 | `PublishCalendarDto`：`items[]`、`generated_at` | `500` | `fetchPublishingCalendar` |
-| `GET /api/publishing/plans/{plan_id}` | 路径参数：`plan_id` | `PublishPlanDto` | `404` | `fetchPublishPlan` |
-| `PATCH /api/publishing/plans/{plan_id}` | `PublishPlanUpdateInput`：`title?`、`account_name?`、`status?`、`scheduled_at?` | `PublishPlanDto` | `404`、`422` | `updatePublishPlan` |
-| `DELETE /api/publishing/plans/{plan_id}` | 路径参数：`plan_id` | 删除结果对象 | `404` | `deletePublishPlan` |
-| `POST /api/publishing/plans/{plan_id}/precheck` | 无 | `PrecheckResultDto`：`items[]`、`conflicts[]`、`has_errors`、`checked_at` | `404` | `runPublishingPrecheck` |
-| `POST /api/publishing/plans/{plan_id}/submit` | 无；要求预检无 `error` | `SubmitPlanResultDto`：`plan_id`、`status`、`submitted_at`、`message` | `404`、`409` | `submitPublishPlan` |
-| `POST /api/publishing/plans/{plan_id}/cancel` | 无 | `PublishPlanDto` | `404` | `cancelPublishPlan` |
-| `GET /api/publishing/plans/{plan_id}/receipts` | 路径参数：`plan_id` | `PublishReceiptDto[]` | `404` | `fetchPublishReceipts` |
-| `GET /api/publishing/plans/{plan_id}/receipt` | 路径参数：`plan_id` | `PublishReceiptDto` | `404` | `fetchPublishReceipt` |
+| `GET /api/publishing/plans` | ?????`status?` | `PublishPlanDto[]` | `500` | `fetchPublishPlans` |
+| `POST /api/publishing/plans` | `PublishPlanCreateInput`?`title`?`account_id?`?`account_name?`?`project_id?`?`video_asset_id?`?`scheduled_at?` | `PublishPlanDto` | `422` | `createPublishPlan` |
+| `GET /api/publishing/calendar` | ???????????????????? | `PublishCalendarDto`?`items[]`?`generated_at` | `500` | `fetchPublishingCalendar` |
+| `GET /api/publishing/plans/{plan_id}` | ?????`plan_id` | `PublishPlanDto` | `404` | `fetchPublishPlan` |
+| `PATCH /api/publishing/plans/{plan_id}` | `PublishPlanUpdateInput`?`title?`?`account_name?`?`status?`?`scheduled_at?` | `PublishPlanDto` | `404`?`422` | `updatePublishPlan` |
+| `DELETE /api/publishing/plans/{plan_id}` | ?????`plan_id` | ?????? | `404` | `deletePublishPlan` |
+| `POST /api/publishing/plans/{plan_id}/precheck` | ? | `PrecheckResultDto`?`items[]`?`conflicts[]`?`has_errors`?`blocking_count`?`readiness`?`checked_at` | `404` | `runPublishingPrecheck` |
+| `POST /api/publishing/plans/{plan_id}/submit` | ???????????? | `SubmitPlanResultDto`?`plan_id`?`status`?`submitted_at`?`message`?`receipt_status`?`next_action`?`receipt` | `404`?`409` | `submitPublishPlan` |
+| `POST /api/publishing/plans/{plan_id}/cancel` | ? | `PublishPlanDto` | `404` | `cancelPublishPlan` |
+| `GET /api/publishing/plans/{plan_id}/receipts` | ?????`plan_id` | `PublishReceiptDto[]` | `404` | `fetchPublishReceipts` |
+| `GET /api/publishing/plans/{plan_id}/receipt` | ?????`plan_id` | `PublishReceiptDto` | `404` | `fetchPublishReceipt` |
 
-**示例**
+**??????**
+
+| `error_code` | ?? | ?? |
+| --- | --- | --- |
+| `publishing.precheck_failed` | ???????? | `/submit` ??????????? |
+| `publishing.account_required` | ?????? | `account_id` ?? |
+| `publishing.account_not_ready` | ?????? | ??????????????????? |
+| `publishing.device_binding_required` | ????????? | ?????????????????? |
+| `publishing.config_missing` | ?????? | ??????????? |
+| `publishing.video_asset_required` | ?????? | `video_asset_id` ?? |
+| `publishing.schedule_conflict` | ???? | ???????????? |
+| `publishing.receipt_not_found` | ????? | `/receipt` ???????? |
+
+**??**
 
 ```json
 {
   "ok": true,
   "data": {
-    "id": "receipt-1",
-    "plan_id": "plan-1",
-    "status": "manual_required",
-    "platform_response_json": null,
-    "received_at": "2026-04-17T10:25:00Z",
-    "created_at": "2026-04-17T10:25:00Z"
+    "id": "plan-1",
+    "title": "????",
+    "status": "submitted",
+    "precheck_summary": {
+      "status": "ready",
+      "checked_at": "2026-04-21T10:20:00Z",
+      "blocking_count": 0
+    },
+    "publish_readiness": {
+      "can_submit": true,
+      "status": "ready",
+      "error_code": null,
+      "error_message": null,
+      "next_action": null,
+      "binding": {
+        "binding_id": "binding-1",
+        "workspace_id": "workspace-1",
+        "workspace_name": "?????",
+        "workspace_status": "ready",
+        "root_path": "D:/tkops/workspaces/publish",
+        "updated_at": "2026-04-21T10:18:00Z"
+      }
+    },
+    "latest_receipt": {
+      "id": "receipt-1",
+      "status": "receipt_pending",
+      "stage": "receipt",
+      "summary": "?????????????",
+      "error_code": null,
+      "error_message": null,
+      "next_action": {
+        "key": "refresh-receipt",
+        "label": "????"
+      },
+      "received_at": "2026-04-21T10:20:00Z",
+      "is_final": false
+    }
   }
 }
 ```
 
 ---
 
-## 15. M14 渲染与导出中心
+## 15. M14 ???????
 
-**核心返回 DTO**: `RenderTaskDto`、`CancelRenderResultDto`、`ExportProfileDto`、`RenderResourceUsageDto`
+**???? DTO**: `RenderTaskDto`?`CancelRenderResultDto`?`ExportProfileDto`?`RenderResourceUsageDto`
 
-| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
+`RenderTaskDto` ????????????????
+- `stage`: ????????? `queued / rendering / exporting / completed / failed / cancelled`
+- `output`: ??????????? `path`?`exists`?`size_bytes`?`last_checked_at`?`can_open`
+- `failure`: ????????? `error_code`?`error_message`?`next_action`?`retryable`
+
+?? WebSocket ?????
+- `render.progress`: ????
+- `render.status.changed`: ???????????????????
+
+| ?? | ???? | ???? | ??? | ??????? |
 | --- | --- | --- | --- | --- |
-| `GET /api/renders/profiles` | 无；首次访问会补齐默认配置 | `ExportProfileDto[]` | `500` | `fetchExportProfiles` |
-| `POST /api/renders/profiles` | `ExportProfileCreateInput`：`name`、`format`、`resolution`、`fps`、`video_bitrate`、`audio_policy`、`subtitle_policy`、`config_json?` | `ExportProfileDto` | `422` | `createExportProfile` |
-| `GET /api/renders/templates` | 无；当前复用导出配置列表 | `ExportProfileDto[]` | `500` | `listRenderTemplates` |
-| `GET /api/renders/resource-usage` | 无 | `RenderResourceUsageDto`：`cpu`、`gpu`、`disk`、`collectedAt` | `500` | `fetchRenderResourceUsage` |
-| `GET /api/renders/tasks` | 查询参数：`status?` | `RenderTaskDto[]` | `500` | `fetchRenderTasks` |
-| `POST /api/renders/tasks` | `RenderTaskCreateInput`：`project_id?`、`project_name?`、`preset`、`format?` | `RenderTaskDto` | `422` | `createRenderTask` |
-| `GET /api/renders/tasks/{task_id}` | 路径参数：`task_id` | `RenderTaskDto` | `404` | `fetchRenderTask` |
-| `PATCH /api/renders/tasks/{task_id}` | `RenderTaskUpdateInput`：`preset?`、`format?`、`status?`、`progress?`、`output_path?`、`error_message?` | `RenderTaskDto` | `404`、`422` | `updateRenderTask` |
-| `DELETE /api/renders/tasks/{task_id}` | 路径参数：`task_id` | 删除结果对象 | `404` | `deleteRenderTask` |
-| `POST /api/renders/tasks/{task_id}/cancel` | 路径参数：`task_id` | `CancelRenderResultDto` | `404`、`409` | `cancelRenderTask` |
-| `POST /api/renders/tasks/{task_id}/retry` | 路径参数：`task_id`；仅允许 `failed/cancelled`，复用原 task 重置状态 | `RenderTaskDto` | `404`、`409` | `retryRenderTask` |
+| `GET /api/renders/profiles` | ????????????? | `ExportProfileDto[]` | `500` | `fetchExportProfiles` |
+| `POST /api/renders/profiles` | `ExportProfileCreateInput`?`name`?`format`?`resolution`?`fps`?`video_bitrate`?`audio_policy`?`subtitle_policy`?`config_json?` | `ExportProfileDto` | `400`?`422` | `createExportProfile` |
+| `GET /api/renders/templates` | ???????????? | `ExportProfileDto[]` | `500` | `listRenderTemplates` |
+| `GET /api/renders/resource-usage` | ? | `RenderResourceUsageDto`?`cpu`?`gpu`?`disk`?`collectedAt` | `500` | `fetchRenderResourceUsage` |
+| `GET /api/renders/tasks` | ?????`status?` | `RenderTaskDto[]` | `500` | `fetchRenderTasks` |
+| `POST /api/renders/tasks` | `RenderTaskCreateInput`?`project_id?`?`project_name?`?`preset`?`format?` | `RenderTaskDto` | `422` | `createRenderTask` |
+| `GET /api/renders/tasks/{task_id}` | ?????`task_id` | `RenderTaskDto` | `404` | `fetchRenderTask` |
+| `PATCH /api/renders/tasks/{task_id}` | `RenderTaskUpdateInput`?`preset?`?`format?`?`status?`?`progress?`?`output_path?`?`error_message?` | `RenderTaskDto` | `404`?`422` | `updateRenderTask` |
+| `DELETE /api/renders/tasks/{task_id}` | ?????`task_id` | ?????? | `404` | `deleteRenderTask` |
+| `POST /api/renders/tasks/{task_id}/cancel` | ?????`task_id` | `CancelRenderResultDto` | `404`?`409` | `cancelRenderTask` |
+| `POST /api/renders/tasks/{task_id}/retry` | ?????`task_id`???? `failed/cancelled` | `RenderTaskDto` | `404`?`409` | `retryRenderTask` |
 
-**示例**
+**??????**
+
+| `error_code` | ?? | ?? |
+| --- | --- | --- |
+| `render.task_not_cancellable` | ???????? | ??? `queued / rendering` |
+| `render.task_not_retryable` | ???????? | ??? `failed / cancelled` |
+| `render.task_failed` | ?????? | `status=failed` ??? |
+| `render.task_cancelled` | ??????? | `status=cancelled` ??? |
+| `render.output_not_found` | ??????? | ????? `output_path` ???????? |
+
+**??**
 
 ```json
 {
   "ok": true,
   "data": {
-    "cpu": {
-      "status": "ready",
-      "usagePct": 12,
-      "message": "CPU 负载已读取。"
+    "id": "render-task-1",
+    "project_id": "project-1",
+    "project_name": "????",
+    "preset": "1080p",
+    "format": "mp4",
+    "status": "completed",
+    "progress": 100,
+    "output_path": "D:/tkops/output/project-1/final.mp4",
+    "error_message": null,
+    "stage": {
+      "code": "completed",
+      "label": "???"
     },
-    "gpu": {
-      "status": "unavailable",
-      "usagePct": null,
-      "message": "当前未接入 GPU 监控助手。"
+    "output": {
+      "path": "D:/tkops/output/project-1/final.mp4",
+      "exists": true,
+      "size_bytes": 10485760,
+      "last_checked_at": "2026-04-21T10:40:00Z",
+      "can_open": true
     },
-    "disk": {
-      "status": "ready",
-      "path": "G:/AI/TK-OPS-ASSISTANT-V3",
-      "totalBytes": 102400,
-      "usedBytes": 51200,
-      "freeBytes": 51200,
-      "usagePct": 50,
-      "message": "磁盘占用统计已读取。"
+    "failure": {
+      "error_code": null,
+      "error_message": null,
+      "next_action": null,
+      "retryable": false
     },
-    "collectedAt": "2026-04-17T10:26:00Z"
+    "started_at": "2026-04-21T10:31:00Z",
+    "finished_at": "2026-04-21T10:39:00Z",
+    "created_at": "2026-04-21T10:30:00Z",
+    "updated_at": "2026-04-21T10:40:00Z"
   }
 }
 ```
@@ -1004,7 +1630,7 @@
 
 ### 17.1 Runtime 基础设置
 
-**核心返回 DTO**: `RuntimeHealthSnapshotDto`、`AppSettingsDto`、`RuntimeDiagnosticsDto`、`RuntimeLogPageDto`、`DiagnosticsBundleDto`
+**核心返回 DTO**: `RuntimeHealthSnapshotDto`、`AppSettingsDto`、`RuntimeDiagnosticsDto`、`RuntimeMediaDiagnosticsDto`、`RuntimeLogPageDto`、`DiagnosticsBundleDto`
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
@@ -1012,6 +1638,7 @@
 | `GET /api/settings/config` | 无 | `AppSettingsDto`：`runtime`、`paths`、`logging`、`ai`、`revision` | `500` | `fetchRuntimeConfig` |
 | `PUT /api/settings/config` | `AppSettingsUpdateInput`：`runtime.mode/workspaceRoot`、`paths.cacheDir/exportDir/logDir`、`logging.level`、`ai.provider/model/voice/subtitleMode`；成功后广播 `config.changed` | `AppSettingsDto` | `422`、`500` | `updateRuntimeConfig` |
 | `GET /api/settings/diagnostics` | 无 | `RuntimeDiagnosticsDto`：`databasePath`、`logDir`、`revision`、`mode`、`healthStatus` | `500` | `fetchRuntimeDiagnostics` |
+| `GET /api/settings/diagnostics/media` | 无；读取 ffprobe 可用性、路径、版本与最近检查时间 | `RuntimeMediaDiagnosticsDto`：`ffprobe.status`、`ffprobe.path`、`ffprobe.version`、`ffprobe.errorCode`、`ffprobe.errorMessage`、`checkedAt` | `500`；ffprobe 异常时返回 `media.ffprobe_unavailable` 或 `media.ffprobe_incompatible` | 当前前端未直接调用 |
 | `GET /api/settings/logs` | 查询参数：`kind?`、`since?`、`level?`、`limit?`；当前从 `runtime.jsonl` 读取结构化日志 | `RuntimeLogPageDto`：`items[]`、`nextCursor` | `422`、`500` | `fetchRuntimeLogs` |
 | `POST /api/settings/diagnostics/export` | 无；生成当前 settings / health / diagnostics / runtime.jsonl 的诊断包 | `DiagnosticsBundleDto`：`bundlePath`、`createdAt`、`entries[]` | `500` | `exportDiagnosticsBundle` |
 
@@ -1036,6 +1663,16 @@
 | `GET /api/settings/ai-providers/catalog` | 无 | `AIProviderCatalogItemDto[]` | `500` | `fetchAIProviderCatalog` |
 | `GET /api/settings/ai-providers/{provider_id}/models` | 路径参数：`provider_id` | `AIModelCatalogItemDto[]` | `404` | `fetchAIProviderModels` |
 | `POST /api/settings/ai-providers/{provider_id}/models/refresh` | 路径参数：`provider_id` | `AIModelCatalogRefreshResultDto` | `404`、`409` | `refreshAIProviderModels` |
+
+### 17.4 AI Provider 运行时聚合
+
+**核心返回 DTO**: `AIProviderHealthOverviewDto`、`AIProviderModelWriteReceiptDto`
+
+| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
+| --- | --- | --- | --- | --- |
+| `GET /api/ai-providers/health` | 无；读取最近一次聚合健康快照 | `AIProviderHealthOverviewDto`：`providers[]`、`refreshedAt` | `500` | 当前前端未直接调用 |
+| `POST /api/ai-providers/health/refresh` | 无；逐个 Provider 触发静默刷新，失败不会阻断 Runtime 启动 | `AIProviderHealthOverviewDto`：`providers[]`、`refreshedAt` | `500`；单 Provider 失败时记录 `provider.health.refresh_failed` | 当前前端未直接调用 |
+| `PUT /api/ai-providers/{provider_id}/models/{model_id}` | 路径参数：`provider_id`、`model_id`；`AIProviderModelUpsertInput`：`displayName`、`capabilityKinds`、`inputModalities[]`、`outputModalities[]`、`contextWindow?`、`defaultFor[]`、`enabled` | `AIProviderModelWriteReceiptDto`：`saved`、`wasUpsert`、`updatedAt`、`versionOrRevision`、`objectSummary`、`model` | `400`、`404`；能力缺失时返回 `provider.model.capability_required` | 当前前端未直接调用 |
 
 **健康示例**
 

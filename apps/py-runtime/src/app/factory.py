@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import asyncio
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from api.routes import (
     accounts_router,
     ai_capabilities_router,
+    ai_provider_runtime_router,
     ai_providers_router,
     assets_router,
     automation_router,
@@ -190,9 +192,10 @@ def create_app() -> FastAPI:
     bootstrap_service = BootstrapService(
         runtime_config=runtime_config,
         settings_service=settings_service,
+        license_service=license_service,
         session_factory=session_factory,
     )
-    dashboard_service = DashboardService(dashboard_repository)
+    dashboard_service = DashboardService(dashboard_repository, task_manager=task_manager)
     ai_capability_service = AICapabilityService(
         ai_capability_repository,
         secret_store,
@@ -231,7 +234,11 @@ def create_app() -> FastAPI:
     )
     device_workspace_service = DeviceWorkspaceService(device_workspace_repository)
     automation_service = AutomationService(automation_repository)
-    publishing_service = PublishingService(publishing_repository)
+    publishing_service = PublishingService(
+        publishing_repository,
+        account_repository=account_repository,
+        device_workspace_repository=device_workspace_repository,
+    )
     render_service = RenderService(render_repository)
     review_service = ReviewService(
         review_repository,
@@ -248,7 +255,10 @@ def create_app() -> FastAPI:
         tts_dispatcher=dispatch_tts,
         voice_artifact_store=voice_artifact_store,
     )
-    subtitle_service = SubtitleService(subtitle_repository)
+    subtitle_service = SubtitleService(
+        subtitle_repository,
+        voice_repository=voice_repository,
+    )
     workspace_service = WorkspaceService(
         timeline_repository,
         task_manager=task_manager,
@@ -377,6 +387,7 @@ def create_app() -> FastAPI:
         message = exc.detail if isinstance(exc.detail, str) else REQUEST_FAILED_MESSAGE
         level = logging.ERROR if exc.status_code >= 500 else logging.WARNING
         error_code = getattr(exc, 'error_code', None) or _error_code_for_status(exc.status_code)
+        details = getattr(exc, 'details', None)
         log_event(
             'system',
             'request.http_error',
@@ -394,6 +405,7 @@ def create_app() -> FastAPI:
             content=error_response(
                 message,
                 request_id=request_id,
+                details=details,
                 error_code=error_code,
             ),
         )
@@ -423,6 +435,7 @@ def create_app() -> FastAPI:
 
     app.include_router(accounts_router)
     app.include_router(ai_capabilities_router)
+    app.include_router(ai_provider_runtime_router)
     app.include_router(ai_providers_router)
     app.include_router(assets_router)
     app.include_router(automation_router)
@@ -444,6 +457,20 @@ def create_app() -> FastAPI:
     app.include_router(voice_router)
     app.include_router(workspace_router)
     app.include_router(ws_router)
+
+    @app.on_event("startup")
+    async def warm_ai_provider_health() -> None:
+        if runtime_config.mode == "test":
+            return
+
+        async def _refresh() -> None:
+            try:
+                await asyncio.to_thread(ai_capability_service.refresh_provider_health)
+            except Exception:
+                log.exception("启动后刷新 AI Provider 健康快照失败")
+
+        asyncio.create_task(_refresh())
+
     log_event(
         'system',
         'runtime.started',

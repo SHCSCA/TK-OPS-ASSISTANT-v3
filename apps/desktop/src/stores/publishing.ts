@@ -8,6 +8,7 @@ import {
   submitPublishPlan,
   updatePublishPlan
 } from "@/app/runtime-client";
+import { useTaskBusStore } from "@/stores/task-bus";
 import type {
   PrecheckResultDto,
   PublishPlanCreateInput,
@@ -15,6 +16,7 @@ import type {
   PublishPlanUpdateInput,
   SubmitPlanResultDto
 } from "@/types/runtime";
+import type { TaskEvent } from "@/types/task-events";
 import { resolveCollectionStatus, toRuntimeErrorMessage } from "@/stores/runtime-store-helpers";
 
 function getErrorMessage(error: unknown): string {
@@ -29,7 +31,8 @@ export const usePublishingStore = defineStore("publishing", {
     loading: false,
     status: "idle" as "idle" | "loading" | "empty" | "ready" | "error",
     workflowState: "idle" as "idle" | "checking" | "submitting" | "blocked" | "ready" | "error",
-    error: null as string | null
+    error: null as string | null,
+    _unsubscribers: {} as Record<string, () => void>
   }),
   getters: {
     viewState: (state): "loading" | "empty" | "ready" | "error" => {
@@ -39,6 +42,22 @@ export const usePublishingStore = defineStore("publishing", {
     }
   },
   actions: {
+    initializeWebSocket(): void {
+      useTaskBusStore().connect();
+    },
+    syncSubscriptions(): void {
+      const taskBus = useTaskBusStore();
+      this.plans.forEach((plan) => {
+        const isUnfinished = plan.status === "submitting" || plan.status === "ready";
+        if (isUnfinished && !this._unsubscribers[plan.id]) {
+          this._unsubscribers[plan.id] = taskBus.subscribe(plan.id, (event: TaskEvent) => {
+            if (event.type === "task.completed" || event.type === "task.failed") {
+              void this.loadPlans();
+            }
+          });
+        }
+      });
+    },
     async loadPlans(status?: string) {
       this.loading = true;
       this.status = "loading";
@@ -46,6 +65,7 @@ export const usePublishingStore = defineStore("publishing", {
       try {
         this.plans = await fetchPublishPlans(status);
         this.status = resolveCollectionStatus(this.plans.length);
+        this.syncSubscriptions();
       } catch (error) {
         this.status = "error";
         this.error = getErrorMessage(error);
@@ -59,6 +79,7 @@ export const usePublishingStore = defineStore("publishing", {
         const plan = await createPublishPlan(input);
         this.plans.unshift(plan);
         this.status = "ready";
+        this.syncSubscriptions();
         return plan;
       } catch (error) {
         this.error = getErrorMessage(error);
@@ -83,6 +104,10 @@ export const usePublishingStore = defineStore("publishing", {
         await deletePublishPlan(id);
         this.plans = this.plans.filter((plan) => plan.id !== id);
         this.status = this.plans.length > 0 ? "ready" : "empty";
+        if (this._unsubscribers[id]) {
+          this._unsubscribers[id]();
+          delete this._unsubscribers[id];
+        }
       } catch (error) {
         this.error = getErrorMessage(error);
       }

@@ -1,11 +1,11 @@
 <template>
   <div class="page-container h-full">
     <header class="page-header">
-      <div class="page-header__crumb">首页 / 创作与媒体</div>
+      <div class="page-header__crumb">首页 / 媒体工作室</div>
       <div class="page-header__row">
         <div>
           <h1 class="page-header__title">字幕对齐中心</h1>
-          <div class="page-header__subtitle">把脚本文本整理成可校对、可追踪、可回流的字幕版本。</div>
+          <div class="page-header__subtitle">基于已采用的文案与配音音轨生成对齐的字幕，并提供微调与样式设置。</div>
         </div>
         <div class="page-header__actions">
           <Button variant="ai" :running="store.status === 'aligning'" :disabled="generateDisabled" @click="handleGenerate">
@@ -28,9 +28,9 @@
       <span class="material-symbols-outlined">warning</span>
       <span>{{ bannerTitle }} - {{ bannerMessage }}</span>
     </div>
-    <div v-else-if="pageStateTone === 'loading'" class="dashboard-alert" data-tone="brand">
+    <div v-else-if="store.activeTask" class="dashboard-alert" data-tone="brand">
       <span class="material-symbols-outlined spinning">sync</span>
-      <span>{{ bannerTitle }} - {{ bannerMessage }}</span>
+      <span>{{ store.activeTask.message }} ({{ store.activeTask.progress }}%)</span>
     </div>
 
     <div class="summary-grid">
@@ -39,16 +39,16 @@
         <strong class="sc-val">{{ currentProjectName }}</strong>
       </Card>
       <Card class="summary-card">
-        <span class="sc-label">草稿状态</span>
+        <span class="sc-label">字幕片段</span>
         <strong class="sc-val">{{ store.draftSegments.length }} 段</strong>
         <p class="sc-hint">{{ scriptStateLabel }}</p>
       </Card>
       <Card class="summary-card">
-        <span class="sc-label">样式状态</span>
+        <span class="sc-label">样式配置</span>
         <strong class="sc-val">{{ styleStateLabel }}</strong>
       </Card>
       <Card class="summary-card">
-        <span class="sc-label">字幕版本</span>
+        <span class="sc-label">字幕音轨</span>
         <strong class="sc-val">{{ store.tracks.length }} 条</strong>
         <p class="sc-hint">{{ versionStateLabel }}</p>
       </Card>
@@ -56,8 +56,8 @@
 
     <div v-if="!currentProject" class="empty-state">
       <span class="material-symbols-outlined">subtitles_off</span>
-      <strong>请先选择项目</strong>
-      <p>字幕对齐中心需要先读取当前项目脚本，才能进入真实草稿和版本工作台。</p>
+      <strong>请先选择一个项目</strong>
+      <p>字幕对齐中心依赖于当前项目及其配音音轨，请在侧边栏选择项目后开始工作。</p>  
     </div>
 
     <div v-else class="subtitle-workspace">
@@ -138,7 +138,7 @@ const presentationStatus = computed(() =>
 
 const generateDisabled = computed(() => {
   if (!currentProject.value) return true;
-  if (store.status === "loading" || store.status === "aligning" || store.status === "saving") return true;
+  if (store.status === "loading" || store.status === "aligning" || store.status === "saving") return true;      
   if (store.status === "error") return true;
   return !hasScript.value;
 });
@@ -151,21 +151,21 @@ const saveDisabled = computed(() => {
 });
 
 const generateButtonLabel = computed(() => {
-  if (!currentProject.value) return "生成入口已锁定";
-  if (store.status === "aligning") return "生成中...";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "重新保存阻断草稿";
-  return "生成字幕草稿";
+  if (!currentProject.value) return "等待项目选择";
+  if (store.status === "aligning") return "对齐中...";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "重新尝试生成";
+  return "AI 自动对齐";
 });
 
 const saveButtonLabel = computed(() => {
   if (store.status === "saving") return "保存中...";
-  if (!hasSelectedTrack.value) return "无待保存版本";
-  return "保存字幕校正";
+  if (!hasSelectedTrack.value) return "暂无修改可保存";
+  return "保存微调与样式";
 });
 
 const pageStateTone = computed(() => {
   if (!currentProject.value) return "blocked";
-  if (store.status === "loading" || store.status === "aligning" || store.status === "saving") return "loading";
+  if (store.status === "loading" || store.status === "aligning" || store.status === "saving") return "loading"; 
   if (store.status === "error") return "error";
   if (!hasScript.value) return "empty";
   if (store.status === "blocked" || hasBlockedTrack.value) return "blocked";
@@ -178,75 +178,75 @@ const pageStateLabel = computed(() => {
 });
 
 const scriptStateLabel = computed(() => {
-  if (store.status === "loading") return "读取中";
+  if (store.status === "loading") return "加载中";
   if (store.status === "error") return "异常";
-  if (!hasScript.value) return "空态";
-  return "已读取";
+  if (!hasScript.value) return "文案空";
+  return "已就绪";
 });
 
 const styleStateLabel = computed(() => {
-  if (store.status === "loading") return "读取中";
+  if (store.status === "loading") return "加载中";
   if (store.status === "error") return "异常";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "阻断草稿";
-  return "可编辑";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "需重新生成";
+  return "可调整";
 });
 
 const versionStateLabel = computed(() => {
-  if (store.status === "aligning") return "生成中";
+  if (store.status === "aligning") return "对齐中";
   if (store.status === "saving") return "保存中";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "阻断草稿";
-  if (store.status === "error") return "异常";
-  if (!store.tracks.length) return "空态";
-  return "已保存";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "需重新生成";
+  if (store.status === "error") return "加载失败";
+  if (!store.tracks.length) return "暂无版本";
+  return "版本就绪";
 });
 
 const bannerTitle = computed(() => {
-  if (!currentProject.value) return "字幕入口被阻断";
-  if (store.status === "loading") return "正在读取脚本和字幕版本";
-  if (store.status === "error") return "字幕工作台读取失败";
-  if (!hasScript.value) return "脚本文本为空";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "保存了阻断草稿，无真实时间码";
-  if (store.status === "aligning") return "正在生成字幕草稿";
-  if (store.status === "saving") return "正在保存字幕校正";
-  return "字幕工作台已就绪";
+  if (!currentProject.value) return "字幕环境尚未就绪";
+  if (store.status === "loading") return "正在读取项目状态";
+  if (store.status === "error") return "字幕加载失败";
+  if (!hasScript.value) return "文案缺失";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "对齐任务被阻塞";  
+  if (store.status === "aligning") return "正在进行 AI 自动对齐";
+  if (store.status === "saving") return "正在保存您的更改";
+  return "字幕对齐环境已就绪";
 });
 
 const bannerMessage = computed(() => {
-  if (!currentProject.value) return "先选择真实项目，再读取脚本文本和字幕版本。";
-  if (store.status === "loading") return "脚本、字幕草稿和版本记录正在从 Runtime 拉取。";
-  if (store.status === "error") return store.error?.message ?? "字幕工作台读取失败，请稍后重试。";
-  if (!hasScript.value) return "脚本文本为空，先在脚本与选题中心写入内容。";
-  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "没有可用 Provider，保存为阻断草稿。";
-  if (store.status === "aligning") return "正在把脚本文本整理为字幕草稿，不会提前写入假时间码。";
-  if (store.status === "saving") return "正在保存字幕段和样式校正。";
-  return "字幕段、样式草稿和版本记录都来自真实 Runtime 返回值。";
+  if (!currentProject.value) return "请在侧边栏选择一个项目，以读取该项目的文案与字幕配置。";
+  if (store.status === "loading") return "正在同步文案修订版本和现有字幕轨道，请稍等...";       
+  if (store.status === "error") return store.error?.message ?? "字幕对齐中心遇到异常，请检查网络或后端状态。"; 
+  if (!hasScript.value) return "文案中心尚无已采用的版本。请先前往脚本中心生成并采用脚本。";
+  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "缺少可用的配音 Provider，或自动对齐服务未开启。";
+  if (store.status === "aligning") return "正在通过 AI 分析配音音轨，为您自动切割和对齐字幕时间轴。";
+  if (store.status === "saving") return "正在保存微调后的时间轴和样式设置...";
+  return "您可以手动微调时间轴、更改样式设置，或重新生成对齐轨道。";
 });
 
 const panelStateMessage = computed(() => {
-  if (!currentProject.value) return "当前项目未就绪，工作台保持阻断。";
-  if (store.status === "loading") return "正在读取 Runtime 数据。";
-  if (store.status === "error") return store.error?.message ?? "读取失败。";
-  if (!hasScript.value) return "脚本文本为空。";
-  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "Provider 未接通，当前版本为阻断草稿。";
-  if (store.status === "aligning") return "正在生成字幕草稿。";
-  if (store.status === "saving") return "正在保存字幕校正。";
-  return "真实字幕草稿和样式已接通。";
+  if (!currentProject.value) return "环境未就绪";
+  if (store.status === "loading") return "加载中";
+  if (store.status === "error") return store.error?.message ?? "请求异常";
+  if (!hasScript.value) return "文案缺失";
+  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "任务阻断";
+  if (store.status === "aligning") return "对齐中";
+  if (store.status === "saving") return "保存中";
+  return "准备就绪";
 });
 
 const timingLocked = computed(() => !currentProject.value || store.status === "loading" || store.status === "error" || !store.activeSegment);
 const timingLockedReason = computed(() => {
-  if (!currentProject.value) return "请先选择项目。";
-  if (store.status === "loading") return "正在读取。";
-  if (store.status === "error") return store.error?.message ?? "读取失败。";
-  if (!store.activeSegment) return "当前没有可编辑的字幕段。";
+  if (!currentProject.value) return "未选择项目";
+  if (store.status === "loading") return "加载中";
+  if (store.status === "error") return store.error?.message ?? "请求异常";
+  if (!store.activeSegment) return "请先在列表中选中一个字幕片段";
   return "";
 });
 
 const styleLocked = computed(() => !currentProject.value || store.status === "loading" || store.status === "error");
 const styleLockedReason = computed(() => {
-  if (!currentProject.value) return "请先选择项目。";
-  if (store.status === "loading") return "正在读取。";
-  if (store.status === "error") return store.error?.message ?? "读取失败。";
+  if (!currentProject.value) return "未选择项目";
+  if (store.status === "loading") return "加载中";
+  if (store.status === "error") return store.error?.message ?? "请求异常";
   return "";
 });
 

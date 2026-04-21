@@ -8,6 +8,7 @@ import {
   fetchVoiceTracks,
   generateVoiceTrack
 } from "@/app/runtime-client";
+import { useTaskBusStore } from "@/stores/task-bus";
 import type {
   RuntimeRequestErrorShape,
   ScriptDocument,
@@ -16,6 +17,7 @@ import type {
   VoiceTrackGenerateResultDto
 } from "@/types/runtime";
 import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
+import type { TaskEvent, TaskInfo } from "@/types/task-events";
 
 export interface VoiceConfig {
   speed: number;
@@ -59,6 +61,8 @@ type VoiceStudioState = {
   status: VoiceStudioStatus;
   trackDetailsById: Record<string, VoiceTrackDto>;
   tracks: VoiceTrackDto[];
+  activeTask: TaskInfo | null;
+  _taskUnsubscriber: (() => void) | null;
 };
 
 export const useVoiceStudioStore = defineStore("voice-studio", {
@@ -79,7 +83,9 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
     selectedTrackId: null,
     status: "idle",
     trackDetailsById: {},
-    tracks: []
+    tracks: [],
+    activeTask: null,
+    _taskUnsubscriber: null
   }),
   getters: {
     hasEnabledProfiles: (state): boolean => state.profiles.some((profile) => profile.enabled),
@@ -116,6 +122,8 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       this.error = null;
       this.projectId = projectId;
       this.generationResult = null;
+      this.activeTask = null;
+      
       try {
         const [doc, profiles, tracks] = await Promise.all([
           fetchScriptDocument(projectId),
@@ -134,24 +142,79 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           await this.loadTrackDetail(this.selectedTrackId, false);
         }
         this.status = this.resolveStatus();
+        
+        this.initializeTaskWatch();
       } catch (error) {
         this.applyRuntimeError(error);
       }
     },
+    
+    initializeTaskWatch(): void {
+      if (this._taskUnsubscriber) {
+        this._taskUnsubscriber();
+        this._taskUnsubscriber = null;
+      }
+
+      const taskBusStore = useTaskBusStore();
+      this._taskUnsubscriber = taskBusStore.subscribeToType("ai-voice", (event: TaskEvent) => {
+        if (event.projectId === this.projectId) {
+          this.handleTaskEvent(event);
+        }
+      });
+    },
+
+    handleTaskEvent(event: TaskEvent): void {
+      if (event.type === "task.progress" || event.type === "task.started") {
+        this.activeTask = {
+          id: event.taskId ?? "",
+          status: "running",
+          progress: event.progressPct ?? 0,
+          message: event.message ?? "正在配音...",
+          task_type: "ai-voice",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as any;
+        this.status = "generating";
+      } else if (event.type === "task.completed") {
+        this.activeTask = null;
+        this.status = "ready";
+        void this.refreshTracks();
+      } else if (event.type === "task.failed") {
+        this.activeTask = null;
+        this.status = "error";
+        this.applyInputError(event.errorMessage ?? "配音生成失败");
+      }
+    },
+
+    async refreshTracks(): Promise<void> {
+      if (!this.projectId) return;
+      try {
+        const tracks = await fetchVoiceTracks(this.projectId);
+        this.tracks = tracks;
+        // Optionally select the latest track if just finished
+        if (tracks.length > 0) {
+          this.selectedTrackId = tracks[0].id;
+          await this.loadTrackDetail(tracks[0].id, false);
+        }
+      } catch (e) {
+        console.error("Failed to refresh tracks:", e);
+      }
+    },
+
     async generate(): Promise<VoiceTrackGenerateResultDto | null> {
       if (!this.projectId) {
-        this.applyInputError("请先选择项目。");
+        this.applyInputError("未选择有效项目。");
         return null;
       }
 
       const sourceText = this.sourceText.trim();
       if (!sourceText) {
-        this.applyInputError("脚本文本为空，请先在脚本与选题中心创建内容。");
+        this.applyInputError("当前项目尚无文案内容，请先在脚本中心完成创作并保存。");
         return null;
       }
 
       if (!this.selectedProfileId) {
-        this.applyInputError("当前没有可用音色，请先检查 AI 与系统设置。");
+        this.applyInputError("请先选择配音角色，并在 AI 系统设置中确保已开启配音能力。");
         return null;
       }
 
@@ -166,22 +229,28 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           speed: this.config.speed
         });
         this.generationResult = result;
-        this.upsertTrack(result.track);
-        this.trackDetailsById = {
-          ...this.trackDetailsById,
-          [result.track.id]: result.track
-        };
-        this.selectedTrackId = result.track.id;
-        this.status = result.track.status === "blocked" ? "blocked" : "ready";
+        
+        if (result.track) {
+          this.upsertTrack(result.track);
+          this.trackDetailsById = {
+            ...this.trackDetailsById,
+            [result.track.id]: result.track
+          };
+          this.selectedTrackId = result.track.id;
+        }
+        
+        // If task was submitted, wait for events. If immediate, status becomes ready.
+        this.status = result.track?.status === "blocked" ? "blocked" : "ready";
         return result;
       } catch (error) {
         this.applyRuntimeError(error);
         return null;
       }
     },
+    
     extractParagraphs(content: string): Paragraph[] {
       return content
-        .split("\n")
+        .split(/\n\s*\n/) // split by empty lines
         .map((paragraph) => paragraph.trim())
         .filter((paragraph) => paragraph.length > 0)
         .map((text) => ({
@@ -189,10 +258,12 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           estimatedDuration: Math.round(text.length * 0.4 * 10) / 10
         }));
     },
+    
     selectProfile(profileId: string): void {
       this.selectedProfileId = profileId;
       this.status = this.resolveStatus();
     },
+    
     async selectTrack(trackId: string): Promise<void> {
       this.selectedTrackId = trackId;
       await this.loadTrackDetail(trackId, true);
@@ -201,6 +272,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       }
       this.status = this.resolveStatus();
     },
+    
     async deleteTrack(trackId: string): Promise<void> {
       if (!this.projectId) return;
       this.error = null;
@@ -218,15 +290,18 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         this.applyRuntimeError(error);
       }
     },
+    
     resolveProfileSelection(profiles: VoiceProfileDto[]): string | null {
-      if (this.selectedProfileId && profiles.some((profile) => profile.id === this.selectedProfileId)) {
+      if (this.selectedProfileId && profiles.some((profile) => profile.id === this.selectedProfileId)) {        
         return this.selectedProfileId;
       }
       return profiles.find((profile) => profile.enabled)?.id ?? null;
     },
+    
     upsertTrack(track: VoiceTrackDto): void {
       this.tracks = [track, ...this.tracks.filter((item) => item.id !== track.id)];
     },
+    
     async loadTrackDetail(trackId: string, surfaceError: boolean): Promise<void> {
       try {
         const detail = await fetchVoiceTrack(trackId);
@@ -241,12 +316,14 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         }
       }
     },
+    
     resolveStatus(): VoiceStudioStatus {
       if (!this.paragraphs.length) {
         return "empty";
       }
       return "ready";
     },
+    
     applyInputError(message: string): void {
       this.status = "error";
       this.error = {
@@ -256,9 +333,10 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         status: 0
       };
     },
+    
     applyRuntimeError(error: unknown): void {
       this.status = "error";
-      this.error = toRuntimeErrorShape(error, "配音服务请求失败，请稍后重试。");
+      this.error = toRuntimeErrorShape(error, "请求配音相关数据失败，请检查网络或后端状态。");
     }
   }
 });

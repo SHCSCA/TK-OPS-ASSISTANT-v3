@@ -248,6 +248,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
 import { useProjectStore } from "@/stores/project";
 import { useRendersStore } from "@/stores/renders";
+import { useTaskBusStore } from "@/stores/task-bus";
 import type { RenderTaskCreateInput, RenderTaskDto } from "@/types/runtime";
 
 import Button from "@/components/ui/Button/Button.vue";
@@ -255,11 +256,12 @@ import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 import Input from "@/components/ui/Input/Input.vue";
 
-type RenderTaskView = RenderTaskDto & { fileName: string; projectId: string | null; projectName: string; status: "pending" | "running" | "completed" | "failed"; };
+type RenderTaskView = RenderTaskDto & { fileName: string; projectId: string | null; projectName: string; status: "pending" | "running" | "completed" | "failed"; errorMessage?: string | null };
 type FilterValue = "all" | "queued" | "running" | "completed" | "failed";
 
 const rendersStore = useRendersStore();
 const projectStore = useProjectStore();
+const taskBusStore = useTaskBusStore();
 const currentFilter = ref<FilterValue>("all");
 const selectedTaskId = ref<string | null>(null);
 const showDrawer = ref(false);
@@ -271,11 +273,21 @@ const statusTabs: Array<{ label: string; value: FilterValue }> = [
 ];
 
 const tasks = computed<RenderTaskView[]>(() =>
-  rendersStore.tasks.map((task) => ({
-    ...task,
-    fileName: task.output_path?.split(/[\\/]/).pop() || `${task.id}.${task.format}`,
-    projectId: task.project_id, projectName: task.project_name || "未绑定项目", status: normalizeRenderStatus(task.status)
-  }))
+  rendersStore.tasks.map((task) => {
+    const liveTask = taskBusStore.tasks.get(task.id);
+    const status = normalizeRenderStatus(liveTask?.status ?? task.status);
+    const progress = liveTask?.progressPct ?? task.progress ?? 0;
+    
+    return {
+      ...task,
+      fileName: task.output_path?.split(/[\\/]/).pop() || `${task.id}.${task.format}`,
+      projectId: task.project_id, 
+      projectName: task.project_name || "未绑定项目", 
+      status,
+      progress,
+      errorMessage: liveTask?.errorMessage ?? task.error_message
+    };
+  })
 );
 
 const filteredTasks = computed(() => {
@@ -296,7 +308,10 @@ const projectIdPlaceholder = computed(() => projectStore.currentProject?.project
 const projectNamePlaceholder = computed(() => projectStore.currentProject?.projectName || "当前项目名称");
 const projectBlockReason = computed(() => !hasProjectContext.value ? "当前没有项目上下文，无法创建新的渲染任务。" : "");
 
-onMounted(() => { void rendersStore.loadTasks(); });
+onMounted(() => { 
+  rendersStore.initializeWebSocket();
+  void rendersStore.loadTasks(); 
+});
 
 watch(() => tasks.value.map((task) => task.id).join("|"), () => {
   if (!selectedTaskId.value && tasks.value.length > 0) selectedTaskId.value = tasks.value[0].id;

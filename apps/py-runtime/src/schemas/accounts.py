@@ -3,6 +3,29 @@ from __future__ import annotations
 from pydantic import BaseModel
 
 
+class AccountSuggestedActionDto(BaseModel):
+    key: str
+    label: str
+
+
+class AccountBindingSummaryDto(BaseModel):
+    bindingId: str | None = None
+    browserInstanceId: str | None = None
+    status: str | None = None
+    source: str | None = None
+    updatedAt: str | None = None
+
+
+class AccountPublishReadinessDto(BaseModel):
+    canPublish: bool
+    status: str
+    lastValidatedAt: str | None = None
+    errorCode: str | None = None
+    errorMessage: str | None = None
+    suggestedAction: AccountSuggestedActionDto | None = None
+    binding: AccountBindingSummaryDto | None = None
+
+
 class AccountCreateInput(BaseModel):
     name: str
     platform: str = "tiktok"
@@ -44,6 +67,7 @@ class AccountDto(BaseModel):
     videoCount: int | None = None
     tags: str | None = None
     notes: str | None = None
+    publishReadiness: AccountPublishReadinessDto
     createdAt: str
     updatedAt: str
 
@@ -53,6 +77,7 @@ class AccountRefreshStatsDto(BaseModel):
     status: str
     updatedAt: str
     providerStatus: str
+    publishReadiness: AccountPublishReadinessDto
 
 
 class AccountGroupCreateInput(BaseModel):

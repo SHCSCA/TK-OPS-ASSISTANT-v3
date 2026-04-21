@@ -34,6 +34,39 @@ class TimelineTrackDto(BaseModel):
     clips: list[TimelineClipDto] = Field(default_factory=list)
 
 
+class TimelineVersionDto(BaseModel):
+    versionToken: str
+    updatedAt: str
+    trackCount: int = Field(default=0, ge=0)
+    clipCount: int = Field(default=0, ge=0)
+
+
+class AssetReferenceStatusDto(BaseModel):
+    totalClips: int = Field(default=0, ge=0)
+    readyClips: int = Field(default=0, ge=0)
+    processingClips: int = Field(default=0, ge=0)
+    failedClips: int = Field(default=0, ge=0)
+    missingReferenceClips: int = Field(default=0, ge=0)
+    manualClips: int = Field(default=0, ge=0)
+    referencedClips: int = Field(default=0, ge=0)
+
+
+class WorkspaceActiveTaskDto(BaseModel):
+    id: str
+    taskType: str
+    status: str
+    progress: int = Field(ge=0, le=100)
+    message: str
+    updatedAt: str
+
+
+class WorkspaceSaveStateDto(BaseModel):
+    saved: bool
+    updatedAt: str
+    source: str
+    message: str
+
+
 class TimelineDto(BaseModel):
     id: str
     projectId: str
@@ -44,6 +77,8 @@ class TimelineDto(BaseModel):
     tracks: list[TimelineTrackDto]
     createdAt: str
     updatedAt: str
+    version: TimelineVersionDto | None = None
+    assetReferenceStatus: AssetReferenceStatusDto | None = None
 
 
 class TimelineCreateInput(BaseModel):
@@ -58,6 +93,8 @@ class TimelineUpdateInput(BaseModel):
 
 class WorkspaceTimelineResultDto(BaseModel):
     timeline: TimelineDto | None = None
+    activeTask: WorkspaceActiveTaskDto | None = None
+    saveState: WorkspaceSaveStateDto | None = None
     message: str
 
 

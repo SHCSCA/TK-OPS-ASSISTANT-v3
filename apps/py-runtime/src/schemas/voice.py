@@ -52,6 +52,48 @@ class VoiceTrackSegmentDto(BaseModel):
     regeneration: dict[str, object] | None = None
 
 
+class VoiceTrackVoiceConfigDto(BaseModel):
+    parameterSource: str
+    profileId: str | None = None
+    provider: str | None = None
+    voiceId: str | None = None
+    voiceName: str | None = None
+    locale: str | None = None
+    model: str | None = None
+    speed: float | None = None
+    pitch: int | None = None
+    emotion: str | None = None
+    sourceText: str | None = None
+    sourceLineCount: int | None = None
+    lastOperation: dict[str, object] | None = None
+
+
+class VoiceTrackTaskDto(BaseModel):
+    id: str
+    kind: str
+    taskType: str
+    projectId: str | None = None
+    ownerRef: dict[str, object] | None = None
+    label: str | None = None
+    message: str
+    status: str
+    progress: int
+    createdAt: str
+    updatedAt: str
+
+
+class VoiceTrackVersionDto(BaseModel):
+    revision: int
+    updatedAt: str
+
+
+class VoiceTrackPreviewDto(BaseModel):
+    status: str
+    resourceId: str | None = None
+    filePath: str | None = None
+    message: str
+
+
 class VoiceTrackDto(BaseModel):
     id: str
     projectId: str
@@ -62,7 +104,12 @@ class VoiceTrackDto(BaseModel):
     filePath: str | None = None
     segments: list[VoiceTrackSegmentDto]
     status: str
+    version: VoiceTrackVersionDto
+    config: VoiceTrackVoiceConfigDto
+    preview: VoiceTrackPreviewDto
+    activeTask: VoiceTrackTaskDto | None = None
     createdAt: str
+    updatedAt: str
 
 
 class VoiceTrackGenerateInput(BaseModel):

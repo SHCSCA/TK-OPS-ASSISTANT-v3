@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
@@ -28,6 +28,12 @@ def create_project(payload: CreateProjectInput, request: Request) -> dict[str, o
         description=payload.description,
     )
     return ok_response(project.model_dump(mode='json'))
+
+
+@router.delete('/projects/{project_id}')
+def delete_project(project_id: str, request: Request) -> dict[str, object]:
+    result = get_dashboard_service(request).delete_project(project_id)
+    return ok_response(result.model_dump(mode='json'))
 
 
 @router.get('/context')

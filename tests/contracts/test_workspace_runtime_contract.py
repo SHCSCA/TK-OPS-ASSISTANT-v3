@@ -34,6 +34,37 @@ def _assert_ok(payload: dict[str, object]) -> object:
     return payload["data"]
 
 
+def _assert_timeline_shape(timeline: dict[str, object]) -> None:
+    assert set(timeline) == {
+        "id",
+        "projectId",
+        "name",
+        "status",
+        "durationSeconds",
+        "source",
+        "tracks",
+        "createdAt",
+        "updatedAt",
+        "version",
+        "assetReferenceStatus",
+    }
+    assert set(timeline["version"]) == {
+        "versionToken",
+        "updatedAt",
+        "trackCount",
+        "clipCount",
+    }
+    assert set(timeline["assetReferenceStatus"]) == {
+        "totalClips",
+        "readyClips",
+        "processingClips",
+        "failedClips",
+        "missingReferenceClips",
+        "manualClips",
+        "referencedClips",
+    }
+
+
 @pytest.fixture
 def runtime_client(tmp_path):
     engine = create_runtime_engine(tmp_path / "runtime.db")
@@ -145,8 +176,10 @@ def test_workspace_timeline_contract_returns_empty_state(
 
     assert response.status_code == 200
     data = _assert_ok(response.json())
-    assert set(data) == {"timeline", "message"}
+    assert set(data) == {"timeline", "activeTask", "saveState", "message"}
     assert data["timeline"] is None
+    assert data["activeTask"] is None
+    assert data["saveState"] is None
     assert "没有时间线" in data["message"]
 
 
@@ -192,19 +225,21 @@ def test_workspace_timeline_contract_creates_and_updates_draft(
 
     assert update_response.status_code == 200
     update_data = _assert_ok(update_response.json())
+    assert set(update_data) == {"timeline", "activeTask", "saveState", "message"}
     timeline = update_data["timeline"]
-    assert set(timeline) == {
-        "id",
-        "projectId",
-        "name",
-        "status",
-        "durationSeconds",
-        "source",
-        "tracks",
-        "createdAt",
-        "updatedAt",
-    }
+    _assert_timeline_shape(timeline)
     assert timeline["projectId"] == project_id
+    assert timeline["version"]["trackCount"] == 1
+    assert timeline["version"]["clipCount"] == 1
+    assert timeline["assetReferenceStatus"] == {
+        "totalClips": 1,
+        "readyClips": 1,
+        "processingClips": 0,
+        "failedClips": 0,
+        "missingReferenceClips": 0,
+        "manualClips": 1,
+        "referencedClips": 0,
+    }
     assert timeline["tracks"][0]["clips"][0]["prompt"] == "开场钩子"
     assert timeline["tracks"][0]["clips"][0]["resolution"]["width"] == 1920
     assert timeline["tracks"][0]["clips"][0]["editableFields"] == [
@@ -213,6 +248,9 @@ def test_workspace_timeline_contract_creates_and_updates_draft(
         "durationMs",
         "prompt",
     ]
+    assert update_data["activeTask"] is None
+    assert update_data["saveState"]["saved"] is True
+    assert update_data["saveState"]["source"] == "save"
 
 
 def test_workspace_clip_contract_returns_detail_with_metadata(
@@ -241,12 +279,14 @@ def test_workspace_clip_contract_moves_clip_atomically(
     )
 
     assert response.status_code == 200
-    timeline = _assert_ok(response.json())["timeline"]
+    data = _assert_ok(response.json())
+    timeline = data["timeline"]
     moved_clip = timeline["tracks"][1]["clips"][0]
     assert moved_clip["id"] == clip_id
     assert moved_clip["trackId"] == "track-audio"
     assert moved_clip["startMs"] == 5200
     assert timeline["tracks"][0]["clips"] == []
+    assert data["saveState"]["source"] == "clip_move"
 
 
 def test_workspace_clip_contract_trims_clip_atomically(
@@ -265,12 +305,14 @@ def test_workspace_clip_contract_trims_clip_atomically(
     )
 
     assert response.status_code == 200
-    timeline = _assert_ok(response.json())["timeline"]
+    data = _assert_ok(response.json())
+    timeline = data["timeline"]
     clip = timeline["tracks"][0]["clips"][0]
     assert clip["startMs"] == 900
     assert clip["durationMs"] == 3000
     assert clip["inPointMs"] == 120
     assert clip["outPointMs"] == 3120
+    assert data["saveState"]["source"] == "clip_trim"
 
 
 def test_workspace_clip_contract_replaces_clip_atomically(
@@ -291,13 +333,24 @@ def test_workspace_clip_contract_replaces_clip_atomically(
     )
 
     assert response.status_code == 200
-    timeline = _assert_ok(response.json())["timeline"]
+    data = _assert_ok(response.json())
+    timeline = data["timeline"]
     clip = timeline["tracks"][0]["clips"][0]
     assert clip["sourceType"] == "voice_track"
     assert clip["sourceId"] == "voice-track-1"
     assert clip["label"] == "新镜头"
     assert clip["prompt"] == "请使用更稳定的语气"
     assert clip["resolution"]["height"] == 720
+    assert timeline["assetReferenceStatus"] == {
+        "totalClips": 1,
+        "readyClips": 1,
+        "processingClips": 0,
+        "failedClips": 0,
+        "missingReferenceClips": 0,
+        "manualClips": 0,
+        "referencedClips": 1,
+    }
+    assert data["saveState"]["source"] == "clip_replace"
 
 
 def test_workspace_timeline_preview_returns_local_summary_from_real_timeline(

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,11 +22,73 @@ class FfprobeResult:
     file_size_bytes: int | None
 
 
+@dataclass(frozen=True, slots=True)
+class FfprobeAvailability:
+    status: str
+    path: str | None
+    version: str | None
+    error_code: str | None
+    error_message: str | None
+
+
+def get_ffprobe_availability() -> FfprobeAvailability:
+    command = _resolve_ffprobe_command()
+    if command is None:
+        return FfprobeAvailability(
+            status="unavailable",
+            path=None,
+            version=None,
+            error_code="media.ffprobe_unavailable",
+            error_message="FFprobe 未安装或未配置到可执行路径。",
+        )
+
+    try:
+        result = subprocess.run(
+            [command, "-version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except Exception:
+        log.exception("FFprobe version probe failed.")
+        return FfprobeAvailability(
+            status="incompatible",
+            path=command,
+            version=None,
+            error_code="media.ffprobe_incompatible",
+            error_message="FFprobe 无法正常执行，请检查路径配置或二进制兼容性。",
+        )
+
+    if result.returncode != 0:
+        return FfprobeAvailability(
+            status="incompatible",
+            path=command,
+            version=None,
+            error_code="media.ffprobe_incompatible",
+            error_message="FFprobe 返回异常状态码，请检查本地安装是否完整。",
+        )
+
+    first_line = next((line.strip() for line in result.stdout.splitlines() if line.strip()), "")
+    return FfprobeAvailability(
+        status="ready",
+        path=command,
+        version=first_line or None,
+        error_code=None,
+        error_message=None,
+    )
+
+
 def probe_video(file_path: Path) -> FfprobeResult | None:
+    command = _resolve_ffprobe_command()
+    if command is None:
+        log.warning("FFprobe is not available on PATH.")
+        return None
+
     try:
         result = subprocess.run(
             [
-                "ffprobe",
+                command,
                 "-v",
                 "quiet",
                 "-print_format",
@@ -73,6 +137,14 @@ def parse_ffprobe_output(raw: dict[str, Any]) -> FfprobeResult:
         codec=(video_stream or {}).get("codec_name"),
         file_size_bytes=_to_int(size_raw),
     )
+
+
+def _resolve_ffprobe_command() -> str | None:
+    configured = os.getenv("TK_OPS_FFPROBE_PATH", "").strip()
+    if configured:
+        return configured
+    detected = shutil.which("ffprobe")
+    return detected or None
 
 
 def _parse_frame_rate(value: object) -> float | None:

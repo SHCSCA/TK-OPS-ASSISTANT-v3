@@ -114,16 +114,29 @@
                <div v-if="versions.length === 0" class="empty-text">当前项目还没有脚本版本。</div>
                <div v-else class="version-list">
                  <transition-group name="list-fade">
-                   <button v-for="version in versions" :key="version.revision" 
+                   <div v-for="version in versions" :key="version.revision" 
                      class="version-item" 
                      :class="{ 'is-active': selectedRevision === version.revision }"
                      @click="selectedRevision = version.revision">
                       <div class="v-main">
                         <strong>修订 {{ version.revision }}</strong>
-                        <span class="v-time">{{ formatDateTime(version.createdAt) }}</span>
+                        <div class="v-actions">
+                           <Button 
+                             v-if="currentVersion?.revision !== version.revision" 
+                             variant="secondary" 
+                             size="xs" 
+                             :disabled="isBusy"
+                             @click.stop="handleAdopt(version.revision)">
+                             采用
+                           </Button>
+                           <Chip v-else variant="success" size="sm">当前采用</Chip>
+                        </div>
                       </div>
-                      <div class="v-sub">{{ version.source }} · {{ version.provider ?? "手动" }}</div>
-                   </button>
+                      <div class="v-meta">
+                        <span class="v-time">{{ formatDateTime(version.createdAt) }}</span>
+                        <span class="v-source">{{ version.source }} · {{ version.provider ?? "手动" }}</span>
+                      </div>
+                   </div>
                  </transition-group>
                </div>
             </div>
@@ -302,6 +315,11 @@ onBeforeUnmount(() => {
 async function handleSave(): Promise<void> { await scriptStore.save(content.value); }
 async function handleGenerate(): Promise<void> { await scriptStore.generate(topic.value.trim()); }
 async function handleRewrite(): Promise<void> { await scriptStore.rewrite(instructions.value.trim()); }
+
+async function handleAdopt(revision: number) {
+  if (!confirm(`确定要采用「修订 ${revision}」作为当前项目的主脚本吗？`)) return;
+  await scriptStore.adoptVersion(revision);
+}
 
 async function handleCopyContent() {
   if (!content.value) return;

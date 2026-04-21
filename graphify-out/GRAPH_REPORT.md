@@ -1,12 +1,12 @@
-# Graph Report - C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3  (2026-04-20)
+# Graph Report - C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3  (2026-04-21)
 
 ## Corpus Check
-- 393 files · ~923,815 words
+- 405 files · ~954,816 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2400 nodes · 5870 edges · 182 communities detected
-- Extraction: 59% EXTRACTED · 41% INFERRED · 0% AMBIGUOUS · INFERRED: 2410 edges (avg confidence: 0.73)
+- 2767 nodes · 7236 edges · 182 communities detected
+- Extraction: 59% EXTRACTED · 41% INFERRED · 0% AMBIGUOUS · INFERRED: 2987 edges (avg confidence: 0.72)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -194,166 +194,166 @@
 - [[_COMMUNITY_Community 181|Community 181]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `ok_response()` - 163 edges
+1. `ok_response()` - 175 edges
 2. `requestRuntime()` - 149 edges
-3. `VoiceService` - 56 edges
-4. `create_app()` - 55 edges
-5. `UnavailableLicenseActivationAdapter` - 51 edges
-6. `WorkspaceService` - 48 edges
-7. `AccountService` - 46 edges
-8. `AssetService` - 46 edges
-9. `SettingsService` - 46 edges
-10. `VideoDeconstructionService` - 43 edges
+3. `VoiceService` - 74 edges
+4. `PublishingService` - 60 edges
+5. `WorkspaceService` - 60 edges
+6. `AssetService` - 59 edges
+7. `DeviceWorkspaceService` - 58 edges
+8. `SubtitleService` - 58 edges
+9. `VideoDeconstructionService` - 58 edges
+10. `AutomationService` - 56 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `createRouteAwareFetch()` --calls--> `createVoiceFetch()`  [INFERRED]
-  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\runtime-helpers.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\voice-studio-store.spec.ts
-- `now()` --calls--> `_utc_now()`  [INFERRED]
-  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\voice-studio-store.spec.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\devtools\seed_data.py
 - `now()` --calls--> `_utc_now()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\voice-studio-store.spec.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\services\video_deconstruction_service.py
 - `utc_now_iso()` --calls--> `test_utc_now_iso_uses_z_suffix()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\common\time.py → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\tests\runtime\test_runtime_time_helpers.py
 - `handleCopyContent()` --calls--> `error()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\pages\scripts\ScriptTopicCenterPage.vue → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\scripts\run-runtime-dev.mjs
+- `getErrorMessage()` --calls--> `toRuntimeErrorMessage()`  [INFERRED]
+  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\stores\account-management.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\stores\runtime-store-helpers.ts
+- `getErrorMessage()` --calls--> `toRuntimeErrorMessage()`  [INFERRED]
+  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\stores\asset-library.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\stores\runtime-store-helpers.ts
 
 ## Communities
 
 ### Community 0 - "Community 0"
 Cohesion: 0.02
-Nodes (108): AIJobRepository, StoredAIJobRecord, _utc_now(), AITextGenerationService, GeneratedTextResult, _render_template(), CreateProjectInput, CurrentProjectContextDto (+100 more)
+Nodes (107): AccountRepository, _utc_now(), AssetRepository, _utc_now(), runtime_app(), create_app(), PublishingRepository, RenderRepository (+99 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.02
-Nodes (85): AccountRepository, _utc_now(), runtime_app(), error_response(), create_app(), PromptTemplateRepository, StoredPromptTemplate, _utc_now() (+77 more)
+Cohesion: 0.03
+Nodes (98): CreateProjectInput, CurrentProjectContextDto, DashboardCurrentActionDto, DashboardPendingItemDto, DashboardRiskItemDto, DashboardRiskSummaryDto, DashboardSummaryDto, DashboardTaskDto (+90 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.03
-Nodes (160): add_group_member(), create_account(), create_account_group(), delete_account(), delete_account_group(), get_account(), list_account_groups(), list_accounts() (+152 more)
+Nodes (162): add_group_member(), create_account(), create_account_group(), delete_account(), delete_account_group(), get_account(), list_account_groups(), list_accounts() (+154 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.03
-Nodes (56): AccountService, _mask_sensitive_json(), _mask_value(), _utc_now(), AccountBindingDto, AccountBindingUpsertInput, AccountCreateInput, AccountDto (+48 more)
-
-### Community 4 - "Community 4"
 Cohesion: 0.02
 Nodes (156): activateLicense(), adoptReviewSuggestion(), alignSubtitleTrack(), analyzeReviewProject(), applyReviewSuggestionToScript(), applyVideoExtractionToProject(), batchDeleteAssets(), batchMoveAssetsToGroup() (+148 more)
 
+### Community 4 - "Community 4"
+Cohesion: 0.03
+Nodes (83): TTSRequest, TTSResponse, build_parser(), main(), build_parser(), copy_to_clipboard(), main(), resolve_machine_code() (+75 more)
+
 ### Community 5 - "Community 5"
 Cohesion: 0.03
-Nodes (96): Account, AccountGroup, AccountGroupMember, 更新 updated_at（用于 refresh-stats V1 占位）, AIProviderSetting, AIJobRecord, Asset, AssetGroup (+88 more)
+Nodes (94): ABC, AIJobRepository, StoredAIJobRecord, _utc_now(), AITextGenerationService, GeneratedTextResult, _render_template(), AnthropicMessagesTextGenerationAdapter (+86 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.04
-Nodes (60): TTSRequest, TTSResponse, BootstrapDirectoryItemDto, BootstrapDirectoryReportDto, RuntimeSelfCheckItemDto, RuntimeSelfCheckReportDto, BootstrapService, _check_port_listening() (+52 more)
+Nodes (54): AccountService, _is_auth_expired(), _mask_sensitive_json(), _mask_value(), _utc_now(), AccountBindingDto, AccountBindingSummaryDto, AccountBindingUpsertInput (+46 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.04
-Nodes (60): add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad, upgrade(), if(), BaseModel, load_runtime_config(), _load_runtime_version(), RuntimeConfig, activate_license() (+52 more)
+Nodes (54): if(), handleReload(), BaseModel, BootstrapActionDto, BootstrapBlockerDto, BootstrapDirectoryItemDto, BootstrapDirectoryReportDto, BootstrapReadinessItemDto (+46 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.05
-Nodes (53): ABC, AnthropicMessagesTextGenerationAdapter, TextGenerationAdapter, TextGenerationRequest, TextGenerationResponse, TTSAdapter, CohereChatTextGenerationAdapter, ProviderHTTPException (+45 more)
+Cohesion: 0.06
+Nodes (60): AICapabilityConfigDto, AICapabilityConfigListInput, AICapabilityModelOptionDto, AICapabilitySettingsDto, AICapabilitySupportItemDto, AICapabilitySupportMatrixDto, AIModelCatalogItemDto, AIModelCatalogRefreshResultDto (+52 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.06
-Nodes (50): AICapabilityConfigDto, AICapabilityConfigListInput, AICapabilityModelOptionDto, AICapabilitySettingsDto, AICapabilitySupportItemDto, AICapabilitySupportMatrixDto, AIModelCatalogItemDto, AIModelCatalogRefreshResultDto (+42 more)
+Cohesion: 0.04
+Nodes (58): Account, AccountGroup, AccountGroupMember, 更新 updated_at（用于 refresh-stats V1 占位）, AICapabilityConfig, AIProviderHealth, AIProviderModel, AIProviderSetting (+50 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.04
-Nodes (43): merge runtime migration heads  Revision ID: 0006_merge_runtime_heads Revises:, upgrade(), _database_url(), run_migrations_offline(), run_migrations_online(), FfprobeResult, parse_ffprobe_output(), _parse_frame_rate() (+35 more)
+Nodes (66): add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad, upgrade(), merge runtime migration heads  Revision ID: 0006_merge_runtime_heads Revises:, upgrade(), add ai provider models and browser instances  Revision ID: 0007_add_ai_provider_, upgrade(), create_runtime_engine(), create_session_factory() (+58 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.08
-Nodes (31): runtime_client(), _create_timeline(), _make_workspace_service(), test_create_project_timeline_stores_empty_draft(), test_fetch_clip_returns_detail_with_metadata(), test_get_project_timeline_returns_empty_state(), test_move_clip_updates_timeline_atomically(), test_precheck_returns_unavailable_when_helper_missing() (+23 more)
+Cohesion: 0.06
+Nodes (31): AutomationTaskActionDto, AutomationTaskCreateInput, AutomationTaskDto, AutomationTaskLatestResultDto, AutomationTaskQueueDto, AutomationTaskRetryDto, AutomationTaskRuleDto, AutomationTaskRuleInput (+23 more)
 
 ### Community 12 - "Community 12"
-Cohesion: 0.08
-Nodes (25): AssetRepository, _utc_now(), AssetService, _utc_now(), AssetCreateInput, AssetDto, AssetGroupCreateInput, AssetGroupDto (+17 more)
+Cohesion: 0.06
+Nodes (38): generate_uuid(), test_generate_uuid_returns_32_char_hex(), runtime_client(), _create_timeline(), _make_workspace_service(), test_create_project_timeline_stores_empty_draft(), test_fetch_clip_returns_detail_with_metadata(), test_get_project_timeline_exposes_active_task_feedback() (+30 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.07
-Nodes (34): buildAssetDetailContext(), buildBindingDetailContext(), buildContextualDetailContext(), buildLogDetailContext(), buildSettingsDetailContext(), mapRuntimeTone(), syncDetailContext(), buildAssetDetailContext() (+26 more)
+Cohesion: 0.05
+Nodes (38): create_app(), UnavailableLicenseActivationAdapter, ImportedVideo, ImportedVideoRepository, ActivationResult, LicenseActivationAdapter, LicenseActivationError, LicenseActivationUnavailableError (+30 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.11
-Nodes (18): _BuiltinSubtitleStyleTemplate, SubtitleService, SubtitleExportDto, SubtitleExportInput, SubtitleSegmentDto, SubtitleStyleDto, SubtitleStyleTemplateDto, SubtitleTrackAlignInput (+10 more)
+Cohesion: 0.07
+Nodes (27): formatDateTime(), _BuiltinSubtitleStyleTemplate, SubtitleService, SubtitleAlignmentDiffSummaryDto, SubtitleAlignmentDto, SubtitleExportDto, SubtitleExportInput, SubtitleSegmentDto (+19 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.06
-Nodes (22): mountApp(), createWorkspaceFetch(), now(), timeline(), createAppRouter(), createRoutes(), createRouteAwareFetch(), mountApp() (+14 more)
+Cohesion: 0.08
+Nodes (40): AssetService, _utc_now(), AssetAvailabilityDto, AssetCreateInput, AssetDto, AssetGroupCreateInput, AssetGroupDto, AssetGroupUpdateInput (+32 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.1
-Nodes (12): AutomationTaskCreateInput, AutomationTaskDto, AutomationTaskRuleDto, AutomationTaskRuleInput, AutomationTaskRunDto, AutomationTaskUpdateInput, AutomationRepository, AutomationService (+4 more)
+Cohesion: 0.08
+Nodes (16): ApplyVideoExtractionResultDto, ImportedVideoDto, ImportVideoInput, StoredVideoStageRun, _utc_now(), VideoDeconstructionRepository, _import_stage_state(), _ResolvedStageState (+8 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.12
-Nodes (17): ExportProfile, RenderService, CancelRenderResultDto, DiskUsageSnapshotDto, ExportProfileCreateInput, ExportProfileDto, RenderResourceUsageDto, RenderTaskCreateInput (+9 more)
+Cohesion: 0.09
+Nodes (29): PrecheckConflictDto, PrecheckItemResult, PrecheckResultDto, PublishBindingSummaryDto, PublishCalendarDto, PublishCalendarItemDto, PublishPlanCreateInput, PublishPlanDto (+21 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.08
-Nodes (20): configure_logging(), JsonLogFormatter, _resolve_level(), error(), formatDateTime(), handleCopyContent(), handleClose(), handleMinimize() (+12 more)
+Cohesion: 0.09
+Nodes (25): RuntimeHTTPException, ExportProfile, RenderService, CancelRenderResultDto, DiskUsageSnapshotDto, ExportProfileCreateInput, ExportProfileDto, RenderFailureDto (+17 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.12
-Nodes (12): GlobalSearchResultDto, search_global(), SearchAccountResultDto, SearchAssetResultDto, SearchProjectResultDto, SearchScriptResultDto, SearchTaskResultDto, SearchWorkspaceResultDto (+4 more)
+Cohesion: 0.06
+Nodes (35): FfprobeAvailability, FfprobeResult, get_ffprobe_availability(), parse_ffprobe_output(), _parse_frame_rate(), probe_video(), _resolve_ffprobe_command(), _to_float() (+27 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.12
-Nodes (22): build_parser(), main(), build_parser(), copy_to_clipboard(), main(), resolve_machine_code(), resolve_private_key_path(), normalize_machine_code() (+14 more)
+Cohesion: 0.07
+Nodes (33): buildAssetDetailContext(), buildBindingDetailContext(), buildContextualDetailContext(), buildLogDetailContext(), buildSettingsDetailContext(), mapRuntimeTone(), syncDetailContext(), buildAssetDetailContext() (+25 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.2
-Nodes (18): attachCommonChildHandlers(), canRun(), ensureNpmSuccess(), ensurePathExists(), ensurePortAvailable(), ensureSuccess(), info(), isPortAvailable() (+10 more)
+Cohesion: 0.09
+Nodes (31): attachCommonChildHandlers(), canRun(), ensureNpmSuccess(), ensurePathExists(), ensurePortAvailable(), ensureSuccess(), info(), isPortAvailable() (+23 more)
 
 ### Community 22 - "Community 22"
+Cohesion: 0.06
+Nodes (23): mountApp(), createWorkspaceFetch(), now(), timeline(), createAppRouter(), createRoutes(), createRouteAwareFetch(), mountApp() (+15 more)
+
+### Community 23 - "Community 23"
+Cohesion: 0.14
+Nodes (10): GlobalSearchResultDto, search_global(), SearchAccountResultDto, SearchAssetResultDto, SearchProjectResultDto, SearchScriptResultDto, SearchTaskResultDto, SearchWorkspaceResultDto (+2 more)
+
+### Community 24 - "Community 24"
 Cohesion: 0.11
 Nodes (9): getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), toRuntimeErrorMessage() (+1 more)
 
-### Community 23 - "Community 23"
-Cohesion: 0.18
-Nodes (9): PromptTemplateService, create_prompt_template(), delete_prompt_template(), get_prompt_template_service(), list_prompt_templates(), PromptTemplateDto, PromptTemplateInput, PromptTemplateUpdateInput (+1 more)
-
-### Community 24 - "Community 24"
+### Community 25 - "Community 25"
 Cohesion: 0.38
 Nodes (13): account(), accountGroup(), asset(), assetReference(), automationRun(), automationTask(), now(), projectSummary() (+5 more)
 
-### Community 25 - "Community 25"
-Cohesion: 0.37
-Nodes (13): _assert_ok(), _create_workspace_timeline(), _seed_timeline_with_clip(), test_workspace_ai_command_returns_real_taskbus_task(), test_workspace_clip_contract_moves_clip_atomically(), test_workspace_clip_contract_replaces_clip_atomically(), test_workspace_clip_contract_returns_detail_with_metadata(), test_workspace_clip_contract_trims_clip_atomically() (+5 more)
-
 ### Community 26 - "Community 26"
+Cohesion: 0.24
+Nodes (7): configure_logging(), JsonLogFormatter, _resolve_level(), handleClose(), handleMinimize(), handleToggleMaximize(), handleWindowError()
+
+### Community 27 - "Community 27"
 Cohesion: 0.32
 Nodes (11): account(), accountGroup(), asset(), assetReference(), automationRun(), automationTask(), now(), publishPlan() (+3 more)
 
-### Community 27 - "Community 27"
+### Community 28 - "Community 28"
 Cohesion: 0.33
 Nodes (6): buildTaskInfo(), inferTaskProgress(), inferTaskStatus(), inferTaskType(), resolveRuntimeBaseUrl(), resolveWebSocketUrl()
 
-### Community 28 - "Community 28"
+### Community 29 - "Community 29"
 Cohesion: 0.25
 Nodes (0): 
 
-### Community 29 - "Community 29"
+### Community 30 - "Community 30"
 Cohesion: 0.5
 Nodes (7): main(), readText(), resolveRootVersion(), syncCargoVersion(), syncPyprojectVersion(), syncTauriVersion(), writeTextIfChanged()
 
-### Community 30 - "Community 30"
+### Community 31 - "Community 31"
 Cohesion: 0.29
 Nodes (2): formatMs(), sourceTypeLabel()
 
-### Community 31 - "Community 31"
+### Community 32 - "Community 32"
 Cohesion: 0.4
 Nodes (2): assetReference(), now()
 
-### Community 32 - "Community 32"
+### Community 33 - "Community 33"
 Cohesion: 0.6
 Nodes (5): promptTemplate(), sampleResponse(), scriptDocument(), storyboardDocument(), storyboardShot()
-
-### Community 33 - "Community 33"
-Cohesion: 0.4
-Nodes (0): 
 
 ### Community 34 - "Community 34"
 Cohesion: 0.4
@@ -364,44 +364,44 @@ Cohesion: 0.4
 Nodes (0): 
 
 ### Community 36 - "Community 36"
-Cohesion: 0.6
-Nodes (3): deriveStageMessage(), deriveTaskInfoFromVideoEvent(), stageLabel()
+Cohesion: 0.4
+Nodes (0): 
 
 ### Community 37 - "Community 37"
 Cohesion: 0.6
-Nodes (3): accountFixture(), groupFixture(), now()
+Nodes (3): deriveStageMessage(), deriveTaskInfoFromVideoEvent(), stageLabel()
 
 ### Community 38 - "Community 38"
-Cohesion: 0.67
-Nodes (2): now(), workspaceFixture()
+Cohesion: 0.6
+Nodes (3): accountFixture(), groupFixture(), now()
 
 ### Community 39 - "Community 39"
 Cohesion: 0.67
-Nodes (2): now(), voiceTrack()
+Nodes (2): now(), workspaceFixture()
 
 ### Community 40 - "Community 40"
-Cohesion: 0.5
-Nodes (0): 
+Cohesion: 0.67
+Nodes (2): now(), voiceTrack()
 
 ### Community 41 - "Community 41"
 Cohesion: 0.5
-Nodes (1): initial schema  Revision ID: 0001_initial_schema Revises: Create Date: 2026-
+Nodes (0): 
 
 ### Community 42 - "Community 42"
 Cohesion: 0.5
-Nodes (1): add imported videos  Revision ID: 0002_add_imported_videos Revises: 0001_init
+Nodes (1): initial schema  Revision ID: 0001_initial_schema Revises: Create Date: 2026-
 
 ### Community 43 - "Community 43"
 Cohesion: 0.5
-Nodes (1): add prompt templates and video stage runs  Revision ID: 0004_add_prompt_template
+Nodes (1): add imported videos  Revision ID: 0002_add_imported_videos Revises: 0001_init
 
 ### Community 44 - "Community 44"
 Cohesion: 0.5
-Nodes (1): add voice profiles  Revision ID: 0005_add_voice_profiles Revises: 0004_extend
+Nodes (1): add prompt templates and video stage runs  Revision ID: 0004_add_prompt_template
 
 ### Community 45 - "Community 45"
 Cohesion: 0.5
-Nodes (0): 
+Nodes (1): add voice profiles  Revision ID: 0005_add_voice_profiles Revises: 0004_extend
 
 ### Community 46 - "Community 46"
 Cohesion: 0.5
@@ -424,36 +424,36 @@ Cohesion: 1.0
 Nodes (2): insertVariable(), update()
 
 ### Community 51 - "Community 51"
-Cohesion: 1.0
-Nodes (2): now(), workspaceTimeline()
-
-### Community 52 - "Community 52"
 Cohesion: 0.67
 Nodes (0): 
+
+### Community 52 - "Community 52"
+Cohesion: 1.0
+Nodes (2): now(), workspaceTimeline()
 
 ### Community 53 - "Community 53"
 Cohesion: 0.67
 Nodes (0): 
 
 ### Community 54 - "Community 54"
-Cohesion: 1.0
-Nodes (2): assetGroup(), sampleResponse()
+Cohesion: 0.67
+Nodes (0): 
 
 ### Community 55 - "Community 55"
 Cohesion: 1.0
-Nodes (2): now(), subtitleTrack()
+Nodes (2): assetGroup(), sampleResponse()
 
 ### Community 56 - "Community 56"
 Cohesion: 1.0
-Nodes (2): now(), workspaceTimeline()
+Nodes (2): now(), subtitleTrack()
 
 ### Community 57 - "Community 57"
-Cohesion: 0.67
-Nodes (1): 准备重建图谱：过滤 docs 范围，跑 AST，生成 subagent 分片清单。
+Cohesion: 1.0
+Nodes (2): now(), workspaceTimeline()
 
 ### Community 58 - "Community 58"
 Cohesion: 0.67
-Nodes (0): 
+Nodes (1): 准备重建图谱：过滤 docs 范围，跑 AST，生成 subagent 分片清单。
 
 ### Community 59 - "Community 59"
 Cohesion: 1.0
@@ -948,7 +948,7 @@ Cohesion: 1.0
 Nodes (0): 
 
 ## Knowledge Gaps
-- **11 isolated node(s):** `initial schema  Revision ID: 0001_initial_schema Revises: Create Date: 2026-`, `add imported videos  Revision ID: 0002_add_imported_videos Revises: 0001_init`, `add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad`, `add prompt templates and video stage runs  Revision ID: 0004_add_prompt_template`, `add voice profiles  Revision ID: 0005_add_voice_profiles Revises: 0004_extend` (+6 more)
+- **12 isolated node(s):** `initial schema  Revision ID: 0001_initial_schema Revises: Create Date: 2026-`, `add imported videos  Revision ID: 0002_add_imported_videos Revises: 0001_init`, `add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad`, `add prompt templates and video stage runs  Revision ID: 0004_add_prompt_template`, `add voice profiles  Revision ID: 0005_add_voice_profiles Revises: 0004_extend` (+7 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **Thin community `Community 59`** (2 nodes): `App.vue`, `main.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
@@ -1108,29 +1108,29 @@ Nodes (0):
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 137`** (1 nodes): `ProjectRecentCard.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 138`** (1 nodes): `RenderExportCenterPage.vue`
+- **Thin community `Community 138`** (1 nodes): `PublishingCenterPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 139`** (1 nodes): `ReviewOptimizationCenterPage.vue`
+- **Thin community `Community 139`** (1 nodes): `RenderExportCenterPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 140`** (1 nodes): `AISystemSettingsPage.vue`
+- **Thin community `Community 140`** (1 nodes): `ReviewOptimizationCenterPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 141`** (1 nodes): `types.ts`
+- **Thin community `Community 141`** (1 nodes): `AISystemSettingsPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 142`** (1 nodes): `PromptTemplateList.vue`
+- **Thin community `Community 142`** (1 nodes): `types.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 143`** (1 nodes): `ProviderCard.vue`
+- **Thin community `Community 143`** (1 nodes): `PromptTemplateList.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 144`** (1 nodes): `ProviderConfigDrawer.vue`
+- **Thin community `Community 144`** (1 nodes): `ProviderCard.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 145`** (1 nodes): `ProviderHealthResult.vue`
+- **Thin community `Community 145`** (1 nodes): `ProviderConfigDrawer.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 146`** (1 nodes): `ProviderList.vue`
+- **Thin community `Community 146`** (1 nodes): `ProviderHealthResult.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 147`** (1 nodes): `SettingsNav.vue`
+- **Thin community `Community 147`** (1 nodes): `ProviderList.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 148`** (1 nodes): `VoiceProfileGrid.vue`
+- **Thin community `Community 148`** (1 nodes): `SettingsNav.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 149`** (1 nodes): `VideoDeconstructionCenterPage.vue`
+- **Thin community `Community 149`** (1 nodes): `VoiceProfileGrid.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 150`** (1 nodes): `ai-capability.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
@@ -1200,17 +1200,17 @@ Nodes (0):
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `now()` connect `Community 7` to `Community 0`, `Community 1`, `Community 3`, `Community 5`, `Community 9`, `Community 10`, `Community 17`, `Community 18`, `Community 20`, `Community 21`?**
-  _High betweenness centrality (0.083) - this node is a cross-community bridge._
-- **Why does `create_app()` connect `Community 0` to `Community 1`, `Community 3`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 14`, `Community 16`, `Community 17`, `Community 18`, `Community 19`, `Community 23`?**
-  _High betweenness centrality (0.078) - this node is a cross-community bridge._
-- **Why does `ok_response()` connect `Community 2` to `Community 0`, `Community 1`, `Community 7`, `Community 9`, `Community 19`, `Community 23`?**
+- **Why does `ok_response()` connect `Community 2` to `Community 1`, `Community 7`, `Community 8`, `Community 13`, `Community 21`, `Community 23`?**
+  _High betweenness centrality (0.073) - this node is a cross-community bridge._
+- **Why does `create_app()` connect `Community 13` to `Community 0`, `Community 1`, `Community 4`, `Community 5`, `Community 6`, `Community 7`, `Community 8`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 14`, `Community 15`, `Community 16`, `Community 17`, `Community 18`, `Community 23`, `Community 26`?**
   _High betweenness centrality (0.071) - this node is a cross-community bridge._
-- **Are the 173 inferred relationships involving `HTTPException` (e.g. with `get_license_service()` and `get_task()`) actually correct?**
-  _`HTTPException` has 173 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 162 inferred relationships involving `ok_response()` (e.g. with `list_account_groups()` and `create_account_group()`) actually correct?**
-  _`ok_response()` has 162 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 141 inferred relationships involving `Exception` (e.g. with `.generate()` and `.generate()`) actually correct?**
-  _`Exception` has 141 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `now()` connect `Community 10` to `Community 0`, `Community 1`, `Community 4`, `Community 5`, `Community 6`, `Community 7`, `Community 8`, `Community 9`, `Community 13`, `Community 14`, `Community 16`, `Community 17`, `Community 18`, `Community 19`, `Community 21`?**
+  _High betweenness centrality (0.056) - this node is a cross-community bridge._
+- **Are the 183 inferred relationships involving `HTTPException` (e.g. with `get_license_service()` and `get_task()`) actually correct?**
+  _`HTTPException` has 183 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 174 inferred relationships involving `ok_response()` (e.g. with `list_account_groups()` and `create_account_group()`) actually correct?**
+  _`ok_response()` has 174 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 155 inferred relationships involving `Exception` (e.g. with `.generate()` and `.generate()`) actually correct?**
+  _`Exception` has 155 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `initial schema  Revision ID: 0001_initial_schema Revises: Create Date: 2026-`, `add imported videos  Revision ID: 0002_add_imported_videos Revises: 0001_init`, `add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad` to the rest of the system?**
-  _11 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _12 weakly-connected nodes found - possible documentation gaps or missing edges._

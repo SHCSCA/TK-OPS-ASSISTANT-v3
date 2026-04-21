@@ -1,8 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
 from schemas.scripts import AIJobRecordDto
+from schemas.tasks import TaskStatus
 
 
 class StoryboardShotDto(BaseModel):
@@ -47,12 +48,33 @@ class StoryboardVersionDto(BaseModel):
     createdAt: str
 
 
+class StoryboardConflictSummaryDto(BaseModel):
+    hasConflict: bool
+    reason: str | None = None
+    currentScriptRevision: int
+    basedOnScriptRevision: int | None = None
+    storyboardRevision: int | None = None
+
+
+class StoryboardLastOperationDto(BaseModel):
+    revision: int
+    source: str
+    createdAt: str
+    aiJobId: str | None = None
+    aiJobStatus: TaskStatus | None = None
+
+
 class StoryboardDocumentDto(BaseModel):
     projectId: str
     basedOnScriptRevision: int
+    currentScriptRevision: int
     currentVersion: StoryboardVersionDto | None
     versions: list[StoryboardVersionDto]
     recentJobs: list[AIJobRecordDto]
+    syncStatus: str
+    conflictSummary: StoryboardConflictSummaryDto
+    latestAiJob: AIJobRecordDto | None = None
+    lastOperation: StoryboardLastOperationDto | None = None
 
 
 class StoryboardTemplateDto(BaseModel):

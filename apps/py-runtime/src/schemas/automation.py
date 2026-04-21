@@ -15,6 +15,44 @@ class AutomationTaskRuleDto(BaseModel):
     config: dict[str, object] = Field(default_factory=dict)
 
 
+class AutomationTaskActionDto(BaseModel):
+    key: str
+    label: str
+
+
+class AutomationTaskSourceDto(BaseModel):
+    kind: str
+    objectId: str | None = None
+    projectId: str | None = None
+    accountId: str | None = None
+    workspaceId: str | None = None
+    label: str | None = None
+
+
+class AutomationTaskQueueDto(BaseModel):
+    status: str
+    inQueue: bool
+    position: int | None = None
+    activeRunId: str | None = None
+    queuedAt: datetime | None = None
+
+
+class AutomationTaskLatestResultDto(BaseModel):
+    runId: str | None = None
+    status: str
+    finishedAt: datetime | None = None
+    summary: str | None = None
+    errorCode: str | None = None
+    errorMessage: str | None = None
+
+
+class AutomationTaskRetryDto(BaseModel):
+    canRetry: bool
+    reason: str | None = None
+    errorCode: str | None = None
+    nextAction: str | None = None
+
+
 class AutomationTaskCreateInput(BaseModel):
     name: str
     type: str
@@ -43,6 +81,10 @@ class AutomationTaskDto(BaseModel):
     run_count: int
     rule: AutomationTaskRuleDto | None = None
     config_json: str | None = None
+    source: AutomationTaskSourceDto
+    queue: AutomationTaskQueueDto
+    latestResult: AutomationTaskLatestResultDto
+    retry: AutomationTaskRetryDto
     created_at: datetime
     updated_at: datetime
 
@@ -54,6 +96,11 @@ class AutomationTaskRunDto(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     log_text: str | None = None
+    resultSummary: str | None = None
+    errorCode: str | None = None
+    errorMessage: str | None = None
+    retryable: bool = False
+    nextAction: str | None = None
     created_at: datetime
 
 
@@ -61,4 +108,8 @@ class TriggerTaskResultDto(BaseModel):
     task_id: str
     run_id: str
     status: str
+    queueStatus: str
+    queuePosition: int | None = None
+    activeRunId: str
+    nextAction: str | None = None
     message: str

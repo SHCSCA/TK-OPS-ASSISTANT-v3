@@ -113,6 +113,8 @@ def test_get_project_timeline_returns_empty_state(tmp_path: Path) -> None:
     result = service.get_project_timeline("project-workspace")
 
     assert result.timeline is None
+    assert result.activeTask is None
+    assert result.saveState is None
     assert "没有时间线" in result.message
 
 
@@ -129,6 +131,15 @@ def test_create_project_timeline_stores_empty_draft(tmp_path: Path) -> None:
     assert result.timeline.status == "draft"
     assert result.timeline.source == "manual"
     assert result.timeline.tracks == []
+    assert result.timeline.version is not None
+    assert result.timeline.version.trackCount == 0
+    assert result.timeline.version.clipCount == 0
+    assert result.timeline.assetReferenceStatus is not None
+    assert result.timeline.assetReferenceStatus.totalClips == 0
+    assert result.activeTask is None
+    assert result.saveState is not None
+    assert result.saveState.saved is True
+    assert result.saveState.source == "create"
 
 
 def test_update_timeline_persists_clip_metadata(tmp_path: Path) -> None:
@@ -151,6 +162,14 @@ def test_update_timeline_persists_clip_metadata(tmp_path: Path) -> None:
     assert updated.timeline is not None
     clip = updated.timeline.tracks[0].clips[0]
     assert updated.timeline.durationSeconds == 12
+    assert updated.timeline.version is not None
+    assert updated.timeline.version.trackCount == 2
+    assert updated.timeline.version.clipCount == 1
+    assert updated.timeline.assetReferenceStatus is not None
+    assert updated.timeline.assetReferenceStatus.totalClips == 1
+    assert updated.timeline.assetReferenceStatus.manualClips == 1
+    assert updated.saveState is not None
+    assert updated.saveState.source == "save"
     assert clip.label == "开场镜头"
     assert clip.prompt == "开场钩子"
     assert clip.resolution is not None
@@ -160,6 +179,8 @@ def test_update_timeline_persists_clip_metadata(tmp_path: Path) -> None:
     loaded = service.get_project_timeline("project-workspace")
     assert loaded.timeline is not None
     loaded_clip = loaded.timeline.tracks[0].clips[0]
+    assert loaded.saveState is not None
+    assert loaded.saveState.source == "load"
     assert loaded_clip.prompt == "开场钩子"
     assert loaded_clip.resolution is not None
     assert loaded_clip.resolution.height == 1080
@@ -197,6 +218,8 @@ def test_move_clip_updates_timeline_atomically(tmp_path: Path) -> None:
     assert moved_clip.trackId == "track-audio-1"
     assert moved_clip.startMs == 5200
     assert result.timeline.tracks[0].clips == []
+    assert result.saveState is not None
+    assert result.saveState.source == "clip_move"
 
 
 def test_trim_clip_updates_timeline_atomically(tmp_path: Path) -> None:
@@ -219,6 +242,8 @@ def test_trim_clip_updates_timeline_atomically(tmp_path: Path) -> None:
     assert clip.durationMs == 3000
     assert clip.inPointMs == 120
     assert clip.outPointMs == 3120
+    assert result.saveState is not None
+    assert result.saveState.source == "clip_trim"
 
 
 def test_replace_clip_updates_source_metadata(tmp_path: Path) -> None:
@@ -245,26 +270,67 @@ def test_replace_clip_updates_source_metadata(tmp_path: Path) -> None:
     assert clip.prompt == "请使用更稳重的语气"
     assert clip.resolution is not None
     assert clip.resolution.height == 720
+    assert result.timeline.assetReferenceStatus is not None
+    assert result.timeline.assetReferenceStatus.manualClips == 0
+    assert result.timeline.assetReferenceStatus.referencedClips == 1
+    assert result.saveState is not None
+    assert result.saveState.source == "clip_replace"
 
 
-def test_preview_returns_unavailable_when_helper_missing(tmp_path: Path) -> None:
+def test_preview_returns_local_summary_from_real_timeline(tmp_path: Path) -> None:
     service = _make_workspace_service(tmp_path)
     timeline_id = _create_timeline(service)
 
     result = service.fetch_timeline_preview(timeline_id)
 
-    assert result.status == "unavailable"
-    assert "不可用" in result.message
+    assert result.status == "ready"
+    assert "已生成" in result.message
+    assert result.previewUrl is not None
 
 
-def test_precheck_returns_unavailable_when_helper_missing(tmp_path: Path) -> None:
+def test_precheck_returns_ready_for_valid_timeline(tmp_path: Path) -> None:
     service = _make_workspace_service(tmp_path)
     timeline_id = _create_timeline(service)
 
     result = service.precheck_timeline(timeline_id)
 
-    assert result.status == "unavailable"
-    assert "不可用" in result.message
+    assert result.status == "ready"
+    assert result.issues == []
+    assert "通过" in result.message
+
+
+def test_get_project_timeline_exposes_active_task_feedback(
+    tmp_path: Path,
+) -> None:
+    task_manager = TaskManager()
+    service = _make_workspace_service(tmp_path, task_manager=task_manager)
+
+    async def _assert_active_task() -> None:
+        timeline_id = _create_timeline(service)
+
+        async def _long_running_task(progress_callback) -> None:
+            await progress_callback(35, "正在分析时间线。")
+            await asyncio.sleep(0.2)
+
+        task = task_manager.submit(
+            task_type="ai-workspace-command",
+            coro_factory=_long_running_task,
+            project_id="project-workspace",
+        )
+        task.owner_ref = {"kind": "timeline", "id": timeline_id}
+        task.message = "AI 命令已进入任务队列。"
+
+        result = service.get_project_timeline("project-workspace")
+
+        assert result.activeTask is not None
+        assert result.activeTask.id == task.id
+        assert result.activeTask.taskType == "ai-workspace-command"
+        assert result.activeTask.status in {"queued", "running"}
+
+        task_manager.cancel(task.id)
+        await asyncio.sleep(0)
+
+    asyncio.run(_assert_active_task())
 
 
 def test_run_ai_command_returns_real_taskbus_task(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+from schemas.license import LicenseStatusDto
 
 
 def test_initialize_directories_creates_runtime_paths_and_reports_status(
@@ -78,3 +79,43 @@ def test_runtime_selfcheck_warns_when_port_is_not_listening(
     port_item = next(item for item in payload["data"]["items"] if item["key"] == "port")
     assert port_item["status"] == "warning"
     assert port_item["errorCode"] == "runtime.port-not-listening"
+
+
+def test_bootstrap_readiness_reports_license_blocker_and_next_action(
+    runtime_client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        runtime_client.app.state.bootstrap_service._license_service,
+        "get_status",
+        lambda request_id=None: LicenseStatusDto(
+            active=False,
+            restrictedMode=True,
+            machineCode="machine-1",
+            machineBound=False,
+            licenseType="perpetual",
+            maskedCode="",
+            activatedAt=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "services.bootstrap_service._check_port_listening",
+        lambda port: (True, f"端口 {port} 已处于监听状态"),
+    )
+
+    response = runtime_client.get("/api/bootstrap/readiness")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    report = payload["data"]
+    assert report["canContinue"] is False
+    blockers = {item["key"]: item for item in report["blockers"]}
+    assert "license" in blockers
+    assert blockers["license"]["errorCode"] == "license.not_activated"
+    assert blockers["license"]["affectedTarget"] == "许可证"
+    assert blockers["license"]["nextStep"]
+    assert blockers["license"]["action"] == {
+        "key": "open-license-activation",
+        "label": "前往激活",
+    }

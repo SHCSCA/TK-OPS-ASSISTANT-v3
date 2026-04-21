@@ -15,7 +15,7 @@ class SubtitleRepository:
             tracks = session.scalars(
                 select(SubtitleTrack)
                 .where(SubtitleTrack.project_id == project_id)
-                .order_by(SubtitleTrack.created_at.desc())
+                .order_by(SubtitleTrack.updated_at.desc(), SubtitleTrack.created_at.desc())
             ).all()
             session.expunge_all()
             return list(tracks)
@@ -39,17 +39,26 @@ class SubtitleRepository:
         self,
         track_id: str,
         *,
-        segments_json: str,
-        status: str,
-        style_json: str,
+        segments_json: str | None = None,
+        status: str | None = None,
+        style_json: str | None = None,
+        metadata_json: str | None = None,
+        updated_at: str | None = None,
     ) -> SubtitleTrack | None:
         with self._session_factory() as session:
             track = session.get(SubtitleTrack, track_id)
             if track is None:
                 return None
-            track.segments_json = segments_json
-            track.style_json = style_json
-            track.status = status
+            if segments_json is not None:
+                track.segments_json = segments_json
+            if style_json is not None:
+                track.style_json = style_json
+            if metadata_json is not None:
+                track.metadata_json = metadata_json
+            if status is not None:
+                track.status = status
+            if updated_at is not None:
+                track.updated_at = updated_at
             session.commit()
             session.refresh(track)
             session.expunge(track)

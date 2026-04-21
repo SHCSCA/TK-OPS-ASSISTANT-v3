@@ -6,7 +6,7 @@
         <div class="page-header__row">
           <div>
             <h1 class="page-header__title">视频拆解中心</h1>
-            <div class="page-header__subtitle">导入现有视频，建立可拆解的素材基线，获取基础元信息。</div>
+            <div class="page-header__subtitle">导入素材并提取其结构，一键同步至文案中心与分镜规划。</div>
           </div>
           <div class="page-header__actions">
             <Button
@@ -29,8 +29,8 @@
       <div class="video-workspace">
         <div class="video-main">
           <div class="section-header">
-            <h3>项目素材列表</h3>
-            <Chip size="sm">{{ videoImportStore.videos.length }} 个视频</Chip>
+            <h3>项目拆解列表</h3>
+            <Chip size="sm">{{ videoImportStore.videos.length }} 个素材</Chip>
           </div>
 
           <div v-if="videoImportStore.status === 'loading'" class="empty-state">
@@ -60,20 +60,19 @@
                        <h4 :title="video.fileName">{{ video.fileName }}</h4>
                     </div>
                     <Chip :variant="video.status === 'ready' ? 'success' : 'info'" size="sm">
-                       {{ video.status === "ready" ? "元信息就绪" : "已导入" }}
+                       {{ video.status === "ready" ? "解析就绪" : "导入中" }}
                     </Chip>
                   </div>
                   
                   <div class="video-card__metrics">
                     <span class="metric-item"><span class="material-symbols-outlined">schedule</span>{{ formatDuration(video.durationSeconds) }}</span>
-                    <span class="metric-item"><span class="material-symbols-outlined">aspect_ratio</span>{{ formatResolution(video.width, video.height) }}</span>
-                    <span class="metric-item"><span class="material-symbols-outlined">speed</span>{{ formatFrameRate(video.frameRate) }}</span>
                     <span class="metric-item"><span class="material-symbols-outlined">hard_drive</span>{{ formatFileSize(video.fileSizeBytes) }}</span>
                   </div>
 
+                  <!-- 拆解阶段进度 -->
                   <div v-if="taskForVideo(video.id)" class="video-card__task">
                     <div class="task-info">
-                      <span>{{ taskForVideo(video.id)?.message || taskStatusLabel(video.id) }}</span>
+                      <span>{{ taskForVideo(video.id)?.message || "处理中" }}</span>
                       <strong>{{ taskForVideo(video.id)?.progress ?? 0 }}%</strong>
                     </div>
                     <div class="task-progress-bg">
@@ -86,8 +85,27 @@
                     <span>{{ video.errorMessage }}</span>
                   </div>
                 </div>
+                
                 <div class="video-card__footer">
-                   <Button variant="danger" size="sm" @click="videoImportStore.removeVideo(video.id)">删除记录</Button>
+                   <div class="footer-actions">
+                     <Button 
+                       variant="secondary" 
+                       size="sm" 
+                       @click="videoImportStore.removeVideo(video.id)"
+                       :disabled="videoImportStore.status === 'applying'"
+                     >
+                       移除
+                     </Button>
+                     <Button 
+                       variant="brand" 
+                       size="sm" 
+                       @click="handleApplyExtraction(video.id)"
+                       :running="isApplying(video.id)"
+                       :disabled="videoImportStore.status === 'applying' || video.status !== 'ready'"
+                     >
+                       应用至项目
+                     </Button>
+                   </div>
                 </div>
               </Card>
             </transition-group>
@@ -97,18 +115,38 @@
         <aside class="video-rail">
            <Card class="rail-card">
               <div class="rail-card__header">
-                <h3>本轮边界</h3>
+                <h3>项目策划同步</h3>
               </div>
               <div class="rail-card__body">
-                 <p>只做导入与元信息提取。FFprobe 可用时展示时长、分辨率、帧率和编码；不可用时仍保存路径与文件大小，不阻断导入。</p>
+                 <p>点击「应用至项目」后，该素材拆解出的脚本和分镜将覆盖当前项目的策划面板。</p>
+                 
                  <div class="rail-metric">
-                    <span>当前项目</span>
-                    <strong>{{ projectStore.currentProject?.projectName ?? "未选择" }}</strong>
+                    <span>当前脚本版本</span>
+                    <strong>v{{ projectStore.currentProject?.currentScriptVersion ?? 0 }}</strong>
                  </div>
                  <div class="rail-metric">
-                    <span>后续回流</span>
-                    <strong>转写 / 切段 / 重制</strong>
+                    <span>当前分镜版本</span>
+                    <strong>v{{ projectStore.currentProject?.currentStoryboardVersion ?? 0 }}</strong>
                  </div>
+
+                 <div class="sync-hint">
+                    <span class="material-symbols-outlined">info</span>
+                    <p>素材拆解完成后，后端将自动同步转录文本与视觉摘要。</p>
+                 </div>
+              </div>
+           </Card>
+           
+           <Card class="rail-card mt-4">
+              <div class="rail-card__header">
+                <h3>拆解流说明</h3>
+              </div>
+              <div class="rail-card__body">
+                 <ul class="step-list">
+                    <li><span class="step-num">1</span> 导入本地 MP4 素材</li>
+                    <li><span class="step-num">2</span> 自动触发 AI 语音转录</li>
+                    <li><span class="step-num">3</span> 识别视觉转场与分段</li>
+                    <li><span class="step-num">4</span> 提取脚本结构与分镜描述</li>
+                 </ul>
               </div>
            </Card>
         </aside>
@@ -118,7 +156,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
 import AssetPreview from "@/components/assets/AssetPreview.vue";
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
@@ -135,10 +173,8 @@ import Chip from "@/components/ui/Chip/Chip.vue";
 const projectStore = useProjectStore();
 const taskBusStore = useTaskBusStore();
 const videoImportStore = useVideoImportStore();
-const taskBusSnapshot = computed(() => ({
-  tasks: new Map(taskBusStore.tasks),
-  lastEvents: new Map(taskBusStore.lastEvents)
-}));
+
+const activeApplyingVideoId = ref<string | null>(null);
 
 const currentProjectId = computed(() => projectStore.currentProject?.projectId ?? "");
 const videoErrorSummary = computed(() => {
@@ -170,6 +206,22 @@ async function handleImportVideo(): Promise<void> {
   await videoImportStore.importVideoFile(currentProjectId.value, filePath);
 }
 
+async function handleApplyExtraction(videoId: string): Promise<void> {
+  if (!confirm("应用提取结果将覆盖项目当前的脚本和分镜修订版。确定继续吗？")) return;
+  
+  activeApplyingVideoId.value = videoId;
+  try {
+    await videoImportStore.applyExtraction(videoId);
+    // Optional: provide success feedback
+  } finally {
+    activeApplyingVideoId.value = null;
+  }
+}
+
+function isApplying(videoId: string): boolean {
+  return videoImportStore.status === 'applying' && activeApplyingVideoId.value === videoId;
+}
+
 async function pickVideoFilePath(): Promise<string> {
   try {
     const dialogModuleName = "@tauri-apps/plugin-dialog";
@@ -185,26 +237,14 @@ async function pickVideoFilePath(): Promise<string> {
 }
 
 function formatDuration(value: number | null): string {
-  return value === null ? "时长待识别" : `${value} 秒`;
-}
-
-function formatResolution(width: number | null, height: number | null): string {
-  return width && height ? `${width} × ${height}` : "待识别";
+  if (value === null) return "时长待识别";
+  const mins = Math.floor(value / 60);
+  const secs = Math.round(value % 60);
+  return mins > 0 ? `${mins}分${secs}秒` : `${secs}秒`;
 }
 
 function taskForVideo(videoId: string): TaskInfo | undefined {
-  const directTask = taskBusSnapshot.value.tasks.get(videoId);
-  if (directTask) return directTask;
   return videoImportStore.taskForVideo(videoId);
-}
-
-function taskStatusLabel(videoId: string): string {
-  const task = taskForVideo(videoId);
-  if (!task) return "";
-  if (task.status === "failed") return "解析失败";
-  if (task.status === "succeeded") return "解析完成";
-  if (task.status === "cancelled") return "已取消";
-  return "解析中";
 }
 
 function taskProgressStyle(videoId: string): Record<string, string> {
@@ -212,16 +252,11 @@ function taskProgressStyle(videoId: string): Record<string, string> {
   return { width: `${progress}%` };
 }
 
-function formatFrameRate(value: number | null): string {
-  return value === null ? "待识别" : `${value} fps`;
-}
-
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-/** Helper to map ImportedVideo to AssetDto for preview component */
 function mapToAsset(v: ImportedVideo): AssetDto {
   return {
     id: v.id,
@@ -379,10 +414,6 @@ function mapToAsset(v: ImportedVideo): AssetDto {
   padding: 0;
 }
 
-.video-card:active {
-  transform: scale(0.98);
-}
-
 /* List Transitions */
 .video-list-move,
 .video-list-enter-active,
@@ -460,6 +491,9 @@ function mapToAsset(v: ImportedVideo): AssetDto {
   flex-direction: column;
   gap: 6px;
   margin-top: 4px;
+  padding: var(--space-2);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-sm);
 }
 
 .task-info {
@@ -506,8 +540,19 @@ function mapToAsset(v: ImportedVideo): AssetDto {
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--color-border-subtle);
   background: var(--color-bg-canvas);
+}
+
+.footer-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.video-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .rail-card {
@@ -560,18 +605,57 @@ function mapToAsset(v: ImportedVideo): AssetDto {
   color: var(--color-text-primary);
 }
 
-.scroll-area {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-strong) transparent;
+.sync-hint {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: color-mix(in srgb, var(--color-brand-primary) 8%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--color-brand-primary);
 }
 
-.scroll-area::-webkit-scrollbar {
-  width: 4px;
+.sync-hint .material-symbols-outlined {
+  font-size: 18px;
 }
-.scroll-area::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
+
+.sync-hint p {
+  margin: 0;
+  font: var(--font-caption);
+  line-height: 1.4;
+}
+
+.step-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.step-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.step-num {
+  width: 20px;
+  height: 20px;
   border-radius: 99px;
+  background: var(--color-brand-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.mt-4 {
+  margin-top: var(--space-4);
 }
 
 @media (max-width: 1024px) {

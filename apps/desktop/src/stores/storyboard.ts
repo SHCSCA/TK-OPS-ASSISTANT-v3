@@ -4,7 +4,8 @@ import {
   RuntimeRequestError,
   fetchStoryboardDocument,
   generateStoryboardDocument,
-  saveStoryboardDocument
+  saveStoryboardDocument,
+  syncStoryboardFromScript
 } from "@/app/runtime-client";
 import type {
   RuntimeRequestErrorShape,
@@ -51,6 +52,21 @@ export const useStoryboardStore = defineStore("storyboard", {
 
       try {
         this.document = await generateStoryboardDocument(this.projectId);
+        this.status = "ready";
+      } catch (error) {
+        this.applyRuntimeError(error);
+      }
+    },
+    async syncFromScript(): Promise<void> {
+      if (!this.projectId) {
+        return;
+      }
+
+      this.status = "generating"; // Re-use generating status for sync UI feedback
+      this.error = null;
+
+      try {
+        this.document = await syncStoryboardFromScript(this.projectId);
         this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error);

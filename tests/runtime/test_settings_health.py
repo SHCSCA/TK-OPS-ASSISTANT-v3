@@ -60,6 +60,24 @@ def test_settings_diagnostics_export_creates_local_zip(runtime_client: TestClien
         assert "diagnostics.json" in archive.namelist()
 
 
+def test_settings_media_diagnostics_reports_ffprobe_state(runtime_app) -> None:
+    client = TestClient(runtime_app)
+
+    response = client.get("/api/settings/diagnostics/media")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert set(payload["data"]) == {"ffprobe", "checkedAt"}
+    assert set(payload["data"]["ffprobe"]) == {
+        "status",
+        "path",
+        "version",
+        "errorCode",
+        "errorMessage",
+    }
+
+
 def test_settings_health_allows_desktop_origins(runtime_client: TestClient) -> None:
     browser_response = runtime_client.get(
         "/api/settings/health",

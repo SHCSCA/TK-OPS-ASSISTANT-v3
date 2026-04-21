@@ -2,6 +2,33 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+class AssetSourceInfoDto(BaseModel):
+    source: str
+    projectId: str | None = None
+    groupId: str | None = None
+    filePath: str | None = None
+    metadataSummary: dict[str, object] | None = None
+
+
+class AssetAvailabilityDto(BaseModel):
+    status: str
+    errorCode: str | None = None
+    errorMessage: str | None = None
+    nextAction: str | None = None
+
+
+class AssetReferenceSummaryDto(BaseModel):
+    total: int
+    referenceTypes: list[str]
+    blockingDelete: bool
+
+
+class AssetThumbnailStatusDto(BaseModel):
+    status: str
+    path: str | None = None
+    generatedAt: str | None = None
+
+
 
 class AssetCreateInput(BaseModel):
     name: str
@@ -48,6 +75,10 @@ class AssetDto(BaseModel):
     tags: str | None = None
     projectId: str | None = None
     metadataJson: str | None = None
+    sourceInfo: AssetSourceInfoDto
+    availability: AssetAvailabilityDto
+    referenceSummary: AssetReferenceSummaryDto
+    thumbnailStatus: AssetThumbnailStatusDto
     createdAt: str
     updatedAt: str
 

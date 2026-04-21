@@ -53,6 +53,7 @@ class VideoImportService:
 
             return process_video_import_task(
                 video_id=video_id,
+                task_id=video_id,
                 file_path=str(path),
                 repository=self._repository,
                 stage_repository=self._stage_repository,
@@ -60,7 +61,7 @@ class VideoImportService:
             )
 
         try:
-            self._task_manager.submit(
+            task = self._task_manager.submit(
                 task_type="video_import",
                 coro_factory=create_import_task,
                 project_id=project_id,
@@ -68,6 +69,15 @@ class VideoImportService:
             )
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+        task.owner_ref = {
+            "kind": "video-stage",
+            "id": f"{video_id}:import",
+            "videoId": video_id,
+            "stageId": "import",
+        }
+        task.label = "视频拆解：导入"
+        task.message = "导入阶段任务已进入队列。"
 
         return _to_dict(saved_video)
 

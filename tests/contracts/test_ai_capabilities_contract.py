@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
@@ -162,3 +162,74 @@ def test_unknown_ai_provider_uses_chinese_error_envelope(
     assert payload['ok'] is False
     assert payload['error'] == '未找到 AI Provider。'
     assert payload['requestId']
+
+def test_ai_provider_health_aggregate_contract_returns_expected_shape(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/ai-providers/health')
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {'ok', 'data'}
+    assert payload['ok'] is True
+    assert set(payload['data']) == {'providers', 'refreshedAt'}
+    assert payload['data']['refreshedAt'] is None
+    assert len(payload['data']['providers']) >= 10
+    assert set(payload['data']['providers'][0]) == {
+        'provider',
+        'label',
+        'readiness',
+        'lastCheckedAt',
+        'latencyMs',
+        'errorCode',
+        'errorMessage',
+    }
+
+
+def test_ai_provider_model_upsert_contract_returns_write_receipt_and_model_shape(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.put(
+        '/api/ai-providers/openai/models/contract-writer',
+        json={
+            'displayName': 'Contract Writer',
+            'capabilityKinds': ['text_generation'],
+            'inputModalities': ['text'],
+            'outputModalities': ['text'],
+            'contextWindow': 32000,
+            'defaultFor': ['script_generation'],
+            'enabled': True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {'ok', 'data'}
+    assert payload['ok'] is True
+    assert set(payload['data']) == {
+        'saved',
+        'wasUpsert',
+        'updatedAt',
+        'versionOrRevision',
+        'objectSummary',
+        'model',
+    }
+    assert payload['data']['saved'] is True
+    assert payload['data']['wasUpsert'] is False
+    assert payload['data']['objectSummary'] == {
+        'provider': 'openai',
+        'modelId': 'contract-writer',
+        'displayName': 'Contract Writer',
+    }
+    assert set(payload['data']['model']) == {
+        'modelId',
+        'displayName',
+        'provider',
+        'capabilityTypes',
+        'inputModalities',
+        'outputModalities',
+        'contextWindow',
+        'defaultFor',
+        'enabled',
+    }
+

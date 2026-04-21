@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -13,6 +14,7 @@ from domain.models.device_workspace import ExecutionBinding
 from repositories.account_repository import AccountRepository
 from repositories.device_workspace_repository import DeviceWorkspaceRepository
 from schemas.accounts import (
+    AccountBindingSummaryDto,
     AccountBindingDto,
     AccountBindingUpsertInput,
     AccountCreateInput,
@@ -21,7 +23,9 @@ from schemas.accounts import (
     AccountGroupDto,
     AccountGroupMemberCreateInput,
     AccountGroupUpdateInput,
+    AccountPublishReadinessDto,
     AccountRefreshStatsDto,
+    AccountSuggestedActionDto,
     AccountUpdateInput,
 )
 from services.ws_manager import ws_manager
@@ -74,6 +78,7 @@ class AccountService:
             video_count=payload.videoCount,
             tags=payload.tags,
             notes=payload.notes,
+            last_validated_at=None,
             created_at=now,
             updated_at=now,
         )
@@ -150,18 +155,26 @@ class AccountService:
         return {"deleted": True}
 
     def refresh_stats(self, account_id: str) -> AccountRefreshStatsDto:
+        account = self._get_account_model(account_id)
+        binding = self._get_binding_model(account_id)
+        validated_at = _utc_now()
         try:
-            account = self._repository.touch_account(account_id)
+            account = self._repository.update_account(
+                account_id,
+                changes={"last_validated_at": validated_at},
+            )
         except Exception as exc:
             log.exception("刷新账号统计失败")
             raise HTTPException(status_code=500, detail="刷新账号统计失败") from exc
         if account is None:
             raise HTTPException(status_code=404, detail="账号不存在")
+        readiness = self._build_publish_readiness(account, binding)
         return AccountRefreshStatsDto(
             id=account.id,
             status=account.status,
             updatedAt=account.updated_at,
-            providerStatus="pending_provider",
+            providerStatus=readiness.status,
+            publishReadiness=readiness,
         )
 
     def upsert_binding(
@@ -335,6 +348,7 @@ class AccountService:
         asyncio.create_task(ws_manager.broadcast(event))
 
     def _to_dto(self, account: Account) -> AccountDto:
+        binding = self._get_binding_model(account.id)
         return AccountDto(
             id=account.id,
             name=account.name,
@@ -348,8 +362,109 @@ class AccountService:
             videoCount=account.video_count,
             tags=account.tags,
             notes=account.notes,
+            publishReadiness=self._build_publish_readiness(account, binding),
             createdAt=account.created_at,
             updatedAt=account.updated_at,
+        )
+
+    def _get_binding_model(self, account_id: str) -> ExecutionBinding | None:
+        if self._binding_repository is None:
+            return None
+        try:
+            return self._binding_repository.get_binding_for_account(account_id)
+        except Exception:
+            log.exception("查询账号绑定失败")
+            return None
+
+    def _build_publish_readiness(
+        self,
+        account: Account,
+        binding: ExecutionBinding | None,
+    ) -> AccountPublishReadinessDto:
+        binding_summary = self._build_binding_summary(binding)
+
+        if account.status not in {"active", "ready"}:
+            return AccountPublishReadinessDto(
+                canPublish=False,
+                status="blocked",
+                lastValidatedAt=account.last_validated_at,
+                errorCode="account.status_inactive",
+                errorMessage="账号当前未启用，暂不可发布。",
+                suggestedAction=AccountSuggestedActionDto(
+                    key="enable-account",
+                    label="启用账号",
+                ),
+                binding=binding_summary,
+            )
+
+        if not (account.username or "").strip():
+            return AccountPublishReadinessDto(
+                canPublish=False,
+                status="action_required",
+                lastValidatedAt=account.last_validated_at,
+                errorCode="account.username_missing",
+                errorMessage="账号缺少用户名，暂不可发布。",
+                suggestedAction=AccountSuggestedActionDto(
+                    key="complete-account-profile",
+                    label="补全账号信息",
+                ),
+                binding=binding_summary,
+            )
+
+        if _is_auth_expired(account.auth_expires_at):
+            return AccountPublishReadinessDto(
+                canPublish=False,
+                status="expired",
+                lastValidatedAt=account.last_validated_at,
+                errorCode="account.authorization_expired",
+                errorMessage="账号授权已过期，需重新校验授权。",
+                suggestedAction=AccountSuggestedActionDto(
+                    key="refresh-account-auth",
+                    label="重新校验授权",
+                ),
+                binding=binding_summary,
+            )
+
+        if binding is None or binding.status != "active":
+            return AccountPublishReadinessDto(
+                canPublish=False,
+                status="binding_required",
+                lastValidatedAt=account.last_validated_at,
+                errorCode="account.binding_required",
+                errorMessage="账号还未绑定可用执行环境，暂不可发布。",
+                suggestedAction=AccountSuggestedActionDto(
+                    key="bind-execution",
+                    label="绑定执行环境",
+                ),
+                binding=binding_summary,
+            )
+
+        return AccountPublishReadinessDto(
+            canPublish=True,
+            status="ready",
+            lastValidatedAt=account.last_validated_at,
+            errorCode=None,
+            errorMessage=None,
+            suggestedAction=None,
+            binding=binding_summary,
+        )
+
+    def _build_binding_summary(
+        self,
+        binding: ExecutionBinding | None,
+    ) -> AccountBindingSummaryDto | None:
+        if binding is None:
+            return None
+        return AccountBindingSummaryDto(
+            bindingId=binding.id,
+            browserInstanceId=binding.device_workspace_id,
+            status=binding.status,
+            source=binding.source,
+            updatedAt=(
+                binding.updated_at.isoformat()
+                if hasattr(binding.updated_at, "isoformat")
+                else str(binding.updated_at)
+            ),
         )
 
     def _to_group_dto(self, group: AccountGroup) -> AccountGroupDto:
@@ -402,3 +517,19 @@ def _mask_value(value: object) -> object:
 
 def _utc_now() -> str:
     return utc_now_iso()
+
+
+def _is_auth_expired(auth_expires_at: str | None) -> bool:
+    if auth_expires_at is None:
+        return False
+    raw_value = auth_expires_at.strip()
+    if raw_value == "":
+        return False
+    try:
+        normalized = raw_value.replace("Z", "+00:00")
+        expires_at = datetime.fromisoformat(normalized)
+    except ValueError:
+        return False
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return expires_at <= datetime.now(UTC)

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from .ai_capability_repository import AICapabilityRepository
 from .ai_job_repository import AIJobRepository

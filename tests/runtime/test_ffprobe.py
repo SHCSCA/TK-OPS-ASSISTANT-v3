@@ -1,6 +1,13 @@
 from __future__ import annotations
 
-from services.ffprobe import FfprobeResult, parse_ffprobe_output
+from pathlib import Path
+
+from services.ffprobe import (
+    FfprobeAvailability,
+    FfprobeResult,
+    get_ffprobe_availability,
+    parse_ffprobe_output,
+)
 
 
 def test_parse_valid_ffprobe_json() -> None:
@@ -49,3 +56,34 @@ def test_parse_missing_format_duration() -> None:
 
     assert result.duration_seconds is None
     assert result.file_size_bytes is None
+
+
+def test_ffprobe_availability_reports_missing_binary(monkeypatch) -> None:
+    monkeypatch.setattr('services.ffprobe.shutil.which', lambda _name: None)
+
+    result = get_ffprobe_availability()
+
+    assert isinstance(result, FfprobeAvailability)
+    assert result.status == 'unavailable'
+    assert result.path is None
+    assert result.version is None
+    assert result.error_code == 'media.ffprobe_unavailable'
+
+
+def test_ffprobe_availability_reports_incompatible_binary(monkeypatch, tmp_path: Path) -> None:
+    fake_binary = tmp_path / 'ffprobe.exe'
+    fake_binary.write_text('not-used', encoding='utf-8')
+
+    monkeypatch.setattr('services.ffprobe.shutil.which', lambda _name: str(fake_binary))
+
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError('boom')
+
+    monkeypatch.setattr('services.ffprobe.subprocess.run', _raise)
+
+    result = get_ffprobe_availability()
+
+    assert result.status == 'incompatible'
+    assert result.path == str(fake_binary)
+    assert result.version is None
+    assert result.error_code == 'media.ffprobe_incompatible'

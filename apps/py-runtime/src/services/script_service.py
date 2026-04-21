@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+
 from fastapi import HTTPException
 
 from repositories.ai_job_repository import AIJobRepository, StoredAIJobRecord
@@ -9,6 +10,7 @@ from repositories.script_repository import ScriptRepository, StoredScriptVersion
 from schemas.scripts import (
     AIJobRecordDto,
     ScriptDocumentDto,
+    ScriptLastOperationDto,
     ScriptSegmentRewriteInput,
     ScriptTitleVariantDto,
     ScriptVersionDto,
@@ -36,17 +38,27 @@ class ScriptService:
     def get_document(self, project_id: str) -> ScriptDocumentDto:
         project = self._dashboard_service.require_project(project_id)
         versions = self._repository.list_versions(project_id)
+        version_dtos = [self._to_version_dto(item) for item in versions]
+        recent_jobs = [
+            self._to_job_dto(item)
+            for item in self._ai_job_repository.list_recent(
+                project_id=project_id,
+                capability_ids=('script_generation', 'script_rewrite'),
+            )
+        ]
+        current_version = version_dtos[0] if version_dtos else None
+        latest_ai_job = recent_jobs[0] if recent_jobs else None
+        job_by_id = {item.id: item for item in recent_jobs}
         return ScriptDocumentDto(
             projectId=project.id,
-            currentVersion=self._to_version_dto(versions[0]) if versions else None,
-            versions=[self._to_version_dto(item) for item in versions],
-            recentJobs=[
-                self._to_job_dto(item)
-                for item in self._ai_job_repository.list_recent(
-                    project_id=project_id,
-                    capability_ids=('script_generation', 'script_rewrite'),
-                )
-            ],
+            currentVersion=current_version,
+            versions=version_dtos,
+            recentJobs=recent_jobs,
+            isSaved=current_version is not None,
+            latestRevision=current_version.revision if current_version else None,
+            saveSource=current_version.source if current_version else None,
+            latestAiJob=latest_ai_job,
+            lastOperation=self._to_last_operation_dto(current_version, job_by_id),
         )
 
     def save_document(self, project_id: str, content: str) -> ScriptDocumentDto:
@@ -73,7 +85,7 @@ class ScriptService:
         self._dashboard_service.require_project(project_id)
         version = self._repository.get_version(project_id, revision)
         if version is None:
-            raise HTTPException(status_code=404, detail='脚本版本不存在')
+            raise HTTPException(status_code=404, detail='脚本版本不存在。')
         return version
 
     def restore_version(self, project_id: str, revision: int) -> ScriptDocumentDto:
@@ -172,7 +184,7 @@ class ScriptService:
         project = self._dashboard_service.require_project(project_id)
         versions = self._repository.list_versions(project.id)
         if not versions:
-            raise HTTPException(status_code=400, detail='请先创建脚本版本，再执行改写。')
+            raise HTTPException(status_code=400, detail='请先保存或生成脚本版本，再执行改写。')
 
         result = ai_text_generation_service.generate_text(
             'script_rewrite',
@@ -222,7 +234,7 @@ class ScriptService:
         project = self._dashboard_service.require_project(project_id)
         versions = self._repository.list_versions(project.id)
         if not versions:
-            raise HTTPException(status_code=400, detail='请先创建脚本版本，再执行段落改写。')
+            raise HTTPException(status_code=400, detail='请先保存或生成脚本版本，再执行段落改写。')
 
         segment_index = _parse_segment_index(segment_id)
         latest_lines = _split_lines(versions[0].content)
@@ -233,7 +245,7 @@ class ScriptService:
         if payload.promptTemplateId:
             prompt_template = self._prompt_template_repository.get_template(payload.promptTemplateId)
             if prompt_template is None:
-                raise HTTPException(status_code=404, detail='Prompt 模板不存在')
+                raise HTTPException(status_code=404, detail='Prompt 模板不存在。')
 
         prompt_variables = {
             'script': versions[0].content,
@@ -305,6 +317,27 @@ class ScriptService:
             completedAt=stored.completed_at,
         )
 
+    def _to_last_operation_dto(
+        self,
+        current_version: ScriptVersionDto | None,
+        job_by_id: dict[str, AIJobRecordDto],
+    ) -> ScriptLastOperationDto | None:
+        if current_version is None:
+            return None
+
+        ai_job = (
+            job_by_id.get(current_version.aiJobId)
+            if current_version.aiJobId is not None
+            else None
+        )
+        return ScriptLastOperationDto(
+            revision=current_version.revision,
+            source=current_version.source,
+            createdAt=current_version.createdAt,
+            aiJobId=current_version.aiJobId,
+            aiJobStatus=ai_job.status if ai_job is not None else None,
+        )
+
 
 def _parse_segment_index(segment_id: str) -> int:
     normalized = segment_id.strip()
@@ -353,7 +386,7 @@ def _parse_title_variants(raw_text: str, expected_count: int) -> list[str]:
         titles = [line.strip() for line in normalized.splitlines() if line.strip()]
 
     if len(titles) < expected_count:
-        raise HTTPException(status_code=502, detail='标题变体 Provider 返回结果不足。')
+        raise HTTPException(status_code=502, detail='标题变体生成结果数量不足。')
     return titles[:expected_count]
 
 

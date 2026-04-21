@@ -18,3 +18,4 @@ class Project(Base):
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[str] = mapped_column(Text, nullable=False)
     last_accessed_at: Mapped[str] = mapped_column(Text, nullable=False)
+    deleted_at: Mapped[str | None] = mapped_column(Text, nullable=True)

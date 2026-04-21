@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
@@ -53,8 +53,21 @@ class ScriptVersionDto(BaseModel):
     createdAt: str
 
 
+class ScriptLastOperationDto(BaseModel):
+    revision: int
+    source: str
+    createdAt: str
+    aiJobId: str | None = None
+    aiJobStatus: TaskStatus | None = None
+
+
 class ScriptDocumentDto(BaseModel):
     projectId: str
     currentVersion: ScriptVersionDto | None
     versions: list[ScriptVersionDto]
     recentJobs: list[AIJobRecordDto]
+    isSaved: bool = False
+    latestRevision: int | None = None
+    saveSource: str | None = None
+    latestAiJob: AIJobRecordDto | None = None
+    lastOperation: ScriptLastOperationDto | None = None

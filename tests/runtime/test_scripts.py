@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 
@@ -77,6 +77,11 @@ def test_script_document_supports_manual_save_and_version_history(runtime_app) -
     assert empty_payload['currentVersion'] is None
     assert empty_payload['versions'] == []
     assert empty_payload['recentJobs'] == []
+    assert empty_payload['isSaved'] is False
+    assert empty_payload['latestRevision'] is None
+    assert empty_payload['saveSource'] is None
+    assert empty_payload['latestAiJob'] is None
+    assert empty_payload['lastOperation'] is None
 
     save_response = client.put(
         f'/api/scripts/projects/{project_id}/document',
@@ -89,6 +94,12 @@ def test_script_document_supports_manual_save_and_version_history(runtime_app) -
     assert saved_payload['currentVersion']['source'] == 'manual'
     assert saved_payload['currentVersion']['content'] == 'Opening hook\nMain point\nCTA'
     assert len(saved_payload['versions']) == 1
+    assert saved_payload['isSaved'] is True
+    assert saved_payload['latestRevision'] == 1
+    assert saved_payload['saveSource'] == 'manual'
+    assert saved_payload['latestAiJob'] is None
+    assert saved_payload['lastOperation']['source'] == 'manual'
+    assert saved_payload['lastOperation']['aiJobStatus'] is None
 
 
 def test_script_generation_and_rewrite_record_ai_jobs(runtime_app) -> None:
@@ -115,6 +126,12 @@ def test_script_generation_and_rewrite_record_ai_jobs(runtime_app) -> None:
     assert generated_payload['currentVersion']['model'] == 'gpt-5'
     assert generated_payload['recentJobs'][0]['status'] == 'succeeded'
     assert generated_payload['recentJobs'][0]['capabilityId'] == 'script_generation'
+    assert generated_payload['isSaved'] is True
+    assert generated_payload['latestRevision'] == 1
+    assert generated_payload['saveSource'] == 'ai_generate'
+    assert generated_payload['latestAiJob']['capabilityId'] == 'script_generation'
+    assert generated_payload['lastOperation']['source'] == 'ai_generate'
+    assert generated_payload['lastOperation']['aiJobStatus'] == 'succeeded'
 
     rewrite_response = client.post(
         f'/api/scripts/projects/{project_id}/rewrite',
@@ -127,6 +144,11 @@ def test_script_generation_and_rewrite_record_ai_jobs(runtime_app) -> None:
     assert rewritten_payload['currentVersion']['source'] == 'ai_rewrite'
     assert len(rewritten_payload['versions']) == 2
     assert rewritten_payload['recentJobs'][0]['capabilityId'] == 'script_rewrite'
+    assert rewritten_payload['latestRevision'] == 2
+    assert rewritten_payload['saveSource'] == 'ai_rewrite'
+    assert rewritten_payload['latestAiJob']['capabilityId'] == 'script_rewrite'
+    assert rewritten_payload['lastOperation']['source'] == 'ai_rewrite'
+    assert rewritten_payload['lastOperation']['aiJobStatus'] == 'succeeded'
     assert fake_service.calls[0][0] == 'script_generation'
     assert fake_service.calls[1][0] == 'script_rewrite'
 
@@ -182,12 +204,36 @@ def test_script_versions_title_variants_restore_and_segment_rewrite(runtime_app)
     rewrite_payload = rewrite_response.json()['data']
     assert rewrite_payload['currentVersion']['revision'] == 3
     assert rewrite_payload['currentVersion']['content'] == 'Fresh hook\nRewrite body\nFresh CTA'
+    assert rewrite_payload['latestRevision'] == 3
+    assert rewrite_payload['saveSource'] == 'ai_segment_rewrite'
+    assert rewrite_payload['lastOperation']['source'] == 'ai_segment_rewrite'
+    assert rewrite_payload['lastOperation']['aiJobStatus'] == 'succeeded'
 
     restore_response = client.post(f'/api/scripts/projects/{project_id}/restore/1')
     assert restore_response.status_code == 200
     restore_payload = restore_response.json()['data']
     assert restore_payload['currentVersion']['revision'] == 4
     assert restore_payload['currentVersion']['content'] == 'Draft hook\nDraft body\nDraft CTA'
+    assert restore_payload['latestRevision'] == 4
+    assert restore_payload['saveSource'] == 'restore'
+    assert restore_payload['lastOperation']['source'] == 'restore'
+    assert restore_payload['lastOperation']['aiJobStatus'] is None
 
     final_versions = client.get(f'/api/scripts/projects/{project_id}/versions').json()['data']
     assert [item['revision'] for item in final_versions] == [4, 3, 2, 1]
+
+
+def test_script_rewrite_requires_existing_saved_version(runtime_client: TestClient) -> None:
+    project_response = runtime_client.post(
+        '/api/dashboard/projects',
+        json={'name': 'Rewrite Guard', 'description': 'rewrite requires saved version'},
+    )
+    project_id = project_response.json()['data']['id']
+
+    rewrite_response = runtime_client.post(
+        f'/api/scripts/projects/{project_id}/rewrite',
+        json={'instructions': '改得更紧凑'},
+    )
+
+    assert rewrite_response.status_code == 400
+    assert rewrite_response.json()['error'] == '请先保存或生成脚本版本，再执行改写。'
