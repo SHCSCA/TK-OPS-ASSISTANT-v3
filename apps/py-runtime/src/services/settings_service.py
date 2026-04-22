@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from statistics import mean
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi import HTTPException
@@ -19,6 +20,7 @@ from repositories.system_config_repository import StoredSystemConfig, SystemConf
 from schemas.settings import (
     AppSettingsDto,
     AppSettingsUpdateInput,
+    ConfigChangedEventDto,
     AIProviderHealthDto,
     DiagnosticsBundleDto,
     FfprobeDiagnosticsDto,
@@ -36,8 +38,12 @@ from schemas.settings import (
 from services.ffprobe import get_ffprobe_availability
 from services.license_service import LicenseService
 from services.task_manager import TaskManager
+from services.ws_manager import ws_manager
 
 log = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from services.ai_capability_service import AICapabilityService
 
 DEFAULT_RUNTIME_PORT = 8000
 MAX_RUNTIME_LOG_LIMIT = 200
@@ -73,6 +79,7 @@ class SettingsService:
         publishing_repository: PublishingRepository | None = None,
         task_manager: TaskManager | None = None,
         license_service: LicenseService | None = None,
+        ai_capability_service: AICapabilityService | None = None,
     ) -> None:
         self._runtime_config = runtime_config
         self._repository = repository
@@ -81,7 +88,11 @@ class SettingsService:
         self._publishing_repository = publishing_repository
         self._task_manager = task_manager
         self._license_service = license_service
+        self._ai_capability_service = ai_capability_service
         self._started_at = datetime.now(UTC)
+
+    def bind_ai_capability_service(self, service: AICapabilityService) -> None:
+        self._ai_capability_service = service
 
     def get_settings(self) -> AppSettingsDto:
         stored = self._load_or_create()
@@ -95,7 +106,10 @@ class SettingsService:
         *,
         request_id: str | None = None,
     ) -> AppSettingsDto:
-        stored = self._repository.save(payload.model_dump(mode="json"))
+        previous = self._repository.load()
+        previous_document = None if previous is None else previous.document
+        document = payload.model_dump(mode="json")
+        stored = self._repository.save(document)
         settings = self._to_settings_dto(stored)
         self._ensure_runtime_directories(settings)
 
@@ -107,6 +121,13 @@ class SettingsService:
             "settings.updated",
             request_id=request_id,
             context={"revision": settings.revision},
+        )
+        self._broadcast_event(
+            self._build_config_changed_event(
+                settings=settings,
+                updated_at=stored.updated_at,
+                changed_keys=self._diff_settings_keys(previous_document, document),
+            )
         )
         return settings
 
@@ -140,6 +161,7 @@ class SettingsService:
             revision=settings.revision,
             mode=settings.runtime.mode,
             healthStatus="online",
+            configScope=settings.scope,
         )
 
     def get_media_diagnostics(self) -> MediaDiagnosticsDto:
@@ -154,6 +176,38 @@ class SettingsService:
             ),
             checkedAt=_utc_now_iso(),
         )
+
+    def _build_config_changed_event(
+        self,
+        *,
+        settings: AppSettingsDto,
+        updated_at: str,
+        changed_keys: list[str],
+    ) -> dict[str, object]:
+        return ConfigChangedEventDto(
+            scope=settings.scope,
+            revision=settings.revision,
+            updatedAt=updated_at,
+            changedKeys=changed_keys,
+        ).model_dump(mode="json")
+
+    def _broadcast_event(self, event: dict[str, object]) -> None:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(ws_manager.broadcast(event))
+        else:
+            asyncio.create_task(ws_manager.broadcast(event))
+
+    def _diff_settings_keys(
+        self,
+        previous: dict[str, Any] | None,
+        current: dict[str, Any],
+    ) -> list[str]:
+        keys = ("runtime", "paths", "logging", "ai")
+        if previous is None:
+            return list(keys)
+        return [key for key in keys if previous.get(key) != current.get(key)]
 
     def get_runtime_logs(
         self,
@@ -236,13 +290,30 @@ class SettingsService:
     def _build_ai_provider_health(self, settings: AppSettingsDto) -> AIProviderHealthDto:
         provider = settings.ai.provider.strip()
         model_name = (settings.ai.model or "").strip()
-        status = "configured" if provider and model_name else "not_configured"
+        if not provider or not model_name:
+            return AIProviderHealthDto(
+                status="not_configured",
+                latencyMs=None,
+                providerId=provider or "none",
+                providerName=provider or "none",
+                lastChecked=None,
+            )
+        if self._ai_capability_service is None:
+            return AIProviderHealthDto(
+                status="configured",
+                latencyMs=None,
+                providerId=provider,
+                providerName=provider,
+                lastChecked=None,
+            )
+        overview = self._ai_capability_service.get_provider_health_overview()
+        snapshot = next((item for item in overview.providers if item.provider == provider), None)
         return AIProviderHealthDto(
-            status=status,
-            latencyMs=None,
-            providerId=provider or "none",
-            providerName=provider or "none",
-            lastChecked=None,
+            status=snapshot.readiness if snapshot is not None else "configured",
+            latencyMs=snapshot.latencyMs if snapshot is not None else None,
+            providerId=provider,
+            providerName=snapshot.label if snapshot is not None else provider,
+            lastChecked=snapshot.lastCheckedAt if snapshot is not None else None,
         )
 
     def _build_render_queue_health(self) -> RenderQueueHealthDto:

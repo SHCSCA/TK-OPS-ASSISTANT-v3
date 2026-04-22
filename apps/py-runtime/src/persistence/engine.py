@@ -33,6 +33,7 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 def initialize_domain_schema(engine: Engine) -> None:
     Base.metadata.create_all(engine)
+    _repair_legacy_project_schema(engine)
     _repair_legacy_voice_track_schema(engine)
     _repair_legacy_subtitle_track_schema(engine)
     _repair_legacy_asset_schema(engine)
@@ -41,6 +42,25 @@ def initialize_domain_schema(engine: Engine) -> None:
     _repair_legacy_account_schema(engine)
     _repair_legacy_device_workspace_schema(engine)
     _repair_legacy_automation_schema(engine)
+
+
+def _repair_legacy_project_schema(engine: Engine) -> None:
+    # B-01 软删除：为遗留 projects 表补齐 deleted_at 列
+    required_columns = {
+        "deleted_at": "TEXT",
+    }
+
+    with engine.begin() as connection:
+        columns = _table_columns(connection, "projects")
+        if not columns:
+            return
+
+        for column_name, column_sql in required_columns.items():
+            if column_name in columns:
+                continue
+            connection.execute(
+                text(f"ALTER TABLE projects ADD COLUMN {column_name} {column_sql}")
+            )
 
 
 def _repair_legacy_asset_schema(engine: Engine) -> None:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -86,6 +88,15 @@ class AppSettingsUpdateInput(BaseModel):
 
 class AppSettingsDto(AppSettingsUpdateInput):
     revision: int
+    scope: str = "runtime_local"
+
+
+class ConfigChangedEventDto(BaseModel):
+    type: Literal["config.changed"] = "config.changed"
+    scope: str = "runtime_local"
+    revision: int
+    updatedAt: str
+    changedKeys: list[str]
 
 
 class RuntimeDiagnosticsDto(BaseModel):
@@ -94,6 +105,7 @@ class RuntimeDiagnosticsDto(BaseModel):
     revision: int
     mode: str
     healthStatus: str
+    configScope: str
 
 
 class FfprobeDiagnosticsDto(BaseModel):

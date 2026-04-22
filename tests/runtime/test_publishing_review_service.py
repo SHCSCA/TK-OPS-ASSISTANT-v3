@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -10,6 +11,7 @@ from fastapi import HTTPException
 from common.time import utc_now_iso
 from domain.models import Base
 from domain.models.account import Account
+from domain.models.publishing import PublishPlan
 from persistence.engine import create_runtime_engine, create_session_factory
 from repositories.account_repository import AccountRepository
 from repositories.dashboard_repository import DashboardRepository
@@ -19,6 +21,7 @@ from repositories.review_repository import ReviewRepository
 from repositories.script_repository import ScriptRepository
 from repositories.storyboard_repository import StoryboardRepository
 from schemas.publishing import PublishPlanCreateInput
+from schemas.review import ReviewSummaryUpdateInput
 from services.publishing_service import PublishingService
 from services.review_service import ReviewService
 
@@ -32,6 +35,7 @@ def _make_publishing_service(tmp_path: Path) -> PublishingService:
         account_repository=AccountRepository(session_factory=session_factory),
         device_workspace_repository=DeviceWorkspaceRepository(session_factory=session_factory),
     )
+
 
 
 def _prepare_ready_publish_account(
@@ -79,9 +83,16 @@ def _prepare_ready_publish_account(
     return account_id, str(workspace_root)
 
 
+
 def _make_review_service(
     tmp_path: Path,
-) -> tuple[ReviewService, DashboardRepository, ScriptRepository, StoryboardRepository]:
+) -> tuple[
+    ReviewService,
+    DashboardRepository,
+    ScriptRepository,
+    StoryboardRepository,
+    PublishingRepository,
+]:
     engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
@@ -89,13 +100,22 @@ def _make_review_service(
     script_repository = ScriptRepository(session_factory=session_factory)
     storyboard_repository = StoryboardRepository(session_factory=session_factory)
     review_repository = ReviewRepository(session_factory=session_factory)
+    publishing_repository = PublishingRepository(session_factory=session_factory)
     service = ReviewService(
         review_repository,
         dashboard_repository=dashboard_repository,
         script_repository=script_repository,
         storyboard_repository=storyboard_repository,
+        publishing_repository=publishing_repository,
     )
-    return service, dashboard_repository, script_repository, storyboard_repository
+    return (
+        service,
+        dashboard_repository,
+        script_repository,
+        storyboard_repository,
+        publishing_repository,
+    )
+
 
 
 def test_publishing_receipt_history_and_calendar_conflicts(tmp_path: Path) -> None:
@@ -157,6 +177,7 @@ def test_publishing_receipt_history_and_calendar_conflicts(tmp_path: Path) -> No
     assert any(item.conflict_count >= 1 for item in calendar.items)
 
 
+
 def test_publishing_plan_summary_includes_readiness_and_receipt(tmp_path: Path) -> None:
     service = _make_publishing_service(tmp_path)
     ready_account_id, _ = _prepare_ready_publish_account(tmp_path, service)
@@ -189,6 +210,7 @@ def test_publishing_plan_summary_includes_readiness_and_receipt(tmp_path: Path) 
     assert refreshed.recovery.can_cancel is True
 
 
+
 def test_publishing_precheck_blocks_when_workspace_missing(tmp_path: Path) -> None:
     service = _make_publishing_service(tmp_path)
     ready_account_id, workspace_root = _prepare_ready_publish_account(tmp_path, service)
@@ -216,9 +238,90 @@ def test_publishing_precheck_blocks_when_workspace_missing(tmp_path: Path) -> No
     assert exc_info.value.status_code == 409
 
 
+
+def test_review_analyze_uses_project_version_and_publish_plan_context(tmp_path: Path) -> None:
+    service, dashboard_repository, script_repository, _storyboard_repository, publishing_repository = (
+        _make_review_service(tmp_path)
+    )
+
+    source_project = dashboard_repository.create_project(
+        name="复盘源项目",
+        description="用于验证 review analyze 上下文",
+    )
+    script_repository.save_version(
+        source_project.id,
+        source="user",
+        content="第一版脚本\n先写出主题\n再补结尾",
+    )
+    script_repository.save_version(
+        source_project.id,
+        source="ai",
+        content="第二版脚本\n前三秒先抛结论\n中段补充论据\n结尾明确 CTA",
+        provider="openai",
+        model="gpt-4.1-mini",
+    )
+    dashboard_repository.update_project_versions(
+        source_project.id,
+        current_script_version=2,
+        current_storyboard_version=0,
+    )
+    service.update_summary(
+        source_project.id,
+        ReviewSummaryUpdateInput(
+            project_name=source_project.name,
+            total_views=1800,
+            total_likes=30,
+            total_comments=7,
+            avg_watch_time_sec=6.2,
+            completion_rate=0.24,
+        ),
+    )
+    plan = publishing_repository.create_plan(
+        PublishPlan(
+            title="第二轮发布计划",
+            project_id=source_project.id,
+            status="submitted",
+            scheduled_at=datetime(2026, 4, 18, 10, 0, tzinfo=timezone.utc),
+        )
+    )
+    publishing_repository.create_receipt(
+        plan_id=plan.id,
+        status="receipt_pending",
+        platform_response_json=json.dumps(
+            {
+                "stage": "receipt",
+                "summary": "平台已接收，等待平台确认。",
+                "errorCode": None,
+                "errorMessage": None,
+                "isFinal": False,
+            },
+            ensure_ascii=False,
+        ),
+    )
+
+    result = service.analyze(source_project.id)
+    summary = service.get_summary(source_project.id)
+
+    assert result.status == "done"
+    assert source_project.name in result.message
+    assert source_project.name in summary.review_summary
+    assert summary.latest_execution_result is not None
+    assert summary.latest_execution_result.plan_id == plan.id
+    assert summary.latest_execution_result.status == "receipt_pending"
+    assert summary.latest_execution_result.summary == "平台已接收，等待平台确认。"
+    assert any(item.target_type == "script_version" for item in summary.feedback_targets)
+    assert any(item.target_type == "publishing_plan" for item in summary.feedback_targets)
+    assert any(item.category == "脚本留存" for item in summary.issue_categories)
+    assert any(
+        "脚本第 2 版" in suggestion.description or "第二轮发布计划" in suggestion.description
+        for suggestion in summary.suggestions
+    )
+
+
+
 def test_review_adopt_creates_child_project_and_copies_context(tmp_path: Path) -> None:
-    service, dashboard_repository, script_repository, storyboard_repository = _make_review_service(
-        tmp_path
+    service, dashboard_repository, script_repository, storyboard_repository, _publishing_repository = (
+        _make_review_service(tmp_path)
     )
 
     source_project = dashboard_repository.create_project(
@@ -268,9 +371,10 @@ def test_review_adopt_creates_child_project_and_copies_context(tmp_path: Path) -
     assert adopted.adopted_at is not None
 
 
+
 def test_review_apply_to_script_updates_original_project_only(tmp_path: Path) -> None:
-    service, dashboard_repository, script_repository, _storyboard_repository = _make_review_service(
-        tmp_path
+    service, dashboard_repository, script_repository, _storyboard_repository, _publishing_repository = (
+        _make_review_service(tmp_path)
     )
 
     source_project = dashboard_repository.create_project(

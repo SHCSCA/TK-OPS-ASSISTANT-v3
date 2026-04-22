@@ -3,6 +3,84 @@
 from fastapi.testclient import TestClient
 
 
+def test_ai_capability_mutations_broadcast_changed_events(
+    runtime_client: TestClient,
+    monkeypatch,
+) -> None:
+    captured: list[dict[str, object]] = []
+
+    async def fake_broadcast(message: dict[str, object]) -> None:
+        event = dict(message)
+        event.setdefault("schema_version", 1)
+        captured.append(event)
+
+    monkeypatch.setattr("services.ai_capability_service.ws_manager.broadcast", fake_broadcast)
+
+    settings_response = runtime_client.get("/api/settings/ai-capabilities")
+    assert settings_response.status_code == 200
+    capabilities = settings_response.json()["data"]["capabilities"]
+    capabilities[0]["model"] = "gpt-5.4-contract"
+
+    update_response = runtime_client.put(
+        "/api/settings/ai-capabilities",
+        json={"capabilities": capabilities},
+    )
+    assert update_response.status_code == 200
+
+    secret_response = runtime_client.put(
+        "/api/settings/ai-capabilities/providers/openai/secret",
+        json={"apiKey": "sk-contract-openai-123456"},
+    )
+    assert secret_response.status_code == 200
+
+    model_response = runtime_client.put(
+        "/api/ai-providers/openai/models/contract-writer",
+        json={
+            "displayName": "Contract Writer",
+            "capabilityKinds": ["text_generation"],
+            "inputModalities": ["text"],
+            "outputModalities": ["text"],
+            "contextWindow": 32000,
+            "defaultFor": ["script_generation"],
+            "enabled": True,
+        },
+    )
+    assert model_response.status_code == 200
+
+    refresh_response = runtime_client.post("/api/ai-providers/health/refresh")
+    assert refresh_response.status_code == 200
+
+    assert len(captured) == 4
+
+    update_event, secret_event, model_event, refresh_event = captured
+    assert update_event["schema_version"] == 1
+    assert update_event["type"] == "ai-capability.changed"
+    assert update_event["reason"] == "capability_config_updated"
+    assert update_event["scope"] == "runtime_local"
+    assert update_event["providerIds"]
+    assert capabilities[0]["capabilityId"] in update_event["capabilityIds"]
+
+    assert secret_event["reason"] == "provider_secret_updated"
+    assert secret_event["providerIds"] == ["openai"]
+    assert secret_event["capabilityIds"]
+
+    assert model_event["reason"] == "provider_model_upserted"
+    assert model_event["providerIds"] == ["openai"]
+    assert "script_generation" in model_event["capabilityIds"]
+
+    assert refresh_event["reason"] == "provider_health_refreshed"
+    assert "openai" in refresh_event["providerIds"]
+    assert set(refresh_event["capabilityIds"]) == {
+        "script_generation",
+        "script_rewrite",
+        "storyboard_generation",
+        "tts_generation",
+        "subtitle_alignment",
+        "video_generation",
+        "asset_analysis",
+    }
+
+
 def test_ai_capability_settings_contract_uses_settings_prefix_and_expected_shape(
     runtime_client: TestClient,
 ) -> None:
@@ -12,7 +90,13 @@ def test_ai_capability_settings_contract_uses_settings_prefix_and_expected_shape
     payload = response.json()
     assert set(payload) == {'ok', 'data'}
     assert payload['ok'] is True
-    assert set(payload['data']) == {'capabilities', 'providers'}
+    assert set(payload['data']) == {
+        'capabilities',
+        'providers',
+        'configVersion',
+        'scope',
+        'diagnosticSummary',
+    }
     assert len(payload['data']['capabilities']) == 7
     assert len(payload['data']['providers']) >= 10
     assert set(payload['data']['capabilities'][0]) == {
@@ -32,7 +116,19 @@ def test_ai_capability_settings_contract_uses_settings_prefix_and_expected_shape
         'baseUrl',
         'secretSource',
         'supportsTextGeneration',
+        'readiness',
+        'lastCheckedAt',
+        'errorCode',
+        'errorMessage',
+        'scope',
     }
+    assert set(payload['data']['diagnosticSummary']) == {
+        'configuredProviderCount',
+        'readyProviderCount',
+        'degradedProviderCount',
+        'lastHealthRefreshAt',
+    }
+    assert payload['data']['scope'] == 'runtime_local'
 
 
 def test_ai_provider_secret_and_health_contract_return_expected_shapes(
@@ -55,6 +151,11 @@ def test_ai_provider_secret_and_health_contract_return_expected_shapes(
         'baseUrl',
         'secretSource',
         'supportsTextGeneration',
+        'readiness',
+        'lastCheckedAt',
+        'errorCode',
+        'errorMessage',
+        'scope',
     }
     assert secret_payload['data']['provider'] == 'openai'
 
@@ -125,6 +226,40 @@ def test_ai_provider_model_catalog_contract_returns_models_for_provider(
     }
     model_ids = {item['modelId'] for item in payload['data']}
     assert 'gpt-5.4' in model_ids
+
+
+def test_ai_provider_model_refresh_contract_returns_refresh_receipt(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+
+    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
+        assert url == 'http://127.0.0.1:11434/api/tags'
+        return {
+            'models': [
+                {
+                    'name': 'llava:latest',
+                    'model': 'llava:latest',
+                    'details': {
+                        'family': 'llava',
+                        'families': ['llava'],
+                    },
+                }
+            ]
+        }
+
+    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
+    response = client.post('/api/settings/ai-providers/ollama/models/refresh')
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload) == {'ok', 'data'}
+    assert payload['ok'] is True
+    assert set(payload['data']) == {'provider', 'status', 'message'}
+    assert payload['data']['provider'] == 'ollama'
+    assert payload['data']['status'] == 'refreshed'
+    assert payload['data']['message'] == '已从远端刷新 1 个模型。'
 
 
 def test_ai_capability_support_matrix_contract_maps_capabilities_to_models(

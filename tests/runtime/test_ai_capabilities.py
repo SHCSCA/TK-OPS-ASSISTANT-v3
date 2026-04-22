@@ -11,6 +11,14 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
     assert response.status_code == 200
     payload = response.json()
     assert payload['ok'] is True
+    assert payload['data']['scope'] == 'runtime_local'
+    assert payload['data']['configVersion']
+    assert set(payload['data']['diagnosticSummary']) == {
+        'configuredProviderCount',
+        'readyProviderCount',
+        'degradedProviderCount',
+        'lastHealthRefreshAt',
+    }
     assert len(payload['data']['capabilities']) == 7
     capability_ids = {item['capabilityId'] for item in payload['data']['capabilities']}
     assert capability_ids == {
@@ -28,7 +36,86 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
     )
     assert providers['openai']['configured'] is False
     assert providers['openai']['maskedSecret'] == ''
+    assert providers['openai']['readiness'] == 'not_configured'
+    assert providers['openai']['scope'] == 'runtime_local'
     assert 'apiKey' not in providers['openai']
+
+
+def test_ai_capability_mutations_emit_broadcast_events(runtime_app) -> None:
+    client = TestClient(runtime_app)
+    captured: list[dict[str, object]] = []
+
+    async def fake_broadcast(message: dict[str, object]) -> None:
+        event = dict(message)
+        event.setdefault('schema_version', 1)
+        captured.append(event)
+
+    from services import ai_capability_service as ai_capability_service_module
+
+    original_broadcast = ai_capability_service_module.ws_manager.broadcast
+    ai_capability_service_module.ws_manager.broadcast = fake_broadcast
+    try:
+        settings_response = client.get('/api/settings/ai-capabilities')
+        assert settings_response.status_code == 200
+        capabilities = settings_response.json()['data']['capabilities']
+        capabilities[0]['model'] = 'gpt-5.4-runtime-test'
+
+        update_response = client.put(
+            '/api/settings/ai-capabilities',
+            json={'capabilities': capabilities},
+        )
+        assert update_response.status_code == 200
+
+        secret_response = client.put(
+            '/api/settings/ai-capabilities/providers/openai/secret',
+            json={'apiKey': 'sk-runtime-test-openai-123456'},
+        )
+        assert secret_response.status_code == 200
+
+        model_response = client.put(
+            '/api/ai-providers/openai/models/runtime-contract-writer',
+            json={
+                'displayName': 'Runtime Contract Writer',
+                'capabilityKinds': ['text_generation'],
+                'inputModalities': ['text'],
+                'outputModalities': ['text'],
+                'contextWindow': 32000,
+                'defaultFor': ['script_generation'],
+                'enabled': True,
+            },
+        )
+        assert model_response.status_code == 200
+
+        refresh_response = client.post('/api/ai-providers/health/refresh')
+        assert refresh_response.status_code == 200
+    finally:
+        ai_capability_service_module.ws_manager.broadcast = original_broadcast
+
+    assert len(captured) == 4
+    assert [event['type'] for event in captured] == [
+        'ai-capability.changed',
+        'ai-capability.changed',
+        'ai-capability.changed',
+        'ai-capability.changed',
+    ]
+    assert [event['reason'] for event in captured] == [
+        'capability_config_updated',
+        'provider_secret_updated',
+        'provider_model_upserted',
+        'provider_health_refreshed',
+    ]
+    assert captured[0]['providerIds']
+    assert captured[1]['providerIds'] == ['openai']
+    assert 'script_generation' in captured[2]['capabilityIds']
+    assert set(captured[3]['capabilityIds']) == {
+        'script_generation',
+        'script_rewrite',
+        'storyboard_generation',
+        'tts_generation',
+        'subtitle_alignment',
+        'video_generation',
+        'asset_analysis',
+    }
 
 
 def test_provider_runtime_config_exposes_protocol_family_and_tts_flags(runtime_app) -> None:
@@ -161,9 +248,11 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
 
 
 def test_ai_provider_catalog_model_catalog_and_refresh_are_runtime_backed(
-    runtime_client: TestClient,
+    runtime_app,
+    monkeypatch,
 ) -> None:
-    catalog_response = runtime_client.get('/api/settings/ai-providers/catalog')
+    client = TestClient(runtime_app)
+    catalog_response = client.get('/api/settings/ai-providers/catalog')
 
     assert catalog_response.status_code == 200
     catalog_payload = catalog_response.json()['data']
@@ -174,7 +263,7 @@ def test_ai_provider_catalog_model_catalog_and_refresh_are_runtime_backed(
     assert providers['deepseek']['supportsModelDiscovery'] is False
     assert 'apiKey' not in providers['openai']
 
-    models_response = runtime_client.get('/api/settings/ai-providers/ollama/models')
+    models_response = client.get('/api/settings/ai-providers/ollama/models')
 
     assert models_response.status_code == 200
     models = models_response.json()['data']
@@ -182,15 +271,48 @@ def test_ai_provider_catalog_model_catalog_and_refresh_are_runtime_backed(
     assert all(item['provider'] == 'ollama' for item in models)
     assert any('text_generation' in item['capabilityTypes'] for item in models)
 
-    refresh_response = runtime_client.post('/api/settings/ai-providers/ollama/models/refresh')
+    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
+        assert url == 'http://127.0.0.1:11434/api/tags'
+        return {
+            'models': [
+                {
+                    'name': 'qwen2.5-vl:7b',
+                    'model': 'qwen2.5-vl:7b',
+                    'details': {
+                        'family': 'qwen2.5-vl',
+                        'families': ['qwen2.5-vl'],
+                    },
+                }
+            ]
+        }
+
+    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
+    refresh_response = client.post('/api/settings/ai-providers/ollama/models/refresh')
 
     assert refresh_response.status_code == 200
     refresh_payload = refresh_response.json()['data']
     assert refresh_payload == {
         'provider': 'ollama',
-        'status': 'static_catalog',
-        'message': '当前模型目录来自内置注册表，暂未执行远端刷新。',
+        'status': 'refreshed',
+        'message': '已从远端刷新 1 个模型。',
     }
+
+    refreshed_models = client.get('/api/settings/ai-providers/ollama/models').json()['data']
+    refreshed = next(item for item in refreshed_models if item['modelId'] == 'qwen2.5-vl:7b')
+    assert refreshed['displayName'] == 'qwen2.5-vl:7b'
+    assert refreshed['capabilityTypes'] == ['text_generation', 'vision']
+    assert refreshed['inputModalities'] == ['text', 'image']
+
+
+def test_openrouter_model_refresh_requires_secret_and_returns_structured_error(runtime_app) -> None:
+    client = TestClient(runtime_app)
+
+    response = client.post('/api/settings/ai-providers/openrouter/models/refresh')
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload['ok'] is False
+    assert payload['error_code'] == 'provider.model.refresh_missing_secret'
 
 
 def test_ai_provider_health_check_uses_selected_model_and_real_probe(

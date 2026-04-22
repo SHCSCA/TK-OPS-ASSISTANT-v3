@@ -358,13 +358,13 @@ def test_review_contract_covers_analyze_and_adopt(runtime_client: TestClient) ->
     runtime_client.app.state.script_repository.save_version(
         project["id"],
         source="ai",
-        content="第二版脚本",
+        content="?????",
     )
     runtime_client.app.state.storyboard_repository.save_version(
         project["id"],
         based_on_script_revision=1,
         source="ai",
-        scenes=[{"title": "开场优化", "duration": "3s"}],
+        scenes=[{"title": "????", "duration": "3s"}],
     )
 
     analyze_response = runtime_client.post(f"/api/review/projects/{project['id']}/analyze")
@@ -382,6 +382,10 @@ def test_review_contract_covers_analyze_and_adopt(runtime_client: TestClient) ->
         "total_comments",
         "avg_watch_time_sec",
         "completion_rate",
+        "review_summary",
+        "issue_categories",
+        "feedback_targets",
+        "latest_execution_result",
         "suggestions",
         "last_analyzed_at",
         "created_at",
@@ -399,6 +403,8 @@ def test_review_contract_covers_analyze_and_adopt(runtime_client: TestClient) ->
         "adopted_as_project_id",
         "adopted_at",
     }
+    assert summary["issue_categories"]
+    assert summary["feedback_targets"]
 
     adopt_response = runtime_client.post(
         f"/api/review/projects/{project['id']}/suggestions/{suggestion_id}/adopt"
