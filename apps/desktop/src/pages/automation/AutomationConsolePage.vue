@@ -42,124 +42,141 @@
       </Card>
     </div>
 
-    <div class="workspace-grid">
-      <aside class="workspace-rail">
-        <Card class="rail-card h-full">
-          <div class="rail-card__header flex-col align-start gap-3">
-            <div style="display: flex; justify-content: space-between; width: 100%;">
-              <h3>任务列表</h3>
-              <Button variant="primary" size="sm" @click="showAddTask = true">
-                <template #leading><span class="material-symbols-outlined">add</span></template>
-                新建任务
-              </Button>
-            </div>
-            
-            <div class="filter-chips">
-              <Chip
-                v-for="item in statusFilters"
-                :key="item.value"
-                :variant="statusFilter === item.value ? 'brand' : 'default'"
-                clickable
-                @click="statusFilter = item.value"
-              >
-                {{ item.label }}
-              </Chip>
-            </div>
-            <div class="filter-chips">
-              <Chip
-                v-for="item in typeFilters"
-                :key="item.value"
-                :variant="typeFilter === item.value ? 'brand' : 'default'"
-                clickable
-                @click="typeFilter = typeFilter === item.value ? '' : item.value"
-              >
-                {{ item.label }}
-              </Chip>
-            </div>
+    <div class="queue-view-container h-full">
+      <Card class="rail-card h-full">
+        <div class="rail-card__header flex-col align-start gap-3">
+          <div style="display: flex; justify-content: space-between; width: 100%;">
+            <h3>任务队列</h3>
+            <Button variant="primary" size="sm" @click="showAddTask = true">
+              <template #leading><span class="material-symbols-outlined">add</span></template>
+              新建任务
+            </Button>
           </div>
-
-          <div class="rail-card__body no-padding scroll-area">
-            <div v-if="isEmpty" class="empty-state">
-              <span class="material-symbols-outlined">robot_2</span>
-              <strong>暂时没有自动化任务</strong>
-              <p>先创建一个任务，再查看运行记录、日志和阻断原因。</p>
-            </div>
-            <div v-else class="task-list">
-              <button
-                v-for="task in filteredTasks"
-                :key="task.id"
-                class="task-card"
-                :class="{
-                  'is-selected': selectedTaskId === task.id,
-                  'is-disabled': !task.enabled,
-                  'is-blocked': isTaskBlocked(task)
-                }"
-                @click="selectedTaskId = task.id"
-              >
-                <div class="tc-head">
-                  <div class="tc-title">
-                    <strong>{{ task.name }}</strong>
-                    <span>{{ task.type }}</span>
-                  </div>
-                  <Chip size="sm" :variant="taskStatusTone(task)">{{ taskStatusLabel(task) }}</Chip>
-                </div>
-                <div class="tc-meta">
-                  <span>Cron: {{ task.cron_expr || "未配置" }}</span>
-                  <span>运行: {{ task.run_count }}</span>
-                </div>
-                <div class="tc-meta">
-                  <span>最近: {{ task.last_run_at ? formatDate(task.last_run_at) : "从未" }}</span>
-                  <span>状态: {{ task.last_run_status || "未知" }}</span>
-                </div>
-                <div class="tc-footer">
-                  <span class="tc-flag" :class="task.enabled ? 'text-success' : 'text-muted'">
-                    {{ task.enabled ? "已启用" : "已关闭" }}
-                  </span>
-                  <Button variant="ghost" size="sm" :disabled="isBusy" @click.stop="handleRunTask(task.id)">运行</Button>
-                </div>
-              </button>
-            </div>
+          
+          <div class="filter-chips">
+            <Chip
+              v-for="item in statusFilters"
+              :key="item.value"
+              :variant="statusFilter === item.value ? 'brand' : 'default'"
+              clickable
+              @click="statusFilter = item.value"
+            >
+              {{ item.label }}
+            </Chip>
           </div>
-        </Card>
-      </aside>
+          <div class="filter-chips">
+            <Chip
+              v-for="item in typeFilters"
+              :key="item.value"
+              :variant="typeFilter === item.value ? 'brand' : 'default'"
+              clickable
+              @click="typeFilter = typeFilter === item.value ? '' : item.value"
+            >
+              {{ item.label }}
+            </Chip>
+          </div>
+        </div>
 
-      <main class="workspace-main">
-        <Card class="detail-card h-full scroll-area" v-if="selectedTask">
-          <div class="detail-card__header">
+        <div class="rail-card__body no-padding scroll-area">
+          <div v-if="isEmpty" class="empty-state">
+            <span class="material-symbols-outlined">robot_2</span>
+            <strong>暂时没有自动化任务</strong>
+            <p>先创建一个任务，再查看运行记录、日志和阻断原因。</p>
+          </div>
+          <div v-else class="task-grid">
+            <button
+              v-for="task in filteredTasks"
+              :key="task.id"
+              class="task-card"
+              :class="{
+                'is-selected': selectedTaskId === task.id,
+                'is-disabled': !task.enabled,
+                'is-blocked': isTaskBlocked(task)
+              }"
+              @click="selectTask(task.id)"
+            >
+              <div class="tc-head">
+                <div class="tc-title">
+                  <strong>{{ task.name }}</strong>
+                  <span class="task-source-label">来源: {{ task.type }}</span>
+                </div>
+                <Chip size="sm" :variant="taskStatusTone(task)">{{ taskStatusLabel(task) }}</Chip>
+              </div>
+              <div class="tc-meta tc-meta-results">
+                <span>运行次数: {{ task.run_count }}</span>
+                <span>最近结果: <strong>{{ task.last_run_status === 'success' ? '成功' : (task.last_run_status === 'failed' ? '失败' : (task.last_run_status || '未知')) }}</strong></span>
+              </div>
+              <div class="tc-meta">
+                <span>Cron: {{ task.cron_expr || "未配置" }}</span>
+                <span>最近运行: {{ task.last_run_at ? formatDate(task.last_run_at) : "从未" }}</span>
+              </div>
+              <div class="tc-footer">
+                <span class="tc-flag" :class="task.enabled ? 'text-success' : 'text-muted'">
+                  {{ task.enabled ? "已启用" : "已关闭" }}
+                </span>
+                <Button variant="ghost" size="sm" :disabled="isBusy" @click.stop="handleRunTask(task.id)">
+                  {{ ['failed', 'blocked', 'error'].includes(taskRealtimeStatus(task)) ? '重试' : '运行' }}
+                </Button>
+              </div>
+            </button>
+          </div>
+        </div>
+      </Card>
+    </div>
+
+    <!-- Details Drawer Modal -->
+    <transition name="drawer">
+      <div v-if="showDetailsDrawer && selectedTask" class="drawer-overlay" @click="closeDetailsDrawer">
+        <aside class="drawer-panel drawer-panel--large" @click.stop>
+          <div class="drawer-panel__header">
             <div>
-              <p class="eyebrow">当前任务</p>
-              <h3>{{ selectedTask.name }}</h3>
-              <p class="summary">类型 {{ selectedTask.type }}，Cron {{ selectedTask.cron_expr || "未配置" }}，运行次数 {{ selectedTask.run_count }}。</p>
+              <p class="drawer-panel__eyebrow">当前任务</p>
+              <h2>{{ selectedTask.name }}</h2>
+              <p class="summary">来源 {{ selectedTask.type }}，Cron {{ selectedTask.cron_expr || "未配置" }}，运行次数 {{ selectedTask.run_count }}。</p>
             </div>
             <div class="actions">
               <Chip :variant="taskStatusTone(selectedTask)">{{ taskStatusLabel(selectedTask) }}</Chip>
               <Button variant="secondary" :disabled="isBusy" @click="selectedTask.enabled ? handleRunTask(selectedTask.id) : undefined">
-                {{ selectedTask.enabled ? "手动触发" : "任务已关闭" }}
+                {{ selectedTask.enabled ? (['failed', 'blocked'].includes(taskRealtimeStatus(selectedTask)) ? '手动重试' : '手动触发') : "任务已关闭" }}
               </Button>
+              <button class="drawer-panel__close" @click="closeDetailsDrawer" style="margin-left: 16px;">
+                <span class="material-symbols-outlined">close</span>
+              </button>
             </div>
           </div>
 
-          <div class="detail-card__body">
-            <div class="metric-grid cols-4">
+          <div class="drawer-panel__body">
+            <div class="metric-grid cols-2">
               <div class="metric-card">
                 <span>执行开关</span>
                 <strong>{{ selectedTask.enabled ? "已启用" : "已关闭" }}</strong>
               </div>
               <div class="metric-card">
-                <span>最近状态</span>
-                <strong>{{ selectedTask.last_run_status || "未知" }}</strong>
-              </div>
-              <div class="metric-card">
                 <span>运行状态</span>
                 <strong>{{ currentRunStateLabel }}</strong>
               </div>
-              <div class="metric-card">
+              <div class="metric-card" style="grid-column: span 2;">
                 <span>阻断语义</span>
                 <strong>{{ selectedTaskBlockLabel }}</strong>
               </div>
             </div>
 
-            <div class="lane">
+            <div class="lane" style="margin-top: 16px;">
+              <div class="lane-head">
+                <h4>日志摘要</h4>
+                <Chip size="sm">{{ logSummary.length }} 条最新</Chip>
+              </div>
+              <div class="terminal">
+                <div v-if="logSummary.length === 0" class="term-line muted">> 暂无日志摘要。</div>
+                <template v-else>
+                  <div v-for="line in logSummary" :key="line.id" class="term-line" :class="{ 'blocked': line.status === 'blocked', 'failed': line.status === 'failed' }">
+                    > {{ line.text }}
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <div class="lane" style="margin-top: 16px;">
               <div class="lane-head">
                 <h4>运行历史</h4>
                 <Chip size="sm">{{ selectedRuns.length }} 条</Chip>
@@ -167,9 +184,9 @@
               <div v-if="runsLoading" class="lane-empty">正在读取该任务的运行历史。</div>
               <div v-else-if="selectedRuns.length === 0" class="lane-empty">该任务暂时还没有运行记录。</div>
               <div v-else class="run-list">
-                <div v-for="run in selectedRuns" :key="run.id" class="run-item" :class="{ 'is-blocked': run.status === 'blocked' }">
+                <div v-for="run in selectedRuns" :key="run.id" class="run-item" :class="{ 'is-blocked': run.status === 'blocked', 'is-failed': run.status === 'failed' }">
                   <div class="run-head">
-                    <strong>{{ run.status }}</strong>
+                    <strong>{{ run.status === 'success' ? '成功' : (run.status === 'failed' ? '失败' : run.status) }}</strong>
                     <span>{{ formatDateTime(run.started_at ?? run.created_at) }}</span>
                   </div>
                   <div class="run-meta">
@@ -180,25 +197,9 @@
               </div>
             </div>
 
-            <div class="lane">
-              <div class="lane-head">
-                <h4>日志流</h4>
-                <Chip size="sm">{{ selectedLogs.length }} 行</Chip>
-              </div>
-              <div class="terminal">
-                <div v-if="selectedLogs.length === 0" class="term-line muted">> 暂无日志。触发任务后，运行内容会在这里展开。</div>
-                <template v-else>
-                  <div v-for="line in selectedLogs" :key="line.id" class="term-line" :class="{ 'blocked': line.status === 'blocked' }">
-                    > {{ line.text }}
-                  </div>
-                </template>
-              </div>
-            </div>
-
-            <div class="lane">
+            <div class="lane" style="margin-top: 16px;">
               <div class="lane-head">
                 <h4>执行配置</h4>
-                <Chip size="sm" :variant="selectedTask.enabled ? 'success' : 'neutral'">{{ selectedTask.enabled ? "可执行" : "已关闭" }}</Chip>
               </div>
               <div class="config-grid">
                 <div class="cfg-row"><span>任务类型</span><strong>{{ selectedTask.type }}</strong></div>
@@ -207,19 +208,11 @@
               </div>
             </div>
           </div>
-        </Card>
-        
-        <Card class="detail-card empty-wrapper" v-else>
-          <div class="empty-state">
-            <span class="material-symbols-outlined">monitoring</span>
-            <strong>选择一个任务查看执行链路</strong>
-            <p>这里会显示运行历史、日志流和阻断语义。</p>
-          </div>
-        </Card>
-      </main>
-    </div>
+        </aside>
+      </div>
+    </transition>
 
-    <!-- Drawer Modal -->
+    <!-- Drawer Modal For Add -->
     <transition name="drawer">
       <div v-if="showAddTask" class="drawer-overlay" @click="showAddTask = false">
         <aside class="drawer-panel" @click.stop>
@@ -268,8 +261,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch, onUnmounted } from "vue";
 import { useAutomationStore } from "@/stores/automation";
+import { useTaskBusStore } from "@/stores/task-bus";
 import type { AutomationTaskCreateInput, AutomationTaskDto } from "@/types/runtime";
 
 import Button from "@/components/ui/Button/Button.vue";
@@ -281,7 +275,10 @@ type TaskView = AutomationTaskDto;
 type TaskFilterValue = "all" | "enabled" | "disabled";
 
 const automationStore = useAutomationStore();
+const taskBusStore = useTaskBusStore();
+
 const selectedTaskId = ref<string | null>(null);
+const showDetailsDrawer = ref(false);
 const statusFilter = ref<TaskFilterValue>("all");
 const typeFilter = ref<string>("");
 const showAddTask = ref(false);
@@ -323,13 +320,20 @@ const runsLoading = computed(() => (selectedTaskId.value ? automationStore.runsS
 const currentRunStateLabel = computed(() => {
   if (automationStore.triggerState === "running") return "正在触发";
   if (runsLoading.value) return "读取历史";
+  if (selectedTask.value) {
+     const status = taskRealtimeStatus(selectedTask.value);
+     if (status === 'running') return '运行中';
+     if (status === 'queued') return '排队中';
+  }
   return automationStore.triggerState === "error" ? "触发异常" : "待命";
 });
 
 const selectedTaskBlockLabel = computed(() => {
   if (!selectedTask.value) return "未选中";
   if (!selectedTask.value.enabled) return "任务已关闭";
-  if (selectedTask.value.last_run_status === "blocked") return "最近运行被阻断";
+  const st = taskRealtimeStatus(selectedTask.value);
+  if (st === "blocked") return "最近运行被阻断";
+  if (st === "failed") return "最近运行失败";
   return "可手动运行";
 });
 
@@ -341,32 +345,83 @@ const selectedLogs = computed(() =>
   )
 );
 
+// Only show latest 100 log lines as a summary to avoid clutter
+const logSummary = computed(() => {
+  const logs = selectedLogs.value;
+  return logs.slice(-100);
+});
+
 const selectedTaskConfigPreview = computed(() => prettyJson(selectedTask.value?.config_json));
 
-onMounted(() => { void automationStore.loadTasks(); });
+onMounted(() => { 
+  taskBusStore.connect();
+  void automationStore.loadTasks(); 
+});
 
-watch(() => tasks.value.map((task) => task.id).join("|"), () => {
-  if (!selectedTaskId.value && tasks.value.length > 0) selectedTaskId.value = tasks.value[0].id;
+onUnmounted(() => {
+  // Option: disconnect taskBusStore if needed, or leave connected
+});
+
+watch(selectedTaskId, (taskId) => { 
+  if (taskId) {
+    void automationStore.loadRuns(taskId); 
+  }
 }, { immediate: true });
 
-watch(selectedTaskId, (taskId) => { if (taskId) void automationStore.loadRuns(taskId); }, { immediate: true });
+function selectTask(taskId: string) {
+  selectedTaskId.value = taskId;
+  showDetailsDrawer.value = true;
+}
 
-function isTaskBlocked(task: TaskView) { return !task.enabled || task.last_run_status === "blocked"; }
+function closeDetailsDrawer() {
+  showDetailsDrawer.value = false;
+  // Keep selectedTaskId so background loading still happens, or set to null
+}
+
+function taskRealtimeStatus(task: TaskView) {
+  const liveTask = taskBusStore.tasks.get(task.id);
+  if (liveTask && liveTask.status) {
+    return liveTask.status;
+  }
+  return task.last_run_status || "queued";
+}
+
+function isTaskBlocked(task: TaskView) { 
+  return !task.enabled || taskRealtimeStatus(task) === "blocked"; 
+}
+
 function taskStatusTone(task: TaskView) {
   if (!task.enabled) return "neutral";
-  if (task.last_run_status === "blocked") return "warning";
-  if (task.last_run_status === "failed") return "danger";
-  if (task.last_run_status === "running" || automationStore.triggerState === "running") return "brand";
+  const st = taskRealtimeStatus(task);
+  if (st === "blocked") return "warning";
+  if (st === "failed" || st === "error") return "danger";
+  if (st === "running" || automationStore.triggerState === "running") return "brand";
+  if (st === "retried") return "brand";
+  if (st === "queued") return "warning";
+  if (st === "cancelled") return "neutral";
+  if (st === "succeeded" || st === "success") return "success";
   return "success";
 }
 
 function taskStatusLabel(task: TaskView) {
   if (!task.enabled) return "已关闭";
-  if (!task.last_run_status) return "待运行";
-  return task.last_run_status;
+  const st = taskRealtimeStatus(task);
+  const map: Record<string, string> = {
+    'queued': '排队中',
+    'running': '运行中',
+    'failed': '失败',
+    'retried': '已重试',
+    'cancelled': '已取消',
+    'blocked': '已阻断',
+    'succeeded': '已完成',
+    'success': '已完成',
+    'error': '错误'
+  };
+  return map[st] || st || "待命";
 }
 
 async function handleRunTask(id: string) {
+  // Explicitly mapping retry to run logic inside trigger
   selectedTaskId.value = id;
   await automationStore.triggerTask(id);
 }
@@ -489,18 +544,10 @@ function formatDateTime(value: string | null) {
   white-space: nowrap;
 }
 
-.workspace-grid {
-  display: grid;
-  grid-template-columns: minmax(320px, 360px) minmax(0, 1fr);
-  gap: var(--space-4);
-  flex: 1;
-  min-height: 0;
-}
-
-.workspace-rail {
+.queue-view-container {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  flex: 1;
   min-height: 0;
 }
 
@@ -509,6 +556,7 @@ function formatDateTime(value: string | null) {
   flex-direction: column;
   padding: 0;
   overflow: hidden;
+  background: var(--color-bg-surface);
 }
 
 .h-full { height: 100%; }
@@ -556,6 +604,7 @@ function formatDateTime(value: string | null) {
   padding: var(--space-10) var(--space-4);
   color: var(--color-text-tertiary);
   gap: 8px;
+  height: 100%;
 }
 
 .empty-state .material-symbols-outlined {
@@ -563,10 +612,11 @@ function formatDateTime(value: string | null) {
   color: var(--color-text-secondary);
 }
 
-.task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  padding: var(--space-4);
 }
 
 .task-card {
@@ -574,39 +624,32 @@ function formatDateTime(value: string | null) {
   flex-direction: column;
   gap: 8px;
   padding: var(--space-4);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
   cursor: pointer;
   text-align: left;
   transition: all var(--motion-fast) var(--ease-standard);
+  box-shadow: var(--shadow-sm);
 }
 
-.task-card:hover { background: var(--color-bg-hover); }
-.task-card:active { transform: scale(0.98); transition-duration: var(--motion-instant); }
-
-.task-list-transition-move,
-.task-list-transition-enter-active,
-.task-list-transition-leave-active {
-  transition: all var(--motion-default) var(--ease-spring);
+.task-card:hover { 
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
-.task-list-transition-enter-from,
-.task-list-transition-leave-to {
-  opacity: 0;
-  transform: translateX(-16px);
-}
-.task-list-transition-leave-active {
-  position: absolute;
-  width: 100%;
-}
+.task-card:active { transform: translateY(0); transition-duration: var(--motion-instant); }
 
 .task-card.is-selected {
-  background: color-mix(in srgb, var(--color-brand-primary) 8%, var(--color-bg-surface));
-  border-left: 3px solid var(--color-brand-primary);
-  padding-left: calc(var(--space-4) - 3px);
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 1px var(--color-brand-primary);
 }
 
 .task-card.is-disabled { opacity: 0.8; }
+
+.task-card.is-blocked {
+  border-color: rgba(245, 183, 64, 0.4);
+}
 
 .tc-head {
   display: flex;
@@ -620,7 +663,7 @@ function formatDateTime(value: string | null) {
 }
 
 .tc-title strong { font: var(--font-title-sm); color: var(--color-text-primary); }
-.tc-title span { font: var(--font-caption); color: var(--color-text-secondary); }
+.task-source-label { font: var(--font-caption); color: var(--color-brand-primary); margin-top: 2px;}
 
 .tc-meta {
   display: flex;
@@ -628,6 +671,18 @@ function formatDateTime(value: string | null) {
   gap: 12px;
   font: var(--font-caption);
   color: var(--color-text-secondary);
+  justify-content: space-between;
+}
+
+.tc-meta-results {
+  background: var(--color-bg-muted);
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.tc-meta-results strong {
+  color: var(--color-text-primary);
 }
 
 .tc-footer {
@@ -635,44 +690,19 @@ function formatDateTime(value: string | null) {
   align-items: center;
   justify-content: space-between;
   margin-top: 4px;
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: 8px;
 }
 
 .tc-flag { font: var(--font-caption); }
 .text-success { color: var(--color-success); }
 .text-muted { color: var(--color-text-tertiary); }
 
-.workspace-main {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.detail-card {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.detail-card__header {
-  padding: var(--space-5);
-  border-bottom: 1px solid var(--color-border-subtle);
-  background: var(--color-bg-canvas);
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
 .eyebrow {
   margin: 0 0 4px 0;
   font: var(--font-caption);
   color: var(--color-text-tertiary);
   text-transform: uppercase;
-}
-
-.detail-card__header h3 {
-  margin: 0 0 4px 0;
-  font: var(--font-title-lg);
-  color: var(--color-text-primary);
 }
 
 .summary {
@@ -687,19 +717,12 @@ function formatDateTime(value: string | null) {
   gap: 10px;
 }
 
-.detail-card__body {
-  padding: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-
 .metric-grid {
   display: grid;
   gap: 10px;
 }
 
-.cols-4 { grid-template-columns: repeat(4, 1fr); }
+.cols-2 { grid-template-columns: repeat(2, 1fr); }
 
 .metric-card {
   padding: var(--space-4);
@@ -761,6 +784,7 @@ function formatDateTime(value: string | null) {
 }
 
 .run-item.is-blocked { border-color: rgba(245, 183, 64, 0.4); }
+.run-item.is-failed { border-color: rgba(255, 90, 99, 0.4); }
 
 .run-head {
   display: flex;
@@ -792,6 +816,7 @@ function formatDateTime(value: string | null) {
 .term-line { color: var(--color-brand-primary); white-space: pre-wrap; }
 .term-line.muted { color: var(--color-text-tertiary); }
 .term-line.blocked { color: var(--color-warning); }
+.term-line.failed { color: var(--color-danger); }
 
 .config-grid { display: flex; flex-direction: column; gap: 8px; }
 .cfg-row { display: flex; flex-direction: column; gap: 4px; }
@@ -809,8 +834,6 @@ function formatDateTime(value: string | null) {
   word-break: break-all;
 }
 
-.empty-wrapper { flex: 1; justify-content: center; }
-
 .drawer-overlay {
   position: fixed;
   inset: 0;
@@ -827,6 +850,11 @@ function formatDateTime(value: string | null) {
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
+}
+
+.drawer-panel--large {
+  width: 640px;
+  max-width: 90vw;
 }
 
 .drawer-panel__header {
@@ -885,9 +913,4 @@ function formatDateTime(value: string | null) {
 
 .drawer-enter-active, .drawer-leave-active { transition: opacity 160ms ease; }
 .drawer-enter-from, .drawer-leave-to { opacity: 0; }
-
-@media (max-width: 1200px) {
-  .workspace-grid { grid-template-columns: 1fr; }
-  .metric-grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
-}
 </style>

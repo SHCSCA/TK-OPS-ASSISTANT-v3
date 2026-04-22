@@ -1,5 +1,5 @@
 import { ref, watch } from "vue";
-import { useAICapabilityStore } from "@/stores/ai-capability";
+import { useAIStore } from "@/stores/ai-capability";
 import type { CapabilityBindingRow, PromptEditorState } from "./types";
 
 /** 每项能力可用的模板变量 */
@@ -26,7 +26,7 @@ const CAPABILITY_LABELS: Record<string, string> = {
  * Prompt 模板编辑：角色设定、系统 Prompt、用户模板管理
  */
 export function usePromptEditing(capabilityRows: ReturnType<typeof ref<CapabilityBindingRow[]>>) {
-  const aiStore = useAICapabilityStore();
+  const aiStore = useAIStore();
 
   const promptStates = ref<PromptEditorState[]>([]);
 
@@ -59,13 +59,19 @@ export function usePromptEditing(capabilityRows: ReturnType<typeof ref<Capabilit
 
   async function savePrompt(id: string) {
     const p = promptStates.value.find(item => item.capabilityId === id);
-    if (!p) return;
-    await aiStore.saveCapabilities(capabilityRows.value.map(r => {
+    if (!p || !capabilityRows.value) return;
+    
+    const updatedCapabilities = capabilityRows.value.map(r => {
       if (r.capabilityId === id) {
         return { ...r, agentRole: p.agentRole, systemPrompt: p.systemPrompt, userPromptTemplate: p.userPromptTemplate };
       }
       return r;
-    }));
+    });
+
+    // FIX: Match the required Partial<AICapabilitySettings> contract
+    await aiStore.saveCapabilities({ 
+      capabilities: updatedCapabilities 
+    });
   }
 
   function resetPrompt(id: string) {

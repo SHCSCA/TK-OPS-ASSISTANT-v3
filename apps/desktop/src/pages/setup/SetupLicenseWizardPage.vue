@@ -10,38 +10,55 @@
         <div class="wizard-logo"></div>
         <div class="wizard-titles">
           <h1>TK-OPS</h1>
-          <p>AI 视频创作中枢</p>
+          <p>环境自检与初始化</p>
+        </div>
+        <!-- V2: Step progress indicator -->
+        <div class="step-progress-badge" v-if="activeStep !== 'done'">
+          步骤 {{ activeStepIndex + 1 }} / 3
         </div>
       </div>
 
-      <div class="wizard-steps-indicator" v-if="currentStep > 0 && currentStep < 4">
-        <div 
-          v-for="step in 3" 
-          :key="step" 
-          class="step-dot" 
-          :class="{ 'is-active': currentStep === step, 'is-completed': currentStep > step }"
-        ></div>
-      </div>
-
-      <div class="wizard-content">
-        <transition name="step-slide">
-          
-          <!-- Step 0: Welcome -->
-          <div v-if="currentStep === 0" class="step-panel" key="step-0">
-            <div class="step-body">
-              <h2>欢迎使用</h2>
-              <p>作为您的本地 AI 创作中枢，我们需要进行首次环境检查与设备授权，以确保所有功能正常运行。</p>
-            </div>
-            <div class="step-actions">
-              <Button variant="ai" size="lg" block @click="goToStep(1)">开始初始化</Button>
+      <div class="wizard-content step-list">
+        <!-- 1. Runtime Health Check -->
+        <div class="step-item" :class="getStepClass(runtimeState)">
+          <div class="step-header">
+            <span class="material-symbols-outlined step-icon" :class="{ 'spinning': isSpinning(runtimeState) }">
+              {{ getIcon(runtimeState) }}
+            </span>
+            <div class="step-title">1. Runtime 健康检查</div>
+            <div class="step-status">{{ getLabel(runtimeState) }}</div>
+          </div>
+          <div class="step-body" v-if="activeStep === 'runtime' || runtimeState === 'failed'">
+            <p v-if="runtimeState === 'detecting' || runtimeState === 're-detecting'" class="step-desc">
+              正在检查本地 Python 核心服务的运行状态与依赖...
+            </p>
+            <div v-if="runtimeState === 'failed'" class="step-error-area">
+              <div class="error-box">
+                <span class="material-symbols-outlined error-icon">warning</span>
+                <span class="error-text">{{ configBusStore.error?.message || '无法连接到本地核心服务，请检查后端是否正常运行。' }}</span>
+              </div>
+              <div class="step-actions">
+                <Button variant="primary" size="sm" @click="retryRuntime" :running="runtimeState === 're-detecting'">
+                  重新检测 Runtime
+                </Button>
+              </div>
             </div>
           </div>
-          
-          <!-- Step 1: License Activation -->
-          <div v-else-if="currentStep === 1" class="step-panel" key="step-1">
-            <div class="step-body">
-              <h2>许可证激活</h2>
-              <p>向管理员提供以下本机机器码，获取一机一码授权码。</p>
+        </div>
+
+        <!-- 2. License Activation -->
+        <div class="step-item" :class="getStepClass(licenseState)">
+          <div class="step-header">
+            <span class="material-symbols-outlined step-icon" :class="{ 'spinning': isSpinning(licenseState) }">
+              {{ getIcon(licenseState) }}
+            </span>
+            <div class="step-title">2. 许可证校验</div>
+            <div class="step-status">{{ getLabel(licenseState) }}</div>
+          </div>
+          <div class="step-body" v-if="activeStep === 'license' || (licenseState === 'failed' && runtimeState === 'success')">
+            <p v-if="licenseState === 'detecting'" class="step-desc">正在验证许可证信息...</p>
+            <div v-if="licenseState === 'failed'" class="step-error-area">
+              <p class="step-desc">当前设备尚未授权。请向管理员提供以下机器码获取授权。</p>
               
               <div class="machine-code-box">
                 <code>{{ licenseStore.machineCode || "读取中..." }}</code>
@@ -58,109 +75,66 @@
                   :hint="licenseStore.error?.message"
                 />
               </div>
-            </div>
-            <div class="step-actions">
-              <Button 
-                variant="primary" 
-                size="lg" 
-                block 
-                :running="licenseStore.status === 'submitting'"
-                :disabled="!activationCode.trim() || licenseStore.status === 'submitting'"
-                @click="handleActivate"
-              >
-                激活并继续
-              </Button>
-            </div>
-          </div>
-          
-          <!-- Step 2: Runtime Health -->
-          <div v-else-if="currentStep === 2" class="step-panel" key="step-2">
-            <div class="step-body">
-              <h2>Runtime 健康检查</h2>
-              <p>正在检查本地 Python 核心服务的运行状态与依赖。</p>
-              
-              <ul class="health-checklist">
-                <li>
-                  <span class="material-symbols-outlined" :class="runtimeIconClass">{{ runtimeIcon }}</span>
-                  <div class="check-info">
-                    <strong>核心服务连接</strong>
-                    <span>{{ runtimeStatusLabel }}</span>
-                  </div>
-                </li>
-                <li>
-                  <span class="material-symbols-outlined" :class="configIconClass">{{ configIcon }}</span>
-                  <div class="check-info">
-                    <strong>配置总线</strong>
-                    <span>{{ configStatusLabel }}</span>
-                  </div>
-                </li>
-              </ul>
-              <div v-if="configBusStore.error" class="error-box">
-                {{ configBusStore.error.message }}
+              <div class="step-actions">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  :running="licenseStore.status === 'submitting'"
+                  :disabled="!activationCode.trim() || licenseStore.status === 'submitting'"
+                  @click="handleActivate"
+                >
+                  激活并继续
+                </Button>
+                <!-- V2: Retry detection entry -->
+                <Button variant="ghost" size="sm" @click="retryLicense" v-if="!licenseStore.active">
+                  刷新授权状态
+                </Button>
               </div>
             </div>
-            <div class="step-actions">
-              <Button 
-                variant="primary" 
-                size="lg" 
-                block 
-                :disabled="configBusStore.runtimeStatus !== 'online'"
-                @click="goToStep(3)"
-              >
-                下一步
-              </Button>
-              <Button 
-                v-if="configBusStore.runtimeStatus !== 'online'"
-                variant="ghost" 
-                size="lg" 
-                block 
-                @click="retryCheck"
-              >
-                重试检查
-              </Button>
-            </div>
           </div>
+        </div>
 
-          <!-- Step 3: Initialization & Complete -->
-          <div v-else-if="currentStep === 3" class="step-panel" key="step-3">
-            <div class="step-body">
-              <h2>一切就绪</h2>
-              <p>环境检查与授权已完成。如果您是首次使用，建议前往系统设置补齐工作区目录与 AI Provider 配置。</p>
+        <!-- 3. Directory & Provider Initialization -->
+        <div class="step-item" :class="getStepClass(initState)">
+          <div class="step-header">
+            <span class="material-symbols-outlined step-icon" :class="{ 'spinning': isSpinning(initState) }">
+              {{ getIcon(initState) }}
+            </span>
+            <div class="step-title">3. 目录与组件初始化</div>
+            <div class="step-status">{{ getLabel(initState) }}</div>
+          </div>
+          <div class="step-body" v-if="activeStep === 'init' || initState === 'failed'">
+            <div v-if="initState === 'failed'" class="step-error-area">
+              <p class="step-desc">检测到部分基础路径或 AI 提供商尚未配置：</p>
               
               <ul class="init-checklist">
                 <li v-for="item in initializationChecklist" :key="item.id">
                   <span class="material-symbols-outlined" :class="item.state === 'ready' ? 'text-success' : 'text-warning'">
-                    {{ item.state === 'ready' ? 'check_circle' : 'pending' }}
+                    {{ item.state === 'ready' ? 'check_circle' : 'error' }}
                   </span>
-                  <span>{{ item.label }}</span>
+                  <span>{{ item.label }} <span v-if="item.state !== 'ready'" class="text-warning text-xs">(缺失)</span></span>
                 </li>
               </ul>
+              <div class="step-actions">
+                <Button variant="primary" size="sm" @click="goToSettings">去配置目录与 AI</Button>
+                <Button variant="ghost" size="sm" @click="retryInit">重新检测配置</Button>
+              </div>
             </div>
-            <div class="step-actions">
-              <Button 
-                variant="secondary" 
-                size="lg" 
-                block 
-                v-if="!isFullyInitialized"
-                @click="goToSettings"
-              >
-                前往系统设置
-              </Button>
-              <Button 
-                variant="ai" 
-                size="lg" 
-                block 
-                @click="finishSetup"
-              >
-                进入创作总览
-              </Button>
-            </div>
+            <p v-else-if="initState === 'success'" class="step-desc text-success">所有基础环境已就绪。</p>
+            <p v-else class="step-desc">等待前置步骤完成...</p>
           </div>
+        </div>
+      </div>
+
+      <div class="wizard-footer">
+        <transition name="fade">
+          <Button v-if="activeStep === 'done'" variant="ai" size="lg" block @click="finishSetup">
+            进入创作总览
+          </Button>
+          <button v-else class="skip-btn" @click="finishSetup">跳过引导（受限模式）</button>
         </transition>
       </div>
     </div>
-    
-    <button v-if="currentStep > 0 && currentStep < 3" class="skip-btn" @click="finishSetup">跳过引导（受限模式）</button>
   </div>
 </template>
 
@@ -175,6 +149,7 @@ import { hasCompletedBootstrapInitialization } from "@/bootstrap/bootstrap-form"
 
 import Button from "@/components/ui/Button/Button.vue";
 import Input from "@/components/ui/Input/Input.vue";
+import Chip from "@/components/ui/Chip/Chip.vue";
 
 const bootstrapStore = useBootstrapStore();
 const configBusStore = useConfigBusStore();
@@ -182,9 +157,11 @@ const licenseStore = useLicenseStore();
 const route = useRoute();
 const router = useRouter();
 
-const currentStep = ref(0);
 const activationCode = ref("");
 const burstActive = ref(false);
+const isRuntimeRetrying = ref(false);
+const isLicenseRetrying = ref(false);
+const isInitRetrying = ref(false);
 
 onMounted(() => {
   if (bootstrapStore.phase === "boot_loading") {
@@ -192,58 +169,46 @@ onMounted(() => {
   }
 });
 
-// Sync step based on actual status
-watch(() => bootstrapStore.phase, (phase) => {
-  if (currentStep.value === 0) return; // Keep welcome screen until they click start
-  
-  if (phase === "license_required") {
-    currentStep.value = 1;
-  } else if (phase === "boot_error") {
-    currentStep.value = 2;
-  } else if (phase === "initialization_required" || phase === "ready") {
-    if (currentStep.value < 3) {
-      currentStep.value = 3;
-    }
-  }
-});
-
-const runtimeStatusLabel = computed(() => {
-  if (configBusStore.runtimeStatus === "online") return `在线 (${configBusStore.health?.version || "未知版本"})`;
-  if (configBusStore.runtimeStatus === "loading") return "检查中...";
-  return "离线";
-});
-
-const runtimeIcon = computed(() => {
-  if (configBusStore.runtimeStatus === "online") return "check_circle";
-  if (configBusStore.runtimeStatus === "loading") return "sync";
-  return "error";
-});
-
-const runtimeIconClass = computed(() => {
-  if (configBusStore.runtimeStatus === "online") return "text-success";
-  if (configBusStore.runtimeStatus === "loading") return "text-info spinning";
-  return "text-danger";
-});
-
-const configStatusLabel = computed(() => {
-  if (configBusStore.settings) return "已加载";
-  if (configBusStore.status === "loading") return "读取中...";
-  return "异常";
-});
-
-const configIcon = computed(() => {
-  if (configBusStore.settings) return "check_circle";
-  if (configBusStore.status === "loading") return "sync";
-  return "error";
-});
-
-const configIconClass = computed(() => {
-  if (configBusStore.settings) return "text-success";
-  if (configBusStore.status === "loading") return "text-info spinning";
-  return "text-danger";
-});
-
 const isFullyInitialized = computed(() => hasCompletedBootstrapInitialization(configBusStore.settings));
+
+const runtimeState = computed(() => {
+  if (configBusStore.runtimeStatus === 'loading') {
+    return isRuntimeRetrying.value ? 're-detecting' : 'detecting';
+  }
+  if (configBusStore.runtimeStatus === 'online') {
+    return 'success';
+  }
+  if (configBusStore.runtimeStatus === 'offline' || configBusStore.status === 'error') {
+    return 'failed';
+  }
+  return 'pending';
+});
+
+const licenseState = computed(() => {
+  if (runtimeState.value !== 'success') return 'pending';
+  if (licenseStore.status === 'loading' || licenseStore.status === 'submitting' || isLicenseRetrying.value) return 'detecting';
+  if (licenseStore.active) return 'success';
+  return 'failed';
+});
+
+const initState = computed(() => {
+  if (licenseState.value !== 'success') return 'pending';
+  if (configBusStore.status === 'loading' || isInitRetrying.value) return 'detecting';
+  if (isFullyInitialized.value) return 'success';
+  return 'failed';
+});
+
+const activeStep = computed(() => {
+  if (runtimeState.value !== 'success') return 'runtime';
+  if (licenseState.value !== 'success') return 'license';
+  if (initState.value !== 'success') return 'init';
+  return 'done';
+});
+
+const activeStepIndex = computed(() => {
+  const steps = ['runtime', 'license', 'init', 'done'];
+  return steps.indexOf(activeStep.value);
+});
 
 const initializationChecklist = computed(() => {
   const settings = configBusStore.settings;
@@ -253,18 +218,59 @@ const initializationChecklist = computed(() => {
   ];
 });
 
-function goToStep(step: number) {
-  const isPreview = route.query.preview !== undefined;
-  
-  if (step === 1 && licenseStore.active && !isPreview) {
-    // skip license if already active
-    currentStep.value = 2;
-    return;
+function getLabel(state: string) {
+  switch (state) {
+    case 'pending': return '等待中';
+    case 'detecting': return '检测中...';
+    case 're-detecting': return '重新检测中...';
+    case 'success': return '检测成功';
+    case 'failed': return '检测失败';
+    default: return '';
   }
-  if (step === 2 && configBusStore.runtimeStatus === 'online' && !isPreview) {
-    // skip runtime check if already online? No, maybe show it quickly
+}
+
+function getIcon(state: string) {
+  switch (state) {
+    case 'pending': return 'schedule';
+    case 'detecting': 
+    case 're-detecting': return 'sync';
+    case 'success': return 'check_circle';
+    case 'failed': return 'error';
+    default: return 'help';
   }
-  currentStep.value = step;
+}
+
+function getStepClass(state: string) {
+  return `is-${state}`;
+}
+
+function isSpinning(state: string) {
+  return state === 'detecting' || state === 're-detecting';
+}
+
+function retryRuntime() {
+  isRuntimeRetrying.value = true;
+  void bootstrapStore.retry().finally(() => {
+    isRuntimeRetrying.value = false;
+  });
+}
+
+async function retryLicense() {
+  isLicenseRetrying.value = true;
+  try {
+    await licenseStore.load();
+  } finally {
+    isLicenseRetrying.value = false;
+  }
+}
+
+async function retryInit() {
+  isInitRetrying.value = true;
+  try {
+    await configBusStore.load();
+  } finally {
+    isInitRetrying.value = false;
+  }
 }
 
 async function copyMachineCode() {
@@ -287,14 +293,7 @@ async function handleActivate() {
   if (success) {
     activationCode.value = "";
     triggerBurst();
-    setTimeout(() => {
-      goToStep(2);
-    }, 1000);
   }
-}
-
-function retryCheck() {
-  void bootstrapStore.retry();
 }
 
 function triggerBurst() {
@@ -322,7 +321,7 @@ function finishSetup() {
   justify-content: center;
   background: var(--color-bg-canvas);
   overflow: hidden;
-  z-index: 9999; /* Overlay everything, do not use AppShell */
+  z-index: 9999;
 }
 
 /* Aurora Background */
@@ -341,12 +340,12 @@ function finishSetup() {
 .wizard-card {
   position: relative;
   z-index: 1;
-  width: 640px;
-  height: 560px;
+  width: 580px;
+  min-height: 520px;
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-2xl);
-  padding: var(--space-12);
+  padding: var(--space-8) var(--space-10);
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-lg);
@@ -364,7 +363,20 @@ function finishSetup() {
   align-items: center;
   text-align: center;
   gap: var(--space-4);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-8);
+  position: relative;
+}
+
+.step-progress-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font: var(--font-caption);
+  color: var(--color-brand-primary);
+  background: color-mix(in srgb, var(--color-brand-primary) 10%, transparent);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
 }
 
 .wizard-logo {
@@ -391,150 +403,135 @@ function finishSetup() {
   text-transform: uppercase;
 }
 
-/* Steps Indicator */
-.wizard-steps-indicator {
+/* Step List */
+.step-list {
   display: flex;
-  justify-content: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-8);
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 1;
 }
 
-.step-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-border-strong);
-  transition: background-color var(--motion-default) var(--ease-standard);
+.step-item {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  transition: all var(--motion-default) var(--ease-standard);
 }
 
-.step-dot.is-active {
-  background: var(--color-brand-primary);
-  box-shadow: 0 0 8px var(--color-brand-glow);
-}
-
-.step-dot.is-completed {
-  background: var(--color-brand-primary);
+.step-item.is-pending {
   opacity: 0.5;
+  filter: grayscale(1);
 }
 
-/* Content Area */
-.wizard-content {
-  flex: 1;
-  position: relative;
+.step-item.is-detecting,
+.step-item.is-re-detecting {
+  border-color: var(--color-border-strong);
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.05);
 }
 
-.step-panel {
-  position: absolute;
-  inset: 0;
+.step-item.is-failed {
+  border-color: var(--color-danger);
+  background: rgba(255, 90, 99, 0.05);
+}
+
+.step-item.is-success {
+  border-color: var(--color-success);
+  background: rgba(14, 204, 131, 0.05);
+}
+
+.step-header {
   display: flex;
-  flex-direction: column;
-}
-
-.step-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
+  gap: var(--space-3);
 }
 
-.step-body h2 {
-  margin: 0 0 var(--space-3) 0;
-  font: var(--font-title-lg);
+.step-icon {
+  font-size: 24px;
+}
+.is-pending .step-icon { color: var(--color-text-tertiary); }
+.is-detecting .step-icon, .is-re-detecting .step-icon { color: var(--color-info); }
+.is-success .step-icon { color: var(--color-success); }
+.is-failed .step-icon { color: var(--color-danger); }
+
+.step-title {
+  flex: 1;
+  font: var(--font-title-sm);
   color: var(--color-text-primary);
 }
 
-.step-body p {
-  margin: 0 0 var(--space-6) 0;
-  font: var(--font-body-md);
+.step-status {
+  font: var(--font-caption);
   color: var(--color-text-secondary);
-  line-height: 1.6;
+}
+.is-success .step-status { color: var(--color-success); }
+.is-failed .step-status { color: var(--color-danger); font-weight: 500; }
+.is-detecting .step-status, .is-re-detecting .step-status { color: var(--color-info); }
+
+.step-body {
+  margin-top: var(--space-3);
+  padding-left: calc(24px + var(--space-3));
+}
+
+.step-desc {
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.step-error-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.error-box {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: rgba(255, 90, 99, 0.1);
+  color: var(--color-danger);
+  border-radius: var(--radius-md);
+}
+
+.error-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.error-text {
+  font: var(--font-body-sm);
+  line-height: 1.4;
 }
 
 .step-actions {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-top: auto;
+  gap: var(--space-2);
 }
 
-/* Animations */
-.step-slide-enter-active,
-.step-slide-leave-active {
-  transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1), transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.step-slide-enter-from {
-  opacity: 0;
-  transform: translateX(32px);
-}
-
-.step-slide-leave-to {
-  opacity: 0;
-  transform: translateX(-32px);
-}
-
-/* Form Elements */
+/* Machine Code Box */
 .machine-code-box {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-bg-muted);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-canvas);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
 .machine-code-box code {
-  font: var(--font-mono-md);
+  font: var(--font-mono-sm);
   color: var(--color-text-primary);
   word-break: break-all;
-  text-align: left;
-}
-
-.form-field {
-  width: 100%;
-  text-align: left;
 }
 
 /* Checklists */
-.health-checklist {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.health-checklist li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-bg-muted);
-  border-radius: var(--radius-md);
-  text-align: left;
-}
-
-.check-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.check-info strong {
-  font: var(--font-title-sm);
-  color: var(--color-text-primary);
-}
-
-.check-info span {
-  font: var(--font-caption);
-  color: var(--color-text-secondary);
-}
-
 .init-checklist {
   list-style: none;
   padding: 0;
@@ -542,8 +539,7 @@ function finishSetup() {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  width: 100%;
-  max-width: 320px;
+  margin-bottom: var(--space-3);
 }
 
 .init-checklist li {
@@ -552,33 +548,26 @@ function finishSetup() {
   gap: var(--space-2);
   font: var(--font-body-sm);
   color: var(--color-text-primary);
-  text-align: left;
 }
+
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-xs { font-size: 12px; }
 
 /* Utilities */
-.text-success { color: var(--color-success); }
-.text-danger { color: var(--color-danger); }
-.text-warning { color: var(--color-warning); }
-.text-info { color: var(--color-info); }
 .spinning { animation: spin 2s linear infinite; }
-
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
-.error-box {
-  margin-top: var(--space-4);
-  padding: var(--space-3);
-  background: rgba(255, 90, 99, 0.1);
-  color: var(--color-danger);
-  border-radius: var(--radius-md);
-  font: var(--font-body-sm);
-  width: 100%;
-  text-align: left;
+/* Footer */
+.wizard-footer {
+  margin-top: var(--space-6);
+  min-height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-/* Skip Button */
 .skip-btn {
-  position: absolute;
-  bottom: var(--space-8);
   background: transparent;
   border: none;
   color: var(--color-text-tertiary);
@@ -590,6 +579,15 @@ function finishSetup() {
 .skip-btn:hover {
   color: var(--color-text-secondary);
   text-decoration: underline;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--motion-default) var(--ease-standard);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* Particles Burst */

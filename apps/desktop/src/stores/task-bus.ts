@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 
-import type { TaskEvent, TaskInfo } from "@/types/task-events";
+import type { TaskEvent, TaskInfo, TaskEventType } from "@/types/task-events";
 
 type TaskEventCallback = (event: TaskEvent) => void;
 
@@ -10,6 +10,7 @@ type TaskBusState = {
   connected: boolean;
   _socket: WebSocket | null;
   _subscribers: Map<string, Set<TaskEventCallback>>;
+  _typeSubscribers: Map<TaskEventType, Set<TaskEventCallback>>;
   _reconnectTimer: number | null;
   _heartbeatTimer: number | null;
   _manualDisconnect: boolean;
@@ -120,27 +121,13 @@ function buildTaskInfo(event: TaskEvent, existing: TaskInfo | undefined): TaskIn
     (event.type === "render.progress" ? "任务处理中" : taskType);
 
   return {
-    ...existing,
     id: event.taskId,
-    kind: taskType,
-    label: existing?.label ?? message,
-    status,
-    progress,
-    progressPct: progress,
-    startedAt: existing?.startedAt ?? null,
-    finishedAt: existing?.finishedAt ?? null,
-    etaMs: existing?.etaMs ?? null,
-    projectId: event.projectId ?? existing?.projectId ?? null,
-    ownerRef: existing?.ownerRef ?? null,
-    errorCode: event.errorCode ?? existing?.errorCode ?? null,
-    errorMessage: event.errorMessage ?? existing?.errorMessage ?? null,
-    retryable: existing?.retryable ?? false,
-    createdAt: existing?.createdAt ?? existing?.created_at ?? now,
-    updatedAt: now,
     task_type: taskType,
     project_id: event.projectId ?? existing?.project_id ?? null,
+    status,
+    progress,
     message,
-    created_at: existing?.created_at ?? existing?.createdAt ?? now,
+    created_at: existing?.created_at ?? now,
     updated_at: now
   };
 }
@@ -152,6 +139,7 @@ export const useTaskBusStore = defineStore("task-bus", {
     connected: false,
     _socket: null,
     _subscribers: new Map<string, Set<TaskEventCallback>>(),
+    _typeSubscribers: new Map<TaskEventType, Set<TaskEventCallback>>(),
     _reconnectTimer: null,
     _heartbeatTimer: null,
     _manualDisconnect: false
@@ -178,7 +166,7 @@ export const useTaskBusStore = defineStore("task-bus", {
       };
 
       socket.onmessage = (event) => {
-        this._handleMessage(event.data);
+        this._handleIncomingMessage(event.data);
       };
 
       socket.onerror = () => {
@@ -232,7 +220,29 @@ export const useTaskBusStore = defineStore("task-bus", {
       }
     },
 
-    _handleMessage(data: string): void {
+    subscribeToType(type: TaskEventType, callback: TaskEventCallback): () => void {
+      const subscribers = this._typeSubscribers.get(type) ?? new Set<TaskEventCallback>();
+      subscribers.add(callback);
+      this._typeSubscribers.set(type, subscribers);
+
+      return () => {
+        this.unsubscribeFromType(type, callback);
+      };
+    },
+
+    unsubscribeFromType(type: TaskEventType, callback: TaskEventCallback): void {
+      const subscribers = this._typeSubscribers.get(type);
+      if (!subscribers) {
+        return;
+      }
+
+      subscribers.delete(callback);
+      if (subscribers.size === 0) {
+        this._typeSubscribers.delete(type);
+      }
+    },
+
+    _handleIncomingMessage(data: string): void {
       try {
         const parsed = JSON.parse(data) as unknown;
         if (!isRuntimeEvent(parsed)) {
@@ -258,6 +268,9 @@ export const useTaskBusStore = defineStore("task-bus", {
           const subscribers = this._subscribers.get(key);
           subscribers?.forEach((callback) => callback(event));
         });
+
+        const typeSubscribers = this._typeSubscribers.get(event.type);
+        typeSubscribers?.forEach((callback) => callback(event));
       } catch (error) {
         console.error("解析任务 WebSocket 消息失败:", error);
       }

@@ -210,6 +210,10 @@ export async function createDashboardProject(
   });
 }
 
+export async function deleteDashboardProject(id: string): Promise<void> {
+  return requestRuntime<void>(`/api/dashboard/projects/${id}`, { method: "DELETE" });
+}
+
 export async function fetchCurrentProjectContext(): Promise<CurrentProjectContext | null> {
   return requestRuntime<CurrentProjectContext | null>("/api/dashboard/context");
 }
@@ -254,7 +258,7 @@ export async function fetchAICapabilitySettings(): Promise<AICapabilitySettings>
   return requestRuntime<AICapabilitySettings>("/api/settings/ai-capabilities");
 }
 
-export async function updateAICapabilitySettings(
+export async function saveAICapabilitySettings(
   capabilities: AICapabilitySettings["capabilities"]
 ): Promise<AICapabilitySettings> {
   return requestRuntime<AICapabilitySettings>("/api/settings/ai-capabilities", {
@@ -263,7 +267,7 @@ export async function updateAICapabilitySettings(
   });
 }
 
-export async function updateAIProviderSecret(
+export async function saveAIProviderSecret(
   providerId: string,
   input: AIProviderSecretInput
 ): Promise<AIProviderSecretStatus> {
@@ -289,13 +293,31 @@ export async function checkAIProviderHealth(
   );
 }
 
+export async function fetchProviderHealth(): Promise<Record<string, AIProviderHealth>> {
+  return requestRuntime<Record<string, AIProviderHealth>>("/api/ai-providers/health");
+}
+
 export async function fetchAIProviderCatalog(): Promise<AIProviderCatalogItem[]> {
   return requestRuntime<AIProviderCatalogItem[]>("/api/settings/ai-providers/catalog");
 }
 
-export async function fetchAIProviderModels(providerId: string): Promise<AIModelCatalogItem[]> {
+export async function fetchAIModelCatalog(providerId: string): Promise<AIModelCatalogItem[]> {
   return requestRuntime<AIModelCatalogItem[]>(
     `/api/settings/ai-providers/${providerId}/models`
+  );
+}
+
+export async function upsertAIProviderModel(
+  providerId: string,
+  modelId: string,
+  payload: import("../types/runtime").AIProviderModelUpsertInput
+): Promise<import("../types/runtime").AIProviderModelWriteReceiptDto> {
+  return requestRuntime<import("../types/runtime").AIProviderModelWriteReceiptDto>(
+    `/api/ai-providers/${providerId}/models/${modelId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }
   );
 }
 
@@ -419,7 +441,7 @@ export async function updatePromptTemplate(
 ): Promise<PromptTemplateDto> {
   return requestRuntime<PromptTemplateDto>(`/api/prompt-templates/${templateId}`, {
     body: JSON.stringify(input),
-    method: "PATCH"
+    method: "PUT"
   });
 }
 
@@ -1356,19 +1378,16 @@ function toRuntimeRequestError(
 }
 
 function normalizeTaskInfo(task: TaskInfo): TaskInfo {
+  const anyTask = task as any;
   return {
     ...task,
-    kind: task.kind ?? task.task_type ?? "generic",
-    label: task.label ?? task.message ?? task.kind ?? task.task_type ?? "任务",
-    progressPct: task.progressPct ?? task.progress ?? 0,
-    projectId: task.projectId ?? task.project_id ?? null,
-    createdAt: task.createdAt ?? task.created_at ?? "",
-    updatedAt: task.updatedAt ?? task.updated_at ?? "",
-    task_type: task.task_type ?? task.kind ?? "generic",
-    project_id: task.project_id ?? task.projectId ?? null,
-    progress: task.progress ?? task.progressPct ?? 0,
-    message: task.message ?? task.label ?? task.kind ?? "任务",
-    created_at: task.created_at ?? task.createdAt ?? "",
-    updated_at: task.updated_at ?? task.updatedAt ?? ""
+    id: task.id,
+    task_type: task.task_type || anyTask.kind || "generic",
+    project_id: task.project_id || anyTask.projectId || null,
+    progress: typeof task.progress === "number" ? task.progress : (anyTask.progressPct ?? 0),
+    message: task.message || anyTask.label || "任务",
+    status: task.status,
+    created_at: task.created_at || anyTask.createdAt || "",
+    updated_at: task.updated_at || anyTask.updatedAt || ""
   };
 }

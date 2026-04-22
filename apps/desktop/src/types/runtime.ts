@@ -56,6 +56,7 @@ export type LicenseActivationInput = {
 
 export type AppSettings = {
   revision: number;
+  scope: string;
   runtime: {
     mode: string;
     workspaceRoot: string;
@@ -82,6 +83,7 @@ export type RuntimeDiagnostics = {
   databasePath: string;
   logDir: string;
   revision: number;
+  configScope: string;
   mode: string;
   healthStatus: string;
 };
@@ -273,11 +275,16 @@ export type AICapabilityConfig = {
 export type AIProviderSecretStatus = {
   provider: string;
   label: string;
+  scope: string;
   configured: boolean;
   maskedSecret: string;
   baseUrl: string;
   secretSource: string;
   supportsTextGeneration: boolean;
+  readiness: string;
+  lastCheckedAt: string;
+  errorCode: string;
+  errorMessage: string;
 };
 
 export type AIProviderHealth = {
@@ -290,6 +297,9 @@ export type AIProviderHealth = {
 };
 
 export type AICapabilitySettings = {
+  scope: string;
+  configVersion: number;
+  diagnosticSummary: string;
   capabilities: AICapabilityConfig[];
   providers: AIProviderSecretStatus[];
 };
@@ -314,6 +324,25 @@ export type AIProviderCatalogItem = {
   requiresBaseUrl: boolean;
   supportsModelDiscovery: boolean;
   status: string;
+};
+
+export type AIProviderModelUpsertInput = {
+  displayName: string;
+  capabilityKinds: string[];
+  inputModalities?: string[];
+  outputModalities?: string[];
+  contextWindow?: number | null;
+  defaultFor?: string[];
+  enabled?: boolean;
+};
+
+export type AIProviderModelWriteReceiptDto = {
+  saved: boolean;
+  wasUpsert: boolean;
+  updatedAt: string;
+  versionOrRevision: string;
+  objectSummary: Record<string, string>;
+  model: AIModelCatalogItem;
 };
 
 export type AIModelCatalogItem = {
@@ -414,7 +443,8 @@ export type ScriptSegmentDto = {
 export type PromptTemplateInput = {
   kind: string;
   name: string;
-  template: string;
+  description: string;
+  content: string;
 };
 
 export type PromptTemplateUpdateInput = Partial<PromptTemplateInput>;
@@ -423,8 +453,8 @@ export type PromptTemplateDto = {
   id: string;
   kind: string;
   name: string;
-  template: string;
-  variables: string[];
+  description: string;
+  content: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -704,6 +734,29 @@ export type AssetDto = {
   tags: string | null;
   projectId: string | null;
   metadataJson: string | null;
+  sourceInfo: {
+    source: string;
+    projectId: string | null;
+    groupId: string | null;
+    filePath: string | null;
+    metadataSummary: Record<string, any>;
+  };
+  availability: {
+    status: string;
+    errorCode: string | null;
+    errorMessage: string | null;
+    nextAction: string | null;
+  };
+  referenceSummary: {
+    total: number;
+    referenceTypes: string[];
+    blockingDelete: boolean;
+  };
+  thumbnailStatus: {
+    status: string;
+    path: string | null;
+    generatedAt: string | null;
+  };
   createdAt: string;
   updatedAt: string;
 };
@@ -764,6 +817,34 @@ export type AssetBatchMoveResultDto = {
   groupId: string;
 };
 
+export type AccountBindingDto = {
+  id: string;
+  accountId: string;
+  browserInstanceId: string | null;
+  deviceWorkspaceId?: string | null;
+  status: string;
+  source: string;
+  maskedMetadataJson?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AccountPublishReadinessDto = {
+  canPublish: boolean;
+  status: string;
+  lastValidatedAt: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  suggestedAction: string | null;
+  binding: {
+    bindingId: string;
+    browserInstanceId: string | null;
+    status: string;
+    source: string;
+    updatedAt: string;
+  } | null;
+};
+
 export type AccountDto = {
   id: string;
   name: string;
@@ -777,6 +858,8 @@ export type AccountDto = {
   videoCount: number | null;
   tags: string | null;
   notes: string | null;
+  groupId?: string | null;
+  publishReadiness: AccountPublishReadinessDto;
   createdAt: string;
   updatedAt: string;
 };
@@ -800,14 +883,6 @@ export type AccountCreateInput = {
 export type AccountBindingInput = {
   deviceWorkspaceId: string;
   browserInstanceId?: string | null;
-};
-
-export type AccountBindingDto = {
-  id: string;
-  accountId: string;
-  deviceWorkspaceId: string;
-  browserInstanceId: string | null;
-  status: string;
 };
 
 export type AutomationTaskCreateInput = {
@@ -905,14 +980,14 @@ export type BrowserInstanceDto = {
 
 export type ExecutionBindingDto = {
   id: string;
-  account_id: string;
-  device_workspace_id: string;
-  browser_instance_id: string | null;
+  accountId: string;
+  deviceWorkspaceId: string;
+  browserInstanceId: string | null;
   status: string;
   source: string | null;
-  metadata_json: string | null;
-  created_at: string;
-  updated_at: string;
+  metadataJson: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type PublishPlanCreateInput = {
@@ -1138,9 +1213,24 @@ export type VideoStructureExtractionDto = {
 };
 
 export type VideoStageDto = {
-  stage: string;
+  stageId: string;
+  label: string;
   status: string;
   progressPct: number;
+  resultSummary: string | null;
+  errorMessage: string | null;
+  errorCode: string | null;
+  nextAction: string | null;
+  blockedByStageId: string | null;
+  updatedAt: string;
+  isCurrent: boolean;
+  activeTaskId: string | null;
+  activeTaskStatus: string | null;
+  activeTaskProgress: number | null;
+  activeTaskMessage: string | null;
+  canCancel: boolean;
+  canRetry: boolean;
+  canRerun: boolean;
 };
 
 export type ApplyVideoExtractionResultDto = {

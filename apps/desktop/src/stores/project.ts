@@ -3,7 +3,8 @@ import { defineStore } from "pinia";
 import {
   createDashboardProject,
   fetchDashboardSummary,
-  updateCurrentProjectContext
+  updateCurrentProjectContext,
+  deleteDashboardProject
 } from "@/app/runtime-client";
 import type {
   CreateProjectInput,
@@ -77,6 +78,23 @@ export const useProjectStore = defineStore("project", {
       } catch (error) {
         this.applyRuntimeError(error);
         return null;
+      }
+    },
+    async deleteProject(projectId: string): Promise<boolean> {
+      this.status = "saving";
+      this.error = null;
+
+      try {
+        await deleteDashboardProject(projectId);
+        this.recentProjects = this.recentProjects.filter((item) => item.id !== projectId);
+        if (this.currentProject?.projectId === projectId) {
+          this.currentProject = null;
+        }
+        this.status = "ready";
+        return true;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return false;
       }
     },
     async selectProject(projectId: string): Promise<CurrentProjectContext | null> {

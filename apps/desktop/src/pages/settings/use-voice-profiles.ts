@@ -1,5 +1,5 @@
 import { computed, onMounted, ref } from "vue";
-import { useAICapabilityStore } from "@/stores/ai-capability";
+import { useAIStore } from "@/stores/ai-capability";
 import { fetchVoiceProfiles } from "@/app/runtime-client";
 import type { VoiceProfileDto } from "@/types/runtime";
 
@@ -8,7 +8,7 @@ import type { VoiceProfileDto } from "@/types/runtime";
  * 设置页面使用独立的音色列表（不依赖 voice-studio store 的项目上下文）
  */
 export function useVoiceProfiles() {
-  const aiStore = useAICapabilityStore();
+  const aiStore = useAIStore();
 
   const allProfiles = ref<VoiceProfileDto[]>([]);
   const selectedTtsProviderId = ref("openai");

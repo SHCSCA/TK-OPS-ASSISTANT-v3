@@ -299,16 +299,15 @@ import { confirm } from "@tauri-apps/plugin-dialog";
 
 async function handleDeleteProject(projectId: string): Promise<void> {
   try {
-    const isConfirmed = await confirm("确定要删除此项目记录吗？该操作目前仅在客户端移出最近工程列表。", { title: "删除项目", kind: "warning" });
+    const isConfirmed = await confirm("确定要删除此项目吗？", { title: "删除项目", kind: "warning" });
     if (!isConfirmed) return;
   } catch {
-    if (!window.confirm("确定要删除此项目记录吗？该操作目前仅在客户端移出最近工程列表。")) return;
+    if (!window.confirm("确定要删除此项目吗？")) return;
   }
   
-  // Fallback deletion: filter out locally since runtime API for deletion isn't strictly defined for dashboard summary.
-  projectStore.recentProjects = projectStore.recentProjects.filter(p => p.id !== projectId);
-  if (projectStore.currentProject?.projectId === projectId) {
-    projectStore.currentProject = null;
+  const success = await projectStore.deleteProject(projectId);
+  if (!success) {
+    window.alert("删除项目失败，请检查网络或稍后重试。");
   }
 }
 

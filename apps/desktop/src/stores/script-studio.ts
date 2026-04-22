@@ -101,7 +101,7 @@ export const useScriptStudioStore = defineStore("script-studio", {
         // Update project store to reflect new script revision if needed
         const projectStore = useProjectStore();
         if (projectStore.currentProject?.projectId === this.projectId) {
-          await projectStore.load(this.projectId);
+          await projectStore.load();
         }
       } catch (error) {
         this.applyRuntimeError(error);

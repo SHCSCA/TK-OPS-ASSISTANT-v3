@@ -38,3 +38,6 @@ Thumbs.db
 .claude/
 .codex/
 apps/desktop/src-tauri/gen/
+
+# Playwright local artifacts
+.playwright-cli/

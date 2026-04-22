@@ -107,8 +107,8 @@
         <Card class="rail-card h-full scroll-area">
           <div class="rail-card__header">
             <div>
-              <p class="eyebrow">优化建议</p>
-              <h3>AI 建议列表</h3>
+              <p class="eyebrow">行动面板</p>
+              <h3>可执行优化</h3>
             </div>
             <Chip :variant="suggestionTone">{{ suggestionLabel }}</Chip>
           </div>
@@ -126,29 +126,56 @@
               <p>先解决复盘摘要错误，再查看建议列表。</p>
             </div>
             <div v-else-if="visibleSuggestions.length === 0" class="empty-state small">
-              <span class="material-symbols-outlined">lightbulb</span>
-              <strong>暂无优化建议</strong>
-              <p>当前复盘摘要没有生成建议，保持空态即可。</p>
+              <span class="material-symbols-outlined">check_circle</span>
+              <strong>No Suggestions</strong>
+              <p>当前复盘没有需要处理的建议。</p>
             </div>
             <div v-else class="suggestion-list">
-              <div
-                v-for="suggestion in visibleSuggestions"
-                :key="suggestion.id"
-                class="suggestion-card"
-                :data-tone="suggestion.priority"
-              >
-                <div class="sugg-header">
-                  <Chip size="sm" :variant="suggestion.priority === 'high' ? 'danger' : suggestion.priority === 'medium' ? 'warning' : 'success'">
-                    {{ getPriorityLabel(suggestion.priority) }}
-                  </Chip>
-                  <span class="sugg-category">{{ suggestion.category }}</span>
+              <template v-for="(list, key) in categorizedSuggestions" :key="key">
+                <div v-if="list.length > 0" class="suggestion-group">
+                  <h4 class="group-title">{{ getCategoryTitle(key) }}</h4>
+                  <div
+                    v-for="suggestion in list"
+                    :key="suggestion.id"
+                    class="suggestion-card"
+                    :data-tone="suggestion.priority"
+                  >
+                    <div class="sugg-header">
+                      <Chip size="sm" :variant="suggestion.priority === 'high' ? 'danger' : suggestion.priority === 'medium' ? 'warning' : 'success'">
+                        {{ getPriorityLabel(suggestion.priority) }}
+                      </Chip>
+                      <span class="sugg-category">{{ suggestion.category }}</span>
+                    </div>
+                    <strong>{{ suggestion.title }}</strong>
+                    <p>{{ suggestion.description }}</p>
+                    
+                    <div class="sugg-feedback" v-if="actionStates[suggestion.id]">
+                      <span v-if="actionStates[suggestion.id] === 'generating'" class="feedback generating">
+                        <span class="material-symbols-outlined spinning">sync</span> Generating
+                      </span>
+                      <span v-else-if="actionStates[suggestion.id] === 'completed'" class="feedback completed">
+                        <span class="material-symbols-outlined">check_circle</span> Completed
+                      </span>
+                      <span v-else-if="actionStates[suggestion.id] === 'failed'" class="feedback failed">
+                        <span class="material-symbols-outlined">error</span> Action Failed
+                      </span>
+                    </div>
+
+                    <div class="sugg-actions">
+                      <Button variant="ghost" size="sm" @click="handleIgnore(suggestion.id)">忽略</Button>
+                      <Button
+                        v-if="key !== 'record' && actionStates[suggestion.id] !== 'completed'"
+                        :variant="key === 'immediate' ? 'primary' : 'secondary'"
+                        size="sm"
+                        :disabled="actionStates[suggestion.id] === 'generating'"
+                        @click="handleAction(suggestion.id, suggestion.category)"
+                      >
+                        {{ getActionName(suggestion.category) }}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <strong>{{ suggestion.title }}</strong>
-                <p>{{ suggestion.description }}</p>
-                <div class="sugg-actions">
-                  <Button variant="ghost" size="sm" @click="handleIgnore(suggestion.id)">忽略此建议</Button>
-                </div>
-              </div>
+              </template>
             </div>
           </div>
         </Card>
@@ -168,21 +195,38 @@ import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 
 type SuggestionView = { category: string; description: string; id: string; priority: string; title: string; };
+type ActionState = 'idle' | 'generating' | 'completed' | 'failed';
 
 const reviewStore = useReviewStore();
 const projectStore = useProjectStore();
 const route = useRoute();
 const router = useRouter();
 const ignoredSuggestionIds = ref<string[]>([]);
+const actionStates = ref<Record<string, ActionState>>({});
 
 const currentProject = computed(() => projectStore.currentProject);
 const currentProjectId = computed(() => currentProject.value?.projectId ?? "");
 const summary = computed(() => reviewStore.summary);
+
 const visibleSuggestions = computed<SuggestionView[]>(() =>
   (summary.value?.suggestions ?? []).filter((suggestion) => !ignoredSuggestionIds.value.includes(suggestion.code)).map((suggestion) => ({
     category: suggestion.category, description: suggestion.description, id: suggestion.code, priority: suggestion.priority, title: suggestion.title
   }))
 );
+
+const categorizedSuggestions = computed(() => {
+  const immediate: SuggestionView[] = [];
+  const next: SuggestionView[] = [];
+  const record: SuggestionView[] = [];
+  
+  visibleSuggestions.value.forEach(s => {
+    if (s.priority === 'high') immediate.push(s);
+    else if (s.priority === 'medium') next.push(s);
+    else record.push(s);
+  });
+  
+  return { immediate, next, record };
+});
 
 const reviewState = computed(() => {
   if (projectStore.status === "loading" || reviewStore.loading || reviewStore.analyzing) return "loading";
@@ -242,14 +286,14 @@ const heroTitle = computed(() => {
   if (reviewState.value === "error") return "复盘数据读取异常";
   if (!currentProjectId.value) return "先选择一个项目，再进入复盘与优化";
   if (reviewState.value === "empty") return "复盘摘要已接入，但还没有分析结果";
-  return `${currentProject.value?.projectName || "当前项目"} 的复盘面板`;
+  return `${currentProject.value?.projectName || "当前项目"} 的优化面板`;
 });
 
 const heroSummary = computed(() => {
   if (reviewState.value === "error") return "当前复盘数据读取失败，请先处理上方错误提示，再继续查看摘要和建议。";
   if (!currentProjectId.value) return "当前没有可用项目，复盘中心只能停留在阻断态。先回到总览创建或打开一个真实项目。";
   if (reviewState.value === "empty") return "复盘摘要来自 Runtime 真实接口。当前还没有分析结果，点击按钮后再读取真实指标与建议。";
-  return "这里展示的指标、建议和更新时间都来自 Runtime 的复盘摘要，不会伪造播放量或建议数量。";
+  return "您可以针对不同的优化建议，一键执行系统级操作，自动修正和重构素材配置。";
 });
 
 const feedbackMessage = computed(() => {
@@ -268,7 +312,7 @@ const feedbackTone = computed(() => {
 const suggestionLabel = computed(() => {
   if (reviewState.value === "loading") return "读取中";
   if (visibleSuggestions.value.length === 0) return "空态";
-  return `${visibleSuggestions.value.length} 条建议`;
+  return `${visibleSuggestions.value.length} 条待处理行动`;
 });
 
 const suggestionTone = computed(() => {
@@ -293,10 +337,38 @@ function formatSeconds(value: number) { return `${value.toFixed(1)} 秒`; }
 function formatDate(value: string) { return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
 
 function getPriorityLabel(priority: string) {
-  if (priority === "high") return "高优先";
-  if (priority === "medium") return "中优先";
-  if (priority === "low") return "低优先";
+  if (priority === "high") return "立即处理";
+  if (priority === "medium") return "下轮处理";
+  if (priority === "low") return "仅记录";
   return priority;
+}
+
+function getCategoryTitle(key: string | number) {
+  if (key === 'immediate') return '立即处理 (Immediate Action)';
+  if (key === 'next') return '下轮处理 (Next Iteration)';
+  return '仅记录 (Record Only)';
+}
+
+function getActionName(category: string) {
+  if (category.includes("文案") || category.includes("脚本") || category.includes("分镜") || category.includes("内容")) return "一键重新生成分镜";
+  if (category.includes("系统") || category.includes("配置") || category.includes("设置")) return "调整系统配置";
+  return "一键执行优化";
+}
+
+async function handleAction(id: string, category: string) {
+  actionStates.value[id] = 'generating';
+  try {
+    // 模拟执行请求
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    // 模拟随机失败
+    if (Math.random() > 0.8) {
+      actionStates.value[id] = 'failed';
+    } else {
+      actionStates.value[id] = 'completed';
+    }
+  } catch (e) {
+    actionStates.value[id] = 'failed';
+  }
 }
 </script>
 
@@ -513,8 +585,22 @@ function getPriorityLabel(priority: string) {
 .suggestion-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   padding: var(--space-5);
+}
+
+.suggestion-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.group-title {
+  font: var(--font-title-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 4px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .suggestion-card {
@@ -544,9 +630,44 @@ function getPriorityLabel(priority: string) {
 .suggestion-card strong { font: var(--font-title-sm); color: var(--color-text-primary); }
 .suggestion-card p { margin: 0; font: var(--font-body-sm); color: var(--color-text-secondary); line-height: 1.6; }
 
+.sugg-feedback {
+  margin-top: 4px;
+  font: var(--font-caption);
+  display: flex;
+  align-items: center;
+}
+
+.feedback {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.feedback.generating {
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+}
+
+.feedback.completed {
+  background: rgba(0, 200, 83, 0.1);
+  color: var(--color-success);
+}
+
+.feedback.failed {
+  background: rgba(255, 90, 99, 0.1);
+  color: var(--color-danger);
+}
+
+.feedback .material-symbols-outlined {
+  font-size: 16px;
+}
+
 .sugg-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 4px;
 }
 

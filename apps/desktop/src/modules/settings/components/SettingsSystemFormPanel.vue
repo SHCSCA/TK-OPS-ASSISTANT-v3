@@ -119,6 +119,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "update", patch: Partial<AppSettingsUpdateInput>): void;
   (e: "pick-directory", field: "runtime.workspaceRoot" | "paths.cacheDir" | "paths.exportDir" | "paths.logDir"): void;
+  (e: "open-log-directory"): void;
 }>();
 
 const configBusStore = useConfigBusStore();
@@ -148,16 +149,6 @@ function confirmClearAll() {
   if (!confirm("确定清除全部缓存吗？清除后可能需要重新下载模型和生成预览图。")) return;
   clearingKey.value = "all";
   setTimeout(() => { clearingKey.value = null; }, 2000);
-}
-
-async function openLogDir() {
-  if (!props.form.paths.logDir) return;
-  try {
-    const { open } = await import("@tauri-apps/plugin-shell");
-    await open(props.form.paths.logDir);
-  } catch {
-    alert(`无法直接打开目录，路径为：${props.form.paths.logDir}`);
-  }
 }
 </script>
 

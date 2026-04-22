@@ -239,6 +239,22 @@ const pageStateDescription = computed(() => {
   return "当前页面使用真实项目、脚本版本和 AI 作业状态构成策划工作台。";
 });
 
+const statusLabel = computed(() => {
+  if (scriptStore.status === 'generating') return "正在生成...";
+  if (scriptStore.status === 'saving') return "正在保存...";
+  if (scriptStore.status === 'ready') return "已保存";
+  if (scriptStore.status === 'error') return "失败";
+  return "就绪";
+});
+
+const statusTone = computed(() => {
+  if (scriptStore.status === 'generating') return "brand";
+  if (scriptStore.status === 'saving') return "info";
+  if (scriptStore.status === 'ready') return "success";
+  if (scriptStore.status === 'error') return "danger";
+  return "default";
+});
+
 const generateDisabled = computed(() => isBusy.value || topic.value.trim().length === 0);
 const rewriteDisabled = computed(() => isBusy.value || instructions.value.trim().length === 0 || !hasDocument.value);
 const saveDisabled = computed(() => isBusy.value || content.value.trim().length === 0 || pageState.value === "empty");

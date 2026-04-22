@@ -21,6 +21,7 @@ export interface ProviderCardState extends AIProviderCatalogItem {
   health?: AIProviderHealth | null;
   models?: AIModelCatalogItem[];
   loadingModels?: boolean;
+  readiness?: AIProviderHealth | null;
 }
 
 export interface CapabilityBindingRow extends AICapabilityConfig {

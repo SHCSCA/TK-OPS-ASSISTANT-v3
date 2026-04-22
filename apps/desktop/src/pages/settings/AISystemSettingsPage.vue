@@ -91,6 +91,7 @@
                     :disabled="configBusStore.status === 'saving'"
                     @update="updateSystemForm"
                     @pick-directory="handlePickDirectory"
+                    @open-log-directory="openLogDirectory"
                   />
                   <div class="form-footer">
                     <Button variant="primary" :disabled="!systemDirty" @click="saveSystemSettings">
@@ -155,6 +156,7 @@
       @save="saveProviderConfig"
       @test="handleProviderTest"
       @refresh-models="refreshProviderModels"
+      @save-model="(mId, caps) => activeProvider && saveProviderModel(activeProvider.provider, mId, mId, caps)"
     />
   </div>
 </template>
@@ -181,7 +183,7 @@ import VoiceProfileGrid from "./components/VoiceProfileGrid.vue";
 import SettingsSystemFormPanel from "@/modules/settings/components/SettingsSystemFormPanel.vue";
 
 // Stores
-import { useAICapabilityStore } from "@/stores/ai-capability";
+import { useAIStore } from "@/stores/ai-capability";
 import { useConfigBusStore } from "@/stores/config-bus";
 import { useShellUiStore } from "@/stores/shell-ui";
 import { fetchVoiceProfiles } from "@/app/runtime-client";
@@ -191,7 +193,7 @@ import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 
-const aiStore = useAICapabilityStore();
+const aiStore = useAIStore();
 const configBusStore = useConfigBusStore();
 const shellUiStore = useShellUiStore();
 

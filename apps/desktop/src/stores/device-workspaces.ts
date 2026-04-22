@@ -4,13 +4,18 @@ import {
   createDeviceWorkspace,
   deleteDeviceWorkspace,
   fetchDeviceWorkspaces,
-  updateDeviceWorkspace
+  updateDeviceWorkspace,
+  fetchBrowserInstances,
+  createBrowserInstance,
+  removeBrowserInstance
 } from "@/app/runtime-client";
 import type {
   DeviceWorkspaceCreateInput,
   DeviceWorkspaceDto,
   DeviceWorkspaceUpdateInput,
-  HealthCheckResultDto
+  HealthCheckResultDto,
+  BrowserInstanceDto,
+  BrowserInstanceCreateInput
 } from "@/types/runtime";
 import { resolveCollectionStatus, toRuntimeErrorMessage } from "@/stores/runtime-store-helpers";
 
@@ -21,8 +26,10 @@ function getErrorMessage(error: unknown): string {
 export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
   state: () => ({
     workspaces: [] as DeviceWorkspaceDto[],
+    browserInstances: [] as BrowserInstanceDto[],
     lastHealthCheck: null as HealthCheckResultDto | null,
     loading: false,
+    instancesLoading: false,
     status: "idle" as "idle" | "loading" | "empty" | "ready" | "error",
     healthCheckState: "idle" as "idle" | "checking" | "ready" | "error",
     error: null as string | null
@@ -37,7 +44,7 @@ export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
   actions: {
     async loadWorkspaces() {
       this.loading = true;
-       this.status = "loading";
+      this.status = "loading";
       this.error = null;
       try {
         this.workspaces = await fetchDeviceWorkspaces();
@@ -97,6 +104,36 @@ export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
         this.error = getErrorMessage(error);
         this.healthCheckState = "error";
         return null;
+      }
+    },
+    async loadBrowserInstances(workspaceId?: string) {
+      this.instancesLoading = true;
+      try {
+        this.browserInstances = await fetchBrowserInstances(workspaceId);
+      } catch (error) {
+        this.error = getErrorMessage(error);
+      } finally {
+        this.instancesLoading = false;
+      }
+    },
+    async addBrowserInstance(input: BrowserInstanceCreateInput) {
+      this.error = null;
+      try {
+        const instance = await createBrowserInstance(input);
+        this.browserInstances.unshift(instance);
+        return instance;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        return null;
+      }
+    },
+    async deleteBrowserInstance(id: string) {
+      this.error = null;
+      try {
+        await removeBrowserInstance(id);
+        this.browserInstances = this.browserInstances.filter(i => i.id !== id);
+      } catch (error) {
+        this.error = getErrorMessage(error);
       }
     }
   }

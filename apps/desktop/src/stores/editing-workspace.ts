@@ -75,18 +75,19 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         this.applyRuntimeError(error);
       }
     },
-    async createDraft(projectId = this.projectId, name = "主时间线"): Promise<WorkspaceTimelineDto | null> {
-      if (!projectId) {
+    async createDraft(projectId?: string, name = "主时间线"): Promise<WorkspaceTimelineDto | null> {
+      const pid = projectId || this.projectId;
+      if (!pid) {
         this.applyInputError("请先选择项目。");
         return null;
       }
 
       this.status = "saving";
       this.error = null;
-      this.projectId = projectId;
+      this.projectId = pid;
 
       try {
-        const result = await createWorkspaceTimeline(projectId, { name });
+        const result = await createWorkspaceTimeline(pid, { name });
         this.applyTimelineResult(result);
         return result.timeline;
       } catch (error) {
@@ -116,18 +117,19 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         return null;
       }
     },
-    async runMagicCut(projectId = this.projectId): Promise<WorkspaceAICommandResultDto | null> {
-      if (!projectId) {
+    async runMagicCut(projectId?: string): Promise<WorkspaceAICommandResultDto | null> {
+      const pid = projectId || this.projectId;
+      if (!pid) {
         this.applyInputError("请先选择项目。");
         return null;
       }
 
       this.status = "saving";
       this.error = null;
-      this.projectId = projectId;
+      this.projectId = pid;
 
       try {
-        const result = await runWorkspaceAICommand(projectId, {
+        const result = await runWorkspaceAICommand(pid, {
           timelineId: this.timeline?.id ?? null,
           capabilityId: "magic_cut",
           parameters: {
