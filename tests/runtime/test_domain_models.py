@@ -89,6 +89,7 @@ def test_project_columns_match_existing_schema(tmp_path: Path) -> None:
         "created_at",
         "updated_at",
         "last_accessed_at",
+        "deleted_at",
     }
 
 
@@ -229,6 +230,9 @@ def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
         "segments_json",
         "status",
         "created_at",
+        "updated_at",
+        "version",
+        "config_json",
     }
     assert table_columns["subtitle_tracks"] == {
         "id",
@@ -240,6 +244,8 @@ def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
         "segments_json",
         "status",
         "created_at",
+        "updated_at",
+        "metadata_json",
     }
     assert table_columns["assets"] == {
         "id",
@@ -273,6 +279,7 @@ def test_core_operational_tables_match_target_schema(tmp_path: Path) -> None:
         "notes",
         "created_at",
         "updated_at",
+        "last_validated_at",
     }
     assert table_columns["device_workspaces"] == {
         "id",

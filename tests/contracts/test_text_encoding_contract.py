@@ -7,8 +7,6 @@ ROOT = Path(__file__).resolve().parents[2]
 
 UTF8_TEXT_FILES = [
     ROOT / "docs" / "RUNTIME-API-CALLS.md",
-    ROOT / "docs" / "superpowers" / "plans" / "2026-04-16-m09-asset-center-ui-runtime.md",
-    ROOT / "docs" / "superpowers" / "specs" / "2026-04-16-m09-asset-center-ui-runtime-design.md",
     ROOT / "apps" / "desktop" / "src" / "pages" / "assets" / "AssetLibraryPage.vue",
     ROOT / "apps" / "desktop" / "src" / "components" / "assets" / "AssetPreview.vue",
     ROOT / "apps" / "desktop" / "src" / "components" / "shell" / "details" / "AssetDetail.vue",
