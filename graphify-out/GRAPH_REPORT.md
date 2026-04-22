@@ -1,12 +1,12 @@
-# Graph Report - C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3  (2026-04-21)
+# Graph Report - C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3  (2026-04-22)
 
 ## Corpus Check
-- 405 files · ~954,816 words
+- 405 files · ~969,664 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2767 nodes · 7236 edges · 182 communities detected
-- Extraction: 59% EXTRACTED · 41% INFERRED · 0% AMBIGUOUS · INFERRED: 2987 edges (avg confidence: 0.72)
+- 2817 nodes · 7465 edges · 180 communities detected
+- Extraction: 59% EXTRACTED · 41% INFERRED · 0% AMBIGUOUS · INFERRED: 3086 edges (avg confidence: 0.72)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
@@ -190,221 +190,219 @@
 - [[_COMMUNITY_Community 177|Community 177]]
 - [[_COMMUNITY_Community 178|Community 178]]
 - [[_COMMUNITY_Community 179|Community 179]]
-- [[_COMMUNITY_Community 180|Community 180]]
-- [[_COMMUNITY_Community 181|Community 181]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `ok_response()` - 175 edges
-2. `requestRuntime()` - 149 edges
+2. `requestRuntime()` - 151 edges
 3. `VoiceService` - 74 edges
-4. `PublishingService` - 60 edges
-5. `WorkspaceService` - 60 edges
-6. `AssetService` - 59 edges
-7. `DeviceWorkspaceService` - 58 edges
-8. `SubtitleService` - 58 edges
-9. `VideoDeconstructionService` - 58 edges
-10. `AutomationService` - 56 edges
+4. `AICapabilityService` - 61 edges
+5. `PublishingService` - 60 edges
+6. `WorkspaceService` - 60 edges
+7. `AssetService` - 59 edges
+8. `DeviceWorkspaceService` - 58 edges
+9. `SubtitleService` - 58 edges
+10. `VideoDeconstructionService` - 58 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `createRouteAwareFetch()` --calls--> `createVoiceFetch()`  [INFERRED]
+  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\runtime-helpers.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\voice-studio-store.spec.ts
 - `now()` --calls--> `_utc_now()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\voice-studio-store.spec.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\services\video_deconstruction_service.py
-- `utc_now_iso()` --calls--> `test_utc_now_iso_uses_z_suffix()`  [INFERRED]
+- `utc_now()` --calls--> `test_utc_now_returns_timezone_aware_utc_datetime()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\common\time.py → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\tests\runtime\test_runtime_time_helpers.py
 - `handleCopyContent()` --calls--> `error()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\pages\scripts\ScriptTopicCenterPage.vue → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\scripts\run-runtime-dev.mjs
 - `getErrorMessage()` --calls--> `toRuntimeErrorMessage()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\stores\account-management.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\stores\runtime-store-helpers.ts
-- `getErrorMessage()` --calls--> `toRuntimeErrorMessage()`  [INFERRED]
-  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\stores\asset-library.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\src\stores\runtime-store-helpers.ts
 
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.02
-Nodes (107): AccountRepository, _utc_now(), AssetRepository, _utc_now(), runtime_app(), create_app(), PublishingRepository, RenderRepository (+99 more)
+Cohesion: 0.01
+Nodes (110): AccountRepository, _utc_now(), AssetRepository, _utc_now(), runtime_app(), DeviceWorkspaceRepository, create_app(), PublishingRepository (+102 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.03
-Nodes (98): CreateProjectInput, CurrentProjectContextDto, DashboardCurrentActionDto, DashboardPendingItemDto, DashboardRiskItemDto, DashboardRiskSummaryDto, DashboardSummaryDto, DashboardTaskDto (+90 more)
+Nodes (79): AccountService, _is_auth_expired(), _mask_sensitive_json(), _mask_value(), _utc_now(), AccountBindingDto, AccountBindingSummaryDto, AccountBindingUpsertInput (+71 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.03
-Nodes (162): add_group_member(), create_account(), create_account_group(), delete_account(), delete_account_group(), get_account(), list_account_groups(), list_accounts() (+154 more)
+Nodes (95): CreateProjectInput, CurrentProjectContextDto, DashboardCurrentActionDto, DashboardPendingItemDto, DashboardRiskItemDto, DashboardRiskSummaryDto, DashboardSummaryDto, DashboardTaskDto (+87 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.02
-Nodes (156): activateLicense(), adoptReviewSuggestion(), alignSubtitleTrack(), analyzeReviewProject(), applyReviewSuggestionToScript(), applyVideoExtractionToProject(), batchDeleteAssets(), batchMoveAssetsToGroup() (+148 more)
+Cohesion: 0.03
+Nodes (173): add_group_member(), create_account(), create_account_group(), delete_account(), delete_account_group(), get_account(), list_account_groups(), list_accounts() (+165 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.03
-Nodes (83): TTSRequest, TTSResponse, build_parser(), main(), build_parser(), copy_to_clipboard(), main(), resolve_machine_code() (+75 more)
+Nodes (97): ABC, AIJobRepository, StoredAIJobRecord, _utc_now(), AITextGenerationService, GeneratedTextResult, _render_template(), AnthropicMessagesTextGenerationAdapter (+89 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.03
-Nodes (94): ABC, AIJobRepository, StoredAIJobRecord, _utc_now(), AITextGenerationService, GeneratedTextResult, _render_template(), AnthropicMessagesTextGenerationAdapter (+86 more)
+Cohesion: 0.02
+Nodes (156): activateLicense(), adoptReviewSuggestion(), alignSubtitleTrack(), analyzeReviewProject(), applyReviewSuggestionToScript(), applyVideoExtractionToProject(), batchDeleteAssets(), batchMoveAssetsToGroup() (+148 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.04
-Nodes (54): AccountService, _is_auth_expired(), _mask_sensitive_json(), _mask_value(), _utc_now(), AccountBindingDto, AccountBindingSummaryDto, AccountBindingUpsertInput (+46 more)
+Cohesion: 0.03
+Nodes (78): if(), load_runtime_config(), _load_runtime_version(), RuntimeConfig, create_app(), UnavailableLicenseActivationAdapter, build_parser(), main() (+70 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.04
-Nodes (54): if(), handleReload(), BaseModel, BootstrapActionDto, BootstrapBlockerDto, BootstrapDirectoryItemDto, BootstrapDirectoryReportDto, BootstrapReadinessItemDto (+46 more)
+Nodes (63): AICapabilityConfigListInput, AIProviderHealthCheckInput, AIProviderSecretInput, BaseModel, BootstrapActionDto, BootstrapBlockerDto, BootstrapDirectoryItemDto, BootstrapDirectoryReportDto (+55 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.06
-Nodes (60): AICapabilityConfigDto, AICapabilityConfigListInput, AICapabilityModelOptionDto, AICapabilitySettingsDto, AICapabilitySupportItemDto, AICapabilitySupportMatrixDto, AIModelCatalogItemDto, AIModelCatalogRefreshResultDto (+52 more)
+Cohesion: 0.04
+Nodes (65): TTSRequest, TTSResponse, main(), canRun(), ensureSuccess(), info(), resolvePythonCommand(), run() (+57 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.04
-Nodes (58): Account, AccountGroup, AccountGroupMember, 更新 updated_at（用于 refresh-stats V1 占位）, AICapabilityConfig, AIProviderHealth, AIProviderModel, AIProviderSetting (+50 more)
+Cohesion: 0.03
+Nodes (67): ImportedVideo, ImportedVideoRepository, attachCommonChildHandlers(), canRun(), ensureNpmSuccess(), ensurePathExists(), ensurePortAvailable(), ensureSuccess() (+59 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.04
-Nodes (66): add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad, upgrade(), merge runtime migration heads  Revision ID: 0006_merge_runtime_heads Revises:, upgrade(), add ai provider models and browser instances  Revision ID: 0007_add_ai_provider_, upgrade(), create_runtime_engine(), create_session_factory() (+58 more)
+Cohesion: 0.05
+Nodes (68): AICapabilityChangedEventDto, AICapabilityConfigDto, AICapabilityModelOptionDto, AICapabilitySettingsDto, AICapabilitySupportItemDto, AICapabilitySupportMatrixDto, AIDiagnosticSummaryDto, AIModelCatalogItemDto (+60 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.06
-Nodes (31): AutomationTaskActionDto, AutomationTaskCreateInput, AutomationTaskDto, AutomationTaskLatestResultDto, AutomationTaskQueueDto, AutomationTaskRetryDto, AutomationTaskRuleDto, AutomationTaskRuleInput (+23 more)
+Cohesion: 0.04
+Nodes (68): add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad, upgrade(), merge runtime migration heads  Revision ID: 0006_merge_runtime_heads Revises:, upgrade(), add ai provider models and browser instances  Revision ID: 0007_add_ai_provider_, upgrade(), create_runtime_engine(), create_session_factory() (+60 more)
 
 ### Community 12 - "Community 12"
 Cohesion: 0.06
-Nodes (38): generate_uuid(), test_generate_uuid_returns_32_char_hex(), runtime_client(), _create_timeline(), _make_workspace_service(), test_create_project_timeline_stores_empty_draft(), test_fetch_clip_returns_detail_with_metadata(), test_get_project_timeline_exposes_active_task_feedback() (+30 more)
+Nodes (31): AutomationTaskActionDto, AutomationTaskCreateInput, AutomationTaskDto, AutomationTaskLatestResultDto, AutomationTaskQueueDto, AutomationTaskRetryDto, AutomationTaskRuleDto, AutomationTaskRuleInput (+23 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.05
-Nodes (38): create_app(), UnavailableLicenseActivationAdapter, ImportedVideo, ImportedVideoRepository, ActivationResult, LicenseActivationAdapter, LicenseActivationError, LicenseActivationUnavailableError (+30 more)
+Cohesion: 0.06
+Nodes (58): Account, AccountGroup, AccountGroupMember, 更新 updated_at（用于 refresh-stats V1 占位）, AICapabilityConfig, AIProviderHealth, AIProviderModel, AIProviderSetting (+50 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.07
-Nodes (27): formatDateTime(), _BuiltinSubtitleStyleTemplate, SubtitleService, SubtitleAlignmentDiffSummaryDto, SubtitleAlignmentDto, SubtitleExportDto, SubtitleExportInput, SubtitleSegmentDto (+19 more)
-
-### Community 15 - "Community 15"
 Cohesion: 0.08
 Nodes (40): AssetService, _utc_now(), AssetAvailabilityDto, AssetCreateInput, AssetDto, AssetGroupCreateInput, AssetGroupDto, AssetGroupUpdateInput (+32 more)
 
-### Community 16 - "Community 16"
-Cohesion: 0.08
-Nodes (16): ApplyVideoExtractionResultDto, ImportedVideoDto, ImportVideoInput, StoredVideoStageRun, _utc_now(), VideoDeconstructionRepository, _import_stage_state(), _ResolvedStageState (+8 more)
-
-### Community 17 - "Community 17"
+### Community 15 - "Community 15"
 Cohesion: 0.09
 Nodes (29): PrecheckConflictDto, PrecheckItemResult, PrecheckResultDto, PublishBindingSummaryDto, PublishCalendarDto, PublishCalendarItemDto, PublishPlanCreateInput, PublishPlanDto (+21 more)
 
+### Community 16 - "Community 16"
+Cohesion: 0.07
+Nodes (34): buildAssetDetailContext(), buildBindingDetailContext(), buildContextualDetailContext(), buildLogDetailContext(), buildSettingsDetailContext(), mapRuntimeTone(), syncDetailContext(), buildAssetDetailContext() (+26 more)
+
+### Community 17 - "Community 17"
+Cohesion: 0.1
+Nodes (24): ExportProfile, RenderService, CancelRenderResultDto, DiskUsageSnapshotDto, ExportProfileCreateInput, ExportProfileDto, RenderFailureDto, RenderOutputStatusDto (+16 more)
+
 ### Community 18 - "Community 18"
-Cohesion: 0.09
-Nodes (25): RuntimeHTTPException, ExportProfile, RenderService, CancelRenderResultDto, DiskUsageSnapshotDto, ExportProfileCreateInput, ExportProfileDto, RenderFailureDto (+17 more)
+Cohesion: 0.06
+Nodes (22): mountApp(), createWorkspaceFetch(), now(), timeline(), createAppRouter(), createRoutes(), createRouteAwareFetch(), mountApp() (+14 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.06
-Nodes (35): FfprobeAvailability, FfprobeResult, get_ffprobe_availability(), parse_ffprobe_output(), _parse_frame_rate(), probe_video(), _resolve_ffprobe_command(), _to_float() (+27 more)
+Cohesion: 0.11
+Nodes (12): PromptTemplateRepository, StoredPromptTemplate, _utc_now(), PromptTemplateService, create_prompt_template(), delete_prompt_template(), get_prompt_template_service(), list_prompt_templates() (+4 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.07
-Nodes (33): buildAssetDetailContext(), buildBindingDetailContext(), buildContextualDetailContext(), buildLogDetailContext(), buildSettingsDetailContext(), mapRuntimeTone(), syncDetailContext(), buildAssetDetailContext() (+25 more)
+Cohesion: 0.09
+Nodes (15): platformLabel(), error(), formatDateTime(), handleCopyContent(), formatDateTime(), collectMarkdownFiles(), collectUsersPathLines(), getCargoVersion() (+7 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.09
-Nodes (31): attachCommonChildHandlers(), canRun(), ensureNpmSuccess(), ensurePathExists(), ensurePortAvailable(), ensureSuccess(), info(), isPortAvailable() (+23 more)
-
-### Community 22 - "Community 22"
-Cohesion: 0.06
-Nodes (23): mountApp(), createWorkspaceFetch(), now(), timeline(), createAppRouter(), createRoutes(), createRouteAwareFetch(), mountApp() (+15 more)
-
-### Community 23 - "Community 23"
-Cohesion: 0.14
-Nodes (10): GlobalSearchResultDto, search_global(), SearchAccountResultDto, SearchAssetResultDto, SearchProjectResultDto, SearchScriptResultDto, SearchTaskResultDto, SearchWorkspaceResultDto (+2 more)
-
-### Community 24 - "Community 24"
 Cohesion: 0.11
 Nodes (9): getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), getErrorMessage(), toRuntimeErrorMessage() (+1 more)
 
-### Community 25 - "Community 25"
+### Community 22 - "Community 22"
+Cohesion: 0.23
+Nodes (14): FfprobeAvailability, FfprobeResult, get_ffprobe_availability(), parse_ffprobe_output(), _parse_frame_rate(), probe_video(), _resolve_ffprobe_command(), _to_float() (+6 more)
+
+### Community 23 - "Community 23"
 Cohesion: 0.38
 Nodes (13): account(), accountGroup(), asset(), assetReference(), automationRun(), automationTask(), now(), projectSummary() (+5 more)
 
-### Community 26 - "Community 26"
-Cohesion: 0.24
-Nodes (7): configure_logging(), JsonLogFormatter, _resolve_level(), handleClose(), handleMinimize(), handleToggleMaximize(), handleWindowError()
-
-### Community 27 - "Community 27"
+### Community 24 - "Community 24"
 Cohesion: 0.32
 Nodes (11): account(), accountGroup(), asset(), assetReference(), automationRun(), automationTask(), now(), publishPlan() (+3 more)
 
-### Community 28 - "Community 28"
+### Community 25 - "Community 25"
 Cohesion: 0.33
 Nodes (6): buildTaskInfo(), inferTaskProgress(), inferTaskStatus(), inferTaskType(), resolveRuntimeBaseUrl(), resolveWebSocketUrl()
 
-### Community 29 - "Community 29"
+### Community 26 - "Community 26"
 Cohesion: 0.25
 Nodes (0): 
 
-### Community 30 - "Community 30"
+### Community 27 - "Community 27"
 Cohesion: 0.5
 Nodes (7): main(), readText(), resolveRootVersion(), syncCargoVersion(), syncPyprojectVersion(), syncTauriVersion(), writeTextIfChanged()
 
-### Community 31 - "Community 31"
+### Community 28 - "Community 28"
 Cohesion: 0.29
 Nodes (2): formatMs(), sourceTypeLabel()
 
-### Community 32 - "Community 32"
+### Community 29 - "Community 29"
 Cohesion: 0.4
 Nodes (2): assetReference(), now()
 
-### Community 33 - "Community 33"
+### Community 30 - "Community 30"
 Cohesion: 0.6
 Nodes (5): promptTemplate(), sampleResponse(), scriptDocument(), storyboardDocument(), storyboardShot()
+
+### Community 31 - "Community 31"
+Cohesion: 0.73
+Nodes (5): _assert_ok(), _bind_workspace(), _create_ready_account(), test_publishing_contract_exposes_precheck_blockers(), test_publishing_contract_exposes_receipt_summary()
+
+### Community 32 - "Community 32"
+Cohesion: 0.4
+Nodes (0): 
+
+### Community 33 - "Community 33"
+Cohesion: 0.4
+Nodes (0): 
 
 ### Community 34 - "Community 34"
 Cohesion: 0.4
 Nodes (0): 
 
 ### Community 35 - "Community 35"
-Cohesion: 0.4
-Nodes (0): 
-
-### Community 36 - "Community 36"
-Cohesion: 0.4
-Nodes (0): 
-
-### Community 37 - "Community 37"
 Cohesion: 0.6
 Nodes (3): deriveStageMessage(), deriveTaskInfoFromVideoEvent(), stageLabel()
 
-### Community 38 - "Community 38"
+### Community 36 - "Community 36"
 Cohesion: 0.6
 Nodes (3): accountFixture(), groupFixture(), now()
 
-### Community 39 - "Community 39"
+### Community 37 - "Community 37"
 Cohesion: 0.67
 Nodes (2): now(), workspaceFixture()
 
-### Community 40 - "Community 40"
+### Community 38 - "Community 38"
 Cohesion: 0.67
 Nodes (2): now(), voiceTrack()
 
-### Community 41 - "Community 41"
+### Community 39 - "Community 39"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 42 - "Community 42"
+### Community 40 - "Community 40"
 Cohesion: 0.5
 Nodes (1): initial schema  Revision ID: 0001_initial_schema Revises: Create Date: 2026-
 
-### Community 43 - "Community 43"
+### Community 41 - "Community 41"
 Cohesion: 0.5
 Nodes (1): add imported videos  Revision ID: 0002_add_imported_videos Revises: 0001_init
 
-### Community 44 - "Community 44"
+### Community 42 - "Community 42"
 Cohesion: 0.5
 Nodes (1): add prompt templates and video stage runs  Revision ID: 0004_add_prompt_template
 
-### Community 45 - "Community 45"
+### Community 43 - "Community 43"
 Cohesion: 0.5
 Nodes (1): add voice profiles  Revision ID: 0005_add_voice_profiles Revises: 0004_extend
 
-### Community 46 - "Community 46"
+### Community 44 - "Community 44"
 Cohesion: 0.5
+Nodes (0): 
+
+### Community 45 - "Community 45"
+Cohesion: 0.67
+Nodes (0): 
+
+### Community 46 - "Community 46"
+Cohesion: 0.67
 Nodes (0): 
 
 ### Community 47 - "Community 47"
@@ -412,16 +410,16 @@ Cohesion: 0.67
 Nodes (0): 
 
 ### Community 48 - "Community 48"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 49 - "Community 49"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 50 - "Community 50"
 Cohesion: 1.0
 Nodes (2): insertVariable(), update()
+
+### Community 49 - "Community 49"
+Cohesion: 1.0
+Nodes (2): now(), workspaceTimeline()
+
+### Community 50 - "Community 50"
+Cohesion: 0.67
+Nodes (0): 
 
 ### Community 51 - "Community 51"
 Cohesion: 0.67
@@ -429,31 +427,31 @@ Nodes (0):
 
 ### Community 52 - "Community 52"
 Cohesion: 1.0
-Nodes (2): now(), workspaceTimeline()
-
-### Community 53 - "Community 53"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 54 - "Community 54"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 55 - "Community 55"
-Cohesion: 1.0
 Nodes (2): assetGroup(), sampleResponse()
 
-### Community 56 - "Community 56"
+### Community 53 - "Community 53"
 Cohesion: 1.0
 Nodes (2): now(), subtitleTrack()
 
-### Community 57 - "Community 57"
+### Community 54 - "Community 54"
 Cohesion: 1.0
 Nodes (2): now(), workspaceTimeline()
 
-### Community 58 - "Community 58"
+### Community 55 - "Community 55"
 Cohesion: 0.67
 Nodes (1): 准备重建图谱：过滤 docs 范围，跑 AST，生成 subagent 分片清单。
+
+### Community 56 - "Community 56"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 57 - "Community 57"
+Cohesion: 1.0
+Nodes (0): 
+
+### Community 58 - "Community 58"
+Cohesion: 1.0
+Nodes (0): 
 
 ### Community 59 - "Community 59"
 Cohesion: 1.0
@@ -517,11 +515,11 @@ Nodes (0):
 
 ### Community 74 - "Community 74"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Developer-only Runtime helpers.
 
 ### Community 75 - "Community 75"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): 临时脚本：检查 docs 文件分布并筛选语义抽取范围。
 
 ### Community 76 - "Community 76"
 Cohesion: 1.0
@@ -533,11 +531,11 @@ Nodes (0):
 
 ### Community 78 - "Community 78"
 Cohesion: 1.0
-Nodes (1): Developer-only Runtime helpers.
+Nodes (0): 
 
 ### Community 79 - "Community 79"
 Cohesion: 1.0
-Nodes (1): 临时脚本：检查 docs 文件分布并筛选语义抽取范围。
+Nodes (0): 
 
 ### Community 80 - "Community 80"
 Cohesion: 1.0
@@ -939,238 +937,236 @@ Nodes (0):
 Cohesion: 1.0
 Nodes (0): 
 
-### Community 180 - "Community 180"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 181 - "Community 181"
-Cohesion: 1.0
-Nodes (0): 
-
 ## Knowledge Gaps
 - **12 isolated node(s):** `initial schema  Revision ID: 0001_initial_schema Revises: Create Date: 2026-`, `add imported videos  Revision ID: 0002_add_imported_videos Revises: 0001_init`, `add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad`, `add prompt templates and video stage runs  Revision ID: 0004_add_prompt_template`, `add voice profiles  Revision ID: 0005_add_voice_profiles Revises: 0004_extend` (+7 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 59`** (2 nodes): `App.vue`, `main.ts`
+- **Thin community `Community 56`** (2 nodes): `App.vue`, `main.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 60`** (2 nodes): `Modal.vue`, `handleBackdropClick()`
+- **Thin community `Community 57`** (2 nodes): `Modal.vue`, `handleBackdropClick()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 61`** (2 nodes): `useMotion.ts`, `useMotion()`
+- **Thin community `Community 58`** (2 nodes): `useMotion.ts`, `useMotion()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 62`** (2 nodes): `ShellStatusBar.vue`, `openLogs()`
+- **Thin community `Community 59`** (2 nodes): `ShellStatusBar.vue`, `openLogs()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 63`** (2 nodes): `ProviderCatalogPanel.vue`, `providerStatusLabel()`
+- **Thin community `Community 60`** (2 nodes): `ProviderCatalogPanel.vue`, `providerStatusLabel()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 64`** (2 nodes): `WorkspaceAssetRail.vue`, `sourceTypeLabel()`
+- **Thin community `Community 61`** (2 nodes): `WorkspaceAssetRail.vue`, `sourceTypeLabel()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 65`** (2 nodes): `part()`, `AccountManagementPage.vue`
+- **Thin community `Community 62`** (2 nodes): `HealthPanelCard.vue`, `animateValue()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 66`** (2 nodes): `HealthPanelCard.vue`, `animateValue()`
+- **Thin community `Community 63`** (2 nodes): `use-capability-binding.ts`, `useCapabilityBinding()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 67`** (2 nodes): `use-capability-binding.ts`, `useCapabilityBinding()`
+- **Thin community `Community 64`** (2 nodes): `use-prompt-editing.ts`, `usePromptEditing()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 68`** (2 nodes): `use-prompt-editing.ts`, `usePromptEditing()`
+- **Thin community `Community 65`** (2 nodes): `use-provider-management.ts`, `useProviderManagement()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 69`** (2 nodes): `use-provider-management.ts`, `useProviderManagement()`
+- **Thin community `Community 66`** (2 nodes): `use-system-settings.ts`, `useSystemSettings()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 70`** (2 nodes): `use-system-settings.ts`, `useSystemSettings()`
+- **Thin community `Community 67`** (2 nodes): `use-voice-profiles.ts`, `useVoiceProfiles()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 71`** (2 nodes): `use-voice-profiles.ts`, `useVoiceProfiles()`
+- **Thin community `Community 68`** (2 nodes): `license.ts`, `createDefaultLicenseState()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 72`** (2 nodes): `license.ts`, `createDefaultLicenseState()`
+- **Thin community `Community 69`** (2 nodes): `main()`, `build.rs`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 73`** (2 nodes): `main()`, `build.rs`
+- **Thin community `Community 70`** (2 nodes): `asset()`, `app-shell.spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 74`** (2 nodes): `asset()`, `app-shell.spec.ts`
+- **Thin community `Community 71`** (2 nodes): `runtime-client-b-s4.spec.ts`, `sampleResponse()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 75`** (2 nodes): `runtime-client-b-s4.spec.ts`, `sampleResponse()`
+- **Thin community `Community 72`** (2 nodes): `script-topic-center.spec.ts`, `cloneValue()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 76`** (2 nodes): `script-topic-center.spec.ts`, `cloneValue()`
+- **Thin community `Community 73`** (2 nodes): `storyboard-planning-center.spec.ts`, `cloneValue()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 77`** (2 nodes): `storyboard-planning-center.spec.ts`, `cloneValue()`
+- **Thin community `Community 74`** (2 nodes): `__init__.py`, `Developer-only Runtime helpers.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 78`** (2 nodes): `__init__.py`, `Developer-only Runtime helpers.`
+- **Thin community `Community 75`** (2 nodes): `_rebuild_inspect.py`, `临时脚本：检查 docs 文件分布并筛选语义抽取范围。`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 79`** (2 nodes): `_rebuild_inspect.py`, `临时脚本：检查 docs 文件分布并筛选语义抽取范围。`
+- **Thin community `Community 76`** (2 nodes): `test_no_deprecated_utcnow.py`, `test_runtime_source_does_not_use_deprecated_utcnow()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 80`** (2 nodes): `test_no_deprecated_utcnow.py`, `test_runtime_source_does_not_use_deprecated_utcnow()`
+- **Thin community `Community 77`** (2 nodes): `test_runtime_dependencies.py`, `test_runtime_has_websocket_server_dependency()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 81`** (2 nodes): `test_runtime_dependencies.py`, `test_runtime_has_websocket_server_dependency()`
+- **Thin community `Community 78`** (1 nodes): `vite.config.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 82`** (1 nodes): `vite.config.ts`
+- **Thin community `Community 79`** (1 nodes): `env.d.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 83`** (1 nodes): `env.d.ts`
+- **Thin community `Community 80`** (1 nodes): `route-ids.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 84`** (1 nodes): `route-ids.ts`
+- **Thin community `Community 81`** (1 nodes): `route-manifest.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 85`** (1 nodes): `route-manifest.ts`
+- **Thin community `Community 82`** (1 nodes): `PagePlaceholderState.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 86`** (1 nodes): `PagePlaceholderState.vue`
+- **Thin community `Community 83`** (1 nodes): `AssetCard.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 87`** (1 nodes): `AssetCard.vue`
+- **Thin community `Community 84`** (1 nodes): `AssetToolbar.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 88`** (1 nodes): `AssetToolbar.vue`
+- **Thin community `Community 85`** (1 nodes): `AssetWall.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 89`** (1 nodes): `AssetWall.vue`
+- **Thin community `Community 86`** (1 nodes): `BootstrapLoadingOverlay.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 90`** (1 nodes): `BootstrapLoadingOverlay.vue`
+- **Thin community `Community 87`** (1 nodes): `AssetDetail.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 91`** (1 nodes): `AssetDetail.vue`
+- **Thin community `Community 88`** (1 nodes): `BindingDetail.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 92`** (1 nodes): `BindingDetail.vue`
+- **Thin community `Community 89`** (1 nodes): `ContextualDetail.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 93`** (1 nodes): `ContextualDetail.vue`
+- **Thin community `Community 90`** (1 nodes): `DetailContextRenderer.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 94`** (1 nodes): `DetailContextRenderer.vue`
+- **Thin community `Community 91`** (1 nodes): `LogDetail.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 95`** (1 nodes): `LogDetail.vue`
+- **Thin community `Community 92`** (1 nodes): `SystemStatusDetail.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 96`** (1 nodes): `SystemStatusDetail.vue`
+- **Thin community `Community 93`** (1 nodes): `EditingStatus.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 97`** (1 nodes): `EditingStatus.vue`
+- **Thin community `Community 94`** (1 nodes): `OverviewStatus.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 98`** (1 nodes): `OverviewStatus.vue`
+- **Thin community `Community 95`** (1 nodes): `TaskProgressStatus.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 99`** (1 nodes): `TaskProgressStatus.vue`
+- **Thin community `Community 96`** (1 nodes): `Button.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 100`** (1 nodes): `Button.vue`
+- **Thin community `Community 97`** (1 nodes): `Card.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 101`** (1 nodes): `Card.vue`
+- **Thin community `Community 98`** (1 nodes): `Chip.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 102`** (1 nodes): `Chip.vue`
+- **Thin community `Community 99`** (1 nodes): `Dropdown.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 103`** (1 nodes): `Dropdown.vue`
+- **Thin community `Community 100`** (1 nodes): `Input.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 104`** (1 nodes): `Input.vue`
+- **Thin community `Community 101`** (1 nodes): `Progress.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 105`** (1 nodes): `Progress.vue`
+- **Thin community `Community 102`** (1 nodes): `Tab.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 106`** (1 nodes): `Tab.vue`
+- **Thin community `Community 103`** (1 nodes): `Toast.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 107`** (1 nodes): `Toast.vue`
+- **Thin community `Community 104`** (1 nodes): `ShellDetailPanel.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 108`** (1 nodes): `ShellDetailPanel.vue`
+- **Thin community `Community 105`** (1 nodes): `ShellSidebar.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 109`** (1 nodes): `ShellSidebar.vue`
+- **Thin community `Community 106`** (1 nodes): `AICapabilityInspector.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 110`** (1 nodes): `AICapabilityInspector.vue`
+- **Thin community `Community 107`** (1 nodes): `AICapabilityMatrix.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 111`** (1 nodes): `AICapabilityMatrix.vue`
+- **Thin community `Community 108`** (1 nodes): `SettingsDiagnosticPanel.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 112`** (1 nodes): `SettingsDiagnosticPanel.vue`
+- **Thin community `Community 109`** (1 nodes): `SettingsSaveBar.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 113`** (1 nodes): `SettingsSaveBar.vue`
+- **Thin community `Community 110`** (1 nodes): `SettingsSectionRail.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 114`** (1 nodes): `SettingsSectionRail.vue`
+- **Thin community `Community 111`** (1 nodes): `SettingsStatusDock.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 115`** (1 nodes): `SettingsStatusDock.vue`
+- **Thin community `Community 112`** (1 nodes): `SettingsSystemFormPanel.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 116`** (1 nodes): `SettingsSystemFormPanel.vue`
+- **Thin community `Community 113`** (1 nodes): `SubtitlePreviewStage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 117`** (1 nodes): `SubtitlePreviewStage.vue`
+- **Thin community `Community 114`** (1 nodes): `SubtitleSegmentList.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 118`** (1 nodes): `SubtitleSegmentList.vue`
+- **Thin community `Community 115`** (1 nodes): `SubtitleStylePanel.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 119`** (1 nodes): `SubtitleStylePanel.vue`
+- **Thin community `Community 116`** (1 nodes): `SubtitleTimingPanel.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 120`** (1 nodes): `SubtitleTimingPanel.vue`
+- **Thin community `Community 117`** (1 nodes): `VoiceParamsPanel.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 121`** (1 nodes): `VoiceParamsPanel.vue`
+- **Thin community `Community 118`** (1 nodes): `VoiceProfileRail.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 122`** (1 nodes): `VoiceProfileRail.vue`
+- **Thin community `Community 119`** (1 nodes): `VoiceScriptPanel.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 123`** (1 nodes): `VoiceScriptPanel.vue`
+- **Thin community `Community 120`** (1 nodes): `WorkspaceAIActions.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 124`** (1 nodes): `WorkspaceAIActions.vue`
+- **Thin community `Community 121`** (1 nodes): `WorkspaceInspector.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 125`** (1 nodes): `WorkspaceInspector.vue`
+- **Thin community `Community 122`** (1 nodes): `WorkspaceStateNotice.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 126`** (1 nodes): `WorkspaceStateNotice.vue`
+- **Thin community `Community 123`** (1 nodes): `WorkspaceToolbar.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 127`** (1 nodes): `WorkspaceToolbar.vue`
+- **Thin community `Community 124`** (1 nodes): `AutomationConsolePage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 128`** (1 nodes): `AutomationConsolePage.vue`
+- **Thin community `Community 125`** (1 nodes): `CreatorDashboardPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 129`** (1 nodes): `CreatorDashboardPage.vue`
+- **Thin community `Community 126`** (1 nodes): `DashboardChainRail.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 130`** (1 nodes): `DashboardChainRail.vue`
+- **Thin community `Community 127`** (1 nodes): `DashboardHero.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 131`** (1 nodes): `DashboardHero.vue`
+- **Thin community `Community 128`** (1 nodes): `DashboardProjectEntry.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 132`** (1 nodes): `DashboardProjectEntry.vue`
+- **Thin community `Community 129`** (1 nodes): `DashboardRecentProjects.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 133`** (1 nodes): `DashboardRecentProjects.vue`
+- **Thin community `Community 130`** (1 nodes): `DashboardStatCards.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 134`** (1 nodes): `DashboardStatCards.vue`
+- **Thin community `Community 131`** (1 nodes): `DashboardSystemStatus.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 135`** (1 nodes): `DashboardSystemStatus.vue`
+- **Thin community `Community 132`** (1 nodes): `ExceptionQueueCard.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 136`** (1 nodes): `ExceptionQueueCard.vue`
+- **Thin community `Community 133`** (1 nodes): `ProjectRecentCard.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 137`** (1 nodes): `ProjectRecentCard.vue`
+- **Thin community `Community 134`** (1 nodes): `PublishingCenterPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 138`** (1 nodes): `PublishingCenterPage.vue`
+- **Thin community `Community 135`** (1 nodes): `RenderExportCenterPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 139`** (1 nodes): `RenderExportCenterPage.vue`
+- **Thin community `Community 136`** (1 nodes): `ReviewOptimizationCenterPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 140`** (1 nodes): `ReviewOptimizationCenterPage.vue`
+- **Thin community `Community 137`** (1 nodes): `AISystemSettingsPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 141`** (1 nodes): `AISystemSettingsPage.vue`
+- **Thin community `Community 138`** (1 nodes): `types.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 142`** (1 nodes): `types.ts`
+- **Thin community `Community 139`** (1 nodes): `PromptTemplateList.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 143`** (1 nodes): `PromptTemplateList.vue`
+- **Thin community `Community 140`** (1 nodes): `ProviderCard.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 144`** (1 nodes): `ProviderCard.vue`
+- **Thin community `Community 141`** (1 nodes): `ProviderConfigDrawer.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 145`** (1 nodes): `ProviderConfigDrawer.vue`
+- **Thin community `Community 142`** (1 nodes): `ProviderHealthResult.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 146`** (1 nodes): `ProviderHealthResult.vue`
+- **Thin community `Community 143`** (1 nodes): `ProviderList.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 147`** (1 nodes): `ProviderList.vue`
+- **Thin community `Community 144`** (1 nodes): `SettingsNav.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 148`** (1 nodes): `SettingsNav.vue`
+- **Thin community `Community 145`** (1 nodes): `VoiceProfileGrid.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 149`** (1 nodes): `VoiceProfileGrid.vue`
+- **Thin community `Community 146`** (1 nodes): `SetupLicenseWizardPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 150`** (1 nodes): `ai-capability.ts`
+- **Thin community `Community 147`** (1 nodes): `VideoDeconstructionCenterPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 151`** (1 nodes): `bootstrap.ts`
+- **Thin community `Community 148`** (1 nodes): `ai-capability.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 152`** (1 nodes): `config-bus.ts`
+- **Thin community `Community 149`** (1 nodes): `bootstrap.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 153`** (1 nodes): `editing-workspace.ts`
+- **Thin community `Community 150`** (1 nodes): `config-bus.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 154`** (1 nodes): `project.ts`
+- **Thin community `Community 151`** (1 nodes): `editing-workspace.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 155`** (1 nodes): `script-studio.ts`
+- **Thin community `Community 152`** (1 nodes): `project.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 156`** (1 nodes): `storyboard.ts`
+- **Thin community `Community 153`** (1 nodes): `script-studio.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 157`** (1 nodes): `subtitle-alignment.ts`
+- **Thin community `Community 154`** (1 nodes): `storyboard.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 158`** (1 nodes): `voice-studio.ts`
+- **Thin community `Community 155`** (1 nodes): `subtitle-alignment.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 159`** (1 nodes): `router.ts`
+- **Thin community `Community 156`** (1 nodes): `voice-studio.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 160`** (1 nodes): `runtime.ts`
+- **Thin community `Community 157`** (1 nodes): `router.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 161`** (1 nodes): `task-events.ts`
+- **Thin community `Community 158`** (1 nodes): `runtime.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 162`** (1 nodes): `video.ts`
+- **Thin community `Community 159`** (1 nodes): `task-events.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 163`** (1 nodes): `ai-capability-store.spec.ts`
+- **Thin community `Community 160`** (1 nodes): `video.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 164`** (1 nodes): `bootstrap-gate.spec.ts`
+- **Thin community `Community 161`** (1 nodes): `ai-capability-store.spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 165`** (1 nodes): `core-runtime-store.spec.ts`
+- **Thin community `Community 162`** (1 nodes): `bootstrap-gate.spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 166`** (1 nodes): `project-context-guard.spec.ts`
+- **Thin community `Community 163`** (1 nodes): `core-runtime-store.spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 167`** (1 nodes): `runtime-client-settings.spec.ts`
+- **Thin community `Community 164`** (1 nodes): `project-context-guard.spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 168`** (1 nodes): `task-bus.spec.ts`
+- **Thin community `Community 165`** (1 nodes): `runtime-client-settings.spec.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 169`** (1 nodes): `tauri-capabilities.spec.ts`
+- **Thin community `Community 166`** (1 nodes): `task-bus.spec.ts`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 167`** (1 nodes): `tauri-capabilities.spec.ts`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 168`** (1 nodes): `__init__.py`
+  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **Thin community `Community 169`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 170`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
@@ -1182,35 +1178,31 @@ Nodes (0):
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 174`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 175`** (1 nodes): `__init__.py`
+- **Thin community `Community 175`** (1 nodes): `video_tasks.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 - **Thin community `Community 176`** (1 nodes): `__init__.py`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 177`** (1 nodes): `video_tasks.py`
+- **Thin community `Community 177`** (1 nodes): `seed-runtime-dev.mjs`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 178`** (1 nodes): `__init__.py`
+- **Thin community `Community 178`** (1 nodes): `stitch-connect.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 179`** (1 nodes): `seed-runtime-dev.mjs`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 180`** (1 nodes): `stitch-connect.js`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 181`** (1 nodes): `stitch-generate-dashboard.js`
+- **Thin community `Community 179`** (1 nodes): `stitch-generate-dashboard.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ok_response()` connect `Community 2` to `Community 1`, `Community 7`, `Community 8`, `Community 13`, `Community 21`, `Community 23`?**
-  _High betweenness centrality (0.073) - this node is a cross-community bridge._
-- **Why does `create_app()` connect `Community 13` to `Community 0`, `Community 1`, `Community 4`, `Community 5`, `Community 6`, `Community 7`, `Community 8`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 14`, `Community 15`, `Community 16`, `Community 17`, `Community 18`, `Community 23`, `Community 26`?**
-  _High betweenness centrality (0.071) - this node is a cross-community bridge._
-- **Why does `now()` connect `Community 10` to `Community 0`, `Community 1`, `Community 4`, `Community 5`, `Community 6`, `Community 7`, `Community 8`, `Community 9`, `Community 13`, `Community 14`, `Community 16`, `Community 17`, `Community 18`, `Community 19`, `Community 21`?**
-  _High betweenness centrality (0.056) - this node is a cross-community bridge._
-- **Are the 183 inferred relationships involving `HTTPException` (e.g. with `get_license_service()` and `get_task()`) actually correct?**
-  _`HTTPException` has 183 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `ok_response()` connect `Community 3` to `Community 2`, `Community 6`, `Community 7`, `Community 10`, `Community 19`?**
+  _High betweenness centrality (0.107) - this node is a cross-community bridge._
+- **Why does `create_app()` connect `Community 6` to `Community 0`, `Community 1`, `Community 2`, `Community 4`, `Community 7`, `Community 8`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 14`, `Community 15`, `Community 17`, `Community 19`?**
+  _High betweenness centrality (0.072) - this node is a cross-community bridge._
+- **Why does `now()` connect `Community 11` to `Community 0`, `Community 1`, `Community 2`, `Community 4`, `Community 6`, `Community 9`, `Community 10`, `Community 13`, `Community 15`, `Community 17`, `Community 19`, `Community 20`?**
+  _High betweenness centrality (0.072) - this node is a cross-community bridge._
+- **Are the 185 inferred relationships involving `HTTPException` (e.g. with `get_license_service()` and `get_task()`) actually correct?**
+  _`HTTPException` has 185 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 174 inferred relationships involving `ok_response()` (e.g. with `list_account_groups()` and `create_account_group()`) actually correct?**
   _`ok_response()` has 174 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 155 inferred relationships involving `Exception` (e.g. with `.generate()` and `.generate()`) actually correct?**
-  _`Exception` has 155 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 160 inferred relationships involving `Exception` (e.g. with `.generate()` and `.generate()`) actually correct?**
+  _`Exception` has 160 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `initial schema  Revision ID: 0001_initial_schema Revises: Create Date: 2026-`, `add imported videos  Revision ID: 0002_add_imported_videos Revises: 0001_init`, `add business modules  Revision ID: 0003_add_business_modules Revises: 0002_ad` to the rest of the system?**
   _12 weakly-connected nodes found - possible documentation gaps or missing edges._
