@@ -82,7 +82,7 @@ const statusLabel = computed(() => {
 });
 
 function statusText(status: SubtitleTrackStatus): string {
-  if (status === "blocked") return "阻断";
+  if (status === "blocked") return "版本：阻断草稿";
   if (status === "ready") return "可用";
   if (status === "aligning") return "对齐中";
   return "错误";

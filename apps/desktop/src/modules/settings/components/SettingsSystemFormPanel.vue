@@ -1,12 +1,64 @@
 <template>
   <div class="system-form-panel">
     <!-- 目录设置 -->
-    <div v-if="currentSection === 'directory'" class="form-section">
+    <div v-if="currentSection === 'system' || currentSection === 'directory'" class="form-section">
+      <div class="form-group">
+        <label>运行模式</label>
+        <select
+          :value="form.runtime.mode"
+          class="ui-select"
+          data-field="runtime.mode"
+          @change="e => updateForm({ runtime: { mode: (e.target as HTMLSelectElement).value } })"
+        >
+          <option value="development">Development (调试)</option>
+          <option value="production">Production (生产)</option>
+        </select>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>默认 AI 提供商</label>
+          <select
+            :value="form.ai.provider"
+            class="ui-select"
+            data-field="ai.provider"
+            @change="e => updateForm({ ai: { provider: (e.target as HTMLSelectElement).value } })"
+          >
+            <option value="" disabled>选择 Provider</option>
+            <option
+              v-for="p in providerOptions"
+              :key="p.provider"
+              :value="p.provider"
+            >
+              {{ p.label }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>默认生成模型</label>
+          <select
+            :value="form.ai.model"
+            class="ui-select"
+            data-field="ai.model"
+            @change="e => updateForm({ ai: { model: (e.target as HTMLSelectElement).value } })"
+          >
+            <option value="" disabled>选择模型</option>
+            <option
+              v-for="m in modelOptions"
+              :key="m.modelId"
+              :value="m.modelId"
+            >
+              {{ m.modelId }}
+            </option>
+          </select>
+        </div>
+      </div>
+
       <div class="form-group">
         <label>工作区根目录</label>
         <div class="picker-row">
           <Input :model-value="form.runtime.workspaceRoot" readonly />
-          <Button variant="secondary" @click="$emit('pick-directory', 'runtime.workspaceRoot')">选择</Button>
+          <Button variant="secondary" data-action="pick-workspace-root" @click="$emit('pick-directory', 'runtime.workspaceRoot')">选择</Button>
         </div>
         <p class="hint">TK-OPS 所有的项目数据、资产记录和模型配置都将持久化到此目录下。</p>
       </div>
@@ -16,21 +68,21 @@
           <label>缓存目录</label>
           <div class="picker-row">
             <Input :model-value="form.paths.cacheDir" readonly />
-            <Button variant="secondary" @click="$emit('pick-directory', 'paths.cacheDir')">选择</Button>
+            <Button variant="secondary" data-action="pick-cache-dir" @click="$emit('pick-directory', 'paths.cacheDir')">选择</Button>
           </div>
         </div>
         <div class="form-group">
           <label>导出目录</label>
           <div class="picker-row">
             <Input :model-value="form.paths.exportDir" readonly />
-            <Button variant="secondary" @click="$emit('pick-directory', 'paths.exportDir')">选择</Button>
+            <Button variant="secondary" data-action="pick-export-dir" @click="$emit('pick-directory', 'paths.exportDir')">选择</Button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 缓存管理 -->
-    <div v-else-if="currentSection === 'cache'" class="form-section">
+    <div v-if="currentSection === 'system' || currentSection === 'cache'" class="form-section">
       <div class="cache-list">
         <Card v-for="item in cacheItems" :key="item.key" class="cache-item" :interactive="false">
           <div class="cache-info">
@@ -56,12 +108,13 @@
     </div>
 
     <!-- 日志设置 -->
-    <div v-else-if="currentSection === 'logging'" class="form-section">
+    <div v-if="currentSection === 'system' || currentSection === 'logging'" class="form-section">
       <div class="form-group">
         <label>日志级别</label>
         <select
           :value="form.logging.level"
           class="ui-select"
+          data-field="logging.level"
           @change="e => updateForm({ logging: { level: (e.target as HTMLSelectElement).value } })"
         >
           <option value="DEBUG">DEBUG (最详细)</option>
@@ -74,19 +127,32 @@
         <label>日志保留天数</label>
         <Input type="number" :model-value="'7'" />
       </div>
-      <Button variant="secondary" @click="openLogDir">
+      <Button variant="secondary" data-action="pick-log-dir" @click="$emit('open-log-directory')">
         <template #leading><span class="material-symbols-outlined">folder_open</span></template>
         打开日志所在目录
       </Button>
     </div>
 
     <!-- 字幕策略 -->
-    <div v-else-if="currentSection === 'subtitle'" class="form-section">
+    <div v-if="currentSection === 'system' || currentSection === 'subtitle'" class="form-section">
+      <div class="form-group">
+        <label>默认配音</label>
+        <select
+          :value="form.ai.voice"
+          class="ui-select"
+          data-field="ai.voice"
+          @change="e => updateForm({ ai: { voice: (e.target as HTMLSelectElement).value } })"
+        >
+          <option value="nova">Nova</option>
+          <option value="alloy">Alloy</option>
+        </select>
+      </div>
       <div class="form-group">
         <label>字幕生成模式</label>
         <select
           :value="form.ai.subtitleMode"
           class="ui-select"
+          data-field="ai.subtitleMode"
           @change="e => updateForm({ ai: { subtitleMode: (e.target as HTMLSelectElement).value } })"
         >
           <option value="balanced">平衡模式</option>
@@ -104,7 +170,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import type { AppSettingsUpdateInput } from "@/types/runtime";
+import type { AppSettingsUpdateInput, AIModelCatalogItem, AIProviderCatalogItem } from "@/types/runtime";
 import { useConfigBusStore } from "@/stores/config-bus";
 import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
@@ -114,6 +180,8 @@ const props = defineProps<{
   currentSection: string;
   form: AppSettingsUpdateInput;
   disabled: boolean;
+  modelOptions: AIModelCatalogItem[];
+  providerOptions: AIProviderCatalogItem[];
 }>();
 
 const emit = defineEmits<{

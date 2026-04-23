@@ -105,6 +105,9 @@
               <button :class="{ active: store.selectedGroupId === null }" type="button" @click="handleSelectGroup(null)">
                 全部
               </button>
+              <div v-if="store.groups.length === 0" class="empty-hint-inline">
+                Runtime 尚未返回账号分组目录，不会伪造绑定关系
+              </div>
               <button
                 v-for="group in store.groups"
                 :key="group.id"
@@ -136,7 +139,8 @@
                 v-for="account in visibleAccounts"
                 :key="account.id"
                 class="account-card"
-                :class="{ 'is-selected': selectedAccountId === account.id }"
+                :class="{ 'account-card--selected': selectedAccountId === account.id }"
+                :data-testid="`account-card-${account.id}`"
                 @click="selectAccount(account)"
               >
                 <div class="ac-head">
@@ -280,6 +284,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useAccountManagementStore } from "@/stores/account-management";
+import { useShellUiStore } from "@/stores/shell-ui";
 import type { AccountDto } from "@/types/runtime";
 
 import Button from "@/components/ui/Button/Button.vue";
@@ -288,6 +293,7 @@ import Chip from "@/components/ui/Chip/Chip.vue";
 import Input from "@/components/ui/Input/Input.vue";
 
 const store = useAccountManagementStore();
+const shellUiStore = useShellUiStore();
 const searchQuery = ref("");
 const selectedAccountId = ref<string | null>(null);
 const currentAvailability = ref<"all" | "publishable" | "pending" | "invalid">("all");
@@ -345,6 +351,41 @@ const guidanceAction = computed(() => {
 });
 
 onMounted(() => { void store.load(); });
+
+watch(selectedAccount, (account) => {
+  if (!account) {
+    shellUiStore.closeDetailPanel();
+    return;
+  }
+  // 在详情面板展示账号核心指标与状态
+  shellUiStore.openDetailWithContext({
+    id: "account",
+    title: account.name,
+    sections: [
+      {
+        title: "账号概览",
+        fields: [
+          { label: "平台", value: platformLabel(account.platform) },
+          { label: "用户名", value: account.username || "@unknown" },
+          { label: "状态", value: getStatusLabel(account.status) }
+        ]
+      },
+      {
+        title: "指标统计",
+        fields: [
+          { label: "粉丝数", value: formatCount(account.followerCount) },
+          { label: "视频数", value: formatCount(account.videoCount) }
+        ]
+      },
+      {
+        title: "分组与绑定",
+        fields: [
+          { label: "所属分组", value: store.groups.find(g => (account as any).groupId === g.id)?.name ?? "默认分组" }
+        ]
+      }
+    ]
+  });
+}, { immediate: true });
 
 function handleReload() { void store.load(); }
 function handleSelectGroup(groupId: string | null) {
@@ -480,6 +521,16 @@ function formatDateTime(v: string) {
 }
 .group-tabs button.active { background: var(--color-brand-primary); color: white; border-color: var(--color-brand-primary); }
 
+.empty-hint-inline {
+  padding: 8px;
+  color: var(--color-text-tertiary);
+  font: var(--font-body-sm);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-sm);
+  width: 100%;
+  text-align: center;
+}
+
 .search-box-v2 {
   display: flex;
   align-items: center;
@@ -505,7 +556,7 @@ function formatDateTime(v: string) {
   transition: background-color var(--motion-fast);
 }
 .account-card:hover { background: var(--color-bg-hover); }
-.account-card.is-selected { background: var(--color-bg-muted); box-shadow: inset 4px 0 0 var(--color-brand-primary); }
+.account-card.account-card--selected { background: var(--color-bg-muted); box-shadow: inset 4px 0 0 var(--color-brand-primary); }
 
 .ac-head { display: flex; align-items: center; gap: 12px; }
 .ac-avatar { width: 32px; height: 32px; border-radius: 50%; background: #eee; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }

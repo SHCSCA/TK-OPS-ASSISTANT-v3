@@ -57,7 +57,7 @@ export function useProviderManagement() {
     isTestingProvider.value = true;
     try {
       // 调用真实 store 链路进行健康检查
-      await aiStore.checkAIProviderHealth(activeProviderId.value, modelId ? { model: modelId } : {});
+      await aiStore.checkProvider(activeProviderId.value, modelId ? { model: modelId } : {});
       // 成功后静默刷新 Readiness 摘要
       await configBusStore.fetchProviderReadinessSilently();
     } finally {

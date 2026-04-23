@@ -82,7 +82,7 @@ const statusLabel = computed(() => {
 });
 
 function statusText(status: VoiceTrackStatus): string {
-  if (status === "blocked") return "阻断";
+  if (status === "blocked") return "版本：阻断草稿";
   if (status === "ready") return "可用";
   if (status === "generating") return "生成中";
   return "错误";

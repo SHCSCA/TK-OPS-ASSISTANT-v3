@@ -1,5 +1,5 @@
 <template>
-  <tr class="matrix-row">
+  <tr class="matrix-row" :data-capability-id="row.capabilityId">
     <td class="matrix-cell">
       <strong class="capability-label">{{ row.label }}</strong>
     </td>
@@ -18,6 +18,7 @@
       <select
         :value="row.provider"
         class="ui-select"
+        :data-field="'capability.' + row.capabilityId + '.provider'"
         @change="handleProviderChange"
       >
         <option value="" disabled>选择 Provider</option>
@@ -36,6 +37,7 @@
       <select
         :value="row.model"
         class="ui-select"
+        :data-field="'capability.' + row.capabilityId + '.model'"
         @change="handleModelChange"
       >
         <option value="" disabled>选择模型</option>

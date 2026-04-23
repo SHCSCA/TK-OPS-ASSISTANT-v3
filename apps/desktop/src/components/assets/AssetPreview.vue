@@ -1,5 +1,5 @@
 <template>
-  <div class="asset-preview" :class="[`asset-preview--${variant}`, `asset-preview--${previewKind}`]">
+  <div class="asset-preview" :class="[`asset-preview--${variant}`, `asset-preview--${previewKind}`]" data-testid="preview">
     <span class="asset-preview__badge">{{ previewBadge }}</span>
 
     <img
@@ -12,7 +12,7 @@
     <video
       v-else-if="previewKind === 'video' && previewUrl"
       :data-testid="`asset-preview-video-${asset.id}`"
-      :src="previewUrl.startsWith('http') || previewUrl.startsWith('asset') ? previewUrl + '#t=0.001' : previewUrl"
+      :src="previewUrl"
       muted
       playsinline
       preload="metadata"
@@ -58,6 +58,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { AssetDto } from "@/types/runtime";
 
 const UTF8_TEXT_PREVIEW_LIMIT = 2400;
@@ -88,22 +89,20 @@ const previewKind = computed(() => {
 
 const previewUrl = ref("");
 
-async function resolvePreviewUrl(path: string) {
+function resolvePreviewUrl(path: string) {
   if (!path || path === "null" || path === "undefined") return "";
   if (/^(asset|blob|data|https?):/i.test(path)) return path;
   
   try {
-    const { convertFileSrc } = await import(/* @vite-ignore */ "@tauri-apps/api/core");
-    const url = convertFileSrc(path);
-    return url;
+    return convertFileSrc(path);
   } catch {
-    return "";
+    return path;
   }
 }
 
-watch(() => props.asset.id, async () => {
+watch(() => props.asset.id, () => {
   const path = previewKind.value === "image" && props.asset.thumbnailPath ? props.asset.thumbnailPath : props.asset.filePath;
-  previewUrl.value = await resolvePreviewUrl(path || "");
+  previewUrl.value = resolvePreviewUrl(path || "");
 }, { immediate: true });
 
 const textPreview = ref("");

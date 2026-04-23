@@ -99,7 +99,7 @@ describe("B-S3 Runtime client contract", () => {
       },
       {
         path: "/api/prompt-templates/template-1",
-        method: "PATCH",
+        method: "PUT",
         body: { name: "强钩子 v2" }
       },
       { path: "/api/prompt-templates/template-1", method: "DELETE", body: undefined },

@@ -9,6 +9,7 @@ import {
   updateSubtitleTrack
 } from "@/app/runtime-client";
 import { useTaskBusStore } from "@/stores/task-bus";
+import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 import type {
   RuntimeRequestErrorShape,
   ScriptDocument,
@@ -17,16 +18,28 @@ import type {
   SubtitleTrackGenerateResultDto,
   SubtitleStyleDto
 } from "@/types/runtime";
-import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 import type { TaskEvent, TaskInfo } from "@/types/task-events";
+
+export interface SubtitleParagraph {
+  text: string;
+}
 
 export type SubtitleAlignmentStatus =
   | "idle"
   | "loading"
   | "aligning"
   | "saving"
+  | "empty"
+  | "blocked"
   | "ready"
   | "error";
+
+export type SubtitleAlignmentViewState =
+  | "loading"
+  | "empty"
+  | "ready"
+  | "error"
+  | "blocked";
 
 type SubtitleAlignmentState = {
   activeSegmentIndex: number;
@@ -34,7 +47,7 @@ type SubtitleAlignmentState = {
   draftSegments: SubtitleSegmentDto[];
   error: RuntimeRequestErrorShape | null;
   generationResult: SubtitleTrackGenerateResultDto | null;
-  paragraphs: string[];
+  paragraphs: SubtitleParagraph[];
   projectId: string;
   selectedTrackId: string | null;
   status: SubtitleAlignmentStatus;
@@ -74,7 +87,23 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
     selectedTrack: (state): SubtitleTrackDto | null =>
       (state.selectedTrackId ? state.trackDetailsById[state.selectedTrackId] : null) ??
       state.tracks.find((track) => track.id === state.selectedTrackId) ??
-      null
+      null,
+    sourceText: (state): string => state.paragraphs.map((paragraph) => paragraph.text).join("\n\n"),
+    viewState(): SubtitleAlignmentViewState {
+      if (this.status === "loading" || this.status === "aligning" || this.status === "saving") {
+        return "loading";
+      }
+      if (!this.paragraphs.length) {
+        return "empty";
+      }
+      if (this.status === "error") {
+        return "error";
+      }
+      if (this.status === "blocked" || this.selectedTrack?.status === "blocked") {
+        return "blocked";
+      }
+      return "ready";
+    }
   },
   actions: {
     async load(projectId: string): Promise<void> {
@@ -85,27 +114,25 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       this.activeTask = null;
 
       try {
-        const [doc, tracks] = await Promise.all([
+        const [document, tracks] = await Promise.all([
           fetchScriptDocument(projectId),
           fetchSubtitleTracks(projectId)
         ]);
-        this.document = doc;
+
+        this.document = document;
         this.tracks = tracks;
         this.trackDetailsById = Object.fromEntries(tracks.map((track) => [track.id, track]));
-        this.paragraphs = (doc.currentVersion?.content ?? "")
-          .split("\n")
-          .map((p) => p.trim())
-          .filter(Boolean);
+        this.paragraphs = this.extractParagraphs(document.currentVersion?.content ?? "");
 
         const initialTrackId = tracks[0]?.id ?? null;
+        this.selectedTrackId = initialTrackId;
         if (initialTrackId) {
           await this.selectTrack(initialTrackId);
         } else {
-          this.draftSegments = [];
-          this.activeSegmentIndex = 0;
+          this.resetDraftSegments();
+          this.status = this.resolveBaseStatus();
         }
-        
-        this.status = "ready";
+
         this.initializeTaskWatch();
       } catch (error) {
         this.applyRuntimeError(error);
@@ -119,9 +146,11 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       }
 
       const taskBusStore = useTaskBusStore();
-      // FIX: Use correct backend task type name for subtitles
       this._taskUnsubscriber = taskBusStore.subscribeToType("task.progress", (event: TaskEvent) => {
-        if (event.projectId === this.projectId && (event.taskType === "ai_subtitles" || event.taskType === "subtitle_alignment")) {
+        if (
+          event.projectId === this.projectId &&
+          (event.taskType === "ai_subtitles" || event.taskType === "subtitle_alignment")
+        ) {
           this.handleTaskEvent(event);
         }
       });
@@ -140,50 +169,88 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
           updated_at: new Date().toISOString()
         };
         this.status = "aligning";
-      } else if (event.type === "task.completed") {
+        return;
+      }
+
+      if (event.type === "task.completed") {
         this.activeTask = null;
         this.status = "ready";
         void this.refreshTracks();
-      } else if (event.type === "task.failed") {
+        return;
+      }
+
+      if (event.type === "task.failed") {
         this.activeTask = null;
-        this.status = "error";
         this.applyInputError(event.errorMessage ?? "字幕对齐失败");
       }
     },
 
     async refreshTracks(): Promise<void> {
-      if (!this.projectId) return;
+      if (!this.projectId) {
+        return;
+      }
+
       try {
         const tracks = await fetchSubtitleTracks(this.projectId);
         this.tracks = tracks;
-        if (tracks.length > 0) {
-          await this.selectTrack(tracks[0].id);
+        this.trackDetailsById = {
+          ...this.trackDetailsById,
+          ...Object.fromEntries(tracks.map((track) => [track.id, track]))
+        };
+
+        const nextTrackId =
+          this.selectedTrackId && tracks.some((track) => track.id === this.selectedTrackId)
+            ? this.selectedTrackId
+            : tracks[0]?.id ?? null;
+
+        if (nextTrackId) {
+          await this.selectTrack(nextTrackId);
+        } else {
+          this.selectedTrackId = null;
+          this.resetDraftSegments();
+          this.status = this.resolveBaseStatus();
         }
-      } catch (e) {
-        console.error("Failed to refresh subtitle tracks:", e);
+      } catch (error) {
+        console.error("Failed to refresh subtitle tracks:", error);
       }
     },
 
     async generate(): Promise<SubtitleTrackGenerateResultDto | null> {
-      if (!this.projectId) return null;
+      if (!this.projectId) {
+        this.applyInputError("未选择有效项目。");
+        return null;
+      }
+
+      const sourceText = this.sourceText.trim();
+      if (!sourceText) {
+        this.applyInputError("字幕源文本为空，请先在脚本中心生成并采纳脚本。");
+        return null;
+      }
+
       this.status = "aligning";
       this.error = null;
+
       try {
-        // FIX: Match the actual API contract with sourceText, language, and stylePreset
-        const sourceText = this.document?.currentVersion?.content || "";
         const result = await generateSubtitleTrack(this.projectId, {
           sourceText,
           language: "zh-CN",
           stylePreset: this.style.preset || "default"
         });
+
         this.generationResult = result;
         if (result.track) {
+          this.trackDetailsById = {
+            ...this.trackDetailsById,
+            [result.track.id]: result.track
+          };
           this.upsertTrack(result.track);
           this.selectedTrackId = result.track.id;
-          this.draftSegments = result.track.segments.map((s) => ({ ...s }));
+          this.draftSegments = result.track.segments.map((segment) => ({ ...segment }));
           this.style = { ...result.track.style };
+          this.activeSegmentIndex = 0;
         }
-        this.status = "ready";
+
+        this.status = result.track?.status === "blocked" ? "blocked" : "ready";
         return result;
       } catch (error) {
         this.applyRuntimeError(error);
@@ -194,49 +261,77 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
     async selectTrack(trackId: string): Promise<void> {
       this.selectedTrackId = trackId;
       this.status = "loading";
+      this.error = null;
+
       try {
         const track = await fetchSubtitleTrack(trackId);
-        this.trackDetailsById[trackId] = track;
+        this.trackDetailsById = {
+          ...this.trackDetailsById,
+          [trackId]: track
+        };
         this.upsertTrack(track);
-        this.draftSegments = (track.segments || []).map((s) => ({ ...s }));
+        this.draftSegments = track.segments.map((segment) => ({ ...segment }));
         this.style = { ...track.style };
         this.activeSegmentIndex = 0;
-        this.status = "ready";
+        this.status = this.resolveBaseStatus();
       } catch (error) {
         this.applyRuntimeError(error);
       }
     },
 
-    async updateSelectedTrack(): Promise<void> {
-      if (!this.selectedTrackId) return;
+    async updateSelectedTrack(): Promise<SubtitleTrackDto | null> {
+      if (!this.selectedTrackId) {
+        return null;
+      }
+
       this.status = "saving";
+      this.error = null;
+
       try {
         const updated = await updateSubtitleTrack(this.selectedTrackId, {
           segments: this.draftSegments,
           style: this.style
         });
-        this.trackDetailsById[this.selectedTrackId] = updated;
+
+        this.trackDetailsById = {
+          ...this.trackDetailsById,
+          [this.selectedTrackId]: updated
+        };
         this.upsertTrack(updated);
+        this.draftSegments = updated.segments.map((segment) => ({ ...segment }));
+        this.style = { ...updated.style };
         this.status = "ready";
+        return updated;
       } catch (error) {
         this.applyRuntimeError(error);
+        return null;
       }
     },
 
     async deleteTrack(trackId: string): Promise<void> {
-      if (!this.projectId) return;
+      if (!this.projectId) {
+        return;
+      }
+
       try {
         await deleteSubtitleTrack(trackId);
-        this.tracks = this.tracks.filter((t) => t.id !== trackId);
-        delete this.trackDetailsById[trackId];
+        this.tracks = this.tracks.filter((track) => track.id !== trackId);
+
+        const nextTrackDetails = { ...this.trackDetailsById };
+        delete nextTrackDetails[trackId];
+        this.trackDetailsById = nextTrackDetails;
+
         if (this.selectedTrackId === trackId) {
-          const next = this.tracks[0]?.id ?? null;
-          if (next) await this.selectTrack(next);
-          else {
+          const nextTrackId = this.tracks[0]?.id ?? null;
+          if (nextTrackId) {
+            await this.selectTrack(nextTrackId);
+          } else {
             this.selectedTrackId = null;
-            this.draftSegments = [];
+            this.resetDraftSegments();
           }
         }
+
+        this.status = this.resolveBaseStatus();
       } catch (error) {
         this.applyRuntimeError(error);
       }
@@ -257,14 +352,39 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
     },
 
     upsertTrack(track: SubtitleTrackDto): void {
-      const idx = this.tracks.findIndex((t) => t.id === track.id);
-      if (idx >= 0) this.tracks[idx] = track;
-      else this.tracks = [track, ...this.tracks];
+      const currentIndex = this.tracks.findIndex((item) => item.id === track.id);
+      if (currentIndex >= 0) {
+        this.tracks[currentIndex] = track;
+        return;
+      }
+      this.tracks = [track, ...this.tracks];
+    },
+
+    extractParagraphs(content: string): SubtitleParagraph[] {
+      return content
+        .split(/\n\s*\n/)
+        .map((paragraph) => paragraph.trim())
+        .filter((paragraph) => paragraph.length > 0)
+        .map((text) => ({ text }));
+    },
+
+    resetDraftSegments(): void {
+      this.draftSegments = [];
+      this.activeSegmentIndex = 0;
+    },
+
+    resolveBaseStatus(): "empty" | "ready" {
+      return this.paragraphs.length > 0 ? "ready" : "empty";
     },
 
     applyInputError(message: string): void {
       this.status = "error";
-      this.error = { details: null, message, requestId: "", status: 0 };
+      this.error = {
+        details: null,
+        message,
+        requestId: "",
+        status: 0
+      };
     },
 
     applyRuntimeError(error: unknown): void {

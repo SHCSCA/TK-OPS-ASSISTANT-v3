@@ -15,7 +15,7 @@
         </div>
       </div>
 
-      <header class="page-header">
+      <header class="page-header" data-testid="asset-library">
         <div class="page-header__crumb">首页 / 资产中心</div>
         <div class="page-header__row">
           <div>
@@ -27,7 +27,13 @@
               <template #leading><span class="material-symbols-outlined">refresh</span></template>
               重新读取
             </Button>
-            <Button variant="primary" @click="handleUpload" :running="store.importStatus === 'importing'" :disabled="isBusy">
+            <Button
+              variant="primary"
+              data-testid="asset-import-button"
+              @click="handleUpload"
+              :running="store.importStatus === 'importing'"
+              :disabled="isBusy"
+            >
               <template #leading><span class="material-symbols-outlined">add</span></template>
               {{ store.importStatus === "importing" ? "导入中..." : "导入资产" }}
             </Button>

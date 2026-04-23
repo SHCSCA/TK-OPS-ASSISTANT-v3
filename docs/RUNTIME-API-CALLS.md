@@ -613,51 +613,82 @@
 
 ---
 
-## 7. ??????
+## 7. M06 视频拆解中心
 
-**???? DTO**: `ImportedVideoDto`?`VideoStageDto`?`VideoTranscriptDto`?`VideoSegmentDto`?`VideoStructureExtractionDto`?`ApplyVideoExtractionResultDto`
+**核心返回 DTO**: `ImportedVideoDto`、`VideoStageDto`、`VideoTranscriptDto`、`VideoSegmentDto`、`VideoStructureExtractionDto`、`ApplyVideoExtractionResultDto`
 
-**??????**
+**当前契约要点**
 
-- `GET /api/video-deconstruction/videos/{video_id}/stages` ??????????????????????? `stageId`?`label`?`status`?`progressPct`?`resultSummary`?`errorMessage`?`errorCode`?`nextAction`?`blockedByStageId`?`isCurrent`?
-- `VideoStageDto` ????????`stageId`?`label`?`status`?`progressPct`?`resultSummary`?`errorMessage`?`errorCode`?`nextAction`?`blockedByStageId`?`updatedAt`?`isCurrent`?`activeTaskId`?`activeTaskStatus`?`activeTaskProgress`?`activeTaskMessage`?`canCancel`?`canRetry`?`canRerun`?
-- ???? HTTP ???????? `activeTaskId`?`canCancel`?`canRetry`???????????????? `activeTaskId` ?? `POST /api/tasks/{task_id}/cancel` ? `/api/tasks` ???????
-- `POST /api/video-deconstruction/projects/{project_id}/import` ????? `ImportedVideoDto`????????? `video.id` ?? task id??????????????? `GET /stages` ?????????? `ImportedVideoDto` ???
+- `GET /api/video-deconstruction/videos/{video_id}/stages` 返回完整阶段编排状态，覆盖：
+  - `import`
+  - `transcribe`
+  - `segment`
+  - `extract_structure`
+- `VideoStageDto` 当前用于表达阶段状态与长任务上下文，关键字段包括：
+  - `stageId`
+  - `label`
+  - `status`
+  - `progressPct`
+  - `resultSummary`
+  - `errorMessage`
+  - `errorCode`
+  - `nextAction`
+  - `blockedByStageId`
+  - `updatedAt`
+  - `isCurrent`
+  - `activeTaskId`
+  - `activeTaskStatus`
+  - `activeTaskProgress`
+  - `activeTaskMessage`
+  - `canCancel`
+  - `canRetry`
+  - `canRerun`
+- 阶段长任务状态统一通过 HTTP 返回，不要求页面自行拼装；若存在 `activeTaskId`，前端可继续通过 `POST /api/tasks/{task_id}/cancel` 或 `GET /api/tasks` 协同控制
+- `POST /api/video-deconstruction/projects/{project_id}/import` 只返回初始 `ImportedVideoDto`；真正的视频元数据解析在后台导入任务中完成，导入阶段状态应以 `GET /stages` 和视频状态为准
+- 当前视频拆解链路会广播：
+  - `video.import.stage.started`
+  - `video.import.stage.completed`
+  - `video.import.stage.failed`
+  - `video_status_changed`
 
-| ?? | ???? | ???? | ??? | ??????? |
+| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `POST /api/video-deconstruction/projects/{project_id}/import` | `ImportVideoInput`?`filePath` | `ImportedVideoDto` | `404`?`422` | `importVideo` |
-| `GET /api/video-deconstruction/projects/{project_id}/videos` | ?????`project_id` | `ImportedVideoDto[]` | `404` | `fetchImportedVideos` |
-| `DELETE /api/video-deconstruction/videos/{video_id}` | ?????`video_id` | `null` | `404` | `deleteImportedVideo` |
-| `POST /api/video-deconstruction/videos/{video_id}/transcribe` | ? | `VideoTranscriptDto`?? Provider ? `status=provider_required` ? `text=null` | `404`?`500` | `startVideoTranscription` |
-| `GET /api/video-deconstruction/videos/{video_id}/transcript` | ? | `VideoTranscriptDto` | `404` | `fetchVideoTranscript` |
-| `POST /api/video-deconstruction/videos/{video_id}/segment` | ? | `VideoSegmentDto[]` | `404`?`409`?`500` | `runVideoSegmentation` |
-| `GET /api/video-deconstruction/videos/{video_id}/segments` | ? | `VideoSegmentDto[]` | `404` | `fetchVideoSegments` |
-| `POST /api/video-deconstruction/videos/{video_id}/extract-structure` | ? | `VideoStructureExtractionDto`??? `segment` ?? | `404`?`409`?`500` | `extractVideoStructure` |
-| `GET /api/video-deconstruction/videos/{video_id}/structure` | ? | `VideoStructureExtractionDto` | `404` | `fetchVideoStructure` |
-| `POST /api/video-deconstruction/extractions/{extraction_id}/apply-to-project` | ? | `ApplyVideoExtractionResultDto`?`projectId`?`extractionId`?`scriptRevision`?`status`?`message` | `404`?`409`?`500` | `applyVideoExtractionToProject` |
-| `GET /api/video-deconstruction/videos/{video_id}/stages` | ? | `VideoStageDto[]`??? `import / transcribe / segment / extract_structure` ?????????????????????/????? | `404` | `fetchVideoStages` |
-| `POST /api/video-deconstruction/videos/{video_id}/stages/{stage_id}/rerun` | ?????`stage_id` ?? `transcribe / segment / extract_structure` | `TaskInfo`?`id`?`taskType`?`projectId`?`status`?`progress`?`message`?`createdAt`?`updatedAt` | `400`?`404`?`409` | `rerunVideoStage` |
+| `POST /api/video-deconstruction/projects/{project_id}/import` | `ImportVideoInput`：`filePath` | `ImportedVideoDto` | `400`、`409` | `importVideo` |
+| `GET /api/video-deconstruction/projects/{project_id}/videos` | 路径参数：`project_id` | `ImportedVideoDto[]` | `500` | `fetchImportedVideos` |
+| `DELETE /api/video-deconstruction/videos/{video_id}` | 路径参数：`video_id` | `null` | `404` | `deleteImportedVideo` |
+| `POST /api/video-deconstruction/videos/{video_id}/transcribe` | 无 | `VideoTranscriptDto`；未接入 Provider 时返回 `status=provider_required` 且 `text=null` | `404`、`500` | `startVideoTranscription` |
+| `GET /api/video-deconstruction/videos/{video_id}/transcript` | 路径参数：`video_id` | `VideoTranscriptDto` | `404`、`500` | `fetchVideoTranscript` |
+| `POST /api/video-deconstruction/videos/{video_id}/segment` | 无 | `VideoSegmentDto[]` | `404`、`409 task.conflict`、`500` | `runVideoSegmentation` |
+| `GET /api/video-deconstruction/videos/{video_id}/segments` | 路径参数：`video_id` | `VideoSegmentDto[]` | `404` | `fetchVideoSegments` |
+| `POST /api/video-deconstruction/videos/{video_id}/extract-structure` | 无 | `VideoStructureExtractionDto`；要求分段阶段已成功 | `404`、`409 task.conflict`、`500` | `extractVideoStructure` |
+| `GET /api/video-deconstruction/videos/{video_id}/structure` | 路径参数：`video_id` | `VideoStructureExtractionDto` | `404` | `fetchVideoStructure` |
+| `POST /api/video-deconstruction/extractions/{extraction_id}/apply-to-project` | 无 | `ApplyVideoExtractionResultDto`：`projectId`、`extractionId`、`scriptRevision`、`status`、`message` | `404`、`409 task.conflict`、`500` | `applyVideoExtractionToProject` |
+| `GET /api/video-deconstruction/videos/{video_id}/stages` | 路径参数：`video_id` | `VideoStageDto[]`；返回 `import / transcribe / segment / extract_structure` 全链路状态、阻塞关系和活动任务摘要 | `404` | `fetchVideoStages` |
+| `POST /api/video-deconstruction/videos/{video_id}/stages/{stage_id}/rerun` | 路径参数：`stage_id` 仅支持 `transcribe / segment / extract_structure` | `TaskInfo`：`id`、`taskType`、`projectId`、`status`、`progress`、`message`、`createdAt`、`updatedAt` | `400`、`404`、`409` | `rerunVideoStage` |
 
-**??????**
+**当前错误语义**
 
-- `POST /transcribe` ???? Provider ??? `status=provider_required`??????????
-- `POST /segment` ????????????????? `409`??? `segment` ???? `blocked`????? `errorCode=task.conflict`?`blockedByStageId=transcribe`?
-- `POST /extract-structure` ????????????????? `409`??? `extract_structure` ???? `blocked`????? `errorCode=task.conflict`?`blockedByStageId=segment`?
-- `POST /apply-to-project` ?? `extract_structure.status=succeeded` ??????????? JSON ?????
-- `POST /stages/{stage_id}/rerun` ???????????? `transcribe` ?? Provider ???? `provider_required`???? `activeTaskId` ?????????
-- ????????? FFprobe ??????????? `status=failed_degraded`???? WebSocket ?? `video.import.stage.failed`??? `errorCode=media.ffprobe_unavailable`?`nextAction=???? FFprobe ?????????????????`?
+- `POST /transcribe` 当前不会真实调用转录 Provider；若未接入 Provider，会返回 `status=provider_required`
+- `POST /segment` 在转录未成功时返回 `409`，并把 `segment` 阶段写成 `blocked`，同时给出 `errorCode=task.conflict`、`blockedByStageId=transcribe`
+- `POST /extract-structure` 在分段未成功时返回 `409`，并把 `extract_structure` 阶段写成 `blocked`，同时给出 `errorCode=task.conflict`、`blockedByStageId=segment`
+- `POST /apply-to-project` 要求 `extract_structure.status=succeeded`，否则返回 `409`
+- `POST /stages/{stage_id}/rerun` 会复用阶段阻塞语义；其中 `transcribe` 重跑在未接入 Provider 时仍会回到 `provider_required`
+- 导入阶段如果 FFprobe 不可用，会写入 `status=failed_degraded`，并通过 WebSocket 广播 `video.import.stage.failed`、`errorCode=media.ffprobe_unavailable`、`nextAction=请先修复 FFprobe 或媒体诊断配置后，再重新导入视频。`
 
-**??????**
+**当前状态语义**
 
-- ??????? `isCurrent=true` ????????????????????????????????????????? `running / queued / provider_required / blocked / failed / failed_degraded`?
-- ??????
-  - `import.status=failed_degraded`?????????????? FFprobe ????????
-  - `transcribe.status=provider_required`?????????????????? Provider?
-  - `segment.status=blocked`?????????????????
-  - `extract_structure.status=blocked`???????????????????
+- 当前阶段由 `isCurrent=true` 标记；优先级以活动任务为先，其次是首个未成功阶段，因此它可能出现在 `running / queued / provider_required / blocked / failed / failed_degraded`
+- 典型状态包括：
+  - `import.status=failed_degraded`：导入记录仍存在，但 FFprobe 不可用，元数据解析降级失败
+  - `transcribe.status=provider_required`：当前未接入可用转录 Provider
+  - `segment.status=blocked`：转录未成功，分段被前置阶段阻塞
+  - `extract_structure.status=blocked`：分段未成功，结构提取被前置阶段阻塞
 
-**??**
+**当前差异**
+
+- `apps/desktop/src/types/video.ts` 中的 `ImportedVideoStatus` 仍只声明 `imported | ready`，但后端当前还会返回 `failed_degraded` 与 `error`
+
+**示例**
 
 ```json
 {
@@ -665,13 +696,13 @@
   "data": [
     {
       "stageId": "import",
-      "label": "??",
+      "label": "导入",
       "status": "failed_degraded",
       "progressPct": 80,
-      "resultSummary": "FFprobe ????????????????????????",
-      "errorMessage": "FFprobe ?????????????????????????????",
+      "resultSummary": "FFprobe 不可用，导入解析失败，暂缺时长与分辨率等元数据。",
+      "errorMessage": "FFprobe 不可用，视频元数据解析已降级失败，请先修复媒体诊断后重试。",
       "errorCode": "media.ffprobe_unavailable",
-      "nextAction": "???? FFprobe ?????????????????",
+      "nextAction": "请先修复 FFprobe 或媒体诊断配置后，再重新导入视频。",
       "blockedByStageId": null,
       "updatedAt": "2026-04-21T10:10:00Z",
       "isCurrent": true,
@@ -685,13 +716,13 @@
     },
     {
       "stageId": "segment",
-      "label": "??",
+      "label": "分段",
       "status": "blocked",
       "progressPct": 0,
-      "resultSummary": "?????????????????????????",
-      "errorMessage": "?????????????????????????",
+      "resultSummary": "视频转录尚未成功，分段已阻塞；请先完成转录后重试。",
+      "errorMessage": "视频转录尚未成功，分段已阻塞；请先完成转录后重试。",
       "errorCode": "task.conflict",
-      "nextAction": "????????????",
+      "nextAction": "请先完成转录阶段后重试。",
       "blockedByStageId": "transcribe",
       "updatedAt": "2026-04-21T10:12:00Z",
       "isCurrent": false,
@@ -710,7 +741,7 @@
 ```json
 {
   "ok": false,
-  "error": "?????????????????????????",
+  "error": "视频转录尚未成功，分段已阻塞；请先完成转录后重试。",
   "error_code": "task.conflict"
 }
 ```
@@ -881,41 +912,61 @@ waveform 缺少音频：
 }
 ```
 
-## 9. ??????
+## 9. M08 字幕对齐中心
 
-**???? DTO**: `SubtitleTrackDto`?`SubtitleTrackGenerateResultDto`
+**核心返回 DTO**: `SubtitleTrackDto`、`SubtitleTrackGenerateResultDto`、`SubtitleStyleTemplateDto`、`SubtitleExportDto`
 
-**??????**
+**当前契约要点**
 
-- `SubtitleTrackDto` ???? `sourceVoice`?`alignment`?`updatedAt`?????????????????????????????????????
-- `sourceVoice` ??????`trackId`?`revision`?`updatedAt`?
-- `alignment` ???`status`?`diffSummary`?`errorCode`?`errorMessage`?`nextAction`?`updatedAt`?
-- `diffSummary` ?????`segmentCountChanged`?`timingChangedSegments`?`textChangedSegments`?`lockedSegments`?
-- `SubtitleTrackGenerateInput` ???????? `sourceVoiceTrackId`????????????????
+- `SubtitleTrackDto` 当前会附带 `sourceVoice`、`alignment` 和 `updatedAt`，用于表达字幕与配音轨的绑定关系、对齐状态以及最近更新时间
+- `sourceVoice` 当前包含：
+  - `trackId`
+  - `revision`
+  - `updatedAt`
+- `alignment` 当前包含：
+  - `status`
+  - `diffSummary`
+  - `errorCode`
+  - `errorMessage`
+  - `nextAction`
+  - `updatedAt`
+- `diffSummary` 当前包含：
+  - `segmentCountChanged`
+  - `timingChangedSegments`
+  - `textChangedSegments`
+  - `lockedSegments`
+- `SubtitleTrackGenerateInput` 当前支持 `sourceVoiceTrackId`，用于在生成阶段直接挂接来源音轨
 
-| ?? | ???? | ???? | ??? | ??????? |
+| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/subtitles/projects/{project_id}/tracks` | ?????`project_id` | `SubtitleTrackDto[]` | `404` | `fetchSubtitleTracks` |
-| `POST /api/subtitles/projects/{project_id}/tracks/generate` | `SubtitleTrackGenerateInput`?`sourceText`?`language`?`stylePreset`?`sourceVoiceTrackId?` | `SubtitleTrackGenerateResultDto`?`track`?`task`?`message` | `400`?`404`?`500` | `generateSubtitleTrack` |
-| `GET /api/subtitles/style-templates` | ? | `SubtitleStyleTemplateDto[]` | `500` | `listSubtitleStyleTemplates` |
-| `POST /api/subtitles/tracks/{track_id}/align` | ?????`track_id`?`SubtitleTrackAlignInput`?`segments[]` | `SubtitleTrackDto` | `400`?`404`?`422`?`500` | `alignSubtitleTrack` |
-| `POST /api/subtitles/tracks/{track_id}/export` | ?????`track_id`?`SubtitleExportInput`?`format` | `SubtitleExportDto` | `400`?`404`?`422` | `exportSubtitleTrack` |
-| `GET /api/subtitles/tracks/{track_id}` | ?????`track_id` | `SubtitleTrackDto` | `404` | `fetchSubtitleTrack` |
-| `PATCH /api/subtitles/tracks/{track_id}` | `SubtitleTrackUpdateInput`?`segments[]`?`style` | `SubtitleTrackDto` | `404`?`422` | `updateSubtitleTrack` |
-| `DELETE /api/subtitles/tracks/{track_id}` | ?????`track_id` | `null` | `404` | `deleteSubtitleTrack` |
+| `GET /api/subtitles/projects/{project_id}/tracks` | 路径参数：`project_id` | `SubtitleTrackDto[]` | `500` | `fetchSubtitleTracks` |
+| `POST /api/subtitles/projects/{project_id}/tracks/generate` | `SubtitleTrackGenerateInput`：`sourceText`、`language`、`stylePreset`、`sourceVoiceTrackId?` | `SubtitleTrackGenerateResultDto`：`track`、`task`、`message` | `400`、`404`、`500` | `generateSubtitleTrack` |
+| `GET /api/subtitles/style-templates` | 无 | `SubtitleStyleTemplateDto[]` | `500` | `listSubtitleStyleTemplates` |
+| `POST /api/subtitles/tracks/{track_id}/align` | 路径参数：`track_id`；`SubtitleTrackAlignInput`：`segments[]` | `SubtitleTrackDto` | `400`、`404`、`422`、`500` | `alignSubtitleTrack` |
+| `POST /api/subtitles/tracks/{track_id}/export` | 路径参数：`track_id`；`SubtitleExportInput`：`format` | `SubtitleExportDto` | `400`、`404`、`422` | `exportSubtitleTrack` |
+| `GET /api/subtitles/tracks/{track_id}` | 路径参数：`track_id` | `SubtitleTrackDto` | `404`、`500` | `fetchSubtitleTrack` |
+| `PATCH /api/subtitles/tracks/{track_id}` | `SubtitleTrackUpdateInput`：`segments[]`、`style` | `SubtitleTrackDto` | `404`、`422`、`500` | `updateSubtitleTrack` |
+| `DELETE /api/subtitles/tracks/{track_id}` | 路径参数：`track_id` | `null` | `404`、`500` | `deleteSubtitleTrack` |
 
-**??????**
+**当前错误语义**
 
-- `POST /generate` ??? deterministic local ?????? AI ?????
-- ?? `sourceVoiceTrackId` ??`alignment.status="draft"`????????????????
-- ?? `sourceVoiceTrackId` ?????? `voice_tracks` ????????? `sourceVoice`??? `alignment.status` ?? `pending_alignment`?
-- `POST /align` ??? segments ?? segments ?????????? `diffSummary`????? `alignment.status` ??? `aligned`?
-- `PATCH /tracks/{track_id}` ??????????????????????? `alignment.status` ?? `needs_alignment`????????????
-- `POST /export` ?????????????????????????????????????
+- `POST /generate` 当前是 deterministic local 规则生成，不依赖 AI Provider
+- 若未传 `sourceVoiceTrackId`，生成结果会写成 `alignment.status="draft"`，提示先绑定来源音轨
+- 若传入 `sourceVoiceTrackId` 且音轨存在，会回填 `sourceVoice`，并将 `alignment.status` 置为 `pending_alignment`
+- `POST /align` 要求所有 segments 都具备有效时间码；成功后会生成 `diffSummary`，并将 `alignment.status` 置为 `aligned`
+- `PATCH /tracks/{track_id}` 会重新计算 `diffSummary`；若片段缺少完整时间码，会把 `alignment.status` 置为 `needs_alignment`，并返回 `errorCode=subtitle.timecode_incomplete`
+- `POST /export` 返回的是内联导出结果：`fileName`、`content`、`lineCount`、`status`、`message`，不是文件路径
 
-**??**
+**当前差异**
 
-??????????
+- `apps/desktop/src/types/runtime.ts` 中的 `SubtitleTrackDto` 仍缺少 `updatedAt / sourceVoice / alignment`
+- `apps/desktop/src/types/runtime.ts` 中的 `SubtitleTrackGenerateInput` 仍未声明 `sourceVoiceTrackId`
+- `apps/desktop/src/types/runtime.ts` 中的 `SubtitleStyleTemplateDto` 仍缺少 `description / style`
+- `apps/desktop/src/types/runtime.ts` 中的 `SubtitleExportDto` 仍是旧的 `filePath` 口径，但后端当前返回 `fileName / content / lineCount / status / message`
+
+**示例**
+
+生成结果：
 ```json
 {
   "ok": true,
@@ -936,7 +987,7 @@ waveform 缺少音频：
       "segments": [
         {
           "segmentIndex": 0,
-          "text": "????",
+          "text": "欢迎来到今天的视频。",
           "startMs": 0,
           "endMs": 1260,
           "confidence": null,
@@ -953,7 +1004,7 @@ waveform 缺少音频：
         "diffSummary": null,
         "errorCode": null,
         "errorMessage": null,
-        "nextAction": "??????????????????????",
+        "nextAction": "运行字幕对齐，确认字幕时间码与音轨保持一致。",
         "updatedAt": "2026-04-21T10:18:00Z"
       },
       "status": "ready",
@@ -966,16 +1017,16 @@ waveform 缺少音频：
       "language": "zh-CN",
       "stylePreset": "creator-default",
       "segmentCount": 1,
-      "sourceCharacters": 4,
+      "sourceCharacters": 11,
       "generatedAt": "2026-04-21T10:18:00Z",
       "sourceVoiceTrackId": "voice-track-1"
     },
-    "message": "????????????????"
+    "message": "字幕轨道已基于本地文本规则生成。"
   }
 }
 ```
 
-?????
+对齐结果：
 ```json
 {
   "ok": true,
@@ -992,7 +1043,7 @@ waveform 缺少音频：
       },
       "errorCode": null,
       "errorMessage": null,
-      "nextAction": "?????????????????????",
+      "nextAction": "可继续导出字幕，或回到字幕编辑中微调文案。",
       "updatedAt": "2026-04-21T10:22:00Z"
     },
     "updatedAt": "2026-04-21T10:22:00Z"
@@ -1394,66 +1445,75 @@ waveform 缺少音频：
 
 ---
 
-## 14. M13 ????
+## 14. M13 发布中心
 
-**???? DTO**: `PublishPlanDto`?`PublishCalendarDto`?`PrecheckResultDto`?`SubmitPlanResultDto`?`PublishReceiptDto`
+**核心返回 DTO**: `PublishPlanDto`、`PublishCalendarDto`、`PrecheckResultDto`、`SubmitPlanResultDto`、`PublishReceiptDto`
 
-`PublishPlanDto` ????????????????
-- `precheck_summary`: ????????????????
-- `latest_receipt`: ??????????
-- `publish_readiness`: ????????????????????????????
-- `recovery`: ?????????????????
+**当前契约要点**
 
-`PrecheckResultDto.items[]` ?????????????
-- `account_readiness`
-- `device_binding`
-- `publish_config`
-- `video_asset`
-- `schedule`
+- `PublishPlanDto` 现在会附带 4 组发布执行语义：
+  - `precheck_summary`：最近一次发布预检摘要
+  - `latest_receipt`：最近一次平台回执摘要
+  - `publish_readiness`：当前是否允许提交发布，以及阻断原因与下一步动作
+  - `recovery`：是否允许重试 / 取消，以及建议恢复动作
+- `PrecheckResultDto.items[]` 当前固定覆盖 5 类检查项：
+  - `account_readiness`
+  - `device_binding`
+  - `publish_config`
+  - `video_asset`
+  - `schedule`
+- `PublishReceiptDto` 当前用于表达平台回执阶段化状态，前端可直接消费：
+  - `stage`
+  - `summary`
+  - `error_code`
+  - `error_message`
+  - `next_action`
+  - `is_final`
+- 当前发布链路会广播 3 类事件：
+  - `publishing.precheck.completed`
+  - `publishing.submit.completed`
+  - `publishing.receipt.updated`
 
-`PublishReceiptDto` ?????????
-- `stage`
-- `summary`
-- `error_code`
-- `error_message`
-- `next_action`
-- `is_final`
-
-| ?? | ???? | ???? | ??? | ??????? |
+| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/publishing/plans` | ?????`status?` | `PublishPlanDto[]` | `500` | `fetchPublishPlans` |
-| `POST /api/publishing/plans` | `PublishPlanCreateInput`?`title`?`account_id?`?`account_name?`?`project_id?`?`video_asset_id?`?`scheduled_at?` | `PublishPlanDto` | `422` | `createPublishPlan` |
-| `GET /api/publishing/calendar` | ???????????????????? | `PublishCalendarDto`?`items[]`?`generated_at` | `500` | `fetchPublishingCalendar` |
-| `GET /api/publishing/plans/{plan_id}` | ?????`plan_id` | `PublishPlanDto` | `404` | `fetchPublishPlan` |
-| `PATCH /api/publishing/plans/{plan_id}` | `PublishPlanUpdateInput`?`title?`?`account_name?`?`status?`?`scheduled_at?` | `PublishPlanDto` | `404`?`422` | `updatePublishPlan` |
-| `DELETE /api/publishing/plans/{plan_id}` | ?????`plan_id` | ?????? | `404` | `deletePublishPlan` |
-| `POST /api/publishing/plans/{plan_id}/precheck` | ? | `PrecheckResultDto`?`items[]`?`conflicts[]`?`has_errors`?`blocking_count`?`readiness`?`checked_at` | `404` | `runPublishingPrecheck` |
-| `POST /api/publishing/plans/{plan_id}/submit` | ???????????? | `SubmitPlanResultDto`?`plan_id`?`status`?`submitted_at`?`message`?`receipt_status`?`next_action`?`receipt` | `404`?`409` | `submitPublishPlan` |
-| `POST /api/publishing/plans/{plan_id}/cancel` | ? | `PublishPlanDto` | `404` | `cancelPublishPlan` |
-| `GET /api/publishing/plans/{plan_id}/receipts` | ?????`plan_id` | `PublishReceiptDto[]` | `404` | `fetchPublishReceipts` |
-| `GET /api/publishing/plans/{plan_id}/receipt` | ?????`plan_id` | `PublishReceiptDto` | `404` | `fetchPublishReceipt` |
+| `GET /api/publishing/plans` | 查询参数：`status?` | `PublishPlanDto[]`；每项包含 `precheck_summary / latest_receipt / publish_readiness / recovery` | `500` | `fetchPublishPlans` |
+| `POST /api/publishing/plans` | `PublishPlanCreateInput`：`title`、`account_id?`、`account_name?`、`project_id?`、`video_asset_id?`、`scheduled_at?` | `PublishPlanDto` | `422` | `createPublishPlan` |
+| `GET /api/publishing/calendar` | 无；当前后端返回完整日历 DTO，不消费 `from / to` 查询参数 | `PublishCalendarDto`：`items[]`、`generated_at` | `500` | `fetchPublishingCalendar` |
+| `GET /api/publishing/plans/{plan_id}` | 路径参数：`plan_id` | `PublishPlanDto` | `404` | `fetchPublishPlan` |
+| `PATCH /api/publishing/plans/{plan_id}` | `PublishPlanUpdateInput`：`title?`、`account_name?`、`status?`、`scheduled_at?` | `PublishPlanDto` | `404`、`422` | `updatePublishPlan` |
+| `DELETE /api/publishing/plans/{plan_id}` | 路径参数：`plan_id` | 删除结果对象 | `404` | `deletePublishPlan` |
+| `POST /api/publishing/plans/{plan_id}/precheck` | 无；执行一次真实发布预检并广播结果 | `PrecheckResultDto`：`plan_id`、`items[]`、`conflicts[]`、`has_errors`、`blocking_count`、`readiness`、`checked_at` | `404` | `runPublishingPrecheck` |
+| `POST /api/publishing/plans/{plan_id}/submit` | 无；提交发布并写入最新回执摘要 | `SubmitPlanResultDto`：`plan_id`、`status`、`submitted_at`、`message`、`receipt_status`、`error_code`、`error_message`、`next_action`、`receipt` | `404`、`409 publishing.precheck_failed` | `submitPublishPlan` |
+| `POST /api/publishing/plans/{plan_id}/cancel` | 无 | `PublishPlanDto` | `404` | `cancelPublishPlan` |
+| `GET /api/publishing/plans/{plan_id}/receipts` | 路径参数：`plan_id` | `PublishReceiptDto[]` | `404` | `fetchPublishReceipts` |
+| `GET /api/publishing/plans/{plan_id}/receipt` | 路径参数：`plan_id` | `PublishReceiptDto` | `404 publishing.receipt_not_found` | `fetchPublishReceipt` |
 
-**??????**
+**当前差异**
 
-| `error_code` | ?? | ?? |
+- `apps/desktop/src/types/runtime.ts` 中的 `PublishPlanDto / PrecheckResultDto / SubmitPlanResultDto / PublishReceiptDto / PublishingCalendarDayDto` 仍是旧口径，字段少于当前后端真实返回
+- `fetchPublishingCalendar(from, to)` 当前会附带 `from / to` 查询参数，但后端 `GET /api/publishing/calendar` 目前返回 `PublishCalendarDto`，且不消费这两个参数
+
+**当前错误码**
+
+| `error_code` | 含义 | 触发条件 |
 | --- | --- | --- |
-| `publishing.precheck_failed` | ???????? | `/submit` ??????????? |
-| `publishing.account_required` | ?????? | `account_id` ?? |
-| `publishing.account_not_ready` | ?????? | ??????????????????? |
-| `publishing.device_binding_required` | ????????? | ?????????????????? |
-| `publishing.config_missing` | ?????? | ??????????? |
-| `publishing.video_asset_required` | ?????? | `video_asset_id` ?? |
-| `publishing.schedule_conflict` | ???? | ???????????? |
-| `publishing.receipt_not_found` | ????? | `/receipt` ???????? |
+| `publishing.precheck_failed` | 发布预检未通过 | `/submit` 时存在阻断项，返回 `409` |
+| `publishing.account_required` | 发布计划缺少账号 | `account_id` 为空 |
+| `publishing.account_not_ready` | 发布账号不可用 | 账号不存在、未启用、缺少用户名或授权已过期 |
+| `publishing.device_binding_required` | 缺少可用工作区绑定 | 账号未绑定工作区，或绑定工作区无效 / 根目录异常 |
+| `publishing.config_missing` | 发布配置不完整 | 缺少发布时间 |
+| `publishing.video_asset_required` | 缺少视频资产 | `video_asset_id` 为空 |
+| `publishing.schedule_conflict` | 发布排期冲突 | 同账号同时间存在冲突排期 |
+| `publishing.receipt_not_found` | 发布回执不存在 | `/receipt` 查询不到最新回执 |
 
-**??**
+**示例**
 
 ```json
 {
   "ok": true,
   "data": {
     "id": "plan-1",
-    "title": "????",
+    "title": "晚间发布排期",
     "status": "submitted",
     "precheck_summary": {
       "status": "ready",
@@ -1469,7 +1529,7 @@ waveform 缺少音频：
       "binding": {
         "binding_id": "binding-1",
         "workspace_id": "workspace-1",
-        "workspace_name": "?????",
+        "workspace_name": "主发布工作区",
         "workspace_status": "ready",
         "root_path": "D:/tkops/workspaces/publish",
         "updated_at": "2026-04-21T10:18:00Z"
@@ -1479,12 +1539,12 @@ waveform 缺少音频：
       "id": "receipt-1",
       "status": "receipt_pending",
       "stage": "receipt",
-      "summary": "?????????????",
+      "summary": "已提交平台，等待平台回执。",
       "error_code": null,
       "error_message": null,
       "next_action": {
         "key": "refresh-receipt",
-        "label": "????"
+        "label": "刷新回执"
       },
       "received_at": "2026-04-21T10:20:00Z",
       "is_final": false
@@ -1495,44 +1555,50 @@ waveform 缺少音频：
 
 ---
 
-## 15. M14 ???????
+## 15. M14 渲染与导出中心
 
-**???? DTO**: `RenderTaskDto`?`CancelRenderResultDto`?`ExportProfileDto`?`RenderResourceUsageDto`
+**核心返回 DTO**: `RenderTaskDto`、`CancelRenderResultDto`、`ExportProfileDto`、`RenderResourceUsageDto`
 
-`RenderTaskDto` ????????????????
-- `stage`: ????????? `queued / rendering / exporting / completed / failed / cancelled`
-- `output`: ??????????? `path`?`exists`?`size_bytes`?`last_checked_at`?`can_open`
-- `failure`: ????????? `error_code`?`error_message`?`next_action`?`retryable`
+**当前契约要点**
 
-?? WebSocket ?????
-- `render.progress`: ????
-- `render.status.changed`: ???????????????????
+- `RenderTaskDto` 现在会附带 3 组运行时语义：
+  - `stage`：阶段摘要，当前覆盖 `queued / rendering / exporting / completed / failed / cancelled`
+  - `output`：输出文件探测结果，包含 `path / exists / size_bytes / last_checked_at / can_open`
+  - `failure`：失败或异常输出语义，包含 `error_code / error_message / next_action / retryable`
+- 当前渲染链路会广播 2 类事件：
+  - `render.progress`：进度更新事件
+  - `render.status.changed`：状态、阶段、输出与失败信息变更事件
 
-| ?? | ???? | ???? | ??? | ??????? |
+| 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/renders/profiles` | ????????????? | `ExportProfileDto[]` | `500` | `fetchExportProfiles` |
-| `POST /api/renders/profiles` | `ExportProfileCreateInput`?`name`?`format`?`resolution`?`fps`?`video_bitrate`?`audio_policy`?`subtitle_policy`?`config_json?` | `ExportProfileDto` | `400`?`422` | `createExportProfile` |
-| `GET /api/renders/templates` | ???????????? | `ExportProfileDto[]` | `500` | `listRenderTemplates` |
-| `GET /api/renders/resource-usage` | ? | `RenderResourceUsageDto`?`cpu`?`gpu`?`disk`?`collectedAt` | `500` | `fetchRenderResourceUsage` |
-| `GET /api/renders/tasks` | ?????`status?` | `RenderTaskDto[]` | `500` | `fetchRenderTasks` |
-| `POST /api/renders/tasks` | `RenderTaskCreateInput`?`project_id?`?`project_name?`?`preset`?`format?` | `RenderTaskDto` | `422` | `createRenderTask` |
-| `GET /api/renders/tasks/{task_id}` | ?????`task_id` | `RenderTaskDto` | `404` | `fetchRenderTask` |
-| `PATCH /api/renders/tasks/{task_id}` | `RenderTaskUpdateInput`?`preset?`?`format?`?`status?`?`progress?`?`output_path?`?`error_message?` | `RenderTaskDto` | `404`?`422` | `updateRenderTask` |
-| `DELETE /api/renders/tasks/{task_id}` | ?????`task_id` | ?????? | `404` | `deleteRenderTask` |
-| `POST /api/renders/tasks/{task_id}/cancel` | ?????`task_id` | `CancelRenderResultDto` | `404`?`409` | `cancelRenderTask` |
-| `POST /api/renders/tasks/{task_id}/retry` | ?????`task_id`???? `failed/cancelled` | `RenderTaskDto` | `404`?`409` | `retryRenderTask` |
+| `GET /api/renders/profiles` | 无 | `ExportProfileDto[]` | `500` | `fetchExportProfiles` |
+| `POST /api/renders/profiles` | `ExportProfileCreateInput`：`name`、`format?`、`resolution?`、`fps?`、`video_bitrate?`、`audio_policy?`、`subtitle_policy?`、`config_json?` | `ExportProfileDto` | `400`、`422` | `createExportProfile` |
+| `GET /api/renders/templates` | 无；当前后端直接复用 profile 列表作为模板来源 | `ExportProfileDto[]` | `500` | `listRenderTemplates` |
+| `GET /api/renders/resource-usage` | 无 | `RenderResourceUsageDto`：`cpu`、`gpu`、`disk`、`collectedAt` | `500` | `fetchRenderResourceUsage` |
+| `GET /api/renders/tasks` | 查询参数：`status?` | `RenderTaskDto[]`；每项包含 `stage / output / failure` | `500` | `fetchRenderTasks` |
+| `POST /api/renders/tasks` | `RenderTaskCreateInput`：`project_id?`、`project_name?`、`preset?`、`format?` | `RenderTaskDto` | `422` | `createRenderTask` |
+| `GET /api/renders/tasks/{task_id}` | 路径参数：`task_id` | `RenderTaskDto` | `404` | `fetchRenderTask` |
+| `PATCH /api/renders/tasks/{task_id}` | `RenderTaskUpdateInput`：`preset?`、`format?`、`status?`、`progress?`、`output_path?`、`error_message?` | `RenderTaskDto` | `404`、`422` | `updateRenderTask` |
+| `DELETE /api/renders/tasks/{task_id}` | 路径参数：`task_id` | 删除结果对象 | `404` | `deleteRenderTask` |
+| `POST /api/renders/tasks/{task_id}/cancel` | 路径参数：`task_id` | `CancelRenderResultDto`：`task_id`、`status`、`message` | `404`、`409 render.task_not_cancellable` | `cancelRenderTask` |
+| `POST /api/renders/tasks/{task_id}/retry` | 路径参数：`task_id`；仅允许 `failed / cancelled` 任务重试 | `RenderTaskDto` | `404`、`409 render.task_not_retryable` | `retryRenderTask` |
 
-**??????**
+**当前差异**
 
-| `error_code` | ?? | ?? |
+- `apps/desktop/src/types/runtime.ts` 中的 `RenderTaskDto / RenderTemplateDto / RenderResourceUsageDto` 仍是旧口径，缺少 `stage / output / failure` 以及嵌套 `cpu / gpu / disk` 结构
+- `listRenderTemplates()` 当前前端类型写成 `RenderTemplateDto[]`，但后端 `GET /api/renders/templates` 实际返回的是 `ExportProfileDto[]`
+
+**当前错误码**
+
+| `error_code` | 含义 | 触发条件 |
 | --- | --- | --- |
-| `render.task_not_cancellable` | ???????? | ??? `queued / rendering` |
-| `render.task_not_retryable` | ???????? | ??? `failed / cancelled` |
-| `render.task_failed` | ?????? | `status=failed` ??? |
-| `render.task_cancelled` | ??????? | `status=cancelled` ??? |
-| `render.output_not_found` | ??????? | ????? `output_path` ???????? |
+| `render.task_not_cancellable` | 当前任务不可取消 | 只有 `queued / rendering` 状态允许取消 |
+| `render.task_not_retryable` | 当前任务不可重试 | 只有 `failed / cancelled` 状态允许重试 |
+| `render.task_failed` | 渲染任务执行失败 | `status=failed` 时出现在 `failure` |
+| `render.task_cancelled` | 渲染任务已取消 | `status=cancelled` 时出现在 `failure` |
+| `render.output_not_found` | 输出文件不存在 | `status=completed` 但 `output.path` 对应文件不存在 |
 
-**??**
+**示例**
 
 ```json
 {
@@ -1540,7 +1606,7 @@ waveform 缺少音频：
   "data": {
     "id": "render-task-1",
     "project_id": "project-1",
-    "project_name": "????",
+    "project_name": "夏季穿搭合集",
     "preset": "1080p",
     "format": "mp4",
     "status": "completed",
@@ -1549,7 +1615,7 @@ waveform 缺少音频：
     "error_message": null,
     "stage": {
       "code": "completed",
-      "label": "???"
+      "label": "已完成"
     },
     "output": {
       "path": "D:/tkops/output/project-1/final.mp4",

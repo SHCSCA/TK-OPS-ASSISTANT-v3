@@ -1,6 +1,6 @@
 <template>
   <ProjectContextGuard>
-    <div class="page-container">
+    <div class="page-container" data-video-page="deconstruction">
       <header class="page-header">
         <div class="page-header__crumb">首页 / 视频拆解</div>
         <div class="page-header__row">
@@ -11,6 +11,8 @@
           <div class="page-header__actions">
             <Button
               variant="primary"
+              data-testid="video-import-button"
+              data-action="import-video"
               :running="videoImportStore.status === 'importing'"
               :disabled="!currentProjectId || videoImportStore.status === 'importing'"
               @click="handleImportVideo"
@@ -82,6 +84,7 @@
                   
                   <div class="video-card__metrics">
                     <span class="metric-item"><span class="material-symbols-outlined">schedule</span>{{ formatDuration(video.durationSeconds) }}</span>
+                    <span class="metric-item"><span class="material-symbols-outlined">straighten</span>{{ formatResolution(video.width, video.height) }}</span>
                     <span class="metric-item"><span class="material-symbols-outlined">hard_drive</span>{{ formatFileSize(video.fileSizeBytes) }}</span>
                   </div>
 
@@ -252,8 +255,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { computed, inject, onMounted, ref, watch } from "vue";
+import { routerKey } from "vue-router";
+import type { Router } from "vue-router";
 
 import AssetPreview from "@/components/assets/AssetPreview.vue";
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
@@ -270,7 +274,7 @@ import Chip from "@/components/ui/Chip/Chip.vue";
 const projectStore = useProjectStore();
 const taskBusStore = useTaskBusStore();
 const videoImportStore = useVideoImportStore();
-const router = useRouter();
+const router = inject<Router | null>(routerKey, null);
 
 const activeApplyingVideoId = ref<string | null>(null);
 const selectedVideoId = ref<string | null>(null);
@@ -303,7 +307,7 @@ const isFfprobeUnavailable = computed(() => {
 
 onMounted(() => {
   videoImportStore.initializeWebSocket();
-  if (currentProjectId.value) {
+  if (currentProjectId.value && videoImportStore.videos.length === 0) {
     void videoImportStore.loadVideos(currentProjectId.value);
   }
 });
@@ -313,15 +317,6 @@ watch(currentProjectId, (projectId) => {
     void videoImportStore.loadVideos(projectId);
   }
 });
-
-watch(() => videoImportStore.videos, (videos) => {
-  // Load stages for videos that don't have them yet
-  videos.forEach(v => {
-    if (!videoImportStore.videoStages[v.id]) {
-      void videoImportStore.loadVideoStages(v.id);
-    }
-  });
-}, { immediate: true });
 
 async function handleImportVideo(): Promise<void> {
   if (!currentProjectId.value) return;
@@ -353,6 +348,7 @@ async function handleRescan(): Promise<void> {
 
 function handleViewSetupGuide(): void {
   // 跳转到系统设置的诊断锚点，引导用户检查 FFprobe 可用性
+  if (!router) return;
   void router.push({ path: "/settings/ai-system", query: { section: "diagnostics", reason: "ffprobe" } });
 }
 
@@ -371,6 +367,7 @@ async function handleRerunStage(videoId: string, stageId: string): Promise<void>
 
 function handleConfigureProvider(): void {
   // 跳转到 AI Provider 配置抽屉，由设置页根据 query 自动展开
+  if (!router) return;
   void router.push({ path: "/settings/ai-system", query: { section: "providers" } });
 }
 
@@ -424,6 +421,13 @@ function formatDuration(value: number | null): string {
 function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatResolution(width: number | null, height: number | null): string {
+  if (!width || !height) {
+    return "分辨率待识别";
+  }
+  return `${width} × ${height}`;
 }
 
 function mapToAsset(v: ImportedVideo): AssetDto {

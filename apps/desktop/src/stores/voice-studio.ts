@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+﻿import { defineStore } from "pinia";
 
 import {
   deleteVoiceTrack,
@@ -123,7 +123,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       this.projectId = projectId;
       this.generationResult = null;
       this.activeTask = null;
-      
+
       try {
         const [doc, profiles, tracks] = await Promise.all([
           fetchScriptDocument(projectId),
@@ -141,14 +141,14 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         if (this.selectedTrackId) {
           await this.loadTrackDetail(this.selectedTrackId, false);
         }
-        this.status = this.resolveStatus();
-        
+        this.status = "ready";
+
         this.initializeTaskWatch();
       } catch (error) {
         this.applyRuntimeError(error);
       }
     },
-    
+
     initializeTaskWatch(): void {
       if (this._taskUnsubscriber) {
         this._taskUnsubscriber();
@@ -172,7 +172,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           project_id: event.projectId ?? this.projectId,
           status: "running",
           progress: event.progressPct ?? 0,
-          message: event.message ?? "正在配音...",
+          message: event.message ?? "姝ｅ湪閰嶉煶...",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -184,7 +184,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       } else if (event.type === "task.failed") {
         this.activeTask = null;
         this.status = "error";
-        this.applyInputError(event.errorMessage ?? "配音生成失败");
+        this.applyInputError(event.errorMessage ?? "閰嶉煶鐢熸垚澶辫触");
       }
     },
 
@@ -204,18 +204,18 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
 
     async generate(): Promise<VoiceTrackGenerateResultDto | null> {
       if (!this.projectId) {
-        this.applyInputError("未选择有效项目。");
+        this.applyInputError("鏈€夋嫨鏈夋晥椤圭洰銆?);
         return null;
       }
 
       const sourceText = this.sourceText.trim();
       if (!sourceText) {
-        this.applyInputError("当前项目尚无文案内容，请先在脚本中心完成创作并保存。");
+        this.applyInputError("鑴氭湰鏂囨湰涓虹┖锛屾棤娉曠敓鎴愰厤闊炽€?);
         return null;
       }
 
       if (!this.selectedProfileId) {
-        this.applyInputError("请先选择配音角色，并在 AI 系统设置中确保已开启配音能力。");
+        this.applyInputError("璇峰厛閫夋嫨閰嶉煶瑙掕壊锛屽苟鍦?AI 绯荤粺璁剧疆涓‘淇濆凡寮€鍚厤闊宠兘鍔涖€?);
         return null;
       }
 
@@ -230,7 +230,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           speed: this.config.speed
         });
         this.generationResult = result;
-        
+
         if (result.track) {
           this.upsertTrack(result.track);
           this.trackDetailsById = {
@@ -239,7 +239,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           };
           this.selectedTrackId = result.track.id;
         }
-        
+
         this.status = result.track?.status === "blocked" ? "blocked" : "ready";
         return result;
       } catch (error) {
@@ -247,10 +247,10 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         return null;
       }
     },
-    
+
     extractParagraphs(content: string): Paragraph[] {
       return content
-        .split(/\n\s*\n/) 
+        .split(/\n/)
         .map((paragraph) => paragraph.trim())
         .filter((paragraph) => paragraph.length > 0)
         .map((text) => ({
@@ -258,12 +258,12 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           estimatedDuration: Math.round(text.length * 0.4 * 10) / 10
         }));
     },
-    
+
     selectProfile(profileId: string): void {
       this.selectedProfileId = profileId;
       this.status = this.resolveStatus();
     },
-    
+
     async selectTrack(trackId: string): Promise<void> {
       this.selectedTrackId = trackId;
       await this.loadTrackDetail(trackId, true);
@@ -272,7 +272,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       }
       this.status = this.resolveStatus();
     },
-    
+
     async deleteTrack(trackId: string): Promise<void> {
       if (!this.projectId) return;
       this.error = null;
@@ -290,18 +290,18 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         this.applyRuntimeError(error);
       }
     },
-    
+
     resolveProfileSelection(profiles: VoiceProfileDto[]): string | null {
-      if (this.selectedProfileId && profiles.some((profile) => profile.id === this.selectedProfileId)) {        
+      if (this.selectedProfileId && profiles.some((profile) => profile.id === this.selectedProfileId)) {
         return this.selectedProfileId;
       }
       return profiles.find((profile) => profile.enabled)?.id ?? null;
     },
-    
+
     upsertTrack(track: VoiceTrackDto): void {
       this.tracks = [track, ...this.tracks.filter((item) => item.id !== track.id)];
     },
-    
+
     async loadTrackDetail(trackId: string, surfaceError: boolean): Promise<void> {
       try {
         const detail = await fetchVoiceTrack(trackId);
@@ -316,14 +316,22 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         }
       }
     },
-    
+
     resolveStatus(): VoiceStudioStatus {
+      if (this.error) {
+        return "error";
+      }
       if (!this.paragraphs.length) {
         return "empty";
       }
+      const hasEnabledProfiles = this.profiles.some((p) => p.enabled);
+      const isTrackBlocked = this.selectedTrackId ? this.trackDetailsById[this.selectedTrackId]?.status === "blocked" : false;
+      if (!hasEnabledProfiles || isTrackBlocked) {
+        return "blocked";
+      }
       return "ready";
     },
-    
+
     applyInputError(message: string): void {
       this.status = "error";
       this.error = {
@@ -333,10 +341,10 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         status: 0
       };
     },
-    
+
     applyRuntimeError(error: unknown): void {
       this.status = "error";
-      this.error = toRuntimeErrorShape(error, "请求配音相关数据失败，请检查网络或后端状态。");
+      this.error = toRuntimeErrorShape(error, "璇锋眰閰嶉煶鐩稿叧鏁版嵁澶辫触锛岃妫€鏌ョ綉缁滄垨鍚庣鐘舵€併€?);
     }
   }
 });

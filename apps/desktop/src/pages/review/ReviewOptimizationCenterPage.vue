@@ -1,5 +1,5 @@
 <template>
-  <div class="page-container h-full">
+  <div class="page-container h-full" :data-review-state="reviewState">
     <header class="page-header">
       <div class="page-header__crumb">首页 / 优化与复盘</div>
       <div class="page-header__row">
@@ -15,7 +15,13 @@
             <template #leading><span class="material-symbols-outlined">refresh</span></template>
             刷新摘要
           </Button>
-          <Button variant="ai" :running="reviewStore.analyzing" :disabled="isBusy || !currentProjectId" @click="handleAnalyze">
+          <Button
+            variant="ai"
+            data-action="analyze-review"
+            :running="reviewStore.analyzing"
+            :disabled="isBusy || !currentProjectId"
+            @click="handleAnalyze"
+          >
             <template #leading><span class="material-symbols-outlined">auto_awesome</span></template>
             生成复盘报告
           </Button>
@@ -127,7 +133,7 @@
             </div>
             <div v-else-if="visibleSuggestions.length === 0" class="empty-state small">
               <span class="material-symbols-outlined">check_circle</span>
-              <strong>No Suggestions</strong>
+              <strong>暂无优化建议</strong>
               <p>当前复盘没有需要处理的建议。</p>
             </div>
             <div v-else class="suggestion-list">
@@ -139,6 +145,7 @@
                     :key="suggestion.id"
                     class="suggestion-card"
                     :data-tone="suggestion.priority"
+                    data-review-suggestion
                   >
                     <div class="sugg-header">
                       <Chip size="sm" :variant="suggestion.priority === 'high' ? 'danger' : suggestion.priority === 'medium' ? 'warning' : 'success'">
@@ -151,13 +158,13 @@
                     
                     <div class="sugg-feedback" v-if="actionStates[suggestion.id]">
                       <span v-if="actionStates[suggestion.id] === 'generating'" class="feedback generating">
-                        <span class="material-symbols-outlined spinning">sync</span> Generating
+                        <span class="material-symbols-outlined spinning">sync</span> 执行中
                       </span>
                       <span v-else-if="actionStates[suggestion.id] === 'completed'" class="feedback completed">
-                        <span class="material-symbols-outlined">check_circle</span> Completed
+                        <span class="material-symbols-outlined">check_circle</span> 已执行
                       </span>
                       <span v-else-if="actionStates[suggestion.id] === 'failed'" class="feedback failed">
-                        <span class="material-symbols-outlined">error</span> Action Failed
+                        <span class="material-symbols-outlined">error</span> 执行失败
                       </span>
                     </div>
 

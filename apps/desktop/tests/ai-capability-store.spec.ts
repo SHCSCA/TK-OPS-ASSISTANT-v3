@@ -46,6 +46,9 @@ describe("AI 能力 store 多 Provider 行为", () => {
             message: "Provider 已可用于文本生成。"
           });
         }
+        if (path === "/api/settings/ai-capabilities") {
+          return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+        }
         throw new Error(`Unhandled request: ${method} ${path}`);
       })
     );

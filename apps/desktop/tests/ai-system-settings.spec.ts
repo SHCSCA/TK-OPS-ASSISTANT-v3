@@ -79,6 +79,9 @@ describe("AI 与系统设置页", () => {
       if (path === "/api/settings/ai-capabilities/support-matrix") {
         return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
       }
+      if (path === "/api/ai-providers/health") {
+        return okJsonResponse({});
+      }
 
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
@@ -181,6 +184,9 @@ describe("AI 与系统设置页", () => {
       if (path === "/api/settings/ai-capabilities/support-matrix") {
         return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
       }
+      if (path === "/api/ai-providers/health") {
+        return okJsonResponse({});
+      }
 
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
@@ -217,6 +223,7 @@ describe("AI 与系统设置页", () => {
     );
 
     expect(saveCall).toBeTruthy();
+    console.log("saveCall BODY", saveCall?.[1]?.body);
     const payload = JSON.parse(String(saveCall?.[1]?.body)) as {
       capabilities: Array<{ capabilityId: string; model: string }>;
     };
@@ -251,6 +258,9 @@ describe("AI 与系统设置页", () => {
       }
       if (path === "/api/settings/ai-capabilities/support-matrix") {
         return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
+      }
+      if (path === "/api/ai-providers/health") {
+        return okJsonResponse({});
       }
       if (path === "/api/settings/ai-capabilities/providers/openai/health-check") {
         return okJsonResponse({
@@ -326,6 +336,9 @@ describe("AI 与系统设置页", () => {
       }
       if (path === "/api/settings/ai-capabilities/support-matrix") {
         return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
+      }
+      if (path === "/api/ai-providers/health") {
+        return okJsonResponse({});
       }
 
       throw new Error(`Unhandled request: ${method} ${path}`);

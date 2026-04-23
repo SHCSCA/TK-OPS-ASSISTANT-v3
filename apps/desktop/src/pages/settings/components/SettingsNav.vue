@@ -7,6 +7,7 @@
         :key="item.id"
         class="nav-item"
         :class="{ 'is-active': modelValue === item.id }"
+        :data-section="item.id"
         @click="$emit('update:modelValue', item.id)"
       >
         <span class="material-symbols-outlined nav-icon">{{ item.icon }}</span>
@@ -29,8 +30,9 @@ defineEmits<{
 
 const groups: Array<Array<{ id: SettingsSectionId; label: string; icon: string }>> = [
   [
-    { id: "provider", label: "Provider 管理", icon: "hub" },
-    { id: "capability", label: "能力绑定", icon: "account_tree" },
+    { id: "system", label: "系统总线", icon: "dns" },
+    { id: "provider", label: "Provider 与模型", icon: "hub" },
+    { id: "capability", label: "能力矩阵", icon: "account_tree" },
     { id: "prompt", label: "Prompt 模板", icon: "terminal" }
   ],
   [

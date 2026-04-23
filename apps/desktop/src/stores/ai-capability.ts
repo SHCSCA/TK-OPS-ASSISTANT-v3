@@ -13,6 +13,7 @@ import {
 } from "@/app/runtime-client";
 import { useTaskBusStore } from "@/stores/task-bus";
 import type {
+  AICapabilityConfig,
   AICapabilitySettings,
   AICapabilitySupportMatrix,
   AIModelCatalogItem,
@@ -33,6 +34,7 @@ type AIStoreState = {
   supportMatrix: AICapabilitySupportMatrix | null;
   providerCatalog: AIProviderCatalogItem[];
   modelCatalogByProvider: Record<string, AIModelCatalogItem[]>;
+  providerHealth: Record<string, AIProviderHealth>;
   status: AIStoreStatus;
   error: RuntimeRequestErrorShape | null;
   _unsubscriber: (() => void) | null;
@@ -44,6 +46,7 @@ export const useAIStore = defineStore("ai-capability", {
     supportMatrix: null,
     providerCatalog: [],
     modelCatalogByProvider: {},
+    providerHealth: {},
     status: "idle",
     error: null,
     _unsubscriber: null
@@ -68,6 +71,22 @@ export const useAIStore = defineStore("ai-capability", {
       } catch (error) {
         this.applyRuntimeError(error);
       }
+    },
+
+    // Compatibility actions
+    async loadProviderCatalog(): Promise<void> {
+      return this.reloadProviderCatalog();
+    },
+    async loadSupportMatrix(): Promise<void> {
+      return this.reloadSupportMatrix();
+    },
+    async loadProviderModels(providerId: string): Promise<void> {
+      return this.loadModelsForProvider(providerId);
+    },
+    async checkProvider(providerId: string, input?: AIProviderHealthInput): Promise<AIProviderHealth> {
+      const health = await this.checkAIProviderHealth(providerId, input);
+      this.providerHealth[providerId] = health;
+      return health;
     },
 
     initializeEventSubscription(): void {
@@ -134,10 +153,11 @@ export const useAIStore = defineStore("ai-capability", {
       this.providerCatalog = await fetchAIProviderCatalog();
     },
 
-    async saveCapabilities(payload: Partial<AICapabilitySettings>): Promise<void> {
+    async saveCapabilities(input: Partial<AICapabilitySettings> | AICapabilityConfig[]): Promise<void> {
       this.status = "saving";
       try {
-        // FIX: Ensure payload structure matches expected AICapabilitySettings format
+        const payload = Array.isArray(input) ? { capabilities: input } : input;
+        // Ensure payload structure matches expected AICapabilitySettings format
         await saveAICapabilitySettings(payload.capabilities as any);
         await this.reloadSettings();
         this.status = "ready" as any;
@@ -199,3 +219,5 @@ export const useAIStore = defineStore("ai-capability", {
     }
   }
 });
+
+export const useAICapabilityStore = useAIStore;
