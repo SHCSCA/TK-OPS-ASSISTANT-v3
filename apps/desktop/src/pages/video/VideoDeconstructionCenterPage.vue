@@ -253,6 +253,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 
 import AssetPreview from "@/components/assets/AssetPreview.vue";
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
@@ -269,6 +270,7 @@ import Chip from "@/components/ui/Chip/Chip.vue";
 const projectStore = useProjectStore();
 const taskBusStore = useTaskBusStore();
 const videoImportStore = useVideoImportStore();
+const router = useRouter();
 
 const activeApplyingVideoId = ref<string | null>(null);
 const selectedVideoId = ref<string | null>(null);
@@ -350,9 +352,8 @@ async function handleRescan(): Promise<void> {
 }
 
 function handleViewSetupGuide(): void {
-  // In a real app, this would use a router or a specialized opener
-  // For V2 prototype, we can alert or mock a navigation
-  alert("正在跳转至系统诊断页以修复 FFprobe 环境...");
+  // 跳转到系统设置的诊断锚点，引导用户检查 FFprobe 可用性
+  void router.push({ path: "/settings/ai-system", query: { section: "diagnostics", reason: "ffprobe" } });
 }
 
 function isApplying(videoId: string): boolean {
@@ -369,7 +370,8 @@ async function handleRerunStage(videoId: string, stageId: string): Promise<void>
 }
 
 function handleConfigureProvider(): void {
-  alert("正在跳转至 AI 设置页面以配置 Provider...");
+  // 跳转到 AI Provider 配置抽屉，由设置页根据 query 自动展开
+  void router.push({ path: "/settings/ai-system", query: { section: "providers" } });
 }
 
 function getStageIcon(status: string): string {

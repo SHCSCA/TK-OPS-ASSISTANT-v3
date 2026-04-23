@@ -1,6 +1,6 @@
 # TK-OPS 项目状态总览
 
-> 更新日期：2026-04-20（工程当前版本以根 `package.json#version` 为准，分支 `main` 与 `origin/main` 同步，工作树干净）
+> 更新日期：2026-04-22（当前应用版本以根 `package.json#version` 为准；V2 前后端落地：F-01~F-08 + B-01~B-06 + Modules A-H 运行时事件层全部合入，测试 315 passed/1 skipped）
 > 状态来源：根 `README.md`、`CHANGELOG.md`、`docs/` 真源文档、`docs/superpowers/` 实施记录、`docs/BACKEND-REQUIREMENTS-2026-04-17.md` 进度表、`graphify-out/GRAPH_REPORT.md`，以及当前仓库代码与测试结构。
 > 本文只记录当前实现与文档对齐状态，不替代产品真源、UI 真源、架构真源或 Runtime API 真源。
 
@@ -47,21 +47,21 @@
 | 序号 | Route ID | 页面 | UI | Runtime | 契约 | V2 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | `setup_license_wizard` | 首启与许可证向导 | 已落地 | 已接线 | 已登记 | 未启动 | 离线授权、向导动效、粒子反馈、机器码/激活码已走真实链路。 |
-| 2 | `creator_dashboard` | 创作总览 | 已落地 | 已接线 | 部分登记 | 未启动 | 极光 Hero、项目列表弹性删除、原生确认弹窗齐备；sparkline / quick-jump 字段仍在 D2 阶段。 |
-| 3 | `script_topic_center` | 脚本与选题中心 | 已落地 | 已接线 | 部分登记 | 未启动 | 编辑器 AI 流光、版本轨迹、一键复制齐备；变体 / 段级改写 / 历史版本持久化仍待扩展。 |
+| 2 | `creator_dashboard` | 创作总览 | 已落地 | 已接线 | 部分登记 | 进行中 | F-01 项目软删除贯通仪表盘/项目仓库/Runtime；sparkline / quick-jump 字段仍在 D2。 |
+| 3 | `script_topic_center` | 脚本与选题中心 | 已落地 | 已接线 | 部分登记 | 进行中 | V2 状态栏 + 3 栏布局已落地；变体 / 段级改写 / 历史版本持久化仍待扩展。 |
 | 4 | `storyboard_planning_center` | 分镜规划中心 | 已落地 | 已接线 | 部分登记 | 未启动 | 镜头卡片瀑布流、脚本段落联动齐备；Shot CRUD / 模板仍待补齐。 |
 | 5 | `ai_editing_workspace` | AI 剪辑工作台 | 已落地 | 已接线 | 已登记 | 未启动 | 多轨时间线草稿读取 / 创建 / 保存 + AI 命令阻塞态契约已落档；clip 原子操作 / 导出 / 预览仍待深化。 |
-| 6 | `video_deconstruction_center` | 视频拆解中心 | 已落地 | 已接线 | 已登记 | 未启动 | 真实预览、TaskBus 进度、弹性删除齐备；阶段 / 转写 / 切段 / 回流还在 D2/D4。 |
+| 6 | `video_deconstruction_center` | 视频拆解中心 | 已落地 | 已接线 | 已登记 | 进行中 | F-08 FFprobe 降级提示 + 真实 `router.push` 跳诊断已落地；阶段 / 转写 / 切段 / 回流还在 D2/D4。 |
 | 7 | `voice_studio` | 配音中心 | 已落地 | 已接线 | 已登记 | 未启动 | 音色列表、波形动画、系统设置双向绑定齐备；profiles 写入 / 段级 / 试听 / 停顿仍在 D4。 |
 | 8 | `subtitle_alignment_center` | 字幕对齐中心 | 已落地 | 已接线 | 已登记 | 未启动 | 扫描脉冲、字幕段水平流转、统计指标齐备；手动对齐 / 模板 / 导出 / 源波形仍在 D4。 |
 | 9 | `asset_library` | 资产中心 | 已落地 | 已接线 | 已登记 | 未启动 | 预览引擎修复、资产墙无缝平移、原生 Dialog 异步加载齐备；缩略图 / 批量 / 分组 / refs 子接口待文档对齐。 |
-| 10 | `account_management` | 账号管理 | 已落地 | 已接线 | 未登记 | 未启动 | 页面齐备（卡片物理反馈、抽屉弹性滑入、Input 规范化），13 个路由尚未写入 `RUNTIME-API-CALLS.md`。 |
-| 11 | `device_workspace_management` | 设备与工作区管理 | 已落地 | 已接线 | 未登记 | 未启动 | 工作区 CRUD + 健康检查已实现，浏览器实例 / 日志 / 绑定待新增；6 个路由未文档化。 |
+| 10 | `account_management` | 账号管理 | 已落地 | 已接线 | 未登记 | 进行中 | F-03 校验态与能力绑定已接通；13 个路由待写入 `RUNTIME-API-CALLS.md`。 |
+| 11 | `device_workspace_management` | 设备与工作区管理 | 已落地 | 已接线 | 未登记 | 进行中 | F-02 浏览器实例 CRUD + B-02 迁移/路由 已接通；6 个路由待文档化。 |
 | 12 | `automation_console` | 自动化执行中心 | 已落地 | 已接线 | 未登记 | 未启动 | tasks CRUD + trigger + runs 存在，7 个路由未文档化；暂停 / 恢复 / 取消 / 日志待补。 |
 | 13 | `publishing_center` | 发布中心 | 已落地 | 已接线 | 未登记 | 未启动 | plans CRUD + precheck/submit/cancel 存在，8 个路由未文档化；日历 / 回执待补。 |
 | 14 | `render_export_center` | 渲染与导出中心 | 已落地 | 已接线 | 未登记 | 未启动 | tasks CRUD + cancel 存在，6 个路由未文档化；模板 / 重试 / 资源 / 真实进度待补。 |
-| 15 | `review_optimization_center` | 复盘与优化中心 | 已落地 | 已接线 | 已登记 | 未启动 | summary/analyze 契约已登记；建议列表 / 回流能力待补。 |
-| 16 | `ai_system_settings` | AI 与系统设置 | 已落地 | 已接线 | 已登记 | 未启动 | 9 个主接口已文档化；诊断导出 / 日志查询 / 迁移上报仍待补。AI Provider 管理 + Secret + OpenAI TTS 适配层已接通。 |
+| 15 | `review_optimization_center` | 复盘与优化中心 | 已落地 | 已接线 | 已登记 | 未启动 | V2 后端服务扩展已合入；建议列表 / 回流能力仍待接通前端。 |
+| 16 | `ai_system_settings` | AI 与系统设置 | 已落地 | 已接线 | 已登记 | 进行中 | F-04 日志目录 + F-05/06/07 就绪徽章/能力画像/重复模型拦截 + B-03/B-04/B-05 提供商健康/Secret/能力绑定已接通。 |
 
 **契约完成率**（参照 `docs/BACKEND-REQUIREMENTS-2026-04-17.md` 0.1.2 节）：96 个真实路由中 34 个完成"实现 + 文档 + 前端 + 测试"四步（约 35%），62 个处于"代码已有、文档 / 测试 / 前端任一缺失"状态。
 
@@ -125,3 +125,26 @@
 - **S 档（需立计划）**：F-02 + B-02（浏览器实例对象模型）。
 
 PROJECT-STATUS.md 只保留本索引入口，不复述具体修复方案，避免与 V2 真源漂移。
+
+### V2 落地进度（2026-04-22）
+
+| 档位 | 项 | 落地证据 |
+| --- | --- | --- |
+| L | F-01 项目软删除 | `stores/project.ts:deleteProject` + `CreatorDashboardPage.vue` 删除确认链路 |
+| L | F-03 账号校验态 | `AccountManagementPage.vue` 对齐 V2 能力绑定与校验态 |
+| L | F-04 日志目录 | `pages/settings/use-system-settings.ts:openLogDirectory` |
+| L | F-07 提供商重复模型拦截 | `ProviderConfigDrawer.vue` 重复校验 + `provider.model.*` 错误码 |
+| L | B-01 软删除持久化 | `persistence/engine.py:_repair_legacy_project_schema` + `projects.deleted_at` |
+| L | B-05 Secret 写入 | `services/settings_service.py` Secret 合并策略 |
+| M | F-05 就绪徽章 / F-06 能力画像 | `ProviderCard.vue` + `ProviderConfigDrawer.vue` V2 视觉与数据绑定 |
+| M | F-08 FFprobe 降级提示 | `VideoDeconstructionCenterPage.vue` alert bar + `router.push('/settings/ai-system')` |
+| M | B-03 提供商健康检查 | `services/ai_capability_service.py` + Runtime 事件 `ai-capability.changed` |
+| M | B-04 能力绑定契约 | `schemas/ai_capabilities.py` + 新增契约测试 |
+| M | B-06 FFprobe 诊断 | `services/ffprobe.py:get_ffprobe_availability` + `failed_degraded` + `media.ffprobe_unavailable` |
+| S | F-02 浏览器实例 UI | `DeviceWorkspaceManagementPage.vue` 实例创建/列表/删除 |
+| S | B-02 浏览器实例对象模型 | 迁移 `0007` + `api/routes/device_workspaces.py` 6 路由 |
+| — | Modules A-H 运行时事件层 | `config-bus` / `ai-capability` / `task-bus` / `video-import` / `subtitle-alignment` 等 store 接入 revision 同步 |
+
+尚待收口：
+1. V2 新增路由登记到 `docs/RUNTIME-API-CALLS.md`（B-02 / B-03 / B-06 共约 10 条）。
+2. `DeviceWorkspaceManagementPage.vue`(949) / `ScriptTopicCenterPage.vue`(834) / `VideoDeconstructionCenterPage.vue`(1038) 三个超 600 行硬限的页面仍需按 `page/composable/helpers/types/styles` 拆分。

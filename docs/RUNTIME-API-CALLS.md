@@ -1,4 +1,4 @@
-> 更新日期：2026-04-21；本文以当前开发分支代码为接口真源，记录已落地 Runtime 接口与前端调用关系。
+> 更新日期：2026-04-22；对应应用版本以根 `package.json#version` 为准。本文以当前开发分支代码为接口真源，记录已落地 Runtime 接口与前端调用关系。V2 前端已接通 `deleteDashboardProject`、浏览器实例 CRUD、FFprobe 诊断消费链路。
 
 # Runtime API 与前端调用真源
 
@@ -257,7 +257,7 @@
 | --- | --- | --- | --- | --- |
 | `GET /api/dashboard/summary` | 无 | `DashboardSummaryDto`：`recentProjects[]`、`currentProject`、`recentTasks[]`、`pendingItems[]`、`riskSummary`、`currentAction`、`generatedAt` | `500` | `fetchDashboardSummary` |
 | `POST /api/dashboard/projects` | `CreateProjectInput`：`name`、`description` | `ProjectSummaryDto` | `422`、`500` | `createDashboardProject` |
-| `DELETE /api/dashboard/projects/{project_id}` | 路径参数：`project_id`；软删除项目，若被未完成任务占用则阻断 | `DeleteProjectResultDto`：`deleted`、`projectId`、`clearedCurrentProject`、`deletedAt` | `404`、`409`；阻断时返回 `project.delete_blocked` | 当前前端未直接调用 |
+| `DELETE /api/dashboard/projects/{project_id}` | 路径参数：`project_id`；软删除项目，若被未完成任务占用则阻断 | `DeleteProjectResultDto`：`deleted`、`projectId`、`clearedCurrentProject`、`deletedAt` | `404`、`409`；阻断时返回 `project.delete_blocked` | `deleteDashboardProject` → `stores/project.ts:deleteProject` |
 | `GET /api/dashboard/context` | 无 | `CurrentProjectContextDto \| null` | `500` | `fetchCurrentProjectContext` |
 | `PUT /api/dashboard/context` | `SetCurrentProjectInput`：`projectId`，支持 `null` 清空当前项目 | `CurrentProjectContextDto \| null` | `404`、`422` | `updateCurrentProjectContext` |
 

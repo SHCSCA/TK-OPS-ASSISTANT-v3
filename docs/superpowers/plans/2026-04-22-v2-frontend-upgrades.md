@@ -1,5 +1,7 @@
 # V2 Frontend Upgrades: Script Center & Video Deconstruction Implementation Plan
 
+> **状态**：已落地（2026-04-22）。Task 1（F-08 FFprobe 降级提示）与 Task 2（脚本中心状态栏 + 3 栏布局）全部合入；`handleViewSetupGuide` / `handleConfigureProvider` 已从 `alert()` 占位改为 `router.push('/settings/ai-system', { query })` 真实跳转。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Upgrade the Video Deconstruction Center to handle FFprobe unavailability and enhance the Script Center with better layout separation and status feedback.
@@ -16,7 +18,7 @@
 - Modify: `apps/desktop/src/pages/video/VideoDeconstructionCenterPage.vue`
 - Modify: `apps/desktop/src/stores/video-import.ts`
 
-- [ ] **Step 1: Add re-scan action to video-import store**
+- [x] **Step 1: Add re-scan action to video-import store**
 
 Modify `apps/desktop/src/stores/video-import.ts`:
 ```typescript
@@ -35,7 +37,7 @@ Modify `apps/desktop/src/stores/video-import.ts`:
     },
 ```
 
-- [ ] **Step 2: Add computed property and handler to VideoDeconstructionCenterPage.vue**
+- [x] **Step 2: Add computed property and handler to VideoDeconstructionCenterPage.vue**
 
 Modify `apps/desktop/src/pages/video/VideoDeconstructionCenterPage.vue`:
 ```typescript
@@ -55,7 +57,7 @@ function handleViewSetupGuide(): void {
 }
 ```
 
-- [ ] **Step 3: Add the yellow alert bar to the template**
+- [x] **Step 3: Add the yellow alert bar to the template**
 
 Modify `apps/desktop/src/pages/video/VideoDeconstructionCenterPage.vue`:
 ```html
@@ -74,7 +76,7 @@ Modify `apps/desktop/src/pages/video/VideoDeconstructionCenterPage.vue`:
       </div>
 ```
 
-- [ ] **Step 4: Add styles for the alert bar**
+- [x] **Step 4: Add styles for the alert bar**
 
 Modify `apps/desktop/src/pages/video/VideoDeconstructionCenterPage.vue` `<style>`:
 ```css
@@ -124,7 +126,7 @@ Modify `apps/desktop/src/pages/video/VideoDeconstructionCenterPage.vue` `<style>
 **Files:**
 - Modify: `apps/desktop/src/pages/scripts/ScriptTopicCenterPage.vue`
 
-- [ ] **Step 1: Add Status Bar component logic**
+- [x] **Step 1: Add Status Bar component logic**
 
 Modify `apps/desktop/src/pages/scripts/ScriptTopicCenterPage.vue`:
 ```typescript
@@ -145,7 +147,7 @@ const statusTone = computed(() => {
 });
 ```
 
-- [ ] **Step 2: Add the persistent status bar to the template**
+- [x] **Step 2: Add the persistent status bar to the template**
 
 Modify `apps/desktop/src/pages/scripts/ScriptTopicCenterPage.vue`:
 ```html
@@ -168,7 +170,7 @@ Modify `apps/desktop/src/pages/scripts/ScriptTopicCenterPage.vue`:
     </div>
 ```
 
-- [ ] **Step 3: Update Editor Header for better separation**
+- [x] **Step 3: Update Editor Header for better separation**
 
 Modify `apps/desktop/src/pages/scripts/ScriptTopicCenterPage.vue` (Editor Card Header):
 ```html
@@ -184,7 +186,7 @@ Modify `apps/desktop/src/pages/scripts/ScriptTopicCenterPage.vue` (Editor Card H
              </div>
 ```
 
-- [ ] **Step 4: Re-layout styles for 3-column modularity**
+- [x] **Step 4: Re-layout styles for 3-column modularity**
 
 Modify `apps/desktop/src/pages/scripts/ScriptTopicCenterPage.vue` `<style>`:
 ```css
@@ -237,7 +239,7 @@ Modify `apps/desktop/src/pages/scripts/ScriptTopicCenterPage.vue` `<style>`:
 }
 ```
 
-- [ ] **Step 5: Ensure Script Workspace gap and alignment**
+- [x] **Step 5: Ensure Script Workspace gap and alignment**
 
 Modify `apps/desktop/src/pages/scripts/ScriptTopicCenterPage.vue` `<style>`:
 ```css
