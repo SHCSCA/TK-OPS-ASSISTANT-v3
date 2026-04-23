@@ -1208,11 +1208,11 @@ Nodes (0):
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `ok_response()` connect `Community 1` to `Community 8`, `Community 19`, `Community 20`, `Community 22`, `Community 23`?**
-  _High betweenness centrality (0.071) - this node is a cross-community bridge._
+  _High betweenness centrality (0.070) - this node is a cross-community bridge._
 - **Why does `create_app()` connect `Community 7` to `Community 0`, `Community 2`, `Community 4`, `Community 5`, `Community 6`, `Community 8`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 13`, `Community 14`, `Community 15`, `Community 16`, `Community 17`, `Community 20`, `Community 22`, `Community 23`?**
   _High betweenness centrality (0.062) - this node is a cross-community bridge._
-- **Why does `now()` connect `Community 9` to `Community 0`, `Community 2`, `Community 4`, `Community 5`, `Community 6`, `Community 7`, `Community 8`, `Community 10`, `Community 13`, `Community 16`, `Community 17`, `Community 19`, `Community 20`, `Community 22`?**
-  _High betweenness centrality (0.053) - this node is a cross-community bridge._
+- **Why does `UnavailableLicenseActivationAdapter` connect `Community 7` to `Community 0`, `Community 2`, `Community 4`, `Community 5`, `Community 6`, `Community 8`, `Community 10`, `Community 11`, `Community 12`, `Community 13`, `Community 14`, `Community 15`, `Community 16`, `Community 17`, `Community 22`, `Community 23`?**
+  _High betweenness centrality (0.041) - this node is a cross-community bridge._
 - **Are the 185 inferred relationships involving `HTTPException` (e.g. with `get_license_service()` and `get_task()`) actually correct?**
   _`HTTPException` has 185 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 174 inferred relationships involving `ok_response()` (e.g. with `list_account_groups()` and `create_account_group()`) actually correct?**
