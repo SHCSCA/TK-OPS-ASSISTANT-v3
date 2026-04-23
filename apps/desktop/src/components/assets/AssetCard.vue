@@ -1,17 +1,35 @@
 <template>
   <button
     class="asset-card"
-    :class="{ 'asset-card--selected': isSelected }"
+    :class="{ 
+      'asset-card--selected': isSelected,
+      'asset-card--invalid': isInvalid,
+      'asset-card--generating': isGenerating
+    }"
     :data-testid="`asset-card-${asset.id}`"
     type="button"
+    :disabled="isInvalid || isGenerating"
     @click="$emit('select', asset.id)"
+    :draggable="!isInvalid && !isGenerating"
   >
+    <div v-if="isInvalid" class="asset-card__overlay">
+      <span class="material-symbols-outlined">broken_image</span>
+      <span>资产文件已失效</span>
+    </div>
+    <div v-else-if="isGenerating" class="asset-card__overlay">
+      <span class="material-symbols-outlined asset-spin">sync</span>
+      <span>生成中</span>
+    </div>
+
     <span v-if="isSelected" class="asset-card__selected-dot" aria-hidden="true" />
 
     <AssetPreview :asset="asset" />
 
     <header class="asset-card__header">
-      <span class="asset-card__type">{{ typeLabel(asset.type) }}</span>
+      <div class="asset-card__badges">
+        <span class="asset-card__type">{{ typeLabel(asset.type) }}</span>
+        <span v-if="asset.source" class="asset-card__source-badge">{{ asset.source === 'local' ? '本地' : asset.source }}</span>
+      </div>
       <strong class="asset-card__name" :title="asset.name">{{ asset.name }}</strong>
       <span class="asset-card__path" :title="asset.filePath || '未记录路径'">
         {{ asset.filePath || "未记录路径" }}
@@ -20,7 +38,6 @@
 
     <div class="asset-card__meta">
       <span>{{ formatSize(asset.fileSizeBytes) }}</span>
-      <span>{{ asset.source }}</span>
       <span>{{ durationLabel(asset.durationMs) }}</span>
     </div>
 
@@ -36,10 +53,11 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import AssetPreview from "@/components/assets/AssetPreview.vue";
 import type { AssetDto } from "@/types/runtime";
 
-defineProps<{
+const props = defineProps<{
   asset: AssetDto;
   isSelected: boolean;
   tags: string[];
@@ -48,6 +66,9 @@ defineProps<{
 defineEmits<{
   select: [assetId: string];
 }>();
+
+const isGenerating = computed(() => props.asset.source !== 'local' && !props.asset.fileSizeBytes && !props.asset.filePath);
+const isInvalid = computed(() => !isGenerating.value && !props.asset.filePath);
 
 function typeLabel(type: string) {
   switch (type) {
@@ -201,6 +222,70 @@ function durationLabel(durationMs: number | null) {
 
 .asset-card__project {
   font-size: 11px;
+}
+
+.asset-card--invalid {
+  opacity: 0.6;
+  border-color: var(--color-danger, #ff4d4f);
+  cursor: not-allowed;
+}
+.asset-card--invalid:hover {
+  background: var(--color-bg-surface);
+  transform: none;
+  box-shadow: none;
+}
+
+.asset-card--generating {
+  opacity: 0.8;
+  cursor: wait;
+}
+.asset-card--generating:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.asset-card__overlay {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-bg-surface) 80%, transparent);
+  backdrop-filter: blur(2px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: bold;
+}
+.asset-card--invalid .asset-card__overlay {
+  color: var(--color-danger, #ff4d4f);
+  background: color-mix(in srgb, var(--color-bg-surface) 60%, transparent);
+}
+
+.asset-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.asset-card__source-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-bg-muted);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+}
+
+.asset-spin {
+  animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.2 - 2026-04-22
+
+### V2 前后端联调收口
+
+- 同步 V2 后端模块主线 `3.1 -> 3.16` 与工程化尾项，补齐 `config.changed`、`ai-capability.changed`、Provider 模型远端刷新、FastAPI lifespan 启动链路。
+- 同步前端 Runtime 事件消费层、`config-bus` / `ai-capability` store 回流与设置页 Provider 管理联动，打通模型刷新、健康刷新与配置状态回流主线。
+- 更新 `docs/PROJECT-STATUS.md`、`docs/RUNTIME-API-CALLS.md` 与实施计划文档，收口当前分支的 V2 落地口径。
+
 ## 0.4.1 - 2026-04-20
 
 ### V2 文档治理

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -21,7 +22,9 @@ from repositories.ai_capability_repository import (
     StoredAIProviderModel,
 )
 from schemas.ai_capabilities import (
+    AIDiagnosticSummaryDto,
     AICapabilityConfigDto,
+    AICapabilityChangedEventDto,
     AICapabilityModelOptionDto,
     AICapabilitySettingsDto,
     AICapabilitySupportItemDto,
@@ -37,6 +40,7 @@ from schemas.ai_capabilities import (
     AIProviderSecretStatusDto,
     CAPABILITY_IDS,
 )
+from services.ws_manager import ws_manager
 
 log = logging.getLogger(__name__)
 
@@ -79,9 +83,13 @@ class AICapabilityService:
 
     def get_settings(self) -> AICapabilitySettingsDto:
         capabilities = self._load_or_create_capabilities()
+        provider_statuses = self.get_provider_statuses()
         return AICapabilitySettingsDto(
             capabilities=[self._to_capability_dto(item) for item in capabilities],
-            providers=self.get_provider_statuses(),
+            providers=provider_statuses,
+            configVersion=self._resolve_settings_version(capabilities),
+            scope="runtime_local",
+            diagnosticSummary=self._build_diagnostic_summary(provider_statuses),
         )
 
     def update_capabilities(
@@ -106,7 +114,14 @@ class AICapabilityService:
             for item in items
         ]
         self._repository.save_capabilities(stored)
-        return self.get_settings()
+        settings = self.get_settings()
+        self._broadcast_ai_capability_changed(
+            settings=settings,
+            reason="capability_config_updated",
+            provider_ids=sorted({item.provider for item in items}),
+            capability_ids=sorted(provided_ids),
+        )
+        return settings
 
     def set_provider_secret(
         self,
@@ -122,15 +137,36 @@ class AICapabilityService:
         elif bool(metadata["requires_base_url"]):
             current = self.get_provider_runtime_config(provider_id)
             self._repository.save_provider_setting(provider_id, current.base_url)
+        settings = self.get_settings()
+        self._broadcast_ai_capability_changed(
+            settings=settings,
+            reason="provider_secret_updated",
+            provider_ids=[provider_id],
+            capability_ids=self._capability_ids_for_provider(provider_id),
+        )
         return self.get_provider_status(provider_id)
 
     def get_provider_statuses(self) -> list[AIProviderSecretStatusDto]:
-        return [self.get_provider_status(provider_id) for provider_id in _provider_catalog_metadata()]
+        snapshots = {
+            item.provider_id: item
+            for item in self._repository.load_provider_health_snapshots()
+        }
+        return [
+            self.get_provider_status(provider_id, snapshots=snapshots)
+            for provider_id in _provider_catalog_metadata()
+        ]
 
-    def get_provider_status(self, provider_id: str) -> AIProviderSecretStatusDto:
+    def get_provider_status(
+        self,
+        provider_id: str,
+        *,
+        snapshots: dict[str, StoredAIProviderHealth] | None = None,
+    ) -> AIProviderSecretStatusDto:
         metadata = _get_provider_catalog_metadata(provider_id)
         runtime = self.get_provider_runtime_config(provider_id)
         configured = _is_catalog_provider_configured(metadata, runtime)
+        snapshot = None if snapshots is None else snapshots.get(provider_id)
+        readiness = snapshot.readiness if snapshot is not None else ("not_checked" if configured else "not_configured")
         return AIProviderSecretStatusDto(
             provider=provider_id,
             label=str(metadata["label"]),
@@ -139,6 +175,11 @@ class AICapabilityService:
             baseUrl=runtime.base_url,
             secretSource=runtime.secret_source,
             supportsTextGeneration="text_generation" in metadata["capabilities"],
+            readiness=readiness,
+            lastCheckedAt=snapshot.last_checked_at if snapshot is not None else None,
+            errorCode=snapshot.error_code if snapshot is not None else None,
+            errorMessage=snapshot.error_message if snapshot is not None else None,
+            scope="runtime_local",
         )
 
     def get_provider_catalog(self) -> list[AIProviderCatalogItemDto]:
@@ -214,7 +255,88 @@ class AICapabilityService:
                     )
                 )
         self._repository.save_provider_health_snapshots(snapshots)
+        settings = self.get_settings()
+        self._broadcast_ai_capability_changed(
+            settings=settings,
+            reason="provider_health_refreshed",
+            provider_ids=sorted(_provider_catalog_metadata()),
+            capability_ids=list(CAPABILITY_IDS),
+        )
         return self.get_provider_health_overview()
+
+    def _broadcast_ai_capability_changed(
+        self,
+        *,
+        settings: AICapabilitySettingsDto,
+        reason: str,
+        provider_ids: list[str],
+        capability_ids: list[str],
+    ) -> None:
+        event = AICapabilityChangedEventDto(
+            scope=settings.scope,
+            configVersion=settings.configVersion,
+            reason=reason,
+            providerIds=sorted({provider_id for provider_id in provider_ids if provider_id}),
+            capabilityIds=sorted({capability_id for capability_id in capability_ids if capability_id}),
+        )
+        self._broadcast_event(event.model_dump(mode="json"))
+
+    def _broadcast_event(self, event: dict[str, object]) -> None:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(ws_manager.broadcast(event))
+        else:
+            asyncio.create_task(ws_manager.broadcast(event))
+
+    def _capability_ids_for_provider(self, provider_id: str) -> list[str]:
+        return sorted(
+            {
+                item.capabilityId
+                for item in self.get_settings().capabilities
+                if item.provider == provider_id
+            }
+        )
+
+    def _capability_ids_for_model(self, payload: AIProviderModelUpsertInput) -> list[str]:
+        capability_ids = {
+            capability_id
+            for capability_id in payload.defaultFor
+            if capability_id in CAPABILITY_IDS
+        }
+        capability_types = {kind.strip() for kind in payload.capabilityKinds if kind.strip()}
+        for capability_id in CAPABILITY_IDS:
+            if _capability_type_for(capability_id) in capability_types:
+                capability_ids.add(capability_id)
+        return sorted(capability_ids)
+
+    def _resolve_settings_version(
+        self,
+        capabilities: list[StoredAICapabilityConfig],
+    ) -> str:
+        provider_settings = self._repository.load_provider_settings()
+        timestamps = [item.updated_at for item in capabilities]
+        timestamps.extend(item.updated_at for item in provider_settings)
+        return max(timestamps, default=_utc_now())
+
+    def _build_diagnostic_summary(
+        self,
+        providers: list[AIProviderSecretStatusDto],
+    ) -> AIDiagnosticSummaryDto:
+        configured = sum(1 for item in providers if item.configured)
+        ready = sum(1 for item in providers if item.readiness == "ready")
+        degraded = sum(
+            1
+            for item in providers
+            if item.readiness in {"offline", "refresh_failed", "unsupported", "degraded"}
+        )
+        last_refresh = max((item.lastCheckedAt for item in providers if item.lastCheckedAt), default=None)
+        return AIDiagnosticSummaryDto(
+            configuredProviderCount=configured,
+            readyProviderCount=ready,
+            degradedProviderCount=degraded,
+            lastHealthRefreshAt=last_refresh,
+        )
 
     def get_provider_models(self, provider_id: str) -> list[AIModelCatalogItemDto]:
         _get_provider_catalog_metadata(provider_id)
@@ -252,7 +374,7 @@ class AICapabilityService:
             )
         )
         dto = self._to_model_dto(stored)
-        return AIProviderModelWriteReceiptDto(
+        receipt = AIProviderModelWriteReceiptDto(
             saved=True,
             wasUpsert=was_upsert,
             updatedAt=stored.updated_at,
@@ -264,13 +386,71 @@ class AICapabilityService:
             },
             model=dto,
         )
+        settings = self.get_settings()
+        self._broadcast_ai_capability_changed(
+            settings=settings,
+            reason="provider_model_upserted",
+            provider_ids=[provider_id],
+            capability_ids=self._capability_ids_for_model(payload),
+        )
+        return receipt
 
     def refresh_provider_models(self, provider_id: str) -> AIModelCatalogRefreshResultDto:
-        _get_provider_catalog_metadata(provider_id)
+        metadata = _get_provider_catalog_metadata(provider_id)
+        if not bool(metadata["supports_model_discovery"]):
+            return AIModelCatalogRefreshResultDto(
+                provider=provider_id,
+                status="static_catalog",
+                message="当前 Provider 的模型目录仍使用内置注册表，暂不支持远端刷新。",
+            )
+
+        runtime = self.get_provider_runtime_config(provider_id)
+        if bool(metadata["requires_secret"]) and not runtime.api_key:
+            raise RuntimeHTTPException(
+                status_code=400,
+                detail="当前 Provider 尚未配置 API Key，无法执行模型刷新。",
+                error_code="provider.model.refresh_missing_secret",
+            )
+
+        discovered = self._fetch_remote_provider_models(provider_id, runtime)
+        if not discovered:
+            raise RuntimeHTTPException(
+                status_code=502,
+                detail="远端模型目录未返回有效模型，请稍后重试。",
+                error_code="provider.model.refresh_failed",
+            )
+
+        saved_count = 0
+        for item in discovered:
+            self._repository.upsert_provider_model(item)
+            saved_count += 1
+
+        settings = self.get_settings()
+        self._broadcast_ai_capability_changed(
+            settings=settings,
+            reason="provider_models_refreshed",
+            provider_ids=[provider_id],
+            capability_ids=self._capability_ids_for_provider(provider_id),
+        )
         return AIModelCatalogRefreshResultDto(
             provider=provider_id,
-            status="static_catalog",
-            message="当前模型目录来自内置注册表，暂未执行远端刷新。",
+            status="refreshed",
+            message=f"已从远端刷新 {saved_count} 个模型。",
+        )
+
+    def _fetch_remote_provider_models(
+        self,
+        provider_id: str,
+        runtime: ProviderRuntimeConfig,
+    ) -> list[StoredAIProviderModel]:
+        if provider_id == "openrouter":
+            return _fetch_openrouter_models(runtime)
+        if provider_id == "ollama":
+            return _fetch_ollama_models(runtime)
+        raise RuntimeHTTPException(
+            status_code=400,
+            detail="当前 Provider 暂不支持远端模型刷新。",
+            error_code="provider.model.refresh_not_supported",
         )
 
     def get_capability_support_matrix(self) -> AICapabilitySupportMatrixDto:
@@ -836,6 +1016,46 @@ def _request_json(
     return parsed if isinstance(parsed, dict) else {}
 
 
+def _request_json_get(
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+) -> dict[str, object]:
+    request = urllib.request.Request(
+        url,
+        headers=headers or {},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            body = response.read().decode("utf-8") if response.length != 0 else ""
+    except urllib.error.HTTPError as exc:
+        raise RuntimeHTTPException(
+            status_code=502,
+            detail=f"远端模型目录刷新失败：{_extract_remote_message(exc)}",
+            error_code="provider.model.refresh_failed",
+        ) from exc
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise RuntimeHTTPException(
+            status_code=502,
+            detail="无法连接远端模型目录，请检查网络、Base URL 或本地服务状态。",
+            error_code="provider.model.refresh_failed",
+        ) from exc
+
+    if not body.strip():
+        return {}
+
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise RuntimeHTTPException(
+            status_code=502,
+            detail="远端模型目录返回了不可解析的数据。",
+            error_code="provider.model.refresh_failed",
+        ) from exc
+    return parsed if isinstance(parsed, dict) else {}
+
+
 def _build_headers(api_key: str | None) -> dict[str, str]:
     headers = {"content-type": "application/json"}
     if api_key:
@@ -874,6 +1094,132 @@ def _extract_remote_message(exc: urllib.error.HTTPError) -> str:
         if isinstance(message_value, str) and message_value.strip():
             return message_value.strip()[:120]
     return "请求被远端拒绝。"
+
+
+def _fetch_openrouter_models(runtime: ProviderRuntimeConfig) -> list[StoredAIProviderModel]:
+    endpoint = _normalize_endpoint(runtime.base_url, "/models")
+    payload = _request_json_get(endpoint, headers=_build_headers(runtime.api_key))
+    rows = payload.get("data")
+    if not isinstance(rows, list):
+        return []
+
+    now = _utc_now()
+    models: list[StoredAIProviderModel] = []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        model_id = str(item.get("id", "")).strip()
+        if model_id == "":
+            continue
+        architecture = item.get("architecture")
+        architecture = architecture if isinstance(architecture, dict) else {}
+        input_modalities = _string_list(architecture.get("input_modalities"))
+        output_modalities = _string_list(architecture.get("output_modalities"))
+        capability_kinds = _capability_kinds_from_modalities(input_modalities, output_modalities)
+        if not capability_kinds:
+            capability_kinds = ["text_generation"]
+        models.append(
+            StoredAIProviderModel(
+                provider_id="openrouter",
+                model_id=model_id,
+                display_name=str(item.get("name") or model_id).strip(),
+                capability_kinds=capability_kinds,
+                input_modalities=input_modalities or ["text"],
+                output_modalities=output_modalities or ["text"],
+                context_window=_coerce_int(item.get("context_length")),
+                default_for=[],
+                enabled=True,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    return models
+
+
+def _fetch_ollama_models(runtime: ProviderRuntimeConfig) -> list[StoredAIProviderModel]:
+    endpoint_root = runtime.base_url.rstrip("/")
+    if endpoint_root.endswith("/v1"):
+        endpoint_root = endpoint_root[:-3]
+    payload = _request_json_get(f"{endpoint_root}/api/tags")
+    rows = payload.get("models")
+    if not isinstance(rows, list):
+        return []
+
+    now = _utc_now()
+    models: list[StoredAIProviderModel] = []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        model_id = str(item.get("model") or item.get("name") or "").strip()
+        if model_id == "":
+            continue
+        details = item.get("details")
+        details = details if isinstance(details, dict) else {}
+        capability_kinds = ["text_generation"]
+        input_modalities = ["text"]
+        if _ollama_model_supports_vision(model_id, details):
+            capability_kinds.append("vision")
+            input_modalities.append("image")
+        models.append(
+            StoredAIProviderModel(
+                provider_id="ollama",
+                model_id=model_id,
+                display_name=str(item.get("name") or model_id).strip(),
+                capability_kinds=capability_kinds,
+                input_modalities=input_modalities,
+                output_modalities=["text"],
+                context_window=_coerce_int(details.get("context_length")),
+                default_for=[],
+                enabled=True,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    return models
+
+
+def _capability_kinds_from_modalities(
+    input_modalities: list[str],
+    output_modalities: list[str],
+) -> list[str]:
+    normalized_inputs = {item.lower() for item in input_modalities}
+    normalized_outputs = {item.lower() for item in output_modalities}
+    capability_kinds: list[str] = []
+    if "text" in normalized_outputs:
+        capability_kinds.append("text_generation")
+    if "image" in normalized_inputs:
+        capability_kinds.append("vision")
+    if "audio" in normalized_outputs:
+        capability_kinds.append("tts")
+    return capability_kinds
+
+
+def _ollama_model_supports_vision(model_id: str, details: dict[str, object]) -> bool:
+    tokens = {model_id.lower()}
+    family = details.get("family")
+    if isinstance(family, str) and family.strip():
+        tokens.add(family.lower())
+    families = details.get("families")
+    if isinstance(families, list):
+        tokens.update(str(item).lower() for item in families if str(item).strip())
+    vision_markers = ("llava", "bakllava", "moondream", "minicpm-v", "qwen2-vl", "qwen2.5-vl", "vl")
+    return any(any(marker in token for marker in vision_markers) for token in tokens)
+
+
+def _string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _coerce_int(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return None
 
 
 def _capability_type_for(capability_id: str) -> str:

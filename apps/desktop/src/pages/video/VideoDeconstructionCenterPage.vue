@@ -26,6 +26,20 @@
         {{ videoErrorSummary }}
       </div>
 
+      <div v-if="isFfprobeUnavailable" class="ffprobe-alert">
+        <div class="ffprobe-alert__content">
+          <span class="material-symbols-outlined">warning</span>
+          <div class="ffprobe-alert__text">
+            <strong>未检测到 FFprobe 可执行文件</strong>
+            <p>影响范围：时长 / 分辨率 / 码率字段暂无法解析。请确保系统已安装 FFprobe。</p>
+          </div>
+        </div>
+        <div class="ffprobe-alert__actions">
+          <Button variant="secondary" size="sm" @click="handleViewSetupGuide">查看修复指引</Button>
+          <Button variant="primary" size="sm" @click="handleRescan">重新扫描</Button>
+        </div>
+      </div>
+
       <div class="video-workspace">
         <div class="video-main">
           <div class="section-header">
@@ -49,6 +63,8 @@
                 :key="video.id"
                 class="video-card"
                 :interactive="true"
+                :active="selectedVideoId === video.id"
+                @click="selectVideo(video.id)"
               >
                 <!-- Real Preview Component -->
                 <AssetPreview :asset="mapToAsset(video)" variant="card" />
@@ -69,14 +85,16 @@
                     <span class="metric-item"><span class="material-symbols-outlined">hard_drive</span>{{ formatFileSize(video.fileSizeBytes) }}</span>
                   </div>
 
-                  <!-- 拆解阶段进度 -->
-                  <div v-if="taskForVideo(video.id)" class="video-card__task">
-                    <div class="task-info">
-                      <span>{{ taskForVideo(video.id)?.message || "处理中" }}</span>
-                      <strong>{{ taskForVideo(video.id)?.progress ?? 0 }}%</strong>
-                    </div>
-                    <div class="task-progress-bg">
-                      <div class="task-progress-fill" :style="taskProgressStyle(video.id)"></div>
+                  <!-- 拆解状态摘要 -->
+                  <div v-if="videoImportStore.videoStages[video.id]" class="video-card__stages-summary">
+                    <div class="stage-mini-list">
+                      <div 
+                        v-for="stage in videoImportStore.videoStages[video.id]" 
+                        :key="stage.stageId"
+                        class="stage-mini-item"
+                        :data-status="stage.status"
+                        :title="`${stage.label}: ${stage.status}`"
+                      ></div>
                     </div>
                   </div>
 
@@ -91,7 +109,7 @@
                      <Button 
                        variant="secondary" 
                        size="sm" 
-                       @click="videoImportStore.removeVideo(video.id)"
+                       @click.stop="videoImportStore.removeVideo(video.id)"
                        :disabled="videoImportStore.status === 'applying'"
                      >
                        移除
@@ -99,7 +117,7 @@
                      <Button 
                        variant="brand" 
                        size="sm" 
-                       @click="handleApplyExtraction(video.id)"
+                       @click.stop="handleApplyExtraction(video.id)"
                        :running="isApplying(video.id)"
                        :disabled="videoImportStore.status === 'applying' || video.status !== 'ready'"
                      >
@@ -113,7 +131,85 @@
         </div>
 
         <aside class="video-rail">
-           <Card class="rail-card">
+           <!-- 视频详情与阶段进度面板 -->
+           <Card v-if="selectedVideo" class="rail-card detail-panel">
+              <div class="rail-card__header">
+                <h3>视频详情</h3>
+                <Button variant="ghost" size="sm" @click="selectedVideoId = null">
+                  <span class="material-symbols-outlined">close</span>
+                </Button>
+              </div>
+              <div class="rail-card__body">
+                <div class="detail-info">
+                  <div class="detail-row">
+                    <span>文件名</span>
+                    <strong>{{ selectedVideo.fileName }}</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span>状态</span>
+                    <Chip :variant="selectedVideo.status === 'ready' ? 'success' : 'info'" size="sm">
+                       {{ selectedVideo.status === "ready" ? "解析就绪" : "处理中" }}
+                    </Chip>
+                  </div>
+                </div>
+
+                <div class="stages-section">
+                  <h4>拆解阶段进度</h4>
+                  <div class="stages-list">
+                    <div v-for="stage in selectedVideoStages" :key="stage.stageId" class="stage-item">
+                      <div class="stage-item__header">
+                        <div class="stage-item__label">
+                          <span class="material-symbols-outlined" :data-status="stage.status">
+                            {{ getStageIcon(stage.status) }}
+                          </span>
+                          <span>{{ stage.label }}</span>
+                        </div>
+                        <div class="stage-item__status" :data-status="stage.status">
+                          {{ formatStageStatus(stage.status) }}
+                        </div>
+                      </div>
+
+                      <div v-if="stage.status === 'running' || stage.status === 'queued'" class="stage-item__progress">
+                        <div class="progress-bar">
+                          <div class="progress-fill" :style="{ width: `${stage.progressPct}%` }"></div>
+                        </div>
+                        <span class="progress-text">{{ stage.progressPct }}%</span>
+                      </div>
+
+                      <div v-if="stage.errorMessage" class="stage-item__error">
+                        <p>{{ stage.errorMessage }}</p>
+                        <div v-if="stage.nextAction" class="next-action">
+                          建议：{{ stage.nextAction }}
+                        </div>
+                      </div>
+
+                      <div class="stage-item__actions">
+                        <Button 
+                          v-if="stage.canRerun" 
+                          variant="secondary" 
+                          size="sm" 
+                          @click="handleRerunStage(selectedVideo.id, stage.stageId)"
+                        >
+                          <template #leading><span class="material-symbols-outlined">refresh</span></template>
+                          重新运行
+                        </Button>
+                        <Button 
+                          v-if="stage.status === 'provider_required'" 
+                          variant="primary" 
+                          size="sm" 
+                          @click="handleConfigureProvider"
+                        >
+                          <template #leading><span class="material-symbols-outlined">settings</span></template>
+                          配置 Provider
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+           </Card>
+
+           <Card v-else class="rail-card">
               <div class="rail-card__header">
                 <h3>项目策划同步</h3>
               </div>
@@ -136,7 +232,7 @@
               </div>
            </Card>
            
-           <Card class="rail-card mt-4">
+           <Card v-if="!selectedVideo" class="rail-card mt-4">
               <div class="rail-card__header">
                 <h3>拆解流说明</h3>
               </div>
@@ -157,6 +253,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 
 import AssetPreview from "@/components/assets/AssetPreview.vue";
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
@@ -173,8 +270,10 @@ import Chip from "@/components/ui/Chip/Chip.vue";
 const projectStore = useProjectStore();
 const taskBusStore = useTaskBusStore();
 const videoImportStore = useVideoImportStore();
+const router = useRouter();
 
 const activeApplyingVideoId = ref<string | null>(null);
+const selectedVideoId = ref<string | null>(null);
 
 const currentProjectId = computed(() => projectStore.currentProject?.projectId ?? "");
 const videoErrorSummary = computed(() => {
@@ -182,6 +281,24 @@ const videoErrorSummary = computed(() => {
   return videoImportStore.error.requestId
     ? `${videoImportStore.error.message}（${videoImportStore.error.requestId}）`
     : videoImportStore.error.message;
+});
+
+const selectedVideo = computed(() => {
+  if (!selectedVideoId.value) return null;
+  return videoImportStore.videos.find(v => v.id === selectedVideoId.value) || null;
+});
+
+const selectedVideoStages = computed(() => {
+  if (!selectedVideoId.value) return [];
+  return videoImportStore.videoStages[selectedVideoId.value] || [];
+});
+
+const isFfprobeUnavailable = computed(() => {
+  // Global check: if any video has a stage with media.ffprobe_unavailable
+  return Object.values(videoImportStore.videoStages).some(stages => 
+    stages.some(s => s.errorCode === 'media.ffprobe_unavailable')
+  ) || videoImportStore.error?.details?.error_code === 'media.ffprobe_unavailable' || 
+     videoImportStore.error?.message?.includes('FFprobe 不可用');
 });
 
 onMounted(() => {
@@ -197,13 +314,25 @@ watch(currentProjectId, (projectId) => {
   }
 });
 
+watch(() => videoImportStore.videos, (videos) => {
+  // Load stages for videos that don't have them yet
+  videos.forEach(v => {
+    if (!videoImportStore.videoStages[v.id]) {
+      void videoImportStore.loadVideoStages(v.id);
+    }
+  });
+}, { immediate: true });
+
 async function handleImportVideo(): Promise<void> {
   if (!currentProjectId.value) return;
 
   const filePath = await pickVideoFilePath();
   if (!filePath) return;
 
-  await videoImportStore.importVideoFile(currentProjectId.value, filePath);
+  const video = await videoImportStore.importVideoFile(currentProjectId.value, filePath);
+  if (video) {
+    void videoImportStore.loadVideoStages(video.id);
+  }
 }
 
 async function handleApplyExtraction(videoId: string): Promise<void> {
@@ -218,8 +347,57 @@ async function handleApplyExtraction(videoId: string): Promise<void> {
   }
 }
 
+async function handleRescan(): Promise<void> {
+  await videoImportStore.reScanRuntime();
+}
+
+function handleViewSetupGuide(): void {
+  // 跳转到系统设置的诊断锚点，引导用户检查 FFprobe 可用性
+  void router.push({ path: "/settings/ai-system", query: { section: "diagnostics", reason: "ffprobe" } });
+}
+
 function isApplying(videoId: string): boolean {
   return videoImportStore.status === 'applying' && activeApplyingVideoId.value === videoId;
+}
+
+function selectVideo(videoId: string): void {
+  selectedVideoId.value = videoId;
+  void videoImportStore.loadVideoStages(videoId);
+}
+
+async function handleRerunStage(videoId: string, stageId: string): Promise<void> {
+  await videoImportStore.rerunStage(videoId, stageId);
+}
+
+function handleConfigureProvider(): void {
+  // 跳转到 AI Provider 配置抽屉，由设置页根据 query 自动展开
+  void router.push({ path: "/settings/ai-system", query: { section: "providers" } });
+}
+
+function getStageIcon(status: string): string {
+  switch (status) {
+    case 'succeeded': return 'check_circle';
+    case 'failed':
+    case 'failed_degraded': return 'error';
+    case 'running': return 'sync';
+    case 'queued': return 'schedule';
+    case 'provider_required': return 'account_circle';
+    case 'blocked': return 'block';
+    default: return 'help_outline';
+  }
+}
+
+function formatStageStatus(status: string): string {
+  switch (status) {
+    case 'succeeded': return '已完成';
+    case 'failed': return '已失败';
+    case 'failed_degraded': return '降级完成';
+    case 'running': return '运行中';
+    case 'queued': return '队列中';
+    case 'provider_required': return '需配置 Provider';
+    case 'blocked': return '已阻塞';
+    default: return status;
+  }
 }
 
 async function pickVideoFilePath(): Promise<string> {
@@ -241,15 +419,6 @@ function formatDuration(value: number | null): string {
   const mins = Math.floor(value / 60);
   const secs = Math.round(value % 60);
   return mins > 0 ? `${mins}分${secs}秒` : `${secs}秒`;
-}
-
-function taskForVideo(videoId: string): TaskInfo | undefined {
-  return videoImportStore.taskForVideo(videoId);
-}
-
-function taskProgressStyle(videoId: string): Record<string, string> {
-  const progress = Math.min(100, Math.max(0, taskForVideo(videoId)?.progress ?? 0));
-  return { width: `${progress}%` };
 }
 
 function formatFileSize(bytes: number): string {
@@ -339,6 +508,46 @@ function mapToAsset(v: ImportedVideo): AssetDto {
   border-color: rgba(255, 90, 99, 0.20);
   background: rgba(255, 90, 99, 0.08);
   color: var(--color-danger);
+}
+
+.ffprobe-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: #FFFBE6;
+  border: 1px solid #FFE58F;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-6);
+  color: #856404;
+}
+
+.ffprobe-alert__content {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.ffprobe-alert__content .material-symbols-outlined {
+  color: #FAAD14;
+  font-size: 24px;
+}
+
+.ffprobe-alert__text strong {
+  display: block;
+  font: var(--font-title-sm);
+  margin-bottom: 2px;
+}
+
+.ffprobe-alert__text p {
+  margin: 0;
+  font: var(--font-body-sm);
+}
+
+.ffprobe-alert__actions {
+  display: flex;
+  gap: var(--space-3);
 }
 
 .video-workspace {
@@ -547,6 +756,165 @@ function mapToAsset(v: ImportedVideo): AssetDto {
   justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
+}
+
+.video-card[active="true"] {
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 1px var(--color-brand-primary), var(--shadow-md);
+}
+
+.video-card__stages-summary {
+  margin-top: 4px;
+}
+
+.stage-mini-list {
+  display: flex;
+  gap: 4px;
+}
+
+.stage-mini-item {
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-bg-muted);
+}
+
+.stage-mini-item[data-status="succeeded"] { background: var(--color-success); }
+.stage-mini-item[data-status="running"] { background: var(--color-brand-primary); animation: pulse 1.5s infinite; }
+.stage-mini-item[data-status="failed"], .stage-mini-item[data-status="failed_degraded"] { background: var(--color-danger); }
+.stage-mini-item[data-status="queued"] { background: var(--color-text-tertiary); }
+.stage-mini-item[data-status="provider_required"] { background: var(--color-warning); }
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.detail-panel {
+  position: sticky;
+  top: var(--space-4);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font: var(--font-body-sm);
+}
+
+.detail-row span {
+  color: var(--color-text-secondary);
+}
+
+.stages-section {
+  margin-top: var(--space-4);
+}
+
+.stages-section h4 {
+  margin: 0 0 var(--space-3) 0;
+  font: var(--font-title-sm);
+  color: var(--color-text-primary);
+}
+
+.stages-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stage-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--color-bg-muted);
+  border-radius: var(--radius-md);
+}
+
+.stage-item__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stage-item__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--font-title-xs);
+  color: var(--color-text-primary);
+}
+
+.stage-item__label .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.stage-item__label .material-symbols-outlined[data-status="succeeded"] { color: var(--color-success); }
+.stage-item__label .material-symbols-outlined[data-status="running"] { color: var(--color-brand-primary); animation: spin 2s linear infinite; }
+.stage-item__label .material-symbols-outlined[data-status="failed"], 
+.stage-item__label .material-symbols-outlined[data-status="failed_degraded"] { color: var(--color-danger); }
+
+.stage-item__status {
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
+}
+
+.stage-item__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--color-border-default);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-brand-primary);
+}
+
+.progress-text {
+  font: var(--font-caption);
+  color: var(--color-brand-primary);
+  min-width: 32px;
+  text-align: right;
+}
+
+.stage-item__error {
+  font: var(--font-body-xs);
+  color: var(--color-danger);
+  background: rgba(255, 90, 99, 0.05);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.stage-item__error p { margin: 0; }
+
+.next-action {
+  margin-top: 4px;
+  font-weight: bold;
+}
+
+.stage-item__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
 }
 
 .video-rail {

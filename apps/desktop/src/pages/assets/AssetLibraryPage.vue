@@ -117,6 +117,12 @@
                 </div>
 
                 <dl class="inspector-metadata">
+                  <div><dt>状态</dt><dd>
+                    <Chip v-if="assetStatus(selectedAsset).isInvalid" size="sm" variant="danger">已失效</Chip>
+                    <Chip v-else-if="assetStatus(selectedAsset).isGenerating" size="sm" variant="warning">生成中</Chip>
+                    <Chip v-else-if="store.references.length > 0" size="sm" variant="brand">已被引用</Chip>
+                    <Chip v-else size="sm" variant="success">可用</Chip>
+                  </dd></div>
                   <div><dt>路径</dt><dd :title="selectedAsset.filePath || '未记录路径'">{{ selectedAsset.filePath || "未记录路径" }}</dd></div>
                   <div><dt>大小</dt><dd>{{ formatSize(selectedAsset.fileSizeBytes) }}</dd></div>
                   <div><dt>时长</dt><dd>{{ formatDuration(selectedAsset.durationMs) }}</dd></div>
@@ -164,8 +170,8 @@
               <template v-else>
                 <div class="inspector-empty-state">
                   <span class="material-symbols-outlined">ads_click</span>
-                  <strong>未选中资产</strong>
-                  <p>从左侧素材墙选择一个真实资产，右侧会同步显示文件路径、引用影响和标签。</p>
+                  <strong>当前未选中资产</strong>
+                  <p>你现在可以从左侧素材墙选择一个真实资产，右侧会同步显示文件路径、引用影响和标签。</p>
                 </div>
               </template>
             </div>
@@ -227,6 +233,13 @@ const selectedAsset = computed(() => store.assets.find((asset) => asset.id === s
 const selectedTags = computed(() => (selectedAsset.value ? store.parseTags(selectedAsset.value) : []));
 const dragFileCountLabel = computed(() => dragFileCount.value <= 0 ? "待识别本地文件" : `${dragFileCount.value} 个本地文件`);
 const isBusy = computed(() => store.status === "loading" || store.importStatus === "importing");
+
+function assetStatus(asset: AssetDto | null) {
+  if (!asset) return { isGenerating: false, isInvalid: false };
+  const isGenerating = asset.source !== 'local' && !asset.fileSizeBytes && !asset.filePath;
+  const isInvalid = !isGenerating && !asset.filePath;
+  return { isGenerating, isInvalid };
+}
 
 const importStatusLabel = computed(() => {
   switch (store.importStatus) {

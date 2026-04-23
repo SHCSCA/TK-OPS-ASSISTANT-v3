@@ -156,8 +156,9 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       }
 
       const taskBusStore = useTaskBusStore();
-      this._taskUnsubscriber = taskBusStore.subscribeToType("ai-voice", (event: TaskEvent) => {
-        if (event.projectId === this.projectId) {
+      // FIX: Use correct TaskEventType
+      this._taskUnsubscriber = taskBusStore.subscribeToType("task.progress", (event: TaskEvent) => {
+        if (event.projectId === this.projectId && (event.taskType === "ai_voice" || event.taskType === "tts_generation")) {
           this.handleTaskEvent(event);
         }
       });
@@ -167,13 +168,14 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       if (event.type === "task.progress" || event.type === "task.started") {
         this.activeTask = {
           id: event.taskId ?? "",
+          task_type: event.taskType || "ai_voice",
+          project_id: event.projectId ?? this.projectId,
           status: "running",
           progress: event.progressPct ?? 0,
           message: event.message ?? "正在配音...",
-          task_type: "ai-voice",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        } as any;
+        };
         this.status = "generating";
       } else if (event.type === "task.completed") {
         this.activeTask = null;
@@ -191,7 +193,6 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       try {
         const tracks = await fetchVoiceTracks(this.projectId);
         this.tracks = tracks;
-        // Optionally select the latest track if just finished
         if (tracks.length > 0) {
           this.selectedTrackId = tracks[0].id;
           await this.loadTrackDetail(tracks[0].id, false);
@@ -239,7 +240,6 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           this.selectedTrackId = result.track.id;
         }
         
-        // If task was submitted, wait for events. If immediate, status becomes ready.
         this.status = result.track?.status === "blocked" ? "blocked" : "ready";
         return result;
       } catch (error) {
@@ -250,7 +250,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
     
     extractParagraphs(content: string): Paragraph[] {
       return content
-        .split(/\n\s*\n/) // split by empty lines
+        .split(/\n\s*\n/) 
         .map((paragraph) => paragraph.trim())
         .filter((paragraph) => paragraph.length > 0)
         .map((text) => ({

@@ -99,7 +99,7 @@
               </template>
               <!-- 非发现供应商：显示静态标签 -->
               <template v-else>
-                <Chip size="sm" variant="neutral">内置模型列表</Chip>
+                <Chip size="sm" variant="neutral">内置与自定义模型</Chip>
               </template>
               <span class="count-tag">共 {{ models.length }} 个模型</span>
             </div>
@@ -110,7 +110,9 @@
                 <div class="model-tags">
                   <Chip v-if="m.capabilityTypes.includes('text_generation')" size="sm">文本</Chip>
                   <Chip v-if="m.capabilityTypes.includes('vision')" size="sm">视觉</Chip>
+                  <Chip v-if="m.capabilityTypes.includes('video')" size="sm">视频</Chip>
                   <Chip v-if="m.capabilityTypes.includes('tts')" size="sm">TTS</Chip>
+                  <Chip v-if="m.capabilityTypes.includes('asset_analysis')" size="sm">分析</Chip>
                 </div>
               </div>
               <div v-if="models.length === 0" class="model-empty">
@@ -118,17 +120,43 @@
               </div>
             </div>
 
-            <!-- 非发现供应商：手动添加自定义模型 -->
-            <div v-if="!provider?.supportsModelDiscovery" class="custom-model-row">
+            <!-- 非发现供应商：手动添加自定义模型 (F-06, F-07) -->
+            <div v-if="!provider?.supportsModelDiscovery" class="custom-model-form">
+              <div class="cm-header">
+                <strong>添加自定义模型</strong>
+                <span v-if="customModelError" class="cm-error">{{ customModelError }}</span>
+              </div>
+              
               <input
                 v-model="customModelId"
                 type="text"
                 class="ui-input-field custom-model-input"
-                placeholder="输入自定义 model_id..."
-                @keydown.enter="addCustomModel"
+                placeholder="输入 model_id (如 deepseek-v3)"
+                @blur="validateCustomModelId"
               />
-              <Button variant="secondary" size="sm" :disabled="!customModelId.trim()" @click="addCustomModel">
-                添加
+
+              <div class="cm-capabilities">
+                <label>能力标注 (至少选一项):</label>
+                <div class="cm-checkbox-group">
+                  <label><input type="checkbox" value="text_generation" v-model="customCapabilities" /> 文本</label>
+                  <label><input type="checkbox" value="vision" v-model="customCapabilities" /> 视觉</label>
+                  <label><input type="checkbox" value="video" v-model="customCapabilities" /> 视频</label>
+                  <label><input type="checkbox" value="tts" v-model="customCapabilities" /> TTS</label>
+                  <label><input type="checkbox" value="asset_analysis" v-model="customCapabilities" /> 分析</label>
+                </div>
+              </div>
+
+              <div v-if="showOverwritePrompt" class="cm-overwrite">
+                <label><input type="checkbox" v-model="overwriteExisting" /> 覆盖已有配置</label>
+              </div>
+
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                :disabled="!isCustomModelValid" 
+                @click="addCustomModel"
+              >
+                保存自定义模型
               </Button>
             </div>
           </div>
@@ -137,7 +165,7 @@
         <footer class="drawer-footer">
           <Button variant="ghost" @click="$emit('close')">取消</Button>
           <Button variant="primary" :disabled="isSaving" @click="handleSave">
-            {{ isSaving ? '保存中...' : '保存配置' }}
+            {{ isSaving ? '保存中...' : '保存凭据' }}
           </Button>
         </footer>
       </aside>
@@ -165,20 +193,27 @@ const emit = defineEmits<{
   (e: "save", data: { apiKey: string; baseUrl: string }): void;
   (e: "test", modelId: string): void;
   (e: "refresh-models"): void;
+  (e: "save-model", modelId: string, capabilityKinds: string[]): void;
 }>();
 
 const apiKey = ref("");
 const baseUrl = ref("");
 const showKey = ref(false);
 const testModel = ref("");
+
+// Custom Model State
 const customModelId = ref("");
+const customCapabilities = ref<string[]>(["text_generation"]);
+const customModelError = ref("");
+const showOverwritePrompt = ref(false);
+const overwriteExisting = ref(false);
 
 watch(() => props.provider, (p) => {
   if (p) {
     apiKey.value = "";
     baseUrl.value = p.baseUrl || "";
     showKey.value = false;
-    customModelId.value = "";
+    resetCustomModelForm();
     if (p.models && p.models.length > 0 && !testModel.value) {
       testModel.value = p.models[0].modelId;
     }
@@ -203,6 +238,14 @@ const baseUrlHint = computed(() => {
   return "默认值，留空使用官方地址";
 });
 
+const isCustomModelValid = computed(() => {
+  const id = customModelId.value.trim();
+  if (!id) return false;
+  if (customCapabilities.value.length === 0) return false;
+  if (showOverwritePrompt.value && !overwriteExisting.value) return false;
+  return true;
+});
+
 function handleTest() {
   if (!testModel.value) return;
   emit("test", testModel.value);
@@ -212,25 +255,39 @@ function handleSave() {
   emit("save", { apiKey: apiKey.value, baseUrl: baseUrl.value });
 }
 
-function addCustomModel() {
-  const id = customModelId.value.trim();
-  if (!id) return;
-  // 临时添加到本地模型列表（不持久化，仅用于选择）
-  if (props.provider?.models && !props.provider.models.find(m => m.modelId === id)) {
-    props.provider.models.push({
-      modelId: id,
-      displayName: id,
-      provider: props.provider.provider,
-      capabilityTypes: ["text_generation"],
-      inputModalities: ["text"],
-      outputModalities: ["text"],
-      contextWindow: null,
-      defaultFor: [],
-      enabled: true
-    });
-  }
-  testModel.value = id;
+function resetCustomModelForm() {
   customModelId.value = "";
+  customCapabilities.value = ["text_generation"];
+  customModelError.value = "";
+  showOverwritePrompt.value = false;
+  overwriteExisting.value = false;
+}
+
+function validateCustomModelId() {
+  const id = customModelId.value.trim();
+  customModelError.value = "";
+  showOverwritePrompt.value = false;
+  
+  if (!id) return;
+
+  const exists = models.value.some(m => m.modelId === id);
+  if (exists) {
+    customModelError.value = "该模型 ID 已存在";
+    showOverwritePrompt.value = true;
+  }
+}
+
+function addCustomModel() {
+  if (!isCustomModelValid.value) return;
+  
+  const id = customModelId.value.trim();
+  emit("save-model", id, [...customCapabilities.value]);
+  
+  // Update test model to the newly added one for convenience
+  testModel.value = id;
+  
+  // Clear the form after submission
+  resetCustomModelForm();
 }
 </script>
 
@@ -475,17 +532,77 @@ function addCustomModel() {
   font: var(--font-body-sm);
 }
 
-.custom-model-row {
+.custom-model-form {
   display: flex;
+  flex-direction: column;
   gap: var(--space-3);
-  align-items: center;
+  padding: var(--space-4);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
   margin-top: var(--space-2);
 }
 
+.cm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cm-header strong {
+  font: var(--font-title-sm);
+  color: var(--color-text-primary);
+}
+
+.cm-error {
+  font: var(--font-caption);
+  color: var(--color-danger);
+}
+
 .custom-model-input {
-  flex: 1;
-  height: 36px;
   font: var(--font-mono-md);
+}
+
+.cm-capabilities {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cm-capabilities label {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
+}
+
+.cm-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.cm-checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--font-body-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.cm-overwrite {
+  padding: var(--space-2);
+  background: rgba(245, 183, 64, 0.1);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(245, 183, 64, 0.3);
+}
+
+.cm-overwrite label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--font-body-sm);
+  color: var(--color-warning);
+  cursor: pointer;
 }
 
 .drawer-footer {

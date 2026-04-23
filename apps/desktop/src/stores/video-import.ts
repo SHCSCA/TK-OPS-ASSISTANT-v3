@@ -5,12 +5,14 @@ import {
   deleteImportedVideo,
   fetchImportedVideos,
   importVideo,
-  applyVideoExtractionToProject
+  applyVideoExtractionToProject,
+  fetchVideoStages,
+  rerunVideoStage
 } from "@/app/runtime-client";
 import { useTaskBusStore } from "@/stores/task-bus";
 import { useProjectStore } from "@/stores/project";
 import type { TaskEvent, TaskInfo } from "@/types/task-events";
-import type { RuntimeRequestErrorShape } from "@/types/runtime";
+import type { RuntimeRequestErrorShape, VideoStageDto } from "@/types/runtime";
 import type { ImportedVideo } from "@/types/video";
 
 export type VideoImportStatus = "idle" | "loading" | "ready" | "importing" | "error" | "applying";
@@ -20,6 +22,7 @@ type VideoImportState = {
   status: VideoImportStatus;
   taskSnapshots: Record<string, TaskInfo>;
   videos: ImportedVideo[];
+  videoStages: Record<string, VideoStageDto[]>;
   _taskUnsubscribers: Record<string, () => void>;
 };
 
@@ -29,6 +32,7 @@ export const useVideoImportStore = defineStore("video-import", {
     status: "idle",
     taskSnapshots: {},
     videos: [],
+    videoStages: {},
     _taskUnsubscribers: {}
   }),
   actions: {
@@ -46,6 +50,27 @@ export const useVideoImportStore = defineStore("video-import", {
         this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error, "加载视频列表失败。");
+      }
+    },
+    async loadVideoStages(videoId: string): Promise<void> {
+      try {
+        const stages = await fetchVideoStages(videoId);
+        this.videoStages = {
+          ...this.videoStages,
+          [videoId]: stages
+        };
+      } catch (error) {
+        console.error(`Failed to load stages for video ${videoId}:`, error);
+      }
+    },
+    async rerunStage(videoId: string, stageId: string): Promise<void> {
+      this.error = null;
+      try {
+        // FIX: Match backend rerun signature if needed, or stick to runtime-client
+        await rerunVideoStage(videoId, stageId);
+        await this.loadVideoStages(videoId);
+      } catch (error) {
+        this.applyRuntimeError(error, `重试阶段 ${stageId} 失败。`);
       }
     },
     async importVideoFile(projectId: string, filePath: string): Promise<ImportedVideo | null> {
@@ -69,19 +94,31 @@ export const useVideoImportStore = defineStore("video-import", {
       this.error = null;
 
       try {
-        // Extraction ID follows the convention defined in backend: extraction-{video_id}
         const extractionId = `extraction-${videoId}`;
         await applyVideoExtractionToProject(extractionId);
         
-        // Refresh project store to reflect new script/storyboard versions
         const projectStore = useProjectStore();
         if (projectStore.currentProject) {
-          await projectStore.load(projectStore.currentProject.projectId);
+          await projectStore.load();
         }
         
         this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error, "应用视频提取结果失败。");
+      }
+    },
+    async reScanRuntime(): Promise<void> {
+      this.status = "loading";
+      this.error = null;
+      try {
+        const projectStore = useProjectStore();
+        const projectId = projectStore.currentProject?.projectId;
+        if (projectId) {
+          await this.loadVideos(projectId);
+        }
+        this.status = "ready";
+      } catch (error) {
+        this.applyRuntimeError(error, "重新扫描 Runtime 失败。");
       }
     },
     async removeVideo(videoId: string): Promise<void> {
@@ -225,19 +262,10 @@ function deriveTaskInfoFromVideoEvent(
 
   return {
     id: videoId,
-    kind: "video_import",
-    label: "视频导入",
-    status,
-    progress,
-    progressPct: progress,
-    projectId: event.projectId ?? null,
-    errorCode: event.errorCode ?? null,
-    errorMessage: event.errorMessage ?? null,
-    retryable: event.type === "video.import.stage.failed",
-    createdAt: timestamp,
-    updatedAt: timestamp,
     task_type: "video_import",
     project_id: event.projectId ?? null,
+    status,
+    progress,
     message,
     created_at: timestamp,
     updated_at: timestamp

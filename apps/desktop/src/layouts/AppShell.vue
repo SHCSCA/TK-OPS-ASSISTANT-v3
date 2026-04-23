@@ -82,8 +82,9 @@
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, watch, watchEffect } from "vue";
+import { computed, onMounted, watch, watchEffect } from "vue";
 import { RouterView, useRoute } from "vue-router";
+
 
 import { routeManifest } from "@/app/router";
 import type { AssetDto, AssetReferenceDto } from "@/types/runtime";
@@ -95,6 +96,7 @@ import { useAssetLibraryStore } from "@/stores/asset-library";
 import { useConfigBusStore } from "@/stores/config-bus";
 import { useLicenseStore } from "@/stores/license";
 import { useProjectStore } from "@/stores/project";
+import { useTaskBusStore } from "@/stores/task-bus";
 import {
   createRouteDetailContext,
   type DetailContext,
@@ -110,9 +112,14 @@ const configBusStore = useConfigBusStore();
 const licenseStore = useLicenseStore();
 const projectStore = useProjectStore();
 const shellUiStore = useShellUiStore();
+const taskBusStore = useTaskBusStore();
 
 const { detailContext, isDetailPanelOpen, reducedMotion, sidebarCollapsed, theme } = storeToRefs(shellUiStore);
 const { health } = storeToRefs(configBusStore);
+
+onMounted(() => {
+  taskBusStore.connect();
+});
 
 const currentPage = computed(() => routeManifest.find((item) => item.id === route.name) ?? routeManifest[0]);
 const isWizardPage = computed(() => currentPage.value.pageType === "wizard");

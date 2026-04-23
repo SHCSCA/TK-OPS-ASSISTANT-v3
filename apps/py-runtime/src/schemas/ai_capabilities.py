@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -36,6 +38,11 @@ class AIProviderSecretStatusDto(BaseModel):
     baseUrl: str
     secretSource: str
     supportsTextGeneration: bool
+    readiness: str
+    lastCheckedAt: str | None = None
+    errorCode: str | None = None
+    errorMessage: str | None = None
+    scope: str
 
 
 class AIProviderSecretInput(BaseModel):
@@ -56,9 +63,28 @@ class AIProviderHealthDto(BaseModel):
     latencyMs: int | None = None
 
 
+class AIDiagnosticSummaryDto(BaseModel):
+    configuredProviderCount: int
+    readyProviderCount: int
+    degradedProviderCount: int
+    lastHealthRefreshAt: str | None = None
+
+
 class AICapabilitySettingsDto(BaseModel):
     capabilities: list[AICapabilityConfigDto]
     providers: list[AIProviderSecretStatusDto]
+    configVersion: str
+    scope: str
+    diagnosticSummary: AIDiagnosticSummaryDto
+
+
+class AICapabilityChangedEventDto(BaseModel):
+    type: Literal["ai-capability.changed"] = "ai-capability.changed"
+    scope: str = "runtime_local"
+    configVersion: str
+    reason: str
+    providerIds: list[str]
+    capabilityIds: list[str]
 
 
 class AIProviderCatalogItemDto(BaseModel):

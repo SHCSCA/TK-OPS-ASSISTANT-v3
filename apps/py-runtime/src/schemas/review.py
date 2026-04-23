@@ -19,6 +19,35 @@ class ReviewSuggestion(BaseModel):
     adopted_at: datetime | None = None
 
 
+class ReviewIssueCategoryDto(BaseModel):
+    category: str
+    count: int
+    pending_count: int
+    adopted_count: int
+    highest_priority: str
+
+
+class ReviewFeedbackTargetDto(BaseModel):
+    target_type: str
+    target_id: str
+    title: str
+    reason: str
+    current_version: int | None = None
+    status: str | None = None
+
+
+class ReviewLatestExecutionResultDto(BaseModel):
+    source: str
+    plan_id: str
+    title: str
+    status: str
+    summary: str
+    scheduled_at: datetime | None = None
+    received_at: datetime | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+
+
 class ReviewSummaryUpdateInput(BaseModel):
     project_name: str | None = None
     total_views: int | None = None
@@ -37,6 +66,10 @@ class ReviewSummaryDto(BaseModel):
     total_comments: int
     avg_watch_time_sec: float
     completion_rate: float
+    review_summary: str
+    issue_categories: list[ReviewIssueCategoryDto]
+    feedback_targets: list[ReviewFeedbackTargetDto]
+    latest_execution_result: ReviewLatestExecutionResultDto | None = None
     suggestions: list[ReviewSuggestion]
     last_analyzed_at: datetime | None = None
     created_at: datetime

@@ -182,7 +182,7 @@
       </main>
     </div>
 
-    <!-- Drawer Modal -->
+    <!-- Drawer Modal for Workspace -->
     <transition name="drawer">
       <div v-if="isCreating" class="drawer-overlay" @click="isCreating = false">
         <aside class="drawer-panel" @click.stop>
@@ -209,6 +209,47 @@
               <div class="drawer-actions">
                 <Button variant="ghost" @click="isCreating = false">取消</Button>
                 <Button variant="primary" type="submit" :disabled="!form.name || !form.root_path || deviceWorkspacesStore.loading">保存工作区</Button>
+              </div>
+            </form>
+          </div>
+        </aside>
+      </div>
+    </transition>
+
+    <!-- Drawer Modal for Instance -->
+    <transition name="drawer">
+      <div v-if="isCreatingInstance" class="drawer-overlay" @click="isCreatingInstance = false">
+        <aside class="drawer-panel" @click.stop>
+          <div class="drawer-panel__header">
+            <div>
+              <p class="drawer-panel__eyebrow">新建实例</p>
+              <h2>创建浏览器实例</h2>
+            </div>
+            <button class="drawer-panel__close" @click="isCreatingInstance = false">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </div>
+          <div class="drawer-panel__body">
+            <form class="drawer-form" @submit.prevent="handleCreateInstance">
+              <div class="form-group">
+                <label>实例名称</label>
+                <input v-model="instanceForm.name" type="text" placeholder="例：Profile-01" class="ui-input-field" required />
+              </div>
+              <div class="form-group">
+                <label>Profile 路径</label>
+                <input v-model="instanceForm.profile_path" type="text" placeholder="Data/Profile-01" class="ui-input-field" required />
+              </div>
+              <div class="form-group">
+                <label>浏览器类型</label>
+                <select v-model="instanceForm.browser_type" class="ui-input-field">
+                  <option value="chrome">Chrome</option>
+                  <option value="firefox">Firefox</option>
+                  <option value="edge">Edge</option>
+                </select>
+              </div>
+              <div class="drawer-actions">
+                <Button variant="ghost" @click="isCreatingInstance = false">取消</Button>
+                <Button variant="primary" type="submit" :disabled="!instanceForm.name || !instanceForm.profile_path">保存实例</Button>
               </div>
             </form>
           </div>
@@ -841,8 +882,41 @@ function formatDateTime(value: string) {
 .drawer-actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-3);
+  gap: var(--button-gap, 12px);
   margin-top: var(--space-4);
+  padding-top: var(--drawer-footer-pad, 0);
+}
+
+.instance-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.instance-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3);
+  background: var(--color-bg-canvas);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+}
+
+.ic-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ic-info strong {
+  font: var(--font-title-sm);
+  color: var(--color-text-primary);
+}
+
+.ic-info span {
+  font: var(--font-caption);
+  color: var(--color-text-secondary);
 }
 
 .drawer-enter-active, .drawer-leave-active { 
@@ -856,6 +930,16 @@ function formatDateTime(value: string) {
 }
 .drawer-enter-from .drawer-panel, .drawer-leave-to .drawer-panel { 
   transform: translateX(100%); 
+}
+
+@media (max-width: 960px) {
+  .drawer-actions {
+    flex-wrap: wrap;
+  }
+  .drawer-actions > * {
+    min-height: 44px;
+    flex: 1 1 100%;
+  }
 }
 
 @media (max-width: 1200px) {

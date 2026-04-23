@@ -1,5 +1,5 @@
 import { ref, watch } from "vue";
-import { useAICapabilityStore } from "@/stores/ai-capability";
+import { useAIStore } from "@/stores/ai-capability";
 import type { CapabilityBindingRow } from "./types";
 
 /** 能力 ID → 中文标签 */
@@ -17,7 +17,7 @@ const CAPABILITY_LABELS: Record<string, string> = {
  * 能力绑定矩阵：7 项 AI 能力的 Provider/Model 绑定管理
  */
 export function useCapabilityBinding() {
-  const aiStore = useAICapabilityStore();
+  const aiStore = useAIStore();
 
   const capabilityRows = ref<CapabilityBindingRow[]>([]);
   const capabilityDirty = ref(false);
@@ -42,7 +42,10 @@ export function useCapabilityBinding() {
   }
 
   async function saveCapabilities() {
-    await aiStore.saveCapabilities(capabilityRows.value);
+    // FIX: Match the required Partial<AICapabilitySettings> contract
+    await aiStore.saveCapabilities({ 
+      capabilities: capabilityRows.value 
+    });
     capabilityDirty.value = false;
   }
 

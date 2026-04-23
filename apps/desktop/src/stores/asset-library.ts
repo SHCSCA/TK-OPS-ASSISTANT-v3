@@ -123,9 +123,10 @@ export const useAssetLibraryStore = defineStore("asset-library", {
       this.deleteStatus = "checking";
       this.error = null;
       try {
-        this.references = await fetchAssetReferences(id);
-        if (this.references.length > 0) {
-          this.deleteError = `资产存在引用，请先处理 ${this.references.length} 条引用后再删除`;
+        const asset = this.assetDetailsById[id] || await fetchAsset(id);
+        if (asset.referenceSummary?.blockingDelete) {
+          this.references = await fetchAssetReferences(id);
+          this.deleteError = `资产已被引用且禁止删除，请先处理 ${asset.referenceSummary.total} 条引用后再试`;
           this.deleteStatus = "blocked";
           return false;
         }

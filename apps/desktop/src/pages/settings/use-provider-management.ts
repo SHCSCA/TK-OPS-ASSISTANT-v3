@@ -1,12 +1,14 @@
 import { computed, ref } from "vue";
-import { useAICapabilityStore } from "@/stores/ai-capability";
+import { useAIStore } from "@/stores/ai-capability";
+import { useConfigBusStore } from "@/stores/config-bus";
 import type { ProviderCardState } from "./types";
 
 /**
  * Provider 管理：抽屉状态、配置保存、连通性测试、模型刷新
  */
 export function useProviderManagement() {
-  const aiStore = useAICapabilityStore();
+  const aiStore = useAIStore();
+  const configBusStore = useConfigBusStore();
 
   const isDrawerOpen = ref(false);
   const activeProviderId = ref<string | null>(null);
@@ -17,9 +19,11 @@ export function useProviderManagement() {
   const providerCardStates = computed<ProviderCardState[]>(() => {
     return aiStore.providerCatalog.map(p => ({
       ...p,
-      health: aiStore.providerHealth[p.provider] || null,
+      // 这里的 health 是指最近一次连通性测试的详细结果
+      health: configBusStore.providerReadiness[p.provider] || null,
       models: aiStore.modelCatalogByProvider[p.provider] || [],
-      loadingModels: false
+      loadingModels: false,
+      readiness: configBusStore.providerReadiness[p.provider] || null
     }));
   });
 
@@ -32,45 +36,71 @@ export function useProviderManagement() {
     activeProviderId.value = id;
     isDrawerOpen.value = true;
     if (!aiStore.modelCatalogByProvider[id]) {
-      void aiStore.loadProviderModels(id);
+       void aiStore.loadModelsForProvider(id);
     }
   }
 
   async function handleQuickTest(id: string) {
     activeProviderId.value = id;
     isTestingProvider.value = true;
-    await aiStore.checkProvider(id);
-    isTestingProvider.value = false;
+    try {
+      await aiStore.checkAIProviderHealth(id);
+      // 刷新全局 Readiness 状态
+      await configBusStore.fetchProviderReadinessSilently();
+    } finally {
+      isTestingProvider.value = false;
+    }
   }
 
   async function handleProviderTest(modelId?: string) {
     if (!activeProviderId.value) return;
     isTestingProvider.value = true;
-    await aiStore.checkProvider(activeProviderId.value, modelId);
-    isTestingProvider.value = false;
+    try {
+      // 调用真实 store 链路进行健康检查
+      await aiStore.checkAIProviderHealth(activeProviderId.value, modelId ? { model: modelId } : {});
+      // 成功后静默刷新 Readiness 摘要
+      await configBusStore.fetchProviderReadinessSilently();
+    } finally {
+      isTestingProvider.value = false;
+    }
   }
 
   async function saveProviderConfig(data: { apiKey: string; baseUrl: string }) {
     if (!activeProviderId.value) return;
     isSavingProvider.value = true;
-    await aiStore.saveProviderSecret(activeProviderId.value, data);
-    isSavingProvider.value = false;
-    isDrawerOpen.value = false;
+    try {
+       await aiStore.saveProviderSecret(activeProviderId.value, data);
+       isDrawerOpen.value = false;
+    } finally {
+       isSavingProvider.value = false;
+    }
   }
 
   async function refreshProviderModels() {
     if (!activeProviderId.value) return;
     isRefreshingModels.value = true;
-    if (activeProvider.value?.supportsModelDiscovery) {
+    try {
       await aiStore.refreshProviderModels(activeProviderId.value);
-    } else {
-      await aiStore.loadProviderModels(activeProviderId.value);
+    } finally {
+      isRefreshingModels.value = false;
     }
-    isRefreshingModels.value = false;
   }
 
   async function loadModelsForProvider(providerId: string) {
-    await aiStore.loadProviderModels(providerId);
+    await aiStore.loadModelsForProvider(providerId);
+  }
+
+  async function saveProviderModel(modelId: string, capabilityKinds: string[]) {
+    if (!activeProviderId.value) return;
+    isSavingProvider.value = true;
+    try {
+      await aiStore.saveProviderModel(activeProviderId.value, modelId, { 
+        displayName: modelId, 
+        capabilityKinds 
+      });
+    } finally {
+      isSavingProvider.value = false;
+    }
   }
 
   return {
@@ -86,6 +116,7 @@ export function useProviderManagement() {
     handleProviderTest,
     saveProviderConfig,
     refreshProviderModels,
-    loadModelsForProvider
+    loadModelsForProvider,
+    saveProviderModel
   };
 }

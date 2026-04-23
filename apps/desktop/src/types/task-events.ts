@@ -14,7 +14,9 @@ export type TaskEventType =
   | "render.progress"
   | "account.status.changed"
   | "device.status.changed"
-  | "publish.receipt.updated";
+  | "publish.receipt.updated"
+  | "config.changed"
+  | "ai-capability.changed";
 
 export type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 
@@ -48,6 +50,16 @@ export interface TaskEvent {
   lastSeenAt?: string | null;
   planId?: string;
   platformResponse?: unknown;
+
+  // Fields for config.changed and ai-capability.changed
+  scope?: string;
+  revision?: number;
+  updatedAt?: string;
+  changedKeys?: string[];
+  configVersion?: number;
+  reason?: string;
+  providerIds?: string[];
+  capabilityIds?: string[];
 }
 
 export interface TaskInfo {
@@ -59,4 +71,21 @@ export interface TaskInfo {
   message: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ConfigChangedEvent extends TaskEvent {
+  type: "config.changed";
+  scope: string;
+  revision: number;
+  updatedAt: string;
+  changedKeys: string[];
+}
+
+export interface AICapabilityChangedEvent extends TaskEvent {
+  type: "ai-capability.changed";
+  scope: string;
+  configVersion: number;
+  reason: string;
+  providerIds: string[];
+  capabilityIds: string[];
 }

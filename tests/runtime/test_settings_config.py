@@ -16,6 +16,7 @@ def test_settings_config_returns_default_document(
     payload = response.json()
     assert payload["ok"] is True
     assert payload["data"]["revision"] == 1
+    assert payload["data"]["scope"] == "runtime_local"
     assert payload["data"]["runtime"]["mode"] == "test"
     assert payload["data"]["runtime"]["workspaceRoot"]
     assert payload["data"]["paths"]["cacheDir"]
@@ -60,6 +61,7 @@ def test_settings_config_update_persists_across_app_recreation(
     written = write_response.json()
     assert written["ok"] is True
     assert written["data"]["revision"] == 2
+    assert written["data"]["scope"] == "runtime_local"
     assert written["data"]["runtime"]["mode"] == "production"
     assert written["data"]["logging"]["level"] == "DEBUG"
     assert written["data"]["ai"]["model"] == "gpt-5.4-mini"
@@ -79,6 +81,58 @@ def test_settings_config_update_persists_across_app_recreation(
     assert payload["data"]["ai"]["voice"] == "nova"
 
 
+def test_settings_config_update_broadcasts_config_changed_event(
+    runtime_app,
+    runtime_data_dir: Path,
+) -> None:
+    client = TestClient(runtime_app)
+    captured: list[dict[str, object]] = []
+
+    async def fake_broadcast(message: dict[str, object]) -> None:
+        event = dict(message)
+        event.setdefault("schema_version", 1)
+        captured.append(event)
+
+    from services import settings_service as settings_service_module
+
+    original_broadcast = settings_service_module.ws_manager.broadcast
+    settings_service_module.ws_manager.broadcast = fake_broadcast
+    try:
+        response = client.put(
+            "/api/settings/config",
+            json={
+                "runtime": {
+                    "mode": "test",
+                    "workspaceRoot": str(runtime_data_dir / "workspace-broadcast"),
+                },
+                "paths": {
+                    "cacheDir": str(runtime_data_dir / "cache-broadcast"),
+                    "exportDir": str(runtime_data_dir / "exports-broadcast"),
+                    "logDir": str(runtime_data_dir / "logs-broadcast"),
+                },
+                "logging": {"level": "INFO"},
+                "ai": {
+                    "provider": "openai",
+                    "model": "gpt-5.4",
+                    "voice": "alloy",
+                    "subtitleMode": "balanced",
+                },
+            },
+        )
+    finally:
+        settings_service_module.ws_manager.broadcast = original_broadcast
+
+    assert response.status_code == 200
+    assert captured
+    event = captured[-1]
+    assert event["schema_version"] == 1
+    assert event["type"] == "config.changed"
+    assert event["scope"] == "runtime_local"
+    assert event["revision"] == 2
+    assert event["updatedAt"]
+    assert event["changedKeys"] == ["runtime", "paths"]
+
+
 def test_settings_diagnostics_returns_non_sensitive_runtime_details(
     runtime_client: TestClient,
     runtime_data_dir: Path,
@@ -94,6 +148,7 @@ def test_settings_diagnostics_returns_non_sensitive_runtime_details(
         "revision": 1,
         "mode": "test",
         "healthStatus": "online",
+        "configScope": "runtime_local",
     }
 
 

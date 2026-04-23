@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -200,6 +202,7 @@ def create_app() -> FastAPI:
         ai_capability_repository,
         secret_store,
     )
+    settings_service.bind_ai_capability_service(ai_capability_service)
     ai_text_generation_service = AITextGenerationService(
         capability_service=ai_capability_service,
         ai_job_repository=ai_job_repository,
@@ -245,6 +248,8 @@ def create_app() -> FastAPI:
         dashboard_repository=dashboard_repository,
         script_repository=script_repository,
         storyboard_repository=storyboard_repository,
+        publishing_repository=publishing_repository,
+        ai_job_repository=ai_job_repository,
     )
     voice_artifact_store = VoiceArtifactStore(settings_service=settings_service)
     voice_service = VoiceService(
@@ -274,10 +279,23 @@ def create_app() -> FastAPI:
     if license_import_error:
         log.warning("许可证服务依赖未就绪: %s", license_import_error)
 
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if runtime_config.mode != "test":
+            async def _refresh_provider_health() -> None:
+                try:
+                    await asyncio.to_thread(ai_capability_service.refresh_provider_health)
+                except Exception:
+                    log.exception("启动后刷新 AI Provider 健康快照失败")
+
+            asyncio.create_task(_refresh_provider_health())
+        yield
+
     app = FastAPI(
         title='TK-OPS Runtime',
         summary='TK-OPS creative chain foundation runtime',
         version=runtime_config.version,
+        lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware,
@@ -457,19 +475,6 @@ def create_app() -> FastAPI:
     app.include_router(voice_router)
     app.include_router(workspace_router)
     app.include_router(ws_router)
-
-    @app.on_event("startup")
-    async def warm_ai_provider_health() -> None:
-        if runtime_config.mode == "test":
-            return
-
-        async def _refresh() -> None:
-            try:
-                await asyncio.to_thread(ai_capability_service.refresh_provider_health)
-            except Exception:
-                log.exception("启动后刷新 AI Provider 健康快照失败")
-
-        asyncio.create_task(_refresh())
 
     log_event(
         'system',

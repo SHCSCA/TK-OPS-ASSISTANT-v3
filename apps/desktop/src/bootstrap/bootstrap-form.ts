@@ -1,7 +1,8 @@
-﻿import type { AppSettings, AppSettingsUpdateInput } from "@/types/runtime";
+import type { AppSettings, AppSettingsUpdateInput } from "@/types/runtime";
 
 export function createBootstrapSettingsInput(): AppSettingsUpdateInput {
   return {
+    scope: "bootstrap",
     runtime: {
       mode: "",
       workspaceRoot: ""
@@ -27,6 +28,7 @@ export function applySettingsToBootstrapForm(
   target: AppSettingsUpdateInput,
   source: AppSettings
 ): void {
+  target.scope = source.scope || "bootstrap";
   target.runtime.mode = source.runtime.mode;
   target.runtime.workspaceRoot = source.runtime.workspaceRoot;
   target.paths.cacheDir = source.paths.cacheDir;
@@ -43,6 +45,7 @@ export function cloneBootstrapSettingsInput(
   source: AppSettingsUpdateInput
 ): AppSettingsUpdateInput {
   return {
+    scope: source.scope || "bootstrap",
     runtime: {
       mode: source.runtime.mode,
       workspaceRoot: source.runtime.workspaceRoot
@@ -85,4 +88,3 @@ export function hasCompletedBootstrapInitialization(
 
   return revision > 1 && requiredValues.every((item) => typeof item === "string" && item.trim().length > 0);
 }
-

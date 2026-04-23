@@ -1,193 +1,201 @@
 import { defineStore } from "pinia";
 
 import {
-  checkAIProviderHealth,
-  fetchAICapabilitySupportMatrix,
   fetchAICapabilitySettings,
+  fetchAICapabilitySupportMatrix,
+  fetchAIModelCatalog,
   fetchAIProviderCatalog,
-  fetchAIProviderModels,
   refreshAIProviderModels,
-  updateAIProviderSecret,
-  updateAICapabilitySettings
+  saveAICapabilitySettings,
+  saveAIProviderSecret,
+  upsertAIProviderModel,
+  checkAIProviderHealth
 } from "@/app/runtime-client";
+import { useTaskBusStore } from "@/stores/task-bus";
 import type {
-  AICapabilityConfig,
   AICapabilitySettings,
-  AIModelCatalogRefreshResult,
   AICapabilitySupportMatrix,
   AIModelCatalogItem,
   AIProviderCatalogItem,
-  AIProviderHealth,
   AIProviderSecretInput,
-  RuntimeRequestErrorShape
+  AIProviderModelUpsertInput,
+  RuntimeRequestErrorShape,
+  AIProviderHealthInput,
+  AIProviderHealth
 } from "@/types/runtime";
+import type { TaskEvent } from "@/types/task-events";
 import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 
-export type AICapabilityStoreStatus = "idle" | "loading" | "ready" | "saving" | "error";
+export type AIStoreStatus = "idle" | "loading" | "saving" | "error";
 
-type AICapabilityStoreState = {
-  error: RuntimeRequestErrorShape | null;
-  lastCheckedProviderId: string | null;
-  modelCatalogByProvider: Record<string, AIModelCatalogItem[]>;
-  providerCatalog: AIProviderCatalogItem[];
-  providerHealth: Record<string, AIProviderHealth>;
-  refreshResultByProvider: Record<string, AIModelCatalogRefreshResult>;
+type AIStoreState = {
   settings: AICapabilitySettings | null;
-  status: AICapabilityStoreStatus;
   supportMatrix: AICapabilitySupportMatrix | null;
+  providerCatalog: AIProviderCatalogItem[];
+  modelCatalogByProvider: Record<string, AIModelCatalogItem[]>;
+  status: AIStoreStatus;
+  error: RuntimeRequestErrorShape | null;
+  _unsubscriber: (() => void) | null;
 };
 
-export const useAICapabilityStore = defineStore("ai-capability", {
-  state: (): AICapabilityStoreState => ({
-    error: null,
-    lastCheckedProviderId: null,
-    modelCatalogByProvider: {},
-    providerCatalog: [],
-    providerHealth: {},
-    refreshResultByProvider: {},
+export const useAIStore = defineStore("ai-capability", {
+  state: (): AIStoreState => ({
     settings: null,
+    supportMatrix: null,
+    providerCatalog: [],
+    modelCatalogByProvider: {},
     status: "idle",
-    supportMatrix: null
+    error: null,
+    _unsubscriber: null
   }),
-  getters: {
-    viewState: (state): "loading" | "ready" | "error" =>
-      state.status === "error"
-        ? "error"
-        : state.status === "loading" || state.status === "saving"
-          ? "loading"
-          : "ready"
-  },
+
   actions: {
     async load(): Promise<void> {
       this.status = "loading";
       this.error = null;
-
       try {
-        this.settings = await fetchAICapabilitySettings();
-        this.status = "ready";
+        const [settings, matrix, providers] = await Promise.all([
+          fetchAICapabilitySettings(),
+          fetchAICapabilitySupportMatrix(),
+          fetchAIProviderCatalog()
+        ]);
+        this.settings = settings;
+        this.supportMatrix = matrix;
+        this.providerCatalog = providers;
+        this.status = "ready" as any;
+        
+        this.initializeEventSubscription();
       } catch (error) {
         this.applyRuntimeError(error);
       }
     },
-    async refresh(): Promise<void> {
-      await this.load();
+
+    initializeEventSubscription(): void {
+      if (this._unsubscriber) return;
+
+      const taskBus = useTaskBusStore();
+      this._unsubscriber = taskBus.subscribeToType("ai-capability.changed", (event: TaskEvent) => {
+        void this.handleAICapabilityChanged(event);
+      });
     },
-    async saveCapabilities(capabilities: AICapabilityConfig[]): Promise<void> {
+
+    async handleAICapabilityChanged(event: TaskEvent): Promise<void> {
+      const incomingVersion = event.configVersion ?? 0;
+      const currentVersion = this.settings?.configVersion ?? 0;
+
+      if (incomingVersion > currentVersion) {
+        console.log(`[ai-capability] Detected new config version ${incomingVersion} (Reason: ${event.reason}), refreshing...`);
+        
+        try {
+          const providerIds = event.providerIds ?? [];
+          
+          switch (event.reason) {
+            case "capability_config_updated":
+              await Promise.all([this.reloadSettings(), this.reloadSupportMatrix()]);
+              break;
+            case "provider_secret_updated":
+              await Promise.all([this.reloadSettings(), this.reloadProviderCatalog()]);
+              break;
+            case "provider_model_upserted":
+              for (const pId of providerIds) {
+                await Promise.all([this.loadModelsForProvider(pId), this.reloadSupportMatrix()]);
+              }
+              break;
+            case "provider_models_refreshed":
+              for (const pId of providerIds) {
+                await Promise.all([
+                  this.loadModelsForProvider(pId),
+                  this.reloadProviderCatalog(),
+                  this.reloadSupportMatrix()
+                ]);
+              }
+              break;
+            case "provider_health_refreshed":
+              await this.reloadSettings();
+              break;
+            default:
+              await this.load();
+          }
+        } catch (e) {
+          console.error("[ai-capability] Failed to refresh after change event", e);
+        }
+      }
+    },
+
+    async reloadSettings(): Promise<void> {
+      this.settings = await fetchAICapabilitySettings();
+    },
+
+    async reloadSupportMatrix(): Promise<void> {
+      this.supportMatrix = await fetchAICapabilitySupportMatrix();
+    },
+
+    async reloadProviderCatalog(): Promise<void> {
+      this.providerCatalog = await fetchAIProviderCatalog();
+    },
+
+    async saveCapabilities(payload: Partial<AICapabilitySettings>): Promise<void> {
       this.status = "saving";
-      this.error = null;
-
       try {
-        const nextSettings = await updateAICapabilitySettings(capabilities);
-        this.settings = {
-          capabilities: nextSettings.capabilities,
-          providers: nextSettings.providers ?? this.settings?.providers ?? []
-        };
-        this.status = "ready";
+        // FIX: Ensure payload structure matches expected AICapabilitySettings format
+        await saveAICapabilitySettings(payload.capabilities as any);
+        await this.reloadSettings();
+        this.status = "ready" as any;
       } catch (error) {
         this.applyRuntimeError(error);
       }
     },
-    async loadProviderCatalog(): Promise<void> {
-      this.status = this.status === "idle" ? "loading" : this.status;
-      this.error = null;
 
+    async saveProviderSecret(providerId: string, input: AIProviderSecretInput): Promise<void> {
+      this.status = "saving";
       try {
-        this.providerCatalog = await fetchAIProviderCatalog();
-        this.status = "ready";
+        await saveAIProviderSecret(providerId, input);
+        await this.reloadSettings();
+        this.status = "ready" as any;
       } catch (error) {
         this.applyRuntimeError(error);
       }
     },
-    async loadProviderModels(providerId: string): Promise<void> {
-      this.error = null;
 
+    async saveProviderModel(providerId: string, modelId: string, input: AIProviderModelUpsertInput): Promise<void> {
+      this.status = "saving";
       try {
+        await upsertAIProviderModel(providerId, modelId, input);
+        await this.loadModelsForProvider(providerId);
+        this.status = "ready" as any;
+      } catch (error) {
+        this.applyRuntimeError(error);
+      }
+    },
+
+    async loadModelsForProvider(providerId: string): Promise<void> {
+      try {
+        const models = await fetchAIModelCatalog(providerId);
         this.modelCatalogByProvider = {
           ...this.modelCatalogByProvider,
-          [providerId]: await fetchAIProviderModels(providerId)
+          [providerId]: models
         };
-        this.status = "ready";
       } catch (error) {
-        this.applyRuntimeError(error);
+        console.error(`Failed to load models for ${providerId}`, error);
       }
     },
+
     async refreshProviderModels(providerId: string): Promise<void> {
-      this.error = null;
-
       try {
-        this.refreshResultByProvider = {
-          ...this.refreshResultByProvider,
-          [providerId]: await refreshAIProviderModels(providerId)
-        };
-        await this.loadProviderModels(providerId);
+        // FIX: Method name alignment with runtime-client export
+        await refreshAIProviderModels(providerId);
       } catch (error) {
         this.applyRuntimeError(error);
       }
     },
-    async loadSupportMatrix(): Promise<void> {
-      this.error = null;
 
-      try {
-        this.supportMatrix = await fetchAICapabilitySupportMatrix();
-        this.status = "ready";
-      } catch (error) {
-        this.applyRuntimeError(error);
-      }
+    async checkAIProviderHealth(providerId: string, input: AIProviderHealthInput = {}): Promise<AIProviderHealth> {
+      return checkAIProviderHealth(providerId, input);
     },
-    async saveProviderSecret(
-      providerId: string,
-      input: AIProviderSecretInput
-    ): Promise<void> {
-      this.status = "saving";
-      this.error = null;
 
-      try {
-        const status = await updateAIProviderSecret(providerId, input);
-        if (this.settings) {
-          this.settings = {
-            ...this.settings,
-            providers: (this.settings.providers ?? []).map((item) =>
-              item.provider === providerId ? status : item
-            )
-          };
-        }
-        this.providerCatalog = this.providerCatalog.map((item) =>
-          item.provider === providerId
-            ? {
-                ...item,
-                configured: status.configured,
-                baseUrl: status.baseUrl,
-                secretSource: status.secretSource,
-                status: status.configured ? "ready" : item.status
-              }
-            : item
-        );
-        this.status = "ready";
-      } catch (error) {
-        this.applyRuntimeError(error);
-      }
-    },
-    async checkProvider(providerId: string, model?: string): Promise<void> {
-      this.error = null;
-
-      try {
-        const health = await checkAIProviderHealth(providerId, { model });
-        this.providerHealth = {
-          ...this.providerHealth,
-          [providerId]: health
-        };
-        this.providerCatalog = this.providerCatalog.map((item) =>
-          item.provider === providerId ? { ...item, status: health.status } : item
-        );
-        this.lastCheckedProviderId = providerId;
-        this.status = "ready";
-      } catch (error) {
-        this.applyRuntimeError(error);
-      }
-    },
     applyRuntimeError(error: unknown): void {
       this.status = "error";
-      this.error = toRuntimeErrorShape(error, "AI 能力配置请求失败，请稍后重试。");
+      this.error = toRuntimeErrorShape(error, "AI 能力数据同步失败");
     }
   }
 });

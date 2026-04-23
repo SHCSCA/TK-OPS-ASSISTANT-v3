@@ -21,6 +21,23 @@
       <div class="provider-key-hint">
         {{ keyHint }}
       </div>
+      
+      <!-- V2: Unified Readiness Badge -->
+      <div v-if="readiness" class="provider-readiness-badge">
+        <div class="readiness-status" :class="readinessStatus">
+          <span class="material-symbols-outlined" style="font-size: 14px;">
+            {{ (readinessStatus === 'ready' || readinessStatus === 'ok') ? 'check_circle' : 'error' }}
+          </span>
+          <span>自检: {{ readinessLabel }}</span>
+          <span v-if="lastCheckedAt" class="readiness-time">
+            · {{ formatCheckedTime(lastCheckedAt) }}
+          </span>
+        </div>
+        <Button variant="ghost" size="sm" class="icon-btn-small" @click.stop="$emit('test', provider.provider)" title="重新测试">
+          <span class="material-symbols-outlined" style="font-size: 14px;">refresh</span>
+        </Button>
+      </div>
+
       <div class="capability-chips">
         <Chip v-if="provider.capabilities.includes('text_generation')" size="sm">文本 ✓</Chip>
         <Chip v-if="provider.capabilities.includes('vision')" size="sm">视觉 ✓</Chip>
@@ -51,14 +68,22 @@ defineEmits<{
   (e: "test", id: string): void;
 }>();
 
+// Module E: Unified Readiness-driven status
+const readiness = computed(() => props.provider.readiness);
+const readinessStatus = computed(() => (readiness.value?.status || 'unknown').toLowerCase());
+
 const status = computed(() => {
   if (props.provider.status === "testing") return "testing";
   if (!props.provider.configured) return "missing_secret";
+  
+  // Use readiness as the primary source of truth (Module E)
+  if (readinessStatus.value === "ready" || readinessStatus.value === "ok") return "ready";
+  if (readinessStatus.value === "misconfigured" || readinessStatus.value === "error") return "misconfigured";
+  
+  // Fallback to legacy health check
   if (props.provider.health?.status === "ready") return "ready";
-  if (props.provider.health?.status === "misconfigured" || props.provider.health?.status === "error") return "misconfigured";
-  if (props.provider.status === "ready") return "ready";
-  if (props.provider.configured) return "offline";
-  return "missing_secret";
+  
+  return "offline";
 });
 
 const statusLabel = computed(() => {
@@ -69,6 +94,17 @@ const statusLabel = computed(() => {
     case "missing_secret": return "未配置";
     default: return "离线";
   }
+});
+
+const readinessLabel = computed(() => {
+  if (readinessStatus.value === 'ready' || readinessStatus.value === 'ok') return '通过';
+  if (readinessStatus.value === 'error') return '失败';
+  if (readinessStatus.value === 'misconfigured') return '配置错误';
+  return '未检查';
+});
+
+const lastCheckedAt = computed(() => {
+  return readiness.value?.timestamp || readiness.value?.last_checked_at || readiness.value?.lastCheckedAt || null;
 });
 
 const modelsLabel = computed(() => {
@@ -83,6 +119,14 @@ const modelsLabel = computed(() => {
 const keyHint = computed(() => {
   return props.provider.configured ? "API Key: 已加密存储" : "API Key: 未设置";
 });
+
+function formatCheckedTime(val: string) {
+  try {
+    return new Date(val).toLocaleTimeString("zh-CN", { hour12: false });
+  } catch {
+    return val;
+  }
+}
 </script>
 
 <style scoped>
@@ -189,6 +233,43 @@ const keyHint = computed(() => {
   font: var(--font-caption);
   color: var(--color-text-secondary);
   margin-top: 4px;
+}
+
+.provider-readiness-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+
+.readiness-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--font-caption);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+}
+
+.readiness-status.ready, .readiness-status.ok {
+  color: var(--color-success);
+}
+
+.readiness-status.error, .readiness-status.misconfigured {
+  color: var(--color-danger);
+}
+
+.readiness-time {
+  color: var(--color-text-tertiary);
+  margin-left: 2px;
+}
+
+.icon-btn-small {
+  padding: 2px;
+  height: auto;
+  min-width: unset;
 }
 
 .capability-chips {

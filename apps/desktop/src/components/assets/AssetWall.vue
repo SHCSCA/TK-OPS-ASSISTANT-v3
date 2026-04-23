@@ -15,9 +15,9 @@
 
     <div v-else-if="assets.length === 0" class="asset-state asset-state--empty">
       <span class="material-symbols-outlined">folder_open</span>
-      <strong>当前项目还没有可复用资产</strong>
-      <p>导入真实本地视频、图片、音频或文档后，它们会出现在这里并参与分镜、剪辑和发布链路。</p>
-      <button type="button" @click="$emit('import')">选择本地文件</button>
+      <strong>当前没有可复用的资产</strong>
+      <p>你现在可以导入真实的本地视频、图片、音频或文档，它们将参与分镜、剪辑和发布链路。</p>
+      <button type="button" @click="$emit('import')">导入本地资产</button>
     </div>
 
     <div v-else class="asset-wall__ready">

@@ -13,9 +13,9 @@ import type {
   RuntimeRequestErrorShape,
   ScriptDocument,
   SubtitleSegmentDto,
-  SubtitleStyleConfig,
   SubtitleTrackDto,
-  SubtitleTrackGenerateResultDto
+  SubtitleTrackGenerateResultDto,
+  SubtitleStyleDto
 } from "@/types/runtime";
 import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 import type { TaskEvent, TaskInfo } from "@/types/task-events";
@@ -38,7 +38,7 @@ type SubtitleAlignmentState = {
   projectId: string;
   selectedTrackId: string | null;
   status: SubtitleAlignmentStatus;
-  style: SubtitleStyleConfig;
+  style: SubtitleStyleDto;
   trackDetailsById: Record<string, SubtitleTrackDto>;
   tracks: SubtitleTrackDto[];
   activeTask: TaskInfo | null;
@@ -57,13 +57,11 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
     selectedTrackId: null,
     status: "idle",
     style: {
+      preset: "default",
       fontSize: 24,
-      color: "#FFFFFF",
-      strokeColor: "#000000",
-      strokeWidth: 2,
-      backgroundColor: "transparent",
       position: "bottom",
-      offsetY: 20
+      textColor: "#FFFFFF",
+      background: "transparent"
     },
     trackDetailsById: {},
     tracks: [],
@@ -121,8 +119,9 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       }
 
       const taskBusStore = useTaskBusStore();
-      this._taskUnsubscriber = taskBusStore.subscribeToType("ai-subtitles", (event: TaskEvent) => {
-        if (event.projectId === this.projectId) {
+      // FIX: Use correct backend task type name for subtitles
+      this._taskUnsubscriber = taskBusStore.subscribeToType("task.progress", (event: TaskEvent) => {
+        if (event.projectId === this.projectId && (event.taskType === "ai_subtitles" || event.taskType === "subtitle_alignment")) {
           this.handleTaskEvent(event);
         }
       });
@@ -132,13 +131,14 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       if (event.type === "task.progress" || event.type === "task.started") {
         this.activeTask = {
           id: event.taskId ?? "",
+          task_type: event.taskType || "subtitle_alignment",
+          project_id: event.projectId ?? this.projectId,
           status: "running",
           progress: event.progressPct ?? 0,
           message: event.message ?? "正在对齐字幕...",
-          task_type: "ai-subtitles",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        } as any;
+        };
         this.status = "aligning";
       } else if (event.type === "task.completed") {
         this.activeTask = null;
@@ -169,7 +169,13 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       this.status = "aligning";
       this.error = null;
       try {
-        const result = await generateSubtitleTrack(this.projectId);
+        // FIX: Match the actual API contract with sourceText, language, and stylePreset
+        const sourceText = this.document?.currentVersion?.content || "";
+        const result = await generateSubtitleTrack(this.projectId, {
+          sourceText,
+          language: "zh-CN",
+          stylePreset: this.style.preset || "default"
+        });
         this.generationResult = result;
         if (result.track) {
           this.upsertTrack(result.track);
@@ -192,7 +198,7 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
         const track = await fetchSubtitleTrack(trackId);
         this.trackDetailsById[trackId] = track;
         this.upsertTrack(track);
-        this.draftSegments = track.segments.map((s) => ({ ...s }));
+        this.draftSegments = (track.segments || []).map((s) => ({ ...s }));
         this.style = { ...track.style };
         this.activeSegmentIndex = 0;
         this.status = "ready";
@@ -242,7 +248,7 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       }
     },
 
-    updateStyle(patch: Partial<SubtitleStyleConfig>): void {
+    updateStyle(patch: Partial<SubtitleStyleDto>): void {
       this.style = { ...this.style, ...patch };
     },
 
