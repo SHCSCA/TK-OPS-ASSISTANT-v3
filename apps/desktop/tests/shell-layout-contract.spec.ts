@@ -54,6 +54,33 @@ describe("shell layout contract", () => {
     expect(titleBar).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[\s\S]*\.shell-title-bar__sidebar-toggle\s*{[\s\S]*display:\s*flex;/);
   });
 
+  it("replaces the top search with a detail-panel toggle entry", () => {
+    const appShell = readSource("../src/layouts/AppShell.vue");
+    const titleBar = readSource("../src/layouts/shell/ShellTitleBar.vue");
+
+    expect(titleBar).not.toContain("shell-search");
+    expect(titleBar).not.toContain("搜索项目 / 脚本 / 任务 / 资产");
+    expect(appShell).toContain(':show-detail-toggle="showDetailToggle"');
+    expect(titleBar).toContain("showDetailToggle: boolean;");
+    expect(titleBar).toContain('v-if="showDetailToggle"');
+    expect(titleBar).toContain('class="shell-title-bar__detail-toggle icon-button"');
+    expect(titleBar).toContain('@click="emit(\'toggle-detail\')"');
+    expect(titleBar).toContain("right_panel_open");
+    expect(titleBar).toContain("right_panel_close");
+  });
+
+  it("uses the shared TK-OPS brand mark instead of the old blue blocks", () => {
+    const titleBar = readSource("../src/layouts/shell/ShellTitleBar.vue");
+    const sidebar = readSource("../src/layouts/shell/ShellSidebar.vue");
+
+    expect(titleBar).toContain("TkopsBrandMark");
+    expect(sidebar).toContain("TkopsBrandMark");
+    expect(titleBar).not.toContain("shell-brand__logo");
+    expect(sidebar).not.toContain("shell-sidebar__avatar");
+    expect(titleBar).not.toContain("var(--gradient-ai-primary)");
+    expect(sidebar).not.toContain("var(--gradient-ai-primary)");
+  });
+
   it("preserves the collapsed sidebar width at compact desktop breakpoints", () => {
     const appShell = readSource("../src/layouts/AppShell.vue");
 
@@ -91,6 +118,8 @@ describe("shell layout contract", () => {
     const desktop1199 = readBetween(appShell, "@media (max-width: 1199px)", "@media (max-width: 960px)");
     const compact960 = readBetween(appShell, "@media (max-width: 960px)", "</style>");
 
+    expect(appShell).toContain(':data-detail-presentation="detailPresentation"');
+    expect(appShell).toContain("const detailPresentation = computed");
     expect(appShell).toMatch(/\.app-shell__sidebar\s*{[\s\S]*grid-column:\s*1;/);
     expect(appShell).toMatch(/\.app-shell__content\s*{[\s\S]*grid-column:\s*2;/);
     expect(appShell).not.toContain('[data-detail-open="true"][data-sidebar-collapsed="false"]');
@@ -103,7 +132,11 @@ describe("shell layout contract", () => {
     );
     expect(desktop1199).not.toContain("position: absolute;");
     expect(desktop1199).toMatch(/\.app-shell__workspace\s*{[\s\S]*var\(--sidebar-width-expanded\)\s+minmax\(0,\s*1fr\)\s+auto;/);
-    expect(compact960).toMatch(/\.app-shell__detail\s*{[\s\S]*position:\s*absolute;/);
+    expect(compact960).not.toMatch(/\.app-shell__detail\s*{[\s\S]*position:\s*absolute;/);
+    expect(compact960).toMatch(/\.app-shell\[data-detail-presentation="rail"\]\s+\.app-shell__workspace\s*{[\s\S]*var\(--detail-rail-width\)/);
+    expect(compact960).toMatch(/\.app-shell\[data-detail-presentation="rail"\]\s+\.app-shell__detail\s*{[\s\S]*width:\s*var\(--detail-rail-width\)/);
+    expect(compact960).toMatch(/\.app-shell\[data-detail-presentation="focus"\]\s+\.app-shell__detail\s*{[\s\S]*grid-column:\s*1;/);
+    expect(spacing).toContain("--detail-rail-width: 44px;");
     expect(spacing).toMatch(/@media\s*\(max-width:\s*1440px\)\s*{[\s\S]*--detail-panel-width-wide:\s*420px;/);
     expect(spacing).toMatch(/@media\s*\(max-width:\s*1199px\)\s*{[\s\S]*--detail-panel-width-wide:\s*360px;/);
     expect(sidebar).toMatch(/\.shell-sidebar\[data-collapsed="true"\]\s+\.shell-sidebar__nav\s*{[\s\S]*scrollbar-width:\s*none;/);

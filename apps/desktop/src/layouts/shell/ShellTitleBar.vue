@@ -16,7 +16,7 @@
       </button>
 
       <div class="shell-brand" data-tauri-drag-region>
-        <div class="shell-brand__logo" data-tauri-drag-region></div>
+        <TkopsBrandMark size="sm" />
         <span class="shell-brand__name" data-tauri-drag-region>TK-OPS</span>
       </div>
       
@@ -31,11 +31,7 @@
 
     <!-- 中间区 -->
     <div class="shell-title-bar__center" data-tauri-drag-region>
-      <div class="shell-search">
-        <span class="material-symbols-outlined shell-search__icon">search</span>
-        <input class="shell-search__input" type="text" placeholder="搜索项目 / 脚本 / 任务 / 资产" />
-        <kbd class="shell-search__shortcut">Cmd+K</kbd>
-      </div>
+      <span class="shell-page-title" :title="pageTitle" data-tauri-drag-region>{{ pageTitle }}</span>
     </div>
 
     <!-- 右侧区 -->
@@ -55,6 +51,19 @@
       </Chip>
 
       <div class="shell-actions">
+        <button
+          v-if="showDetailToggle"
+          class="shell-title-bar__detail-toggle icon-button"
+          :class="{ 'is-active': detailOpen }"
+          :title="detailOpen ? '收起右侧详情' : '展开右侧详情'"
+          :aria-label="detailOpen ? '收起右侧详情' : '展开右侧详情'"
+          :aria-pressed="String(detailOpen)"
+          @click="emit('toggle-detail')"
+        >
+          <span class="material-symbols-outlined">
+            {{ detailOpen ? "right_panel_close" : "right_panel_open" }}
+          </span>
+        </button>
         <button 
           class="icon-button" 
           :title="theme === 'dark' ? '切换浅色主题' : '切换深色主题'" 
@@ -84,6 +93,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import TkopsBrandMark from "@/components/brand/TkopsBrandMark.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 
 const props = defineProps<{
@@ -96,6 +106,7 @@ const props = defineProps<{
   reducedMotion: boolean;
   runtimeLabel: string;
   runtimeTone: "idle" | "loading" | "online" | "offline";
+  showDetailToggle: boolean;
   showSidebarToggle: boolean;
   theme: "light" | "dark";
 }>();
@@ -194,17 +205,9 @@ async function handleClose() {
   gap: var(--space-2);
 }
 
-.shell-brand__logo {
-  width: 20px;
-  height: 20px;
-  background: var(--gradient-ai-primary);
-  border-radius: var(--radius-xs);
-  box-shadow: var(--shadow-glow-brand);
-}
-
 .shell-brand__name {
   font: var(--font-title-sm);
-  letter-spacing: var(--ls-title-sm);
+  letter-spacing: 0;
   color: var(--color-text-primary);
 }
 
@@ -223,7 +226,7 @@ async function handleClose() {
 .shell-project__name {
   display: block;
   font: var(--font-body-md);
-  letter-spacing: var(--ls-body-md);
+  letter-spacing: 0;
   color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -234,61 +237,22 @@ async function handleClose() {
  * 中间区 
  * ==================== */
 .shell-title-bar__center {
-  flex: 1 1 260px;
+  flex: 1 1 220px;
   display: flex;
-  justify-content: center;
-  max-width: 560px;
-  min-width: 160px;
-}
-
-.shell-search {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  height: 32px;
-  background: var(--color-bg-muted);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  padding: 0 8px;
-  gap: 8px;
+  justify-content: flex-start;
+  max-width: 360px;
   min-width: 0;
-  transition: border-color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard);
-  -webkit-app-region: no-drag;
 }
 
-.shell-search:focus-within {
-  background: var(--color-bg-surface);
-  border-color: var(--color-border-strong);
-}
-
-.shell-search__icon {
-  font-size: 18px;
-  color: var(--color-text-tertiary);
-}
-
-.shell-search__input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  font: var(--font-body-md);
-  letter-spacing: var(--ls-body-md);
-  min-width: 0;
+.shell-page-title {
   color: var(--color-text-primary);
-}
-
-.shell-search__input::placeholder {
-  color: var(--color-text-tertiary);
-}
-
-.shell-search__shortcut {
-  font-family: var(--font-family-mono);
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  padding: 2px 6px;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-xs);
+  display: block;
+  font: var(--font-title-sm);
+  letter-spacing: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ====================
@@ -327,7 +291,7 @@ async function handleClose() {
 
 .status-text {
   font: var(--font-caption);
-  letter-spacing: var(--ls-caption);
+  letter-spacing: 0;
   color: var(--color-text-secondary);
   max-width: 116px;
   min-width: 0;
@@ -365,6 +329,11 @@ async function handleClose() {
 .icon-button:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+
+.shell-title-bar__detail-toggle.is-active {
+  background: var(--color-bg-active);
+  color: var(--color-brand-primary);
 }
 
 .icon-button .material-symbols-outlined {

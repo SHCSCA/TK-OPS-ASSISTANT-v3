@@ -42,8 +42,7 @@ const groups: Array<Array<{ id: SettingsSectionId; label: string; icon: string }
   [
     { id: "directory", label: "目录设置", icon: "folder_open" },
     { id: "cache", label: "缓存管理", icon: "cached" },
-    { id: "logging", label: "运行日志", icon: "receipt_long" },
-    { id: "diagnostics", label: "诊断工作台", icon: "monitoring" }
+    { id: "logging", label: "运行日志", icon: "receipt_long" }
   ]
 ];
 </script>

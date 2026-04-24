@@ -260,7 +260,10 @@ def test_ai_provider_catalog_model_catalog_and_refresh_are_runtime_backed(
     assert providers['openai']['kind'] == 'commercial'
     assert providers['openai_compatible']['requiresBaseUrl'] is True
     assert providers['ollama']['kind'] == 'local'
-    assert providers['deepseek']['supportsModelDiscovery'] is False
+    assert providers['deepseek']['region'] == 'domestic'
+    assert providers['deepseek']['supportsModelDiscovery'] is True
+    assert providers['volcengine']['category'] == 'model_hub'
+    assert providers['custom_openai_compatible']['region'] == 'custom'
     assert 'apiKey' not in providers['openai']
 
     models_response = client.get('/api/settings/ai-providers/ollama/models')
@@ -302,6 +305,58 @@ def test_ai_provider_catalog_model_catalog_and_refresh_are_runtime_backed(
     assert refreshed['displayName'] == 'qwen2.5-vl:7b'
     assert refreshed['capabilityTypes'] == ['text_generation', 'vision']
     assert refreshed['inputModalities'] == ['text', 'image']
+
+
+def test_openai_compatible_provider_model_refresh_reads_remote_model_catalog(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+    client.put(
+        '/api/settings/ai-capabilities/providers/custom_openai_compatible/secret',
+        json={
+            'apiKey': 'sk-custom-compatible',
+            'baseUrl': 'https://custom.example.test/v1',
+        },
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
+        captured['url'] = url
+        captured['headers'] = headers
+        return {
+            'data': [
+                {
+                    'id': 'custom-text-vision',
+                    'name': 'Custom Text Vision',
+                    'capabilities': ['text_generation', 'vision'],
+                    'input_modalities': ['text', 'image'],
+                    'output_modalities': ['text'],
+                    'context_length': 128000,
+                }
+            ]
+        }
+
+    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
+    refresh_response = client.post('/api/settings/ai-providers/custom_openai_compatible/models/refresh')
+
+    assert refresh_response.status_code == 200
+    assert refresh_response.json()['data'] == {
+        'provider': 'custom_openai_compatible',
+        'status': 'refreshed',
+        'message': '已从远端刷新 1 个模型。',
+    }
+    assert captured['url'] == 'https://custom.example.test/v1/models'
+    assert captured['headers']['authorization'] == 'Bearer sk-custom-compatible'
+
+    models_response = client.get('/api/settings/ai-providers/custom_openai_compatible/models')
+    assert models_response.status_code == 200
+    models = {item['modelId']: item for item in models_response.json()['data']}
+    assert models['custom-text-vision']['displayName'] == 'Custom Text Vision'
+    assert models['custom-text-vision']['capabilityTypes'] == ['text_generation', 'vision']
+    assert models['custom-text-vision']['inputModalities'] == ['text', 'image']
+    assert models['custom-text-vision']['outputModalities'] == ['text']
 
 
 def test_openrouter_model_refresh_requires_secret_and_returns_structured_error(runtime_app) -> None:

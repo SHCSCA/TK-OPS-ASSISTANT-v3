@@ -181,16 +181,51 @@ def test_ai_provider_catalog_contract_exposes_multi_provider_registry(
     payload = response.json()
     assert set(payload) == {'ok', 'data'}
     assert payload['ok'] is True
-    assert len(payload['data']) >= 10
+    assert len(payload['data']) >= 28
 
     providers = {item['provider']: item for item in payload['data']}
-    assert {'openai', 'openai_compatible', 'anthropic', 'gemini', 'deepseek', 'openrouter', 'ollama'} <= set(
-        providers
-    )
+    assert {
+        'openai',
+        'openai_compatible',
+        'anthropic',
+        'gemini',
+        'deepseek',
+        'qwen',
+        'kimi',
+        'zhipu',
+        'volcengine',
+        'baidu_qianfan',
+        'tencent_hunyuan',
+        'xunfei_spark',
+        'minimax',
+        'baichuan',
+        'lingyi',
+        'stepfun',
+        'sensecore',
+        'kling',
+        'jimeng',
+        'wanxiang',
+        'vidu',
+        'hailuo',
+        'aliyun_tts',
+        'tencent_tts',
+        'baidu_tts',
+        'xunfei_tts',
+        'custom_openai_compatible',
+        'custom_video_provider',
+        'custom_tts_provider',
+        'openrouter',
+        'ollama',
+    } <= set(providers)
     assert set(providers['openai']) == {
         'provider',
         'label',
         'kind',
+        'region',
+        'category',
+        'protocol',
+        'modelSyncMode',
+        'tags',
         'configured',
         'baseUrl',
         'secretSource',
@@ -201,6 +236,13 @@ def test_ai_provider_catalog_contract_exposes_multi_provider_registry(
     }
     assert 'apiKey' not in providers['openai']
     assert 'text_generation' in providers['openai']['capabilities']
+    assert providers['volcengine']['region'] == 'domestic'
+    assert providers['volcengine']['modelSyncMode'] == 'remote'
+    assert 'video_generation' in providers['volcengine']['capabilities']
+    assert providers['custom_openai_compatible']['region'] == 'custom'
+    assert providers['custom_openai_compatible']['requiresBaseUrl'] is True
+    assert providers['custom_openai_compatible']['supportsModelDiscovery'] is True
+    assert providers['custom_video_provider']['modelSyncMode'] == 'manual'
 
 
 def test_ai_provider_model_catalog_contract_returns_models_for_provider(
@@ -226,6 +268,29 @@ def test_ai_provider_model_catalog_contract_returns_models_for_provider(
     }
     model_ids = {item['modelId'] for item in payload['data']}
     assert 'gpt-5.4' in model_ids
+
+
+def test_domestic_provider_model_catalog_marks_media_capabilities(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-providers/volcengine/models')
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['ok'] is True
+    models = payload['data']
+    assert any(
+        item['provider'] == 'volcengine'
+        and 'video_generation' in item['capabilityTypes']
+        and 'video' in item['outputModalities']
+        for item in models
+    )
+    assert any(
+        item['provider'] == 'volcengine'
+        and 'tts' in item['capabilityTypes']
+        and 'audio' in item['outputModalities']
+        for item in models
+    )
 
 
 def test_ai_provider_model_refresh_contract_returns_refresh_receipt(
@@ -367,4 +432,3 @@ def test_ai_provider_model_upsert_contract_returns_write_receipt_and_model_shape
         'defaultFor',
         'enabled',
     }
-

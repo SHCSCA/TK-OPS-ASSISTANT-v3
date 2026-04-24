@@ -1,0 +1,235 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1760" viewBox="0 0 1600 1760">
+  <defs>
+    <style>
+      .bg { fill: #f6f8fb; }
+      .frame { fill: #ffffff; stroke: #dce3eb; stroke-width: 1; }
+      .panel { fill: #ffffff; stroke: #d9e2ea; stroke-width: 1; }
+      .soft { fill: #f8fbfd; stroke: #d9e2ea; stroke-width: 1; }
+      .active { fill: #e2f6f9; stroke: #5eb7c7; stroke-width: 1.2; }
+      .success { fill: #e8f8ef; stroke: #4fb97a; }
+      .warn { fill: #fff7e6; stroke: #e3b04c; }
+      .danger { fill: #fff0f0; stroke: #e06c75; }
+      .title { fill: #07111f; font: 700 34px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .subtitle { fill: #40546b; font: 400 18px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .h2 { fill: #07111f; font: 700 24px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .h3 { fill: #07111f; font: 700 18px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .body { fill: #24374f; font: 400 15px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .muted { fill: #66778b; font: 400 13px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .label { fill: #6c7b8f; font: 700 12px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .tiny { fill: #6c7b8f; font: 400 11px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .mono { fill: #26384e; font: 400 13px Consolas, "Microsoft YaHei", monospace; }
+      .button { fill: #ffffff; stroke: #d6e0e8; stroke-width: 1; }
+      .primary { fill: #0f9eaf; stroke: #0f9eaf; }
+      .btn { fill: #102236; font: 700 13px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .btnLight { fill: #ffffff; font: 700 13px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .chip { fill: #ffffff; stroke: #d6e0e8; stroke-width: 1; }
+      .chipText { fill: #30445c; font: 400 12px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .line { stroke: #d9e2ea; stroke-width: 1; }
+      .shadow { filter: drop-shadow(0 12px 24px rgba(38, 54, 77, 0.08)); }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1600" height="1760"/>
+  <text class="title" x="72" y="72">Provider 与模型 V2 设计稿</text>
+  <text class="subtitle" x="72" y="108">从“供应商全量卡片墙”改为“已接入工作台 + 厂商模板库 + 模型同步表”，支持国内厂商、聚合平台和自定义接入。</text>
+
+  <g transform="translate(72 150)">
+    <rect class="panel shadow" x="0" y="0" width="440" height="98" rx="12"/>
+    <text class="label" x="24" y="32">问题修正</text>
+    <text class="h3" x="24" y="60">不直接铺开所有供应商</text>
+    <text class="muted" x="24" y="82">默认只显示已接入和推荐模板，其他通过分类、搜索和添加向导进入。</text>
+
+    <rect class="panel shadow" x="492" y="0" width="440" height="98" rx="12"/>
+    <text class="label" x="516" y="32">国内覆盖</text>
+    <text class="h3" x="516" y="60">模板库 + 自定义协议</text>
+    <text class="muted" x="516" y="82">通用大模型、视频生成、TTS、聚合平台分组维护，可新增厂商模板。</text>
+
+    <rect class="panel shadow" x="984" y="0" width="440" height="98" rx="12"/>
+    <text class="label" x="1008" y="32">模型获取</text>
+    <text class="h3" x="1008" y="60">同步后标注能力类型</text>
+    <text class="muted" x="1008" y="82">模型行展示文本、视觉、视频、TTS、ASR、字幕等能力和输入输出模态。</text>
+  </g>
+
+  <g transform="translate(72 305)">
+    <text class="h2" x="0" y="0">1. Provider Hub 默认态：只展示已接入和待配置队列</text>
+    <text class="subtitle" x="0" y="30">用户不被几十个供应商卡片淹没；主视图围绕“当前能不能用”和“下一步接哪个”组织。</text>
+
+    <rect class="frame shadow" x="0" y="62" width="1456" height="500" rx="14"/>
+    <rect class="soft" x="24" y="88" width="1408" height="72" rx="10"/>
+    <text class="label" x="48" y="118">Provider 与模型</text>
+    <text class="h2" x="48" y="150">接入工作台</text>
+    <rect class="button" x="842" y="106" width="210" height="36" rx="8"/>
+    <text class="muted" x="866" y="129">搜索厂商 / 协议 / 能力</text>
+    <rect class="button" x="1070" y="106" width="108" height="36" rx="8"/>
+    <text class="btn" x="1100" y="130">导入配置</text>
+    <rect class="primary" x="1196" y="106" width="154" height="36" rx="8"/>
+    <text class="btnLight" x="1226" y="130">新增自定义</text>
+    <rect class="button" x="1362" y="106" width="46" height="36" rx="8"/>
+    <text class="btn" x="1378" y="130">同步</text>
+
+    <g transform="translate(24 184)">
+      <rect class="panel" x="0" y="0" width="290" height="344" rx="12"/>
+      <text class="h3" x="20" y="36">已接入</text>
+      <text class="muted" x="20" y="60">只保留当前可工作的 Provider</text>
+      <rect class="active" x="18" y="86" width="254" height="58" rx="9"/>
+      <text class="h3" x="34" y="113">DeepSeek</text>
+      <text class="tiny" x="34" y="134">文本 · OpenAI 兼容 · 已同步 8</text>
+      <rect class="success" x="194" y="104" width="58" height="24" rx="12"/>
+      <text class="chipText" x="207" y="121">可用</text>
+      <rect class="panel" x="18" y="158" width="254" height="58" rx="9"/>
+      <text class="h3" x="34" y="185">Ollama</text>
+      <text class="tiny" x="34" y="206">本地 · 文本/视觉 · 已同步 5</text>
+      <rect class="panel" x="18" y="230" width="254" height="58" rx="9"/>
+      <text class="h3" x="34" y="257">火山引擎</text>
+      <text class="tiny" x="34" y="278">文本/TTS/视频 · 待补密钥</text>
+      <rect class="warn" x="194" y="248" width="58" height="24" rx="12"/>
+      <text class="chipText" x="207" y="265">待配</text>
+    </g>
+
+    <g transform="translate(338 184)">
+      <rect class="panel" x="0" y="0" width="690" height="344" rx="12"/>
+      <text class="h3" x="20" y="36">厂商模板库</text>
+      <text class="muted" x="20" y="60">默认折叠为分类，不把所有厂商直接铺开</text>
+
+      <rect class="active" x="20" y="84" width="108" height="30" rx="15"/>
+      <text class="btn" x="47" y="104">国内</text>
+      <rect class="chip" x="140" y="84" width="118" height="30" rx="15"/>
+      <text class="chipText" x="166" y="104">文本模型</text>
+      <rect class="chip" x="270" y="84" width="118" height="30" rx="15"/>
+      <text class="chipText" x="296" y="104">视频生成</text>
+      <rect class="chip" x="400" y="84" width="90" height="30" rx="15"/>
+      <text class="chipText" x="424" y="104">TTS</text>
+      <rect class="chip" x="502" y="84" width="110" height="30" rx="15"/>
+      <text class="chipText" x="526" y="104">聚合平台</text>
+
+      <line class="line" x1="20" y1="132" x2="670" y2="132"/>
+      <text class="label" x="20" y="160">通用大模型</text>
+      <text class="body" x="20" y="190">DeepSeek、通义千问 / 百炼、豆包 / 火山、Kimi、智谱 GLM、文心千帆、腾讯混元、讯飞星火、MiniMax、百川、零一万物、商汤、阶跃星辰</text>
+      <line class="line" x1="20" y1="214" x2="670" y2="214"/>
+      <text class="label" x="20" y="242">视频生成</text>
+      <text class="body" x="20" y="272">可灵、即梦 / Seedance、通义万相、Vidu、海螺 / MiniMax、商汤日日新、自定义视频 Provider</text>
+      <line class="line" x1="20" y1="296" x2="670" y2="296"/>
+      <text class="label" x="20" y="324">语音与 TTS</text>
+      <text class="body" x="20" y="354">火山 TTS、阿里云语音、腾讯云 TTS、百度智能云、讯飞开放平台、MiniMax Audio、自定义 TTS</text>
+    </g>
+
+    <g transform="translate(1052 184)">
+      <rect class="panel" x="0" y="0" width="356" height="344" rx="12"/>
+      <text class="label" x="20" y="34">接入向导</text>
+      <text class="h3" x="20" y="64">新增 Provider</text>
+      <text class="muted" x="20" y="88">选择模板或自定义协议，不需要等我们预置全部厂商。</text>
+      <rect class="soft" x="20" y="112" width="316" height="46" rx="8"/>
+      <text class="body" x="38" y="141">协议类型：OpenAI 兼容</text>
+      <rect class="soft" x="20" y="172" width="316" height="46" rx="8"/>
+      <text class="body" x="38" y="201">Base URL / API Key / Header</text>
+      <rect class="soft" x="20" y="232" width="316" height="46" rx="8"/>
+      <text class="body" x="38" y="261">模型发现方式：接口 / 手动 / 导入</text>
+      <rect class="primary" x="20" y="298" width="146" height="34" rx="8"/>
+      <text class="btnLight" x="52" y="321">开始接入</text>
+      <rect class="button" x="180" y="298" width="116" height="34" rx="8"/>
+      <text class="btn" x="206" y="321">保存草稿</text>
+    </g>
+  </g>
+
+  <g transform="translate(72 930)">
+    <text class="h2" x="0" y="0">2. 配置完成后：模型目录按能力标注和筛选</text>
+    <text class="subtitle" x="0" y="30">同步到的模型不只是名字列表，必须标出文本、视觉、视频、TTS、ASR、字幕等能力，以及输入输出模态。</text>
+
+    <rect class="frame shadow" x="0" y="62" width="1456" height="520" rx="14"/>
+    <rect class="soft" x="24" y="88" width="1408" height="72" rx="10"/>
+    <text class="label" x="48" y="118">当前 Provider</text>
+    <text class="h2" x="48" y="150">火山引擎 · 模型目录</text>
+    <rect class="success" x="356" y="118" width="78" height="28" rx="14"/>
+    <text class="chipText" x="378" y="137">已配置</text>
+    <rect class="button" x="1002" y="106" width="140" height="36" rx="8"/>
+    <text class="btn" x="1030" y="130">同步模型</text>
+    <rect class="button" x="1158" y="106" width="132" height="36" rx="8"/>
+    <text class="btn" x="1186" y="130">连接检查</text>
+    <rect class="primary" x="1304" y="106" width="104" height="36" rx="8"/>
+    <text class="btnLight" x="1332" y="130">保存</text>
+
+    <g transform="translate(24 184)">
+      <rect class="panel" x="0" y="0" width="280" height="370" rx="12"/>
+      <text class="h3" x="20" y="36">模型筛选</text>
+      <rect class="active" x="18" y="62" width="244" height="38" rx="8"/>
+      <text class="btn" x="38" y="87">全部可用模型 24</text>
+      <rect class="panel" x="18" y="112" width="244" height="38" rx="8"/>
+      <text class="body" x="38" y="137">文本生成 12</text>
+      <rect class="panel" x="18" y="162" width="244" height="38" rx="8"/>
+      <text class="body" x="38" y="187">视频生成 4</text>
+      <rect class="panel" x="18" y="212" width="244" height="38" rx="8"/>
+      <text class="body" x="38" y="237">TTS / 配音 6</text>
+      <rect class="panel" x="18" y="262" width="244" height="38" rx="8"/>
+      <text class="body" x="38" y="287">视觉理解 2</text>
+      <text class="muted" x="20" y="336">支持模型发现的 Provider 自动同步；不支持的用手动模型表。</text>
+    </g>
+
+    <g transform="translate(330 184)">
+      <rect class="panel" x="0" y="0" width="760" height="370" rx="12"/>
+      <text class="h3" x="20" y="36">模型目录</text>
+      <text class="muted" x="134" y="36">按能力标注，便于绑定到脚本、视频、配音和字幕能力</text>
+      <line class="line" x1="20" y1="62" x2="740" y2="62"/>
+
+      <text class="label" x="20" y="90">模型</text>
+      <text class="label" x="270" y="90">能力类型</text>
+      <text class="label" x="500" y="90">输入 / 输出</text>
+      <text class="label" x="650" y="90">状态</text>
+
+      <line class="line" x1="20" y1="108" x2="740" y2="108"/>
+      <text class="h3" x="20" y="140">doubao-seed-1.6</text>
+      <text class="mono" x="20" y="164">文本默认</text>
+      <rect class="chip" x="270" y="122" width="72" height="26" rx="13"/>
+      <text class="chipText" x="291" y="140">文本</text>
+      <rect class="chip" x="350" y="122" width="72" height="26" rx="13"/>
+      <text class="chipText" x="371" y="140">视觉</text>
+      <text class="muted" x="500" y="140">text+image / text</text>
+      <rect class="success" x="650" y="122" width="58" height="26" rx="13"/>
+      <text class="chipText" x="663" y="140">启用</text>
+
+      <line class="line" x1="20" y1="184" x2="740" y2="184"/>
+      <text class="h3" x="20" y="216">seedance-2.0</text>
+      <text class="mono" x="20" y="240">视频生成</text>
+      <rect class="chip" x="270" y="198" width="72" height="26" rx="13"/>
+      <text class="chipText" x="291" y="216">视频</text>
+      <rect class="chip" x="350" y="198" width="88" height="26" rx="13"/>
+      <text class="chipText" x="373" y="216">图生视频</text>
+      <text class="muted" x="500" y="216">text+image / video</text>
+      <rect class="success" x="650" y="198" width="58" height="26" rx="13"/>
+      <text class="chipText" x="663" y="216">启用</text>
+
+      <line class="line" x1="20" y1="260" x2="740" y2="260"/>
+      <text class="h3" x="20" y="292">doubao-tts</text>
+      <text class="mono" x="20" y="316">短视频配音</text>
+      <rect class="chip" x="270" y="274" width="72" height="26" rx="13"/>
+      <text class="chipText" x="296" y="292">TTS</text>
+      <text class="muted" x="500" y="292">text / audio</text>
+      <rect class="warn" x="650" y="274" width="70" height="26" rx="13"/>
+      <text class="chipText" x="665" y="292">待测试</text>
+    </g>
+
+    <g transform="translate(1116 184)">
+      <rect class="panel" x="0" y="0" width="292" height="370" rx="12"/>
+      <text class="label" x="20" y="34">Inspector</text>
+      <text class="h3" x="20" y="64">模型能力映射</text>
+      <text class="muted" x="20" y="88">同步结果可以人工修正，绑定后进入能力矩阵。</text>
+      <rect class="soft" x="20" y="118" width="252" height="44" rx="8"/>
+      <text class="body" x="38" y="146">默认用于：视频生成</text>
+      <rect class="soft" x="20" y="178" width="252" height="44" rx="8"/>
+      <text class="body" x="38" y="206">上下文 / 时长 / 分辨率</text>
+      <rect class="soft" x="20" y="238" width="252" height="44" rx="8"/>
+      <text class="body" x="38" y="266">计费单位 / 速率限制</text>
+      <rect class="button" x="20" y="314" width="110" height="34" rx="8"/>
+      <text class="btn" x="42" y="337">停用模型</text>
+      <rect class="primary" x="144" y="314" width="128" height="34" rx="8"/>
+      <text class="btnLight" x="172" y="337">绑定能力</text>
+    </g>
+  </g>
+
+  <g transform="translate(72 1565)">
+    <text class="h2" x="0" y="0">V2 交互规则</text>
+    <text class="body" x="0" y="38">1. 默认页只展示已接入 Provider、推荐接入队列和模板分类，不直接全量铺开。</text>
+    <text class="body" x="0" y="70">2. 国内厂商通过“模板库”覆盖主流平台，遗漏厂商通过“自定义 Provider”接入，协议可选 OpenAI 兼容、厂商专用、手动模型表。</text>
+    <text class="body" x="0" y="102">3. 配置密钥后才能同步模型目录；同步结果必须带 capabilityTypes、inputModalities、outputModalities 和 enabled 状态。</text>
+    <text class="body" x="0" y="134">4. 能力矩阵只消费已启用模型，用户可以把文本、视频、TTS、字幕等模型绑定到对应创作能力。</text>
+  </g>
+</svg>

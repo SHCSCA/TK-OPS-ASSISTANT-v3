@@ -29,9 +29,6 @@
           <div class="settings-console__workspace-actions">
             <span class="settings-console__state-pill">{{ runtimeStatusLabel }}</span>
             <span class="settings-console__state-pill">{{ configStatusLabel }}</span>
-            <button class="settings-page__button settings-page__button--ghost" type="button" title="切换属性面板" @click="shellUiStore.openDetailPanel()">
-              打开右侧抽屉
-            </button>
           </div>
           </header>
         <section class="settings-console__surface" :data-state="sectionState">
@@ -53,6 +50,7 @@
             :health-model="selectedProviderHealthModel"
             :provider-catalog="capabilityStore.providerCatalog"
             :provider-draft="selectedProviderDraft"
+            :refresh-result="selectedProviderRefreshResult"
             :selected-provider-health="selectedProviderHealth"
             :selected-provider-id="selectedProviderId"
             :selected-provider-models="selectedProviderModels"
@@ -64,7 +62,7 @@
             @update:health-model="selectedProviderHealthModel = $event"
           />
 
-          <div v-else-if="currentSection === 'capability'" class="settings-console__capability-layout">
+          <div v-else class="settings-console__capability-layout">
             <AICapabilityMatrix
               :capabilities="capabilityForms"
               :capability-labels="capabilityLabels"
@@ -80,47 +78,6 @@
               :support-item="selectedSupportItem"
             />
           </div>
-
-          <section v-else class="settings-console__diagnostic-stage">
-            <div class="settings-console__diagnostic-hero">
-              <div>
-                <p class="detail-panel__label">当前运行视图</p>
-                <h3>诊断工作台</h3>
-                <p class="workspace-page__summary">
-                  主区保留运行状态、Provider 连通性和能力矩阵的总览，右侧抽屉继续承载更细的 Runtime / 诊断信息。
-                </p>
-              </div>
-
-              <div class="settings-console__diagnostic-actions">
-                <button class="settings-page__button" type="button" @click="shellUiStore.openDetailPanel()">
-                  打开诊断抽屉
-                </button>
-              </div>
-            </div>
-
-            <div class="settings-console__diagnostic-grid">
-              <article class="settings-console__diagnostic-tile">
-                <span>Runtime</span>
-                <strong>{{ runtimeStatusLabel }}</strong>
-                <p>{{ store.health?.service || "未读取" }} / {{ store.health?.version || "-" }}</p>
-              </article>
-              <article class="settings-console__diagnostic-tile">
-                <span>配置同步</span>
-                <strong>{{ configStatusLabel }}</strong>
-                <p>修订号 {{ settings?.revision ?? "-" }}</p>
-              </article>
-              <article class="settings-console__diagnostic-tile">
-                <span>Provider</span>
-                <strong>{{ configuredProviderCount }}/{{ capabilityStore.providerCatalog.length }}</strong>
-                <p>已保存连接凭据</p>
-              </article>
-              <article class="settings-console__diagnostic-tile">
-                <span>能力</span>
-                <strong>{{ enabledCapabilityCount }}</strong>
-                <p>已启用的能力配置</p>
-              </article>
-            </div>
-          </section>
         </section>
 
         <SettingsSaveBar
@@ -134,34 +91,17 @@
         />
       </main>
 
-      <section class="settings-console__inspector" data-testid="settings-inline-diagnostics">
-        <SettingsDiagnosticPanel
-          :config-status-label="configStatusLabel"
-          :configured-provider-count="configuredProviderCount"
-          :diagnostics="store.diagnostics"
-          :enabled-capability-count="enabledCapabilityCount"
-          :errors="diagnosticErrors"
-          :last-synced-label="lastSyncedLabel"
-          :license-label="licenseLabel"
-          :provider-count="capabilityStore.providerCatalog.length"
-          :runtime-status-label="runtimeStatusLabel"
-          :section="currentSection"
-          :selected-provider-health="selectedProviderHealth"
-          :selected-provider-label="selectedProviderLabel"
-        />
-      </section>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, reactive, ref, watch, watchEffect } from "vue";
 
 import AICapabilityInspector from "@/modules/settings/components/AICapabilityInspector.vue";
 import AICapabilityMatrix from "@/modules/settings/components/AICapabilityMatrix.vue";
 import ProviderCatalogPanel from "@/modules/settings/components/ProviderCatalogPanel.vue";
-import SettingsDiagnosticPanel from "@/modules/settings/components/SettingsDiagnosticPanel.vue";
 import SettingsSaveBar from "@/modules/settings/components/SettingsSaveBar.vue";
 import SettingsSectionRail from "@/modules/settings/components/SettingsSectionRail.vue";
 import SettingsStatusDock from "@/modules/settings/components/SettingsStatusDock.vue";
@@ -169,7 +109,7 @@ import SettingsSystemFormPanel from "@/modules/settings/components/SettingsSyste
 import { useAICapabilityStore } from "@/stores/ai-capability";
 import { useConfigBusStore } from "@/stores/config-bus";
 import { useLicenseStore } from "@/stores/license";
-import { useShellUiStore } from "@/stores/shell-ui";
+import { type DetailContext, type DetailContextTone, useShellUiStore } from "@/stores/shell-ui";
 import type {
   AICapabilityConfig,
   AICapabilitySupportItem,
@@ -245,6 +185,9 @@ const selectedProviderModels = computed(
 const selectedProviderLabel = computed(() => selectedProviderCatalogItem.value?.label ?? "未选择 Provider");
 const selectedProviderHealth = computed(
   () => capabilityStore.providerHealth[selectedProviderId.value] ?? null
+);
+const selectedProviderRefreshResult = computed(
+  () => capabilityStore.refreshResultByProvider[selectedProviderId.value] ?? null
 );
 const selectedProviderSecretStatus = computed(
   () =>
@@ -383,14 +326,9 @@ watch(
   { immediate: true }
 );
 
-watch(
-  () => currentSection.value,
-  (section) => {
-    if (section === "diagnostics") {
-      shellUiStore.openDetailPanel();
-    }
-  }
-);
+watchEffect(() => {
+  shellUiStore.setDetailContext(buildSettingsShellDetailContext());
+});
 
 watch(
   () => form.ai.provider,
@@ -496,32 +434,39 @@ async function handleRefreshProviderModels(): Promise<void> {
     return;
   }
 
-  await capabilityStore.loadProviderModels(selectedProviderId.value);
+  await capabilityStore.refreshProviderModels(selectedProviderId.value);
 }
 
 async function handlePickDirectory(field: DirectoryField): Promise<void> {
   localBanner.value = null;
-  const currentValue =
-    field === "runtime.workspaceRoot"
-      ? form.runtime.workspaceRoot
-      : field === "paths.cacheDir"
-        ? form.paths.cacheDir
-        : field === "paths.exportDir"
-          ? form.paths.exportDir
-          : form.paths.logDir;
-  const selected = await pickDirectoryPath(currentValue);
-  if (!selected) {
-    return;
-  }
+  try {
+    const currentValue =
+      field === "runtime.workspaceRoot"
+        ? form.runtime.workspaceRoot
+        : field === "paths.cacheDir"
+          ? form.paths.cacheDir
+          : field === "paths.exportDir"
+            ? form.paths.exportDir
+            : form.paths.logDir;
+    const selected = await pickDirectoryPath(currentValue);
+    if (!selected) {
+      return;
+    }
 
-  if (field === "runtime.workspaceRoot") {
-    form.runtime.workspaceRoot = selected;
-  } else if (field === "paths.cacheDir") {
-    form.paths.cacheDir = selected;
-  } else if (field === "paths.exportDir") {
-    form.paths.exportDir = selected;
-  } else {
-    form.paths.logDir = selected;
+    if (field === "runtime.workspaceRoot") {
+      form.runtime.workspaceRoot = selected;
+    } else if (field === "paths.cacheDir") {
+      form.paths.cacheDir = selected;
+    } else if (field === "paths.exportDir") {
+      form.paths.exportDir = selected;
+    } else {
+      form.paths.logDir = selected;
+    }
+  } catch (error) {
+    localBanner.value = {
+      message: error instanceof Error ? error.message : "当前环境无法打开系统目录选择器。",
+      tone: "error"
+    };
   }
 }
 
@@ -574,6 +519,133 @@ async function selectProvider(providerId: string): Promise<void> {
 
 function selectCapability(capabilityId: string): void {
   selectedCapabilityId.value = capabilityId;
+}
+
+function buildSettingsShellDetailContext(): DetailContext {
+  const errors = diagnosticErrors.value;
+  const hasErrors = errors.length > 0;
+  const providerHealth = selectedProviderHealth.value;
+  const sections: DetailContext["sections"] = [
+    {
+      id: "settings-running",
+      title: "运行态",
+      description: sectionSummary.value,
+      fields: [
+        createDetailField("runtime", "Runtime", runtimeStatusLabel.value),
+        createDetailField("license", "授权", licenseLabel.value),
+        createDetailField("config", "配置", configStatusLabel.value),
+        createDetailField("sync", "最近同步", lastSyncedLabel.value || "待同步")
+      ]
+    },
+    {
+      id: "settings-boundary",
+      title: "系统边界",
+      fields: [
+        createDetailField("database", "数据库", store.diagnostics?.databasePath ?? "暂无数据库路径", {
+          mono: true,
+          multiline: true
+        }),
+        createDetailField("cache", "缓存目录", store.diagnostics?.cacheDir ?? "暂无缓存目录", {
+          mono: true,
+          multiline: true
+        }),
+        createDetailField("logs", "日志目录", store.diagnostics?.logDir ?? "暂无日志目录", {
+          mono: true,
+          multiline: true
+        }),
+        createDetailField(
+          "capability",
+          "Provider / 能力",
+          `${configuredProviderCount.value}/${capabilityStore.providerCatalog.length} · ${enabledCapabilityCount.value}`
+        )
+      ]
+    },
+    {
+      id: "settings-focus",
+      title: "当前焦点",
+      fields: [
+        createDetailField("section", "设置分区", sectionTitle.value),
+        createDetailField("provider", "选中 Provider", selectedProviderLabel.value),
+        createDetailField("health", "连接状态", providerHealth?.status ?? "待检查"),
+        createDetailField("message", "检查结果", providerHealth?.message ?? "尚未执行连接检查。", {
+          multiline: true
+        })
+      ]
+    }
+  ];
+
+  if (errors.length > 0) {
+    sections.push({
+      id: "settings-errors",
+      title: "异常",
+      items: errors.map((error, index) => ({
+        id: `settings-error-${index}`,
+        title: error,
+        icon: "error",
+        tone: "danger"
+      }))
+    });
+  }
+
+  return {
+    key: `settings:${currentSection.value}:${selectedProviderId.value}:${selectedCapabilityId.value}`,
+    mode: "settings",
+    source: "custom",
+    icon: "settings",
+    eyebrow: "AI 与系统设置",
+    title: `${sectionTitle.value} 上下文`,
+    description: "页面主区只保留当前设置工作流，运行态、系统边界和焦点信息统一收拢到右侧抽屉。",
+    badge: {
+      label: hasErrors ? "需要处理" : runtimeStatusLabel.value,
+      tone: hasErrors ? "danger" : mapRuntimeDetailTone()
+    },
+    metrics: [
+      {
+        id: "runtime",
+        label: "Runtime",
+        value: runtimeStatusLabel.value
+      },
+      {
+        id: "providers",
+        label: "Provider",
+        value: `${configuredProviderCount.value}/${capabilityStore.providerCatalog.length}`
+      },
+      {
+        id: "capabilities",
+        label: "能力",
+        value: `${enabledCapabilityCount.value}`
+      }
+    ],
+    sections
+  };
+}
+
+function createDetailField(
+  id: string,
+  label: string,
+  value: string,
+  options: { mono?: boolean; multiline?: boolean } = {}
+) {
+  return {
+    id,
+    label,
+    value,
+    mono: options.mono,
+    multiline: options.multiline
+  };
+}
+
+function mapRuntimeDetailTone(): DetailContextTone {
+  if (store.runtimeStatus === "online") {
+    return "success";
+  }
+  if (store.runtimeStatus === "offline") {
+    return "danger";
+  }
+  if (store.runtimeStatus === "loading") {
+    return "warning";
+  }
+  return "info";
 }
 
 function ensureProviderDraft(providerId: string, fallbackBaseUrl = ""): {

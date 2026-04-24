@@ -91,6 +91,11 @@ class AIProviderCatalogItemDto(BaseModel):
     provider: str
     label: str
     kind: str
+    region: str
+    category: str
+    protocol: str
+    modelSyncMode: str
+    tags: list[str]
     configured: bool
     baseUrl: str
     secretSource: str

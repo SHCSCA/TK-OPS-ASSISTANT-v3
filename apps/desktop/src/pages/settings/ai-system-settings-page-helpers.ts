@@ -2,7 +2,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 
 import type { AICapabilityConfig, AppSettings, AppSettingsUpdateInput } from "@/types/runtime";
 
-export type SettingsSectionId = "system" | "provider" | "capability" | "diagnostics";
+export type SettingsSectionId = "system" | "provider" | "capability";
 export type DirectoryField =
   | "runtime.workspaceRoot"
   | "paths.cacheDir"
@@ -53,23 +53,18 @@ type SectionCopy = {
 const sectionCopies: Record<SettingsSectionId, SectionCopy> = {
   system: {
     eyebrow: "系统总线",
-    title: "集中维护 Runtime、路径和默认模型",
-    summary: "运行模式、缓存目录、导出目录和默认 AI 选项都通过配置总线读写，不在页面里单独保存。"
+    title: "运行、路径和默认模型",
+    summary: "运行模式、本地路径、日志和默认 AI 选项都通过配置总线读写。"
   },
   provider: {
     eyebrow: "Provider 与模型",
-    title: "管理 Provider 注册表、模型目录和连接凭据",
-    summary: "注册表里的 Provider 才能进入这里，模型目录和健康检查全部走真实 Runtime 接口。"
+    title: "注册表、模型目录和连接凭据",
+    summary: "选择 Provider 后管理模型目录、健康检查模型和真实连接凭据。"
   },
   capability: {
     eyebrow: "能力策略",
-    title: "围绕能力切换 Provider、模型和提示词",
-    summary: "左侧矩阵负责选中能力，右侧 Inspector 负责 Provider、模型和提示词的具体编辑。"
-  },
-  diagnostics: {
-    eyebrow: "诊断工作台",
-    title: "把诊断、状态和错误收拢到右侧抽屉",
-    summary: "主区保留运行视图，右侧抽屉负责更细的诊断、连通性和错误回显。"
+    title: "能力到 Provider 的绑定",
+    summary: "先选中能力，再编辑 Provider、模型、角色和提示词策略。"
   }
 };
 
@@ -200,8 +195,7 @@ export function formatDateOnly(value: string): string {
 
 export async function pickDirectoryPath(currentValue: string): Promise<string> {
   try {
-    const dialogModuleName = "@tauri-apps/plugin-dialog";
-    const dialog = await import(/* @vite-ignore */ dialogModuleName);
+    const dialog = await import("@tauri-apps/plugin-dialog");
     const selected = await dialog.open({
       defaultPath: currentValue || undefined,
       directory: true,
@@ -209,7 +203,7 @@ export async function pickDirectoryPath(currentValue: string): Promise<string> {
     });
     return typeof selected === "string" ? selected : "";
   } catch {
-    return window.prompt("请输入本地目录路径", currentValue)?.trim() ?? "";
+    throw new Error("当前环境无法打开系统目录选择器，请在 TK-OPS 桌面应用中重试。");
   }
 }
 

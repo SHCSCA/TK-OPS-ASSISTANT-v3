@@ -3,6 +3,7 @@
     class="app-shell command-shell"
     :data-detail-mode="detailPanelMode"
     :data-detail-open="String(isDetailPanelOpen)"
+    :data-detail-presentation="detailPresentation"
     :data-has-running-task="String(hasRunningTask)"
     :data-page-type="currentPage.pageType"
     :data-reduced-motion="String(reducedMotion)"
@@ -21,6 +22,7 @@
         :reduced-motion="reducedMotion"
         :runtime-label="runtimeStatusLabel"
         :runtime-tone="runtimeStatusTone"
+        :show-detail-toggle="showDetailToggle"
         :show-sidebar-toggle="showWorkspaceChrome"
         :theme="theme"
         @toggle-detail="handleToggleDetailPanel"
@@ -58,7 +60,17 @@
         class="app-shell__detail detail-panel-container"
         :class="{ 'is-open': isDetailPanelOpen }"
       >
+        <button
+          v-if="detailPresentation === 'rail'"
+          class="app-shell__detail-rail"
+          :aria-label="`展开${detailContext.title}`"
+          :title="`展开${detailContext.title}`"
+          @click="handleToggleDetailPanel"
+        >
+          <span class="material-symbols-outlined">{{ detailContext.icon || "right_panel_open" }}</span>
+        </button>
         <ShellDetailPanel
+          v-show="detailPresentation !== 'rail'"
           :context="detailContext"
           :open="isDetailPanelOpen"
           @close="shellUiStore.closeDetailPanel()"
@@ -120,21 +132,28 @@ const taskBusStore = useTaskBusStore();
 const { detailContext, isDetailPanelOpen, reducedMotion, sidebarCollapsed, theme } = storeToRefs(shellUiStore);
 const { health } = storeToRefs(configBusStore);
 const isConstrainedShell = ref(false);
+const isCompactDetailShell = ref(false);
 let constrainedShellQuery: MediaQueryList | null = null;
+let compactDetailShellQuery: MediaQueryList | null = null;
 
 onMounted(() => {
   taskBusStore.connect();
 
   if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
     constrainedShellQuery = window.matchMedia("(max-width: 1440px)");
+    compactDetailShellQuery = window.matchMedia("(max-width: 960px)");
     syncShellConstraint(constrainedShellQuery);
+    syncCompactDetailShell(compactDetailShellQuery);
     constrainedShellQuery.addEventListener("change", syncShellConstraint);
+    compactDetailShellQuery.addEventListener("change", syncCompactDetailShell);
   }
 });
 
 onBeforeUnmount(() => {
   constrainedShellQuery?.removeEventListener("change", syncShellConstraint);
+  compactDetailShellQuery?.removeEventListener("change", syncCompactDetailShell);
   constrainedShellQuery = null;
+  compactDetailShellQuery = null;
 });
 
 const currentPage = computed(() => routeManifest.find((item) => item.id === route.name) ?? routeManifest[0]);
@@ -239,6 +258,16 @@ const lastSyncLabel = computed(() => {
 });
 
 const hasRunningTask = computed(() => ["tasks", "rendering", "publishing"].includes(statusBarMode.value));
+const showDetailToggle = computed(() => showWorkspaceChrome.value && detailPanelMode.value !== "hidden");
+const detailPresentation = computed<"hidden" | "docked" | "rail" | "focus">(() => {
+  if (!showDetailToggle.value) {
+    return "hidden";
+  }
+  if (!isCompactDetailShell.value) {
+    return "docked";
+  }
+  return isDetailPanelOpen.value ? "focus" : "rail";
+});
 const shouldProtectWorkspace = computed(
   () => showWorkspaceChrome.value && isDetailPanelOpen.value && isConstrainedShell.value
 );
@@ -268,6 +297,7 @@ watch(
     licenseStatusLabel,
     configStatusLabel,
     selectedAsset,
+    isCompactDetailShell,
     () => assetLibraryStore.references,
     () => route.fullPath,
     () => health.value?.version
@@ -302,6 +332,10 @@ function syncShellConstraint(source?: MediaQueryList | MediaQueryListEvent) {
   isConstrainedShell.value = Boolean(source?.matches ?? constrainedShellQuery?.matches);
 }
 
+function syncCompactDetailShell(source?: MediaQueryList | MediaQueryListEvent) {
+  isCompactDetailShell.value = Boolean(source?.matches ?? compactDetailShellQuery?.matches);
+}
+
 function syncDetailContext() {
   if (!showWorkspaceChrome.value || detailPanelMode.value === "hidden") {
     shellUiStore.clearDetailContext("hidden");
@@ -312,7 +346,7 @@ function syncDetailContext() {
   switch (detailPanelMode.value) {
     case "asset":
       shellUiStore.setDetailContext(buildAssetDetailContext());
-      if (selectedAsset.value) {
+      if (selectedAsset.value && !isCompactDetailShell.value) {
         shellUiStore.openDetailPanel();
       }
       return;
@@ -862,6 +896,30 @@ function formatShanghaiDateTime(value: string) {
   width: var(--detail-panel-width);
 }
 
+.app-shell__detail-rail {
+  align-items: center;
+  appearance: none;
+  background: var(--color-bg-surface);
+  border: 0;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  padding: 0;
+  width: 100%;
+}
+
+.app-shell__detail-rail:hover,
+.app-shell__detail-rail:focus-visible {
+  background: var(--color-bg-hover);
+  color: var(--color-brand-primary);
+}
+
+.app-shell__detail-rail .material-symbols-outlined {
+  font-size: 20px;
+}
+
 .app-shell[data-detail-mode="logs"] .app-shell__detail.is-open,
 .app-shell[data-detail-mode="settings"] .app-shell__detail.is-open {
   width: var(--detail-panel-width-wide);
@@ -929,8 +987,20 @@ function formatShanghaiDateTime(value: string) {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .app-shell[data-detail-presentation="rail"] .app-shell__workspace {
+    grid-template-columns: minmax(0, 1fr) var(--detail-rail-width);
+  }
+
+  .app-shell[data-detail-presentation="focus"] .app-shell__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .app-shell__content {
     grid-column: 1;
+  }
+
+  .app-shell[data-detail-presentation="focus"] .app-shell__content {
+    display: none;
   }
 
   .app-shell__sidebar {
@@ -951,14 +1021,22 @@ function formatShanghaiDateTime(value: string) {
     transform: translateX(calc(-1 * var(--sidebar-width-expanded)));
   }
 
-  .app-shell__detail {
+  .app-shell[data-detail-presentation="rail"] .app-shell__detail {
     background: var(--color-bg-elevated);
-    bottom: 0;
-    box-shadow: var(--shadow-lg);
-    position: absolute;
-    right: 0;
-    top: 0;
-    z-index: var(--z-sidebar);
+    grid-column: 2;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+    width: var(--detail-rail-width);
+  }
+
+  .app-shell[data-detail-presentation="focus"] .app-shell__detail {
+    background: var(--color-bg-elevated);
+    grid-column: 1;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+    width: 100%;
   }
 }
 </style>

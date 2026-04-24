@@ -180,7 +180,7 @@ export const useAIStore = defineStore("ai-capability", {
       this.status = "saving";
       try {
         await saveAIProviderSecret(providerId, input);
-        await this.reloadSettings();
+        await Promise.all([this.reloadSettings(), this.reloadProviderCatalog()]);
         this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error);
