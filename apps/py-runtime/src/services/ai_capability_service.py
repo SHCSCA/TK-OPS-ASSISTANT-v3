@@ -322,6 +322,7 @@ class AICapabilityService:
         provider_settings = self._repository.load_provider_settings()
         timestamps = [item.updated_at for item in capabilities]
         timestamps.extend(item.updated_at for item in provider_settings)
+        timestamps.extend(item.updated_at for item in self._repository.load_provider_models())
         return max(timestamps, default=_utc_now())
 
     def _build_diagnostic_summary(
@@ -345,7 +346,7 @@ class AICapabilityService:
 
     def get_provider_models(self, provider_id: str) -> list[AIModelCatalogItemDto]:
         _get_provider_catalog_metadata(provider_id)
-        return [item for item in self._model_catalog() if item.provider == provider_id]
+        return [item for item in self._model_catalog() if item.provider == provider_id and item.enabled]
 
     def upsert_provider_model(
         self,
@@ -432,7 +433,26 @@ class AICapabilityService:
             )
 
         saved_count = 0
+        disabled_models = {
+            item.model_id
+            for item in self._repository.load_provider_models(provider_id=provider_id)
+            if not item.enabled
+        }
         for item in discovered:
+            if item.model_id in disabled_models:
+                item = StoredAIProviderModel(
+                    provider_id=item.provider_id,
+                    model_id=item.model_id,
+                    display_name=item.display_name,
+                    capability_kinds=item.capability_kinds,
+                    input_modalities=item.input_modalities,
+                    output_modalities=item.output_modalities,
+                    context_window=item.context_window,
+                    default_for=item.default_for,
+                    enabled=False,
+                    created_at=item.created_at,
+                    updated_at=item.updated_at,
+                )
             self._repository.upsert_provider_model(item)
             saved_count += 1
 
@@ -474,8 +494,7 @@ class AICapabilityService:
             supported = [
                 model
                 for model in models
-                if capability_id in model.defaultFor
-                or _capability_type_for(capability_id) in model.capabilityTypes
+                if _model_supports_capability(model, capability_id)
             ]
             items.append(
                 AICapabilitySupportItemDto(
@@ -545,11 +564,32 @@ class AICapabilityService:
                 latencyMs=None,
             )
 
+        model_info = self._find_model(provider_id, resolved_model)
+        if model_info is not None and "text_generation" not in model_info.capabilityTypes:
+            return AIProviderHealthDto(
+                provider=provider_id,
+                status="unsupported",
+                message="当前模型不是文本模型，暂不能用于通用连接检查；请改用文本模型或在对应能力中单独验证。",
+                model=resolved_model,
+                checkedAt=checked_at,
+                latencyMs=None,
+            )
+
         probe = self._probe_provider_connectivity(runtime, resolved_model)
+        message = str(probe["message"])
+        if _is_model_access_denied_message(message) and self._disable_provider_model(provider_id, resolved_model):
+            message = f"{message} 已从可选模型中屏蔽，请刷新模型目录或改用已有权限的模型。"
+            settings = self.get_settings()
+            self._broadcast_ai_capability_changed(
+                settings=settings,
+                reason="provider_model_disabled",
+                provider_ids=[provider_id],
+                capability_ids=list(CAPABILITY_IDS),
+            )
         return AIProviderHealthDto(
             provider=provider_id,
             status=str(probe["status"]),
-            message=str(probe["message"]),
+            message=message,
             model=resolved_model,
             checkedAt=checked_at,
             latencyMs=int(probe["latency_ms"]) if probe["latency_ms"] is not None else None,
@@ -666,6 +706,40 @@ class AICapabilityService:
             if item.provider == provider_id and "text_generation" in item.capabilityTypes and item.enabled:
                 return item.modelId
         return ""
+
+    def _find_model(self, provider_id: str, model_id: str) -> AIModelCatalogItemDto | None:
+        return next(
+            (
+                item
+                for item in self._model_catalog()
+                if item.provider == provider_id and item.modelId == model_id
+            ),
+            None,
+        )
+
+    def _disable_provider_model(self, provider_id: str, model_id: str) -> bool:
+        model = self._find_model(provider_id, model_id)
+        if model is None:
+            return False
+
+        now = _utc_now()
+        self._repository.upsert_provider_model(
+            StoredAIProviderModel(
+                provider_id=model.provider,
+                model_id=model.modelId,
+                display_name=model.displayName,
+                capability_kinds=model.capabilityTypes,
+                input_modalities=model.inputModalities,
+                output_modalities=model.outputModalities,
+                context_window=model.contextWindow,
+                default_for=model.defaultFor,
+                enabled=False,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        log.warning("AI Provider 模型被屏蔽 provider=%s model=%s", provider_id, model_id)
+        return True
 
     def _load_or_create_capabilities(self) -> list[StoredAICapabilityConfig]:
         stored = self._repository.load_capabilities()
@@ -1124,30 +1198,30 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
         "video_generation_provider": _catalog_item(
             "视频生成 Provider",
             "media",
-            "",
-            "",
+            "TK_OPS_VIDEO_GENERATION_PROVIDER_API_KEY",
+            "TK_OPS_VIDEO_GENERATION_PROVIDER_BASE_URL",
             "",
             ["video_generation"],
-            requires_secret=False,
+            requires_base_url=True,
+            supports_model_discovery=True,
             region="custom",
             category="video",
-            protocol="manual_catalog",
-            model_sync_mode="manual",
-            tags=["自定义", "视频"],
+            protocol="openai_chat",
+            tags=["自定义", "视频", "远端同步"],
         ),
         "asset_analysis_provider": _catalog_item(
             "资产分析 Provider",
             "media",
-            "",
-            "",
+            "TK_OPS_ASSET_ANALYSIS_PROVIDER_API_KEY",
+            "TK_OPS_ASSET_ANALYSIS_PROVIDER_BASE_URL",
             "",
             ["asset_analysis"],
-            requires_secret=False,
+            requires_base_url=True,
+            supports_model_discovery=True,
             region="custom",
             category="asset_analysis",
-            protocol="manual_catalog",
-            model_sync_mode="manual",
-            tags=["自定义", "素材"],
+            protocol="openai_chat",
+            tags=["自定义", "素材", "远端同步"],
         ),
         "custom_openai_compatible": _catalog_item(
             "自定义 OpenAI 兼容",
@@ -1526,6 +1600,7 @@ def _fetch_openai_compatible_models(runtime: ProviderRuntimeConfig) -> list[Stor
         if model_id == "":
             continue
 
+        display_name = str(item.get("name") or item.get("display_name") or model_id).strip()
         architecture = item.get("architecture")
         architecture = architecture if isinstance(architecture, dict) else {}
         input_modalities = _string_list(item.get("input_modalities")) or _string_list(
@@ -1534,6 +1609,15 @@ def _fetch_openai_compatible_models(runtime: ProviderRuntimeConfig) -> list[Stor
         output_modalities = _string_list(item.get("output_modalities")) or _string_list(
             architecture.get("output_modalities")
         )
+        inferred_input_modalities, inferred_output_modalities = _infer_modalities_from_model_name(
+            runtime.provider,
+            model_id,
+            display_name,
+        )
+        if not input_modalities:
+            input_modalities = inferred_input_modalities
+        if not output_modalities:
+            output_modalities = inferred_output_modalities
         capability_kinds = _capability_kinds_from_value(item.get("capabilities"))
         if not capability_kinds:
             capability_kinds = _capability_kinds_from_modalities(input_modalities, output_modalities)
@@ -1548,7 +1632,7 @@ def _fetch_openai_compatible_models(runtime: ProviderRuntimeConfig) -> list[Stor
             StoredAIProviderModel(
                 provider_id=runtime.provider,
                 model_id=model_id,
-                display_name=str(item.get("name") or item.get("display_name") or model_id).strip(),
+                display_name=display_name,
                 capability_kinds=capability_kinds,
                 input_modalities=input_modalities,
                 output_modalities=output_modalities,
@@ -1617,7 +1701,7 @@ def _capability_kinds_from_modalities(
     capability_kinds: list[str] = []
     if "text" in normalized_outputs:
         capability_kinds.append("text_generation")
-    if "image" in normalized_inputs:
+    if "image" in normalized_inputs and "video" not in normalized_outputs:
         capability_kinds.append("vision")
     if "video" in normalized_inputs and "text" in normalized_outputs:
         capability_kinds.append("asset_analysis")
@@ -1626,6 +1710,46 @@ def _capability_kinds_from_modalities(
     if "audio" in normalized_outputs:
         capability_kinds.append("tts")
     return capability_kinds
+
+
+def _infer_modalities_from_model_name(
+    provider_id: str,
+    model_id: str,
+    display_name: str,
+) -> tuple[list[str], list[str]]:
+    token = f"{provider_id} {model_id} {display_name}".lower().replace("_", "-")
+    video_markers = (
+        "seedance",
+        "seaweed",
+        "kling",
+        "jimeng",
+        "wanx",
+        "vidu",
+        "hailuo",
+        "video",
+        "t2v",
+        "i2v",
+        "text-to-video",
+        "image-to-video",
+    )
+    tts_markers = ("tts", "speech", "voice", "cosyvoice", "audio")
+    vision_markers = (
+        "vision",
+        "vl",
+        "qwen-vl",
+        "qwen2-vl",
+        "qwen2.5-vl",
+        "glm-4v",
+        "visual",
+    )
+
+    if any(marker in token for marker in video_markers):
+        return ["text", "image"], ["video"]
+    if any(marker in token for marker in tts_markers):
+        return ["text"], ["audio"]
+    if any(marker in token for marker in vision_markers):
+        return ["text", "image"], ["text"]
+    return [], []
 
 
 def _capability_kinds_from_value(value: object) -> list[str]:
@@ -1648,6 +1772,56 @@ def _capability_kinds_from_value(value: object) -> list[str]:
         if kind is not None and kind not in kinds:
             kinds.append(kind)
     return kinds
+
+
+def _model_supports_capability(model: AIModelCatalogItemDto, capability_id: str) -> bool:
+    if capability_id in model.defaultFor:
+        return True
+
+    capability_types = set(model.capabilityTypes)
+    input_modalities = set(model.inputModalities)
+    output_modalities = set(model.outputModalities)
+
+    if capability_id in {"script_generation", "script_rewrite", "storyboard_generation"}:
+        return "text_generation" in capability_types and "text" in output_modalities
+    if capability_id == "tts_generation":
+        return "tts" in capability_types or "audio" in output_modalities
+    if capability_id == "subtitle_alignment":
+        return (
+            "subtitle_alignment" in capability_types
+            or ("text_generation" in capability_types and "text" in output_modalities)
+        )
+    if capability_id == "video_generation":
+        return "video_generation" in capability_types or "video" in output_modalities
+    if capability_id == "asset_analysis":
+        return (
+            "asset_analysis" in capability_types
+            or (
+                "text" in output_modalities
+                and (
+                    "vision" in capability_types
+                    or "image" in input_modalities
+                    or "video" in input_modalities
+                )
+            )
+        )
+    return _capability_type_for(capability_id) in capability_types
+
+
+def _is_model_access_denied_message(message: str) -> bool:
+    normalized = message.lower()
+    access_markers = (
+        "do not have access",
+        "don't have access",
+        "not have access",
+        "does not exist",
+        "model_not_found",
+        "model or endpoint",
+        "无权限",
+        "没有权限",
+        "不存在",
+    )
+    return "404" in normalized and any(marker in normalized for marker in access_markers)
 
 
 def _ollama_model_supports_vision(model_id: str, details: dict[str, object]) -> bool:

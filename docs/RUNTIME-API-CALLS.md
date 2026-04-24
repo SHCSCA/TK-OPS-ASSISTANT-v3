@@ -1721,6 +1721,13 @@ waveform 缺少音频：
 | `PUT /api/settings/ai-capabilities/providers/{provider_id}/secret` | `AIProviderSecretInput`：`apiKey`、`baseUrl?` | `AIProviderSecretStatusDto` | `404`、`422` | `updateAIProviderSecret` |
 | `POST /api/settings/ai-capabilities/providers/{provider_id}/health-check` | `AIProviderHealthCheckInput`：`model?` | `AIProviderHealthDto` | `404`、`422` | `checkAIProviderHealth` |
 
+`support-matrix` 只返回启用模型，并按能力语义匹配：
+
+- `subtitle_alignment` 可使用文本生成模型。
+- `asset_analysis` 可使用声明 `asset_analysis` 的模型，或具备 `vision` / `image` / `video` 输入并输出文本的模型。
+- `video_generation` 只使用声明视频生成或输出 `video` 的模型。
+- 健康检查发现 404、模型不存在或无权限时，Runtime 会把该模型写入停用覆盖记录，并广播 `ai-capability.changed` / `provider_model_disabled`，前端需刷新当前 Provider 模型目录和支持矩阵。
+
 ### 17.3 AI Provider 目录
 
 **核心返回 DTO**: `AIProviderCatalogItemDto`、`AIModelCatalogItemDto`、`AIModelCatalogRefreshResultDto`
@@ -1747,6 +1754,14 @@ waveform 缺少音频：
 | `requiresBaseUrl`、`supportsModelDiscovery` | 配置要求和是否允许通过 Runtime 执行模型目录刷新。 |
 
 首批 Provider Hub 模板覆盖国际、本地、国内文本/多模态、国内视频、国内 TTS 和自定义 Provider。模板只作为接入入口，真实可用模型仍以配置后的模型目录接口为准。
+
+模型目录刷新规则：
+
+- OpenAI 兼容协议默认读取 `{baseUrl}/models`；当远端未返回 modalities 时，Runtime 使用 Model ID / 展示名做保守推断。
+- `seedance`、`kling`、`wanx`、`vidu`、`hailuo`、`video` 等标记推断为 `video_generation`，输入 `text/image`，输出 `video`。
+- `tts`、`speech`、`voice` 等标记推断为 `tts`，输入 `text`，输出 `audio`。
+- `vl`、`vision`、`visual` 等标记推断为视觉文本模型，输入 `text/image`，输出 `text`。
+- `GET /api/settings/ai-providers/{provider_id}/models` 不返回已停用模型，用于避免无权限模型继续进入 UI 选择器。
 
 ### 17.4 AI Provider 运行时聚合
 
@@ -2072,7 +2087,7 @@ waveform 缺少音频：
 | 协议族 ID | 协议特征 | 覆盖 Provider |
 | --- | --- | --- |
 | `openai_responses` | POST `/responses`，Bearer auth，`{model, instructions, input}` | `openai`（仅 Responses API） |
-| `openai_chat` | POST `/chat/completions`，Bearer auth，`{model, messages}`；模型目录刷新默认读取 `/models` | `openai_compatible`, `custom_openai_compatible`, `deepseek`, `qwen`, `kimi`, `zhipu`, `volcengine`, `baidu_qianfan`, `tencent_hunyuan`, `xunfei_spark`, `minimax`, `baichuan`, `lingyi`, `stepfun`, `sensecore`, `openrouter`, `ollama` |
+| `openai_chat` | POST `/chat/completions`，Bearer auth，`{model, messages}`；模型目录刷新默认读取 `/models` | `openai_compatible`, `custom_openai_compatible`, `video_generation_provider`, `asset_analysis_provider`, `deepseek`, `qwen`, `kimi`, `zhipu`, `volcengine`, `baidu_qianfan`, `tencent_hunyuan`, `xunfei_spark`, `minimax`, `baichuan`, `lingyi`, `stepfun`, `sensecore`, `openrouter`, `ollama` |
 | `anthropic_messages` | POST `/messages`，`x-api-key` header + `anthropic-version`，`{model, messages, max_tokens}` | `anthropic` |
 | `gemini_generate` | POST `/models/{model}:generateContent?key=`，无 auth header，`{contents}` | `gemini` |
 | `cohere_chat` | POST `/chat`，Bearer auth，`{model, message}` | `cohere` |
