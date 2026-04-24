@@ -44,6 +44,7 @@
             :provider-options="capabilityStore.providerCatalog"
             @update="handleSystemUpdate"
             @pick-directory="handlePickDirectory"
+            @open-log-directory="handleOpenLogDirectory"
           />
 
           <ProviderCatalogPanel
@@ -173,16 +174,27 @@ import type {
   AICapabilityConfig,
   AICapabilitySupportItem,
   AIProviderSecretInput,
-  AppSettings,
   AppSettingsUpdateInput
 } from "@/types/runtime";
-
-type SettingsSectionId = "system" | "provider" | "capability" | "diagnostics";
-type DirectoryField =
-  | "runtime.workspaceRoot"
-  | "paths.cacheDir"
-  | "paths.exportDir"
-  | "paths.logDir";
+import {
+  applySettingsToForm,
+  capabilityLabel,
+  capabilityLabels,
+  cloneSettingsInput,
+  configStatusLabel as getConfigStatusLabel,
+  createEmptySettingsInput,
+  type DirectoryField,
+  formatDateOnly,
+  formatErrorSummary,
+  openDirectoryPath,
+  pickDirectoryPath,
+  runtimeStatusLabel as getRuntimeStatusLabel,
+  sectionCopy,
+  serializeCapabilities,
+  serializeSettings,
+  settingsToInput,
+  type SettingsSectionId
+} from "./ai-system-settings-page-helpers";
 
 const store = useConfigBusStore();
 const capabilityStore = useAICapabilityStore();
@@ -196,16 +208,7 @@ const selectedCapabilityId = ref("script_generation");
 const selectedProviderId = ref("openai");
 const providerDrafts = reactive<Record<string, { apiKey: string; baseUrl: string }>>({});
 const providerHealthModelDrafts = reactive<Record<string, string>>({});
-
-const capabilityLabels: Record<string, string> = {
-  script_generation: "脚本生成",
-  script_rewrite: "脚本改写",
-  storyboard_generation: "分镜生成",
-  tts_generation: "配音生成",
-  subtitle_alignment: "字幕对齐",
-  video_generation: "视频生成",
-  asset_analysis: "资产分析"
-};
+const localBanner = ref<{ message: string; tone: "blocked" | "error" | "ready" } | null>(null);
 
 const isDisabled = computed(() => store.status === "saving" || settings.value === null);
 const isCapabilityDisabled = computed(
@@ -263,32 +266,8 @@ const selectedProviderHealthModel = computed({
 const defaultProviderModels = computed(
   () => capabilityStore.modelCatalogByProvider[form.ai.provider] ?? []
 );
-const runtimeStatusLabel = computed(() => {
-  switch (store.runtimeStatus) {
-    case "online":
-      return "在线";
-    case "loading":
-      return "读取中";
-    case "offline":
-      return "离线";
-    default:
-      return "待检查";
-  }
-});
-const configStatusLabel = computed(() => {
-  switch (store.status) {
-    case "loading":
-      return "配置读取中";
-    case "saving":
-      return "配置保存中";
-    case "ready":
-      return "配置已就绪";
-    case "error":
-      return "配置异常";
-    default:
-      return "等待配置";
-  }
-});
+const runtimeStatusLabel = computed(() => getRuntimeStatusLabel(store.runtimeStatus));
+const configStatusLabel = computed(() => getConfigStatusLabel(store.status));
 const licenseLabel = computed(() => (licenseStore.active ? "授权已激活" : "授权未激活"));
 const lastSyncedLabel = computed(() => formatDateOnly(store.lastSyncedAt || store.health?.now || ""));
 const diagnosticErrors = computed(() => {
@@ -301,33 +280,10 @@ const diagnosticErrors = computed(() => {
   }
   return errors;
 });
-const sectionEyebrow = computed(
-  () =>
-    ({
-      system: "系统总线",
-      provider: "Provider 与模型",
-      capability: "能力策略",
-      diagnostics: "诊断工作台"
-    })[currentSection.value] ?? "AI 与系统设置"
-);
-const sectionTitle = computed(
-  () =>
-    ({
-      system: "集中维护 Runtime、路径和默认模型",
-      provider: "管理 Provider 注册表、模型目录和连接凭据",
-      capability: "围绕能力切换 Provider、模型和提示词",
-      diagnostics: "把诊断、状态和错误收拢到右侧抽屉"
-    })[currentSection.value] ?? "AI 与系统设置"
-);
-const sectionSummary = computed(
-  () =>
-    ({
-      system: "运行模式、缓存目录、导出目录和默认 AI 选项都通过配置总线读写，不在页面里单独保存。",
-      provider: "注册表里的 Provider 才能进入这里，模型目录和健康检查全部走真实 Runtime 接口。",
-      capability: "左侧矩阵负责选中能力，右侧 Inspector 负责 Provider、模型和提示词的具体编辑。",
-      diagnostics: "主区保留运行视图，右侧抽屉负责更细的诊断、连通性和错误回显。"
-    })[currentSection.value] ?? ""
-);
+const currentSectionCopy = computed(() => sectionCopy(currentSection.value));
+const sectionEyebrow = computed(() => currentSectionCopy.value.eyebrow);
+const sectionTitle = computed(() => currentSectionCopy.value.title);
+const sectionSummary = computed(() => currentSectionCopy.value.summary);
 const sectionState = computed(() => {
   if (currentSection.value === "provider" && selectedProviderCatalogItem.value?.status === "missing_secret") {
     return "blocked";
@@ -344,6 +300,9 @@ const sectionState = computed(() => {
   return "ready";
 });
 const pageBanner = computed(() => {
+  if (localBanner.value) {
+    return localBanner.value.message;
+  }
   if (diagnosticErrors.value.length > 0) {
     return diagnosticErrors.value.join("；");
   }
@@ -356,6 +315,9 @@ const pageBanner = computed(() => {
   return "";
 });
 const pageBannerTone = computed(() => {
+  if (localBanner.value) {
+    return localBanner.value.tone;
+  }
   if (diagnosticErrors.value.length > 0) {
     return "error";
   }
@@ -488,6 +450,7 @@ onMounted(() => {
 });
 
 function handleSystemUpdate(patch: Partial<AppSettingsUpdateInput>) {
+  localBanner.value = null;
   if (patch.runtime) Object.assign(form.runtime, patch.runtime);
   if (patch.paths) Object.assign(form.paths, patch.paths);
   if (patch.logging) Object.assign(form.logging, patch.logging);
@@ -537,6 +500,7 @@ async function handleRefreshProviderModels(): Promise<void> {
 }
 
 async function handlePickDirectory(field: DirectoryField): Promise<void> {
+  localBanner.value = null;
   const currentValue =
     field === "runtime.workspaceRoot"
       ? form.runtime.workspaceRoot
@@ -558,6 +522,15 @@ async function handlePickDirectory(field: DirectoryField): Promise<void> {
     form.paths.exportDir = selected;
   } else {
     form.paths.logDir = selected;
+  }
+}
+
+async function handleOpenLogDirectory(): Promise<void> {
+  try {
+    await openDirectoryPath(form.paths.logDir);
+    localBanner.value = { message: "已请求系统打开日志目录。", tone: "ready" };
+  } catch {
+    localBanner.value = { message: "无法打开日志目录，请先确认路径已设置且本地目录存在。", tone: "error" };
   }
 }
 
@@ -603,10 +576,6 @@ function selectCapability(capabilityId: string): void {
   selectedCapabilityId.value = capabilityId;
 }
 
-function capabilityLabel(capabilityId: string): string {
-  return capabilityLabels[capabilityId] ?? capabilityId;
-}
-
 function ensureProviderDraft(providerId: string, fallbackBaseUrl = ""): {
   apiKey: string;
   baseUrl: string;
@@ -622,306 +591,6 @@ function ensureProviderDraft(providerId: string, fallbackBaseUrl = ""): {
 
   return providerDrafts[providerId];
 }
-
-function formatErrorSummary(error: { message: string; requestId: string } | null): string {
-  if (!error) {
-    return "";
-  }
-
-  return error.requestId ? `${error.message}（${error.requestId}）` : error.message;
-}
-
-function createEmptySettingsInput(): AppSettingsUpdateInput {
-  return {
-    runtime: {
-      mode: "",
-      workspaceRoot: ""
-    },
-    paths: {
-      cacheDir: "",
-      exportDir: "",
-      logDir: ""
-    },
-    logging: {
-      level: "INFO"
-    },
-    ai: {
-      provider: "",
-      model: "",
-      voice: "",
-      subtitleMode: ""
-    }
-  };
-}
-
-function settingsToInput(source: AppSettings): AppSettingsUpdateInput {
-  return {
-    runtime: {
-      mode: source.runtime.mode,
-      workspaceRoot: source.runtime.workspaceRoot
-    },
-    paths: {
-      cacheDir: source.paths.cacheDir,
-      exportDir: source.paths.exportDir,
-      logDir: source.paths.logDir
-    },
-    logging: {
-      level: source.logging.level
-    },
-    ai: {
-      provider: source.ai.provider,
-      model: source.ai.model,
-      voice: source.ai.voice,
-      subtitleMode: source.ai.subtitleMode
-    }
-  };
-}
-
-function applySettingsToForm(target: AppSettingsUpdateInput, source: AppSettings): void {
-  target.runtime.mode = source.runtime.mode;
-  target.runtime.workspaceRoot = source.runtime.workspaceRoot;
-  target.paths.cacheDir = source.paths.cacheDir;
-  target.paths.exportDir = source.paths.exportDir;
-  target.paths.logDir = source.paths.logDir;
-  target.logging.level = source.logging.level;
-  target.ai.provider = source.ai.provider;
-  target.ai.model = source.ai.model;
-  target.ai.voice = source.ai.voice;
-  target.ai.subtitleMode = source.ai.subtitleMode;
-}
-
-function cloneSettingsInput(source: AppSettingsUpdateInput): AppSettingsUpdateInput {
-  return {
-    runtime: {
-      mode: source.runtime.mode,
-      workspaceRoot: source.runtime.workspaceRoot
-    },
-    paths: {
-      cacheDir: source.paths.cacheDir,
-      exportDir: source.paths.exportDir,
-      logDir: source.paths.logDir
-    },
-    logging: {
-      level: source.logging.level
-    },
-    ai: {
-      provider: source.ai.provider,
-      model: source.ai.model,
-      voice: source.ai.voice,
-      subtitleMode: source.ai.subtitleMode
-    }
-  };
-}
-
-function serializeSettings(input: AppSettingsUpdateInput): string {
-  return JSON.stringify(input);
-}
-
-function serializeCapabilities(items: AICapabilityConfig[]): string {
-  return JSON.stringify(
-    items.map((item) => ({
-      capabilityId: item.capabilityId,
-      enabled: item.enabled,
-      provider: item.provider,
-      model: item.model,
-      agentRole: item.agentRole,
-      systemPrompt: item.systemPrompt,
-      userPromptTemplate: item.userPromptTemplate
-    }))
-  );
-}
-
-function formatDateOnly(value: string): string {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-
-  return date.toLocaleDateString("zh-CN");
-}
-
-async function pickDirectoryPath(currentValue: string): Promise<string> {
-  try {
-    const dialogModuleName = "@tauri-apps/plugin-dialog";
-    const dialog = await import(/* @vite-ignore */ dialogModuleName);
-    const selected = await dialog.open({
-      defaultPath: currentValue || undefined,
-      directory: true,
-      multiple: false
-    });
-    return typeof selected === "string" ? selected : "";
-  } catch {
-    return window.prompt("请输入本地目录路径", currentValue)?.trim() ?? "";
-  }
-}
 </script>
 
-<style scoped>
-.settings-console {
-  display: grid;
-  gap: 16px;
-  min-height: 100%;
-}
-
-.settings-console__banner {
-  padding: 12px 16px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
-}
-
-.settings-console__banner--error {
-  color: var(--status-error);
-  border-color: color-mix(in srgb, var(--status-error) 30%, var(--border-default));
-}
-
-.settings-console__banner--blocked {
-  color: var(--status-warning);
-  border-color: color-mix(in srgb, var(--status-warning) 30%, var(--border-default));
-}
-
-.settings-console__banner--loading {
-  border-color: color-mix(in srgb, var(--brand-primary) 24%, var(--border-default));
-}
-
-.settings-console__body {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 320px;
-  gap: 16px;
-  min-height: 0;
-}
-
-.settings-console__workspace,
-.settings-console__inspector {
-  min-width: 0;
-}
-
-.settings-console__workspace {
-  display: grid;
-  gap: 16px;
-  align-content: start;
-}
-
-.settings-console__workspace-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 2px 0;
-}
-
-.settings-console__workspace-header h2 {
-  margin: 0;
-}
-
-.settings-console__workspace-actions {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.settings-console__state-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--border-default);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-secondary) 90%, transparent);
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.settings-console__surface {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-}
-
-.settings-console__surface[data-state="blocked"] {
-  border-color: color-mix(in srgb, var(--status-warning) 24%, var(--border-default));
-}
-
-.settings-console__surface[data-state="error"] {
-  border-color: color-mix(in srgb, var(--status-error) 24%, var(--border-default));
-}
-
-.settings-console__capability-layout {
-  display: grid;
-  grid-template-columns: minmax(300px, 0.82fr) minmax(0, 1.18fr);
-  gap: 16px;
-}
-
-.settings-console__diagnostic-stage {
-  display: grid;
-  gap: 16px;
-}
-
-.settings-console__diagnostic-hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 18px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
-}
-
-.settings-console__diagnostic-hero h3 {
-  margin: 0;
-}
-
-.settings-console__diagnostic-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.settings-console__diagnostic-tile {
-  display: grid;
-  gap: 6px;
-  padding: 16px;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
-}
-
-.settings-console__diagnostic-tile span {
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-.settings-console__diagnostic-tile strong {
-  font-size: 18px;
-}
-
-.settings-console__diagnostic-tile p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-@media (max-width: 1280px) {
-  .settings-console__body {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-
-  .settings-console__inspector {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 980px) {
-  .settings-console__body,
-  .settings-console__capability-layout,
-  .settings-console__diagnostic-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
+<style scoped src="./AISystemSettingsPage.css"></style>

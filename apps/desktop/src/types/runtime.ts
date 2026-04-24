@@ -296,6 +296,21 @@ export type AIProviderHealth = {
   latencyMs?: number | null;
 };
 
+export type AIProviderHealthAggregateItem = {
+  provider: string;
+  label: string;
+  readiness: string;
+  lastCheckedAt?: string | null;
+  latencyMs?: number | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+};
+
+export type AIProviderHealthOverview = {
+  providers: AIProviderHealthAggregateItem[];
+  refreshedAt?: string | null;
+};
+
 export type AICapabilitySettings = {
   scope: string;
   configVersion: number;

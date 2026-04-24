@@ -88,7 +88,7 @@
 | 渲染与导出中心 | `/api/renders` | `renders.ts`、`RenderExportCenterPage.vue` |
 | 复盘与优化中心 | `/api/review` | `review.ts`、`ReviewOptimizationCenterPage.vue` |
 | 提示词模板中心 | `/api/prompt-templates` | `runtime-client.ts`（`listPromptTemplates`、`createPromptTemplate`、`updatePromptTemplate`、`deletePromptTemplate`） |
-| AI 与系统设置 | `/api/settings`、`/api/settings/ai-capabilities`、`/api/settings/ai-providers` | `config-bus.ts`、`ai-capability.ts`、`AIAndSystemSettingsPage.vue` |
+| AI 与系统设置 | `/api/settings`、`/api/settings/ai-capabilities`、`/api/settings/ai-providers` | `config-bus.ts`、`ai-capability.ts`、`AISystemSettingsPage.vue` |
 | 全局搜索 | `/api/search` | `searchGlobal` |
 | 长任务状态 | `/api/tasks` | `task-bus.ts` |
 | WebSocket | `/api/ws` | `task-bus.ts` WebSocket 订阅 |
@@ -1736,7 +1736,7 @@ waveform 缺少音频：
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/ai-providers/health` | 无；读取最近一次聚合健康快照 | `AIProviderHealthOverviewDto`：`providers[]`、`refreshedAt` | `500` | 当前前端未直接调用 |
+| `GET /api/ai-providers/health` | 无；读取最近一次聚合健康快照 | `AIProviderHealthOverviewDto`：`providers[]`、`refreshedAt` | `500` | `config-bus.ts`（`fetchProviderReadinessSilently` -> `fetchProviderHealth`） |
 | `POST /api/ai-providers/health/refresh` | 无；逐个 Provider 触发静默刷新，失败不会阻断 Runtime 启动 | `AIProviderHealthOverviewDto`：`providers[]`、`refreshedAt` | `500`；单 Provider 失败时记录 `provider.health.refresh_failed` | 当前前端未直接调用 |
 | `PUT /api/ai-providers/{provider_id}/models/{model_id}` | 路径参数：`provider_id`、`model_id`；`AIProviderModelUpsertInput`：`displayName`、`capabilityKinds`、`inputModalities[]`、`outputModalities[]`、`contextWindow?`、`defaultFor[]`、`enabled` | `AIProviderModelWriteReceiptDto`：`saved`、`wasUpsert`、`updatedAt`、`versionOrRevision`、`objectSummary`、`model` | `400`、`404`；能力缺失时返回 `provider.model.capability_required` | 当前前端未直接调用 |
 

@@ -1,5 +1,5 @@
 <template>
-  <section class="dashboard-hero" :data-dashboard-state="state">
+  <section class="dashboard-hero" data-dashboard-section="hero" :data-dashboard-state="state">
     <div class="dashboard-hero__inner">
       <div class="dashboard-hero__content">
         <div class="dashboard-hero__greeting">

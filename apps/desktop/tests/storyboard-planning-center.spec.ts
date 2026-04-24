@@ -1,12 +1,36 @@
-import { flushPromises } from "@vue/test-utils";
+import { flushPromises, mount } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createMemoryHistory } from "vue-router";
+
+import { createAppRouter } from "@/app/router";
+import StoryboardPlanningCenterPage from "@/pages/storyboards/StoryboardPlanningCenterPage.vue";
+import { useProjectStore } from "@/stores/project";
 
 import {
   createRouteAwareFetch,
-  mountApp,
-  okJsonResponse,
-  runtimeFixtures
+  okJsonResponse
 } from "./runtime-helpers";
+
+vi.mock(
+  "@/stores/task-bus",
+  () => ({
+    useTaskBusStore: () => ({
+      subscribeToType: () => () => undefined
+    })
+  }),
+  { virtual: true }
+);
+
+vi.mock(
+  "@/stores/asset-library",
+  () => ({
+    useAssetLibraryStore: () => ({
+      hydrate: async () => undefined
+    })
+  }),
+  { virtual: true }
+);
 
 function cloneValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -18,11 +42,15 @@ describe("Storyboard planning center", () => {
   });
 
   it("generates storyboard scenes for the current project and renders the returned cards", async () => {
-    const projectContext = {
+    const pinia = createPinia();
+    setActivePinia(pinia);
+    const projectStore = useProjectStore();
+    projectStore.currentProject = {
       projectId: "project-001",
       projectName: "Summer Launch",
       status: "active"
     };
+
     const storyboardDocument = {
       projectId: "project-001",
       basedOnScriptRevision: 1,
@@ -32,39 +60,6 @@ describe("Storyboard planning center", () => {
     };
 
     const fetchMock = createRouteAwareFetch((path, method) => {
-      if (path === "/api/license/status") {
-        return okJsonResponse(runtimeFixtures.activeLicense);
-      }
-      if (path === "/api/settings/health") {
-        return okJsonResponse(runtimeFixtures.health);
-      }
-      if (path === "/api/settings/config") {
-        return okJsonResponse(runtimeFixtures.initializedConfig);
-      }
-      if (path === "/api/settings/diagnostics") {
-        return okJsonResponse(runtimeFixtures.initializedDiagnostics);
-      }
-      if (path === "/api/dashboard/context") {
-        return okJsonResponse(projectContext);
-      }
-      if (path === "/api/dashboard/summary") {
-        return okJsonResponse({
-          recentProjects: [
-            {
-              id: "project-001",
-              name: "Summer Launch",
-              description: "Creator flow",
-              status: "active",
-              currentScriptVersion: 1,
-              currentStoryboardVersion: 0,
-              createdAt: "2026-04-11T10:00:00Z",
-              updatedAt: "2026-04-11T10:30:00Z",
-              lastAccessedAt: "2026-04-11T10:30:00Z"
-            }
-          ],
-          currentProject: projectContext
-        });
-      }
       if (path === "/api/storyboards/projects/project-001/document" && method === "GET") {
         return okJsonResponse(cloneValue(storyboardDocument));
       }
@@ -129,8 +124,15 @@ describe("Storyboard planning center", () => {
     });
 
     vi.stubGlobal("fetch", fetchMock);
+    const router = createAppRouter(pinia, createMemoryHistory());
+    await router.push("/storyboards/planning");
+    await router.isReady();
 
-    const { wrapper } = await mountApp("/storyboards/planning");
+    const wrapper = mount(StoryboardPlanningCenterPage, {
+      global: {
+        plugins: [pinia, router]
+      }
+    });
     await flushPromises();
 
     expect(wrapper.find('[data-storyboard-section="script-nav"]').exists()).toBe(true);

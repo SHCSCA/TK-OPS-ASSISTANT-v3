@@ -117,11 +117,18 @@ describe("M09 资产中心页面体验", () => {
 
     const { wrapper, assetStore, shellUiStore } = mountAssetLibrary();
     await flushPromises();
+    await vi.waitFor(() => {
+      expect(
+        (wrapper.get('[data-testid="asset-import-button"]').element as HTMLButtonElement).disabled
+      ).toBe(false);
+    });
 
     await wrapper.get('[data-testid="asset-import-button"]').trigger("click");
     await waitForMicrotasks();
 
-    expect(open).toHaveBeenCalledWith(expect.objectContaining({ multiple: true }));
+    await vi.waitFor(() => {
+      expect(open).toHaveBeenCalledWith(expect.objectContaining({ multiple: true }));
+    });
     expect(importBodies).toEqual([
       { filePath: "D:/tkops/assets/batch-a.mp4", type: "video", source: "local" },
       { filePath: "D:/tkops/assets/batch-b.jpg", type: "image", source: "local" }
@@ -275,6 +282,43 @@ describe("M09 资产中心页面体验", () => {
     expect(wrapper.text()).toContain("2026-04-16 18:00:00");
     expect(wrapper.text()).toContain("2026-04-16 18:30:00");
     expect(wrapper.text()).toContain("storyboard");
+  });
+
+  it("直接删除资产前先检查引用阻断，不绕过 prepareDelete", async () => {
+    let deleteCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method) => {
+        if (path === "/api/assets/asset-blocked" && method === "GET") {
+          return okJsonResponse({
+            ...asset("asset-blocked", "blocked.mp4"),
+            referenceSummary: { total: 1, blockingDelete: true }
+          });
+        }
+        if (path === "/api/assets/asset-blocked/references" && method === "GET") {
+          return okJsonResponse([{ ...assetReference(), assetId: "asset-blocked" }]);
+        }
+        if (path === "/api/assets/asset-blocked" && method === "DELETE") {
+          deleteCalls += 1;
+          return okJsonResponse({ deleted: true });
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    setActivePinia(createPinia());
+    const assetStore = useAssetLibraryStore();
+    assetStore.assets = [asset("asset-blocked", "blocked.mp4")];
+    assetStore.assetDetailsById = {
+      "asset-blocked": asset("asset-blocked", "blocked.mp4")
+    };
+
+    await assetStore.delete("asset-blocked");
+
+    expect(deleteCalls).toBe(0);
+    expect(assetStore.deleteStatus).toBe("blocked");
+    expect(assetStore.deleteError).toContain("资产存在引用");
+    expect(assetStore.assets).toHaveLength(1);
   });
 });
 

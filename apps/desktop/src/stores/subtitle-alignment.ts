@@ -262,6 +262,8 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       this.selectedTrackId = trackId;
       this.status = "loading";
       this.error = null;
+      const cachedTrack =
+        this.trackDetailsById[trackId] ?? this.tracks.find((track) => track.id === trackId) ?? null;
 
       try {
         const track = await fetchSubtitleTrack(trackId);
@@ -275,6 +277,18 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
         this.activeSegmentIndex = 0;
         this.status = this.resolveBaseStatus();
       } catch (error) {
+        if (cachedTrack) {
+          this.trackDetailsById = {
+            ...this.trackDetailsById,
+            [trackId]: cachedTrack
+          };
+          this.upsertTrack(cachedTrack);
+          this.draftSegments = cachedTrack.segments.map((segment) => ({ ...segment }));
+          this.style = { ...cachedTrack.style };
+          this.activeSegmentIndex = 0;
+          this.status = this.resolveBaseStatus();
+          return;
+        }
         this.applyRuntimeError(error);
       }
     },

@@ -1,11 +1,13 @@
 <template>
   <div class="page-container h-full">
     <header class="page-header">
-      <div class="page-header__crumb">首页 / 媒体工作室</div>
+      <div class="page-header__crumb">首页 / 字幕对齐中心</div>
       <div class="page-header__row">
         <div>
           <h1 class="page-header__title">M08 字幕对齐中心</h1>
-          <div class="page-header__subtitle">基于已采用的文案与配音音轨生成对齐的字幕，并提供微调与样式设置。</div>
+          <div class="page-header__subtitle">
+            以已采用脚本和真实字幕轨道为基础，对 blocked 草稿进行校对、微调与样式确认。
+          </div>
         </div>
         <div class="page-header__actions">
           <Button
@@ -18,7 +20,12 @@
             <template #leading><span class="material-symbols-outlined">auto_awesome</span></template>
             {{ generateButtonLabel }}
           </Button>
-          <Button variant="primary" :running="store.status === 'saving'" :disabled="saveDisabled" @click="handleSave">
+          <Button
+            variant="primary"
+            :running="store.status === 'saving'"
+            :disabled="saveDisabled"
+            @click="handleSave"
+          >
             <template #leading><span class="material-symbols-outlined">save</span></template>
             {{ saveButtonLabel }}
           </Button>
@@ -26,7 +33,6 @@
       </div>
     </header>
 
-    <!-- 顶部警告与状态横幅 -->
     <div v-if="pageStateTone === 'error'" class="dashboard-alert" data-tone="danger">
       <span class="material-symbols-outlined">error</span>
       <span>{{ bannerTitle }} - {{ bannerMessage }}</span>
@@ -40,44 +46,35 @@
       <span>{{ store.activeTask.message }} ({{ store.activeTask.progress }}%)</span>
     </div>
 
-    <!-- 概览指标卡片 -->
-    <div class="summary-grid">
-      <Card class="summary-card">
-        <span class="sc-label">当前项目</span>
-        <strong class="sc-val">{{ currentProjectName }}</strong>
+    <section class="semantic-summary" aria-label="字幕语义摘要">
+      <Card class="semantic-summary__card">
+        <span class="semantic-summary__label">当前项目</span>
+        <strong>{{ currentProjectName }}</strong>
       </Card>
-      <Card class="summary-card">
-        <span class="sc-label">字幕片段</span>
-        <strong class="sc-val">{{ store.draftSegments.length }} 段</strong>
-        <p class="sc-hint">{{ scriptStateLabel }}</p>
+      <Card class="semantic-summary__card">
+        <span class="semantic-summary__label">阻断草稿</span>
+        <strong>{{ blockedDraftLabel }}</strong>
+        <p>{{ blockedDraftMessage }}</p>
       </Card>
-      <Card class="summary-card">
-        <span class="sc-label">样式配置</span>
-        <strong class="sc-val">{{ styleStateLabel }}</strong>
+      <Card class="semantic-summary__card">
+        <span class="semantic-summary__label">真实时间码</span>
+        <strong>{{ realTimelineLabel }}</strong>
+        <p>{{ panelStateMessage }}</p>
       </Card>
-      <Card class="summary-card">
-        <span class="sc-label">字幕音轨</span>
-        <strong class="sc-val">{{ store.tracks.length }} 条</strong>
-        <p class="sc-hint">{{ versionStateLabel }}</p>
+      <Card class="semantic-summary__card">
+        <span class="semantic-summary__label">脚本文案</span>
+        <strong>{{ scriptStateLabel }}</strong>
+        <p>{{ paragraphPreview }}</p>
       </Card>
-    </div>
+    </section>
 
-    <!-- 空状态 -->
     <div v-if="!currentProject" class="empty-state">
       <span class="material-symbols-outlined">subtitles_off</span>
       <strong>请先选择一个项目</strong>
-      <p>字幕对齐中心依赖于当前项目及其配音音轨，请在侧边栏选择项目后开始工作。</p>
+      <p>字幕对齐中心依赖当前项目及其脚本文案和字幕轨道，请先在侧边栏切换项目。</p>
     </div>
 
-    <!-- 主工作区 -->
     <div v-else class="subtitle-workspace">
-      <!-- 区域语义占位 (满足测试需求) -->
-      <div style="opacity: 0.01; position: absolute; pointer-events: none; height: 1px; overflow: hidden;">
-        <div v-for="p in store.paragraphs" :key="p.text">{{ p.text }}</div>
-        <span>阻断草稿</span>
-      </div>
-
-      <!-- 字幕段列表 -->
       <SubtitleSegmentList
         :active-index="store.activeSegmentIndex"
         :error-message="store.error?.message ?? null"
@@ -88,7 +85,6 @@
         @update-segment="store.updateDraftSegment"
       />
 
-      <!-- 预览与微调 -->
       <SubtitlePreviewStage
         :active-segment="store.activeSegment"
         :generation-message="store.generationResult?.message ?? null"
@@ -98,7 +94,6 @@
         :style-config="store.style"
       />
 
-      <!-- 侧边栏：样式与版本 -->
       <aside class="subtitle-rail">
         <SubtitleTimingPanel
           :locked="timingLocked"
@@ -129,6 +124,8 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from "vue";
 
+import Button from "@/components/ui/Button/Button.vue";
+import Card from "@/components/ui/Card/Card.vue";
 import SubtitlePreviewStage from "@/modules/subtitles/SubtitlePreviewStage.vue";
 import SubtitleSegmentList from "@/modules/subtitles/SubtitleSegmentList.vue";
 import SubtitleStylePanel from "@/modules/subtitles/SubtitleStylePanel.vue";
@@ -137,10 +134,6 @@ import SubtitleVersionPanel from "@/modules/subtitles/SubtitleVersionPanel.vue";
 import { useProjectStore } from "@/stores/project";
 import { useSubtitleAlignmentStore } from "@/stores/subtitle-alignment";
 import type { SubtitleSegmentDto } from "@/types/runtime";
-
-import Button from "@/components/ui/Button/Button.vue";
-import Card from "@/components/ui/Card/Card.vue";
-import Chip from "@/components/ui/Chip/Chip.vue";
 
 const projectStore = useProjectStore();
 const store = useSubtitleAlignmentStore();
@@ -155,9 +148,14 @@ const presentationStatus = computed(() =>
   hasBlockedTrack.value && store.status === "ready" ? "blocked" : store.status
 );
 
+const normalizedGenerationMessage = computed(() => {
+  const raw = store.generationResult?.message ?? "";
+  return raw.replace("尚未配置可用字幕对齐 Provider", "没有可用字幕对齐 Provider");
+});
+
 const generateDisabled = computed(() => {
   if (!currentProject.value) return true;
-  if (store.status === "loading" || store.status === "aligning" || store.status === "saving") return true;      
+  if (store.status === "loading" || store.status === "aligning" || store.status === "saving") return true;
   if (store.status === "error") return true;
   return !hasScript.value;
 });
@@ -184,80 +182,87 @@ const saveButtonLabel = computed(() => {
 
 const pageStateTone = computed(() => {
   if (!currentProject.value) return "blocked";
-  if (store.status === "loading" || store.status === "aligning" || store.status === "saving") return "loading"; 
+  if (store.status === "loading" || store.status === "aligning" || store.status === "saving") return "loading";
   if (store.status === "error") return "error";
   if (!hasScript.value) return "empty";
   if (store.status === "blocked" || hasBlockedTrack.value) return "blocked";
   return "ready";
 });
 
-const pageStateLabel = computed(() => {
-  const map: Record<string, string> = { blocked: "能力阻断", empty: "空态", error: "错误", loading: "加载中", ready: "已就绪" };
-  return map[pageStateTone.value];
-});
-
 const scriptStateLabel = computed(() => {
   if (store.status === "loading") return "加载中";
   if (store.status === "error") return "异常";
-  if (!hasScript.value) return "文案空";
+  if (!hasScript.value) return "文案为空";
   return "已就绪";
-});
-
-const styleStateLabel = computed(() => {
-  if (store.status === "loading") return "加载中";
-  if (store.status === "error") return "异常";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "需重新生成";
-  return "可调整";
-});
-
-const versionStateLabel = computed(() => {
-  if (store.status === "aligning") return "对齐中";
-  if (store.status === "saving") return "保存中";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "需重新生成";
-  if (store.status === "error") return "加载失败";
-  if (!store.tracks.length) return "暂无版本";
-  return "版本就绪";
 });
 
 const bannerTitle = computed(() => {
   if (!currentProject.value) return "生成入口已锁定";
   if (store.status === "loading") return "正在读取项目状态";
   if (store.status === "error") return "字幕加载失败";
-  if (!hasScript.value) return "文案缺失";
-  if (store.status === "blocked" || hasBlockedTrack.value) return "对齐任务被阻塞";  
-  if (store.status === "aligning") return "正在进行 AI 自动对齐";
-  if (store.status === "saving") return "正在保存您的更改";
+  if (!hasScript.value) return "脚本文案缺失";
+  if (store.status === "blocked" || hasBlockedTrack.value) return "对齐任务已阻断";
+  if (store.status === "aligning") return "正在执行 AI 自动对齐";
+  if (store.status === "saving") return "正在保存调整结果";
   return "字幕对齐环境已就绪";
 });
 
 const bannerMessage = computed(() => {
   if (!currentProject.value) return "请先选择项目";
-  if (store.status === "loading") return "正在同步文案修订版本和现有字幕轨道，请稍等...";       
-  if (store.status === "error") return store.error?.message ?? "字幕对齐中心遇到异常，请检查网络或后端状态。"; 
-  if (!hasScript.value) return "脚本文本为空";
-  if (store.status === "blocked" || hasBlockedTrack.value) {
-    const msg = store.generationResult?.message || "";
-    const base = "已保存阻断草稿，但没有生成真实时间码。";
-    if (msg.includes("尚未配置")) return msg.replace("尚未配置", "没有") + " " + base;
-    return msg || base;
+  if (store.status === "loading") return "正在同步脚本文案、字幕轨道和样式配置，请稍候。";
+  if (store.status === "error") {
+    return store.error?.message ?? "字幕对齐中心遇到异常，请检查 Runtime 状态。";
   }
-  if (store.status === "aligning") return "正在通过 AI 分析配音音轨，为您自动切割和对齐字幕时间轴。";
-  if (store.status === "saving") return "正在保存微调后的时间轴和样式设置...";
-  return "您可以手动微调时间轴、更改样式设置，或重新生成对齐轨道。";
+  if (!hasScript.value) return "脚本文案为空";
+  if (store.status === "blocked" || hasBlockedTrack.value) {
+    return normalizedGenerationMessage.value || "已保存阻断草稿，但没有生成真实时间码。";
+  }
+  if (store.status === "aligning") return "正在分析配音和脚本文案，为当前项目生成对齐草稿。";
+  if (store.status === "saving") return "正在保存时间轴微调和样式配置。";
+  return "可以继续微调时间轴、更新样式，或重新生成字幕轨道。";
 });
 
 const panelStateMessage = computed(() => {
   if (!currentProject.value) return "环境未就绪";
   if (store.status === "loading") return "加载中";
   if (store.status === "error") return store.error?.message ?? "请求异常";
-  if (!hasScript.value) return "文案缺失";
-  if (store.status === "blocked" || hasBlockedTrack.value) return store.generationResult?.message ?? "任务阻断";
+  if (!hasScript.value) return "脚本文案缺失";
+  if (store.status === "blocked" || hasBlockedTrack.value) {
+    return normalizedGenerationMessage.value || "已保存阻断草稿，但没有生成真实时间码。";
+  }
   if (store.status === "aligning") return "对齐中";
   if (store.status === "saving") return "保存中";
   return "准备就绪";
 });
 
-const timingLocked = computed(() => !currentProject.value || store.status === "loading" || store.status === "error" || !store.activeSegment);
+const blockedDraftLabel = computed(() => {
+  if (store.status === "blocked" || hasBlockedTrack.value) return "版本：阻断草稿";
+  return hasSelectedTrack.value ? "版本：可编辑轨道" : "版本：暂无轨道";
+});
+
+const blockedDraftMessage = computed(() => {
+  if (store.status === "blocked" || hasBlockedTrack.value) {
+    const providerPart = normalizedGenerationMessage.value;
+    const base = "已保存阻断草稿，但没有生成真实时间码。";
+    return providerPart ? `${providerPart} ${base}` : base;
+  }
+  return "当前轨道可继续编辑。";
+});
+
+const realTimelineLabel = computed(() => {
+  if (store.status === "blocked" || hasBlockedTrack.value) return "真实时间码待补齐";
+  if (store.status === "aligning") return "真实时间码生成中";
+  return hasSelectedTrack.value ? "真实时间码已接入" : "真实时间码未生成";
+});
+
+const paragraphPreview = computed(() => {
+  if (!store.paragraphs.length) return "暂无脚本文案";
+  return store.paragraphs.map((paragraph) => paragraph.text).join(" ");
+});
+
+const timingLocked = computed(
+  () => !currentProject.value || store.status === "loading" || store.status === "error" || !store.activeSegment
+);
 const timingLockedReason = computed(() => {
   if (!currentProject.value) return "未选择项目";
   if (store.status === "loading") return "加载中";
@@ -274,31 +279,42 @@ const styleLockedReason = computed(() => {
   return "";
 });
 
-watch(() => store.draftSegments.length, (count) => {
-  if (count === 0) store.activeSegmentIndex = 0;
-  else if (store.activeSegmentIndex >= count) store.activeSegmentIndex = 0;
+watch(
+  () => store.draftSegments.length,
+  (count) => {
+    if (count === 0) store.activeSegmentIndex = 0;
+    else if (store.activeSegmentIndex >= count) store.activeSegmentIndex = 0;
+  }
+);
+
+onMounted(() => {
+  void loadProjectSubtitles();
 });
 
-onMounted(() => { loadProjectSubtitles(); });
-watch(() => currentProject.value?.projectId, () => { loadProjectSubtitles(); });
+watch(
+  () => currentProject.value?.projectId,
+  () => {
+    void loadProjectSubtitles();
+  }
+);
 
-async function loadProjectSubtitles() {
+async function loadProjectSubtitles(): Promise<void> {
   const projectId = currentProjectId.value;
   if (!projectId) return;
   await store.load(projectId);
 }
 
-async function handleGenerate() {
+async function handleGenerate(): Promise<void> {
   if (generateDisabled.value) return;
   await store.generate();
 }
 
-async function handleSave() {
+async function handleSave(): Promise<void> {
   if (saveDisabled.value) return;
   await store.updateSelectedTrack();
 }
 
-function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>) {
+function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>): void {
   store.updateDraftSegment(store.activeSegmentIndex, patch);
 }
 </script>
@@ -367,24 +383,24 @@ function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>) {
 }
 
 .dashboard-alert[data-tone="danger"] {
-  border-color: rgba(255, 90, 99, 0.20);
+  border-color: rgba(255, 90, 99, 0.2);
   background: rgba(255, 90, 99, 0.08);
   color: var(--color-danger);
 }
 
 .dashboard-alert[data-tone="warning"] {
-  border-color: rgba(245, 183, 64, 0.20);
+  border-color: rgba(245, 183, 64, 0.2);
   background: rgba(245, 183, 64, 0.08);
   color: var(--color-warning);
 }
 
 .dashboard-alert[data-tone="brand"] {
-  border-color: rgba(0, 188, 212, 0.20);
+  border-color: rgba(0, 188, 212, 0.2);
   background: rgba(0, 188, 212, 0.08);
   color: var(--color-brand-primary);
 }
 
-.summary-grid {
+.semantic-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-4);
@@ -392,20 +408,19 @@ function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>) {
   flex-shrink: 0;
 }
 
-.summary-card {
+.semantic-summary__card {
   padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 4px;
 }
 
-.sc-label {
+.semantic-summary__label {
   font: var(--font-caption);
   color: var(--color-text-tertiary);
   text-transform: uppercase;
 }
 
-.sc-val {
+.semantic-summary__card strong {
   font: var(--font-title-md);
   color: var(--color-text-primary);
   overflow: hidden;
@@ -413,12 +428,11 @@ function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>) {
   white-space: nowrap;
 }
 
-.sc-hint {
+.semantic-summary__card p {
+  margin: 0;
   font: var(--font-caption);
   color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.5;
 }
 
 .empty-state {
@@ -455,7 +469,11 @@ function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>) {
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin { 100% { transform: rotate(360deg); } }
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
 
 .subtitle-workspace {
   display: grid;
@@ -477,6 +495,7 @@ function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>) {
   .subtitle-workspace {
     grid-template-columns: minmax(240px, 1fr) minmax(360px, 1fr);
   }
+
   .subtitle-rail {
     grid-column: 1 / -1;
     grid-template-columns: 1fr 1fr;
@@ -487,10 +506,12 @@ function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>) {
   .subtitle-workspace {
     grid-template-columns: 1fr;
   }
+
   .subtitle-rail {
     grid-template-columns: 1fr;
   }
-  .summary-grid {
+
+  .semantic-summary {
     grid-template-columns: repeat(2, 1fr);
   }
 }

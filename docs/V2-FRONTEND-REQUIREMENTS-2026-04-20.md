@@ -233,7 +233,7 @@
 
 #### 3.16.1 实测缺陷（前端侧）
 
-- **Bug F-04 "打开日志目录"无反应**：`use-system-settings.ts:37-56` 只提供 `handlePickDirectory`（选择目录对话框），没有"打开"动作；页面按钮点击没有调用 `@tauri-apps/plugin-opener` 的 `openPath`，所以什么都不会发生。
+- **Bug F-04 "打开日志目录"（已修复）**：旧设置页 composable 已删除，当前由 `SettingsSystemFormPanel.vue` 触发 `open-log-directory`，`AISystemSettingsPage.vue` 调用 `ai-system-settings-page-helpers.ts:openDirectoryPath`，通过 `@tauri-apps/plugin-opener` 的 `openPath` 打开真实本地日志目录。
 - 修复方向：新增 `openLogDirectory()` composable，调用 `import('@tauri-apps/plugin-opener').then(m => m.openPath(systemForm.paths.logDir))`；`logDir` 未配置时禁用按钮并提示"请先在路径设置中指定日志目录"；非 Tauri 环境下 fallback 展示路径文本并允许复制。
 - **Bug F-05 Provider 启动时缺少静默自检 UI**：配置过 Provider 后每次启动都要手动点"测试"才知道是否可用，桌面壳启动时应让用户无感完成探测，并在 Provider 列表上给出就绪徽标（可用 / 降级 / 不可用）。
 - 修复方向：BootstrapGate 启动后调用后端 Bug B-03 提供的 `/api/ai-providers/health` 聚合接口；结果写入 `config-bus` 的 `providerReadiness` map；Provider 管理页标题栏与列表每个 Provider 行显示就绪徽标（颜色 + 最近探测时间 + 重试按钮）；探测失败不阻断启动。
@@ -257,7 +257,7 @@
 | F-01 | 创作总览 | 项目删除未真正落库，重启后还在 | 需后端 Bug B-01 删除接口 |
 | F-02 | 设备与工作区管理 | 浏览器实例永远空态 | 需后端 Bug B-02 浏览器实例对象模型 |
 | F-03 | 设备与工作区管理 | 按钮布局在紧凑窗口错位 | 纯前端 |
-| F-04 | AI 与系统设置 | “打开日志目录”按钮无反应 | 纯前端 |
+| F-04 | AI 与系统设置 | “打开日志目录”已接入 `openPath` 真实打开链路 | 纯前端 |
 | F-05 | AI 与系统设置 | Provider 缺少启动时静默自检与就绪徽标 | 需后端 Bug B-03 Provider 健康聚合接口 |
 | F-06 | AI 与系统设置 | 自定义 model_id 无法选能力类型 | 需后端 Bug B-04 `capability_kinds` 持久化与路由 |
 | F-07 | AI 与系统设置 | Provider 下 model_id 可重复保存 | 需后端 Bug B-05 唯一约束 / upsert |

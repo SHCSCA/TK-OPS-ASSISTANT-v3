@@ -5,6 +5,7 @@ import {
   fetchAICapabilitySupportMatrix,
   fetchAIProviderCatalog,
   fetchAIProviderModels,
+  fetchProviderHealth,
   refreshAIProviderModels,
   updateRuntimeConfig
 } from "@/app/runtime-client";
@@ -62,6 +63,28 @@ describe("AI 与系统设置 Runtime client", () => {
       { path: "/api/settings/ai-capabilities/support-matrix", method: "GET" },
       { path: "/api/settings/ai-providers/openai/models/refresh", method: "POST" }
     ]);
+  });
+
+  it("把 Provider 聚合健康 overview 归一为前端 readiness 映射", async () => {
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method) => {
+        if (path === "/api/ai-providers/health" && method === "GET") {
+          return okJsonResponse(runtimeFixtures.providerHealth);
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const health = await fetchProviderHealth();
+
+    expect(health.openai).toMatchObject({
+      provider: "openai",
+      status: "ready",
+      message: "OpenAI",
+      checkedAt: "2026-04-11T10:00:00Z",
+      latencyMs: null
+    });
   });
 
   it("把英文校验失败文案归一为中文错误", async () => {

@@ -26,6 +26,7 @@
         @toggle-sidebar="shellUiStore.toggleSidebar()"
         @toggle-theme="shellUiStore.toggleTheme()"
       />
+      <span class="app-shell__product-position">本地 AI 视频创作中枢</span>
     </header>
 
     <div class="app-shell__workspace" :class="{ 'app-shell__workspace--wizard': isWizardPage }">
@@ -729,7 +730,18 @@ function formatShanghaiDateTime(value: string) {
 .app-shell__title-bar {
   border-bottom: 1px solid var(--color-border-subtle);
   min-height: 0;
+  position: relative;
   z-index: var(--z-titlebar);
+}
+
+.app-shell__product-position {
+  color: var(--color-text-secondary);
+  font: var(--font-caption);
+  pointer-events: none;
+  position: absolute;
+  right: var(--space-4);
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .app-shell__workspace {

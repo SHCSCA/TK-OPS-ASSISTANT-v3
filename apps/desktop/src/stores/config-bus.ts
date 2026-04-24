@@ -82,7 +82,6 @@ export const useConfigBusStore = defineStore("config-bus", {
       const currentRevision = this.settings?.revision ?? 0;
 
       if (incomingRevision > currentRevision) {
-        console.log(`[config-bus] Detected new config revision ${incomingRevision}, re-syncing...`);
         try {
           const [settings, diagnostics] = await Promise.all([
             fetchRuntimeConfig(),

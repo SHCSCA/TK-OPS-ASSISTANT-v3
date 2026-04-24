@@ -1,4 +1,4 @@
-﻿# 前端联动改造任务单（Runtime 事件回流与配置总线）
+# 前端联动改造任务单（Runtime 事件回流与配置总线）
 
 ## 1. 文档目的
 
@@ -317,7 +317,7 @@ UI 同时依赖：
 #### 涉及文件
 
 - `apps/desktop/src/pages/settings/use-provider-management.ts`
-- `apps/desktop/src/pages/settings/use-system-settings.ts`
+- `apps/desktop/src/pages/settings/ai-system-settings-page-helpers.ts`
 - `apps/desktop/src/pages/settings/AISystemSettingsPage.vue`
 
 #### 当前问题
@@ -390,7 +390,7 @@ UI 同时依赖：
 - `apps/desktop/src/pages/settings/AISystemSettingsPage.vue`
 - `apps/desktop/src/pages/settings/components/ProviderCard.vue`
 - `apps/desktop/src/pages/settings/components/ProviderConfigDrawer.vue`
-- `apps/desktop/src/pages/settings/use-system-settings.ts`
+- `apps/desktop/src/pages/settings/ai-system-settings-page-helpers.ts`
 
 #### 必做项
 

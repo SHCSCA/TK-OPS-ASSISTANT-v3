@@ -27,7 +27,7 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
       if (path === "/api/assets/asset-1" && method === "GET") {
         return okJsonResponse(asset("asset-1", null, "D:/tkops/assets/clip.mp4"));
       }
-      if (path === "/api/assets/asset-1/references") return okJsonResponse([assetReference()]);
+      if (path === "/api/assets/asset-1/references") return okJsonResponse([]);
       if (path === "/api/assets/asset-1" && method === "DELETE") return okJsonResponse(undefined);
       if (path === "/api/accounts" && method === "GET") return okJsonResponse([account()]);
       if (path === "/api/accounts/groups") return okJsonResponse([accountGroup()]);
@@ -56,7 +56,7 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
 
     await assets.select("asset-1");
     expect(assets.selectedAsset?.filePath).toBe("D:/tkops/assets/clip.mp4");
-    expect(assets.references).toHaveLength(1);
+    expect(assets.references).toHaveLength(0);
 
     await assets.delete("asset-1");
     expect(assets.assets).toHaveLength(0);
@@ -191,6 +191,7 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
   });
   it("资产 store 支持真实导入、标签解析和删除前引用阻断", async () => {
     let references = [assetReference()];
+    const deleteAssetMock = vi.fn(() => okJsonResponse({ deleted: true }));
     const fetchMock = createRouteAwareFetch((path, method, init) => {
       if (path === "/api/assets" && method === "GET") return okJsonResponse([asset()]);
       if (path === "/api/assets/import" && method === "POST") {
@@ -208,7 +209,7 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
       }
       if (path === "/api/assets/asset-1/references") return okJsonResponse(references);
       if (path === "/api/assets/asset-1" && method === "DELETE") {
-        return okJsonResponse({ deleted: true });
+        return deleteAssetMock();
       }
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
@@ -234,10 +235,13 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
     expect(canDelete).toBe(false);
     expect(assets.deleteError).toContain("资产存在引用");
     expect(assets.deleteState).toBe("blocked");
+    await assets.deleteSelected();
+    expect(deleteAssetMock).not.toHaveBeenCalled();
 
     references = [];
     await assets.prepareDelete("asset-1");
     await assets.deleteSelected();
+    expect(deleteAssetMock).toHaveBeenCalledTimes(1);
     expect(assets.assets.every((item) => item.id !== "asset-1")).toBe(true);
   });
 });

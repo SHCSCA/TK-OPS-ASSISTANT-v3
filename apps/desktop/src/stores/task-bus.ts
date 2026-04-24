@@ -16,9 +16,23 @@ type TaskBusState = {
   _manualDisconnect: boolean;
 };
 
+type CompatibleTaskInfo = TaskInfo & {
+  projectId?: string | null;
+  progressPct?: number;
+};
+
 const DEFAULT_RUNTIME_BASE_URL = "http://127.0.0.1:8000";
 const RECONNECT_DELAY_MS = 3000;
 const HEARTBEAT_INTERVAL_MS = 25000;
+
+type BrowserTimerApi = Pick<Window, "setTimeout" | "clearTimeout" | "setInterval" | "clearInterval">;
+
+function resolveBrowserTimerApi(): BrowserTimerApi | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return window;
+}
 
 function resolveRuntimeBaseUrl(): string {
   return import.meta.env.VITE_RUNTIME_BASE_URL?.trim() || DEFAULT_RUNTIME_BASE_URL;
@@ -115,6 +129,7 @@ function buildTaskInfo(event: TaskEvent, existing: TaskInfo | undefined): TaskIn
   const progress = inferTaskProgress(event, existing);
   const taskType = inferTaskType(event, existing);
   const status = inferTaskStatus(event, existing);
+  const projectId = event.projectId ?? existing?.project_id ?? null;
   const message =
     event.message ??
     existing?.message ??
@@ -123,16 +138,18 @@ function buildTaskInfo(event: TaskEvent, existing: TaskInfo | undefined): TaskIn
   return {
     id: event.taskId,
     task_type: taskType,
-    project_id: event.projectId ?? existing?.project_id ?? null,
+    project_id: projectId,
     status,
     progress,
     message,
     created_at: existing?.created_at ?? now,
-    updated_at: now
-  };
+    updated_at: now,
+    projectId,
+    progressPct: progress
+  } as CompatibleTaskInfo;
 }
 
-export const useTaskBusStore = defineStore("task-bus", {
+const useTaskBusStoreBase = defineStore("task-bus", {
   state: (): TaskBusState => ({
     tasks: new Map<string, TaskInfo>(),
     lastEvents: new Map<string, TaskEvent>(),
@@ -166,7 +183,7 @@ export const useTaskBusStore = defineStore("task-bus", {
       };
 
       socket.onmessage = (event) => {
-        this._handleIncomingMessage(event.data);
+        this.handleIncomingMessage(event.data);
       };
 
       socket.onerror = () => {
@@ -178,8 +195,9 @@ export const useTaskBusStore = defineStore("task-bus", {
         this._socket = null;
         this._clearHeartbeatTimer();
 
-        if (!this._manualDisconnect) {
-          this._reconnectTimer = window.setTimeout(() => {
+        const timerApi = resolveBrowserTimerApi();
+        if (!this._manualDisconnect && timerApi) {
+          this._reconnectTimer = timerApi.setTimeout(() => {
             this.connect();
           }, RECONNECT_DELAY_MS);
         }
@@ -242,7 +260,7 @@ export const useTaskBusStore = defineStore("task-bus", {
       }
     },
 
-    _handleIncomingMessage(data: string): void {
+    handleIncomingMessage(data: string): void {
       try {
         const parsed = JSON.parse(data) as unknown;
         if (!isRuntimeEvent(parsed)) {
@@ -278,7 +296,12 @@ export const useTaskBusStore = defineStore("task-bus", {
 
     _startHeartbeat(): void {
       this._clearHeartbeatTimer();
-      this._heartbeatTimer = window.setInterval(() => {
+      const timerApi = resolveBrowserTimerApi();
+      if (!timerApi) {
+        return;
+      }
+
+      this._heartbeatTimer = timerApi.setInterval(() => {
         if (this._socket?.readyState === WebSocket.OPEN) {
           this._socket.send("ping");
         }
@@ -287,16 +310,33 @@ export const useTaskBusStore = defineStore("task-bus", {
 
     _clearReconnectTimer(): void {
       if (this._reconnectTimer !== null) {
-        window.clearTimeout(this._reconnectTimer);
+        resolveBrowserTimerApi()?.clearTimeout(this._reconnectTimer);
         this._reconnectTimer = null;
       }
     },
 
     _clearHeartbeatTimer(): void {
       if (this._heartbeatTimer !== null) {
-        window.clearInterval(this._heartbeatTimer);
+        resolveBrowserTimerApi()?.clearInterval(this._heartbeatTimer);
         this._heartbeatTimer = null;
       }
     }
   }
 });
+
+export const useTaskBusStore = ((pinia?: Parameters<typeof useTaskBusStoreBase>[0]) => {
+  const store = useTaskBusStoreBase(pinia);
+  const compatibleStore = store as typeof store & {
+    _handleIncomingMessage: (data: string) => void;
+    _handleMessage: (data: string) => void;
+  };
+
+  compatibleStore._handleIncomingMessage = (data: string) => {
+    store.handleIncomingMessage(data);
+  };
+  compatibleStore._handleMessage = (data: string) => {
+    store.handleIncomingMessage(data);
+  };
+
+  return compatibleStore;
+}) as typeof useTaskBusStoreBase;

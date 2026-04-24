@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <section class="bootstrap-screen" data-bootstrap-screen="license">
     <div class="bootstrap-screen__backdrop" aria-hidden="true" />
     <div class="bootstrap-screen__panel bootstrap-screen__panel--wide">

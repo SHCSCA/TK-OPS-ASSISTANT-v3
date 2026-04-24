@@ -19,7 +19,7 @@
               <template #leading><span class="material-symbols-outlined">content_copy</span></template>
               复制正文
             </Button>
-            <Button variant="primary" :disabled="saveDisabled" @click="handleSave">
+            <Button variant="primary" :disabled="saveDisabled" data-action="save-script" @click="handleSave">
               <template #leading><span class="material-symbols-outlined">save</span></template>
               保存脚本
             </Button>
@@ -29,10 +29,10 @@
 
       <div class="script-workspace">
         <!-- 左侧 Prompt 面板 -->
-        <aside class="script-panel script-panel--prompt">
+        <aside class="script-panel script-panel--prompt" data-script-section="prompt-panel">
           <Card class="script-card h-full">
             <div class="script-card__header">
-              <h3>策划输入台</h3>
+              <h3>策划工作台</h3>
             </div>
             <div class="script-card__body">
               <div class="form-group">
@@ -64,11 +64,11 @@
         </aside>
 
         <!-- 中间 脚本编辑器 -->
-        <main class="script-panel script-panel--editor">
+        <main class="script-panel script-panel--editor" data-script-section="editor">
           <Card class="script-card h-full editor-card" :class="{ 'is-generating': scriptStore.status === 'generating' }">
              <!-- AI 生成流光线 -->
              <div class="ai-flow-bar" v-if="scriptStore.status === 'generating'"></div>
-             
+
              <div class="editor-header">
                 <div>
                    <h3>脚本工作面</h3>
@@ -79,7 +79,7 @@
                    <Chip v-if="currentModelLabel" variant="brand">{{ currentModelLabel }}</Chip>
                 </div>
              </div>
-             
+
              <div class="editor-body">
                <div v-if="pageState === 'loading'" class="editor-empty">
                  <span class="material-symbols-outlined spinning">progress_activity</span>
@@ -91,11 +91,12 @@
                </div>
                <textarea v-else
                  class="editor-textarea"
+                 data-field="script.content"
                  v-model="content"
                  :disabled="isBusy || pageState === 'empty'"
                />
              </div>
-             
+
              <div class="editor-footer">
                 <span>当前共 {{ contentLength }} 字，按真实段落拆成 {{ outlineSegments.length }} 个策划锚点。</span>
                 <span>{{ updatedAtLabel }}</span>
@@ -104,7 +105,7 @@
         </main>
 
         <!-- 右侧 版本与变体 -->
-        <aside class="script-panel script-panel--versions">
+        <aside class="script-panel script-panel--versions" data-script-section="versions">
           <Card class="script-card rail-card" style="flex: 1; min-height: 0;">
             <div class="script-card__header">
               <h3>版本轨迹</h3>
@@ -114,17 +115,18 @@
                <div v-if="versions.length === 0" class="empty-text">当前项目还没有脚本版本。</div>
                <div v-else class="version-list">
                  <transition-group name="list-fade">
-                   <div v-for="version in versions" :key="version.revision" 
-                     class="version-item" 
+                   <div v-for="version in versions" :key="version.revision"
+                     class="version-item"
+                     data-script-version-item
                      :class="{ 'is-active': selectedRevision === version.revision }"
                      @click="selectedRevision = version.revision">
                       <div class="v-main">
                         <strong>修订 {{ version.revision }}</strong>
                         <div class="v-actions">
-                           <Button 
-                             v-if="currentVersion?.revision !== version.revision" 
-                             variant="secondary" 
-                             size="xs" 
+                           <Button
+                             v-if="currentVersion?.revision !== version.revision"
+                             variant="secondary"
+                             size="xs"
                              :disabled="isBusy"
                              @click.stop="handleAdopt(version.revision)">
                              采用
@@ -142,7 +144,7 @@
             </div>
           </Card>
 
-          <Card class="script-card rail-card">
+          <Card class="script-card rail-card" data-script-section="title-variants">
              <div class="script-card__header">
               <h3>AI 作业与变体</h3>
             </div>
@@ -151,7 +153,7 @@
                  <small>当前主标题</small>
                  <strong>{{ titleSeed }}</strong>
               </div>
-              
+
               <div v-if="recentJobs.length === 0" class="empty-text">当前还没有真实 AI 作业记录。</div>
               <div v-else class="job-list">
                  <transition-group name="list-fade">
@@ -388,447 +390,4 @@ function parseScriptSegments(value: string): Array<{ excerpt: string; id: string
 }
 </script>
 
-<style scoped>
-.page-container {
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: var(--space-6) var(--space-8) var(--space-8);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.page-header {
-  display: grid;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-  flex-shrink: 0;
-}
-
-.page-header__crumb {
-  font: var(--font-caption);
-  letter-spacing: var(--ls-caption);
-  color: var(--color-text-tertiary);
-  text-transform: uppercase;
-}
-
-.page-header__row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.page-header__title {
-  font: var(--font-display-md);
-  letter-spacing: var(--ls-display-md);
-  color: var(--color-text-primary);
-  margin: 0 0 4px 0;
-}
-
-.page-header__subtitle {
-  font: var(--font-body-md);
-  letter-spacing: var(--ls-body-md);
-  color: var(--color-text-secondary);
-}
-
-.page-header__actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-/* 工作区网格 */
-.script-workspace {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) 320px;
-  gap: var(--space-4);
-  flex: 1;
-  min-height: 0;
-}
-
-.script-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-height: 0;
-}
-
-.h-full {
-  height: 100%;
-}
-
-.script-card {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.script-card__header {
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--color-bg-canvas); /* slightly differentiated */
-}
-
-.script-card__header h3 {
-  margin: 0;
-  font: var(--font-title-md);
-  color: var(--color-text-primary);
-}
-
-.script-card__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.script-card__body.no-padding {
-  padding: 0;
-}
-
-.script-card__footer {
-  padding: var(--space-4);
-  border-top: 1px solid var(--color-border-subtle);
-  background: var(--color-bg-canvas);
-}
-
-/* Prompt Panel */
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.outline-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
-}
-
-.outline-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.outline-header strong {
-  font: var(--font-title-sm);
-  color: var(--color-text-secondary);
-}
-
-.outline-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.outline-item {
-  padding: var(--space-3);
-  background: var(--color-bg-muted);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  transition: all var(--motion-fast) var(--ease-standard);
-  cursor: default;
-}
-
-.outline-item:hover {
-  background: var(--color-bg-surface);
-  border-color: var(--color-border-default);
-  box-shadow: var(--shadow-sm);
-}
-
-.outline-item strong {
-  display: block;
-  font: var(--font-title-sm);
-  color: var(--color-text-primary);
-  margin-bottom: 4px;
-}
-
-.outline-item p {
-  margin: 0;
-  font: var(--font-body-sm);
-  color: var(--color-text-secondary);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.empty-text {
-  padding: var(--space-4);
-  text-align: center;
-  font: var(--font-body-sm);
-  color: var(--color-text-tertiary);
-}
-
-.editor-card {
-  position: relative;
-  background: var(--color-bg-surface);
-  --motion-flow: 2.4s;
-}
-
-.ai-flow-bar {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--gradient-ai-primary);
-  background-size: 200% 200%;
-  animation: ai-flow var(--motion-flow) linear infinite;
-  z-index: 10;
-}
-
-.editor-header {
-  padding: var(--space-4) var(--space-5);
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--color-border-subtle);
-}
-
-.editor-header h3 {
-  margin: 0 0 4px 0;
-  font: var(--font-title-lg);
-  color: var(--color-text-primary);
-}
-
-.editor-meta {
-  font: var(--font-caption);
-  color: var(--color-text-secondary);
-}
-
-.editor-tags {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.editor-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.editor-textarea {
-  flex: 1;
-  width: 100%;
-  resize: none;
-  border: none;
-  background: transparent;
-  padding: var(--space-5);
-  font: var(--font-body-lg);
-  line-height: 1.6;
-  color: var(--color-text-primary);
-  outline: none;
-}
-
-.editor-textarea:disabled {
-  opacity: 0.8;
-}
-
-.editor-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  color: var(--color-text-tertiary);
-  text-align: center;
-}
-
-.editor-empty .material-symbols-outlined {
-  font-size: 32px;
-  opacity: 0.5;
-}
-
-.editor-empty p {
-  margin: 0;
-  font: var(--font-body-md);
-  line-height: 1.5;
-}
-
-.editor-footer {
-  padding: var(--space-3) var(--space-5);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-top: 1px solid var(--color-border-subtle);
-  background: var(--color-bg-canvas);
-  font: var(--font-caption);
-  color: var(--color-text-tertiary);
-}
-
-/* Versions Rail */
-.scroll-area {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-strong) transparent;
-}
-
-.scroll-area::-webkit-scrollbar {
-  width: 4px;
-}
-.scroll-area::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
-  border-radius: 99px;
-}
-
-.version-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.version-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-3) var(--space-4);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--color-border-subtle);
-  cursor: pointer;
-  text-align: left;
-  transition: all var(--motion-fast) var(--ease-standard);
-}
-
-.version-item:hover {
-  background: var(--color-bg-hover);
-}
-
-.version-item:active {
-  transform: scale(0.98);
-}
-
-.version-item.is-active {
-  background: color-mix(in srgb, var(--color-brand-primary) 8%, transparent);
-  border-left: 3px solid var(--color-brand-primary);
-  padding-left: calc(var(--space-4) - 3px);
-}
-
-/* List Transitions */
-.list-fade-enter-active,
-.list-fade-leave-active {
-  transition: all var(--motion-default) var(--ease-spring);
-}
-.list-fade-enter-from,
-.list-fade-leave-to {
-  opacity: 0;
-  transform: translateX(10px);
-}
-.list-fade-leave-active {
-  position: absolute;
-}
-
-.v-main {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.v-main strong {
-  font: var(--font-title-sm);
-  color: var(--color-text-primary);
-}
-
-.v-time {
-  font: var(--font-caption);
-  color: var(--color-text-tertiary);
-}
-
-.v-sub {
-  font: var(--font-caption);
-  color: var(--color-text-secondary);
-}
-
-.title-seed {
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border-subtle);
-  background: color-mix(in srgb, var(--color-brand-primary) 4%, transparent);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.title-seed small {
-  font: var(--font-caption);
-  color: var(--color-brand-primary);
-  text-transform: uppercase;
-}
-
-.title-seed strong {
-  font: var(--font-title-md);
-  color: var(--color-text-primary);
-}
-
-.job-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.job-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border-subtle);
-  transition: background-color var(--motion-fast) var(--ease-standard);
-}
-
-.job-item:hover {
-  background: var(--color-bg-hover);
-}
-
-.job-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.job-main strong {
-  font: var(--font-body-sm);
-  color: var(--color-text-primary);
-}
-
-.job-main span {
-  font: var(--font-caption);
-  color: var(--color-text-tertiary);
-}
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin { 100% { transform: rotate(360deg); } }
-
-@media (max-width: 1200px) {
-  .script-workspace {
-    grid-template-columns: 300px minmax(0, 1fr);
-  }
-  .script-panel--versions {
-    grid-column: 1 / -1;
-    flex-direction: row;
-    height: 320px;
-  }
-  .rail-card {
-    flex: 1;
-  }
-}
-
-@media (max-width: 860px) {
-  .script-workspace {
-    grid-template-columns: 1fr;
-  }
-  .script-panel--versions {
-    flex-direction: column;
-    height: auto;
-  }
-  .page-header__row {
-    flex-direction: column;
-  }
-}
-</style>
+<style scoped src="./ScriptTopicCenterPage.css"></style>
