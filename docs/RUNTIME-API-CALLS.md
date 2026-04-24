@@ -1,8 +1,8 @@
-> 更新日期：2026-04-22；对应应用版本以根 `package.json#version` 为准。本文以当前开发分支代码为接口真源，记录已落地 Runtime 接口与前端调用关系。V2 前端已接通 `deleteDashboardProject`、浏览器实例 CRUD、FFprobe 诊断消费链路。
+> 更新日期：2026-04-24；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。V2 前端已接通 `deleteDashboardProject`、浏览器实例 CRUD、FFprobe 诊断消费链路。
 
 # Runtime API 与前端调用真源
 
-**当前状态（2026-04-21）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。本分支继续补齐 `bootstrap.readiness / dashboard.delete / settings.diagnostics.media / devices.browser-instances / ai-providers runtime / dashboard summary` 契约对齐，§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
+**当前状态（2026-04-24）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致（181 / 181）；`bootstrap.readiness / dashboard.delete / settings.diagnostics.media / devices.browser-instances / ai-providers runtime / dashboard summary` 已回流到本文。§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
 **接口版本**: V1（统一 JSON 信封，无独立版本号前缀）
 **唯一真源约束**: 后端路由、服务、前端 `runtime-client.ts`、Pinia store、契约测试发生变化时，必须在同一次改动中更新本文件。
 **编码约束**: 本文档必须使用 UTF-8 无 BOM 保存，所有读取、生成、校验脚本都按 UTF-8 处理，避免中文出现乱码。
@@ -101,7 +101,7 @@
 - HTTP 代码未写入文档（需补充）：0
 - HTTP 文档有但代码未见（需补齐）：0
 
-### 接口状态表（2026-04-18）
+### 接口状态表（2026-04-24）
 
 | 状态 | 数量 | 说明 |
 | --- | --- | --- |
@@ -136,7 +136,7 @@
 ### 字段层面结论
 
 - `search / bootstrap / settings.health / prompt-templates / video-deconstruction` 当前已完成文档字段闭环。
-- 其余未登记的高级接口主要缺的是“条目本身”，不是主 DTO 字段完全未知。
+- 其余高级接口主要缺更多异常样例、边界说明与前端类型收口，不再是路由条目未登记问题。
 
 ### 1.4 全局搜索
 
@@ -410,8 +410,7 @@
 
 **当前差异**
 
-- 前端 `runtime-client.ts` 仍用旧的 Prompt 模板更新口径，且输入字段仍是 `kind/name/template`；后端真实契约已经是 `PUT /api/prompt-templates/{template_id}` 和 `kind/name/description/content`。
-- 前端类型 `PromptTemplateDto` 仍保留 `template` / `variables` 口径，和后端 `description/content` DTO 不一致。
+- 已修复：前端 `runtime-client.ts` 使用 `PUT /api/prompt-templates/{template_id}`，输入字段与后端 `kind/name/description/content` 保持一致。
 
 **示例**
 
@@ -959,10 +958,10 @@ waveform 缺少音频：
 
 **当前差异**
 
-- `apps/desktop/src/types/runtime.ts` 中的 `SubtitleTrackDto` 仍缺少 `updatedAt / sourceVoice / alignment`
-- `apps/desktop/src/types/runtime.ts` 中的 `SubtitleTrackGenerateInput` 仍未声明 `sourceVoiceTrackId`
-- `apps/desktop/src/types/runtime.ts` 中的 `SubtitleStyleTemplateDto` 仍缺少 `description / style`
-- `apps/desktop/src/types/runtime.ts` 中的 `SubtitleExportDto` 仍是旧的 `filePath` 口径，但后端当前返回 `fileName / content / lineCount / status / message`
+- 已修复：`apps/desktop/src/types/runtime.ts` 中的 `SubtitleTrackDto` 已补齐 `updatedAt / sourceVoice / alignment`
+- 已修复：`SubtitleTrackGenerateInput` 已声明 `sourceVoiceTrackId`
+- 已修复：`SubtitleStyleTemplateDto` 已补齐 `description / style`
+- 已修复：`SubtitleExportDto` 已切换为后端当前返回的 `fileName / content / lineCount / status / message` 内联导出口径
 
 **示例**
 
@@ -1294,15 +1293,15 @@ waveform 缺少音频：
 | `PATCH /api/devices/workspaces/{ws_id}` | `DeviceWorkspaceUpdateInput`：`name?`、`root_path?`、`status?` | `DeviceWorkspaceDto`；包含最新摘要 | `404`、`422` | `updateDeviceWorkspace` |
 | `DELETE /api/devices/workspaces/{ws_id}` | 路径参数：`ws_id` | 删除结果对象 | `404` | `deleteDeviceWorkspace` |
 | `POST /api/devices/workspaces/{ws_id}/health-check` | 无；执行一次真实工作区环境校验并记录最新结果 | `HealthCheckResultDto`：`workspace_id`、`status`、`checked_at`、`errorCode`、`errorMessage`、`nextAction`、`environmentStatus`、`bindingSummary` | `404` | `checkDeviceWorkspaceHealth` |
-| `GET /api/devices/workspaces/{ws_id}/logs` | 查询参数：`since?`；前端当前传入 `cursor` 会被后端忽略 | `DeviceWorkspaceLogDto[]` | `404` | `fetchWorkspaceLogs` |
-| `GET /api/devices/workspaces/{ws_id}/browser-instances` | 路径参数：`ws_id`；列出工作区下的真实浏览器实例 | `BrowserInstanceDto[]` | `404` | 当前前端未直接调用 |
-| `POST /api/devices/workspaces/{ws_id}/browser-instances` | 路径参数：`ws_id`；`BrowserInstanceCreateInput`：`name`、`profilePath` | `BrowserInstanceDto` | `404`、`422` | 当前前端未直接调用 |
+| `GET /api/devices/workspaces/{ws_id}/logs` | 查询参数：`since?` | `DeviceWorkspaceLogDto[]` | `404` | `fetchWorkspaceLogs` |
+| `GET /api/devices/workspaces/{ws_id}/browser-instances` | 路径参数：`ws_id`；列出工作区下的真实浏览器实例 | `BrowserInstanceDto[]` | `404` | `fetchBrowserInstances` |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances` | 路径参数：`ws_id`；`BrowserInstanceCreateInput`：`name`、`profilePath` | `BrowserInstanceDto` | `404`、`422` | `createBrowserInstance` |
 | `GET /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}` | 路径参数：`ws_id`、`instance_id` | `BrowserInstanceDto` | `404` | 当前前端未直接调用 |
-| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/start` | 路径参数：`ws_id`、`instance_id`；启动浏览器实例并广播状态变更 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | 当前前端未直接调用 |
-| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/stop` | 路径参数：`ws_id`、`instance_id`；停止浏览器实例并广播状态变更 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | 当前前端未直接调用 |
-| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/health-check` | 路径参数：`ws_id`、`instance_id`；检查 profile 目录与实例状态 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | 当前前端未直接调用 |
-| `GET /api/devices/browser-instances` | 无；当前是 `workspaces` 列表兼容别名 | `DeviceWorkspaceDto[]` | `500` | `fetchBrowserInstances` |
-| `POST /api/devices/browser-instances` | `DeviceWorkspaceCreateInput`；当前是创建工作区兼容别名 | `DeviceWorkspaceDto` | `422` | `createBrowserInstance` |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/start` | 路径参数：`ws_id`、`instance_id`；启动浏览器实例并广播状态变更 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | `startBrowserInstance` |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/stop` | 路径参数：`ws_id`、`instance_id`；停止浏览器实例并广播状态变更 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | `stopBrowserInstance` |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/health-check` | 路径参数：`ws_id`、`instance_id`；检查 profile 目录与实例状态 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | `checkBrowserInstanceHealth` |
+| `GET /api/devices/browser-instances` | 无；当前是 `workspaces` 列表兼容别名 | `DeviceWorkspaceDto[]` | `500` | 当前前端未直接调用 |
+| `POST /api/devices/browser-instances` | `DeviceWorkspaceCreateInput`；当前是创建工作区兼容别名 | `DeviceWorkspaceDto` | `422` | `createLegacyDeviceWorkspaceViaBrowserAlias` |
 | `GET /api/devices/browser-instances/{ws_id}` | 路径参数：`ws_id`；当前是工作区详情兼容别名 | `DeviceWorkspaceDto` | `404` | 当前前端未直接调用 |
 | `PATCH /api/devices/browser-instances/{ws_id}` | `DeviceWorkspaceUpdateInput`；当前是工作区更新兼容别名 | `DeviceWorkspaceDto` | `404`、`422` | 当前前端未直接调用 |
 | `DELETE /api/devices/browser-instances/{ws_id}` | 路径参数：`ws_id`；当前是工作区删除兼容别名 | 删除结果对象 | `404` | `removeBrowserInstance` |
@@ -1315,7 +1314,9 @@ waveform 缺少音频：
 
 **当前差异**
 
-- `BrowserInstanceDto` / `ExecutionBindingDto` 仍是前端兼容类型口径；当前后端 M11 已落地对象仍以 `DeviceWorkspaceDto` 与 `AccountBindingDto` 为主。
+- 已修复：前端 `BrowserInstanceDto` / `AccountBindingDto` 已对齐当前 M11 后端 schema，浏览器实例列表、创建、启动、停止与实例健康检查均走工作区嵌套路由。
+- 已修复：`fetchWorkspaceLogs` 使用后端实际支持的 `since?` 查询参数，`fetchExecutionBindings` 不再附带无效查询参数。
+- 已修复：旧 `device_workspaces` / `execution_bindings` 表会在 Runtime 启动时重建到当前 schema，补齐 `last_used_at / updated_at`，并移除会阻断插入的旧 NOT NULL 列。
 - `health-check` 现在会直接返回中文可读的错误原因与下一步动作，前端不需要再自行猜测“根目录不存在”或“环境异常”的文案。
 
 **示例**
@@ -1490,8 +1491,8 @@ waveform 缺少音频：
 
 **当前差异**
 
-- `apps/desktop/src/types/runtime.ts` 中的 `PublishPlanDto / PrecheckResultDto / SubmitPlanResultDto / PublishReceiptDto / PublishingCalendarDayDto` 仍是旧口径，字段少于当前后端真实返回
-- `fetchPublishingCalendar(from, to)` 当前会附带 `from / to` 查询参数，但后端 `GET /api/publishing/calendar` 目前返回 `PublishCalendarDto`，且不消费这两个参数
+- 已修复：`apps/desktop/src/types/runtime.ts` 中的 `PublishPlanDto / PrecheckResultDto / SubmitPlanResultDto / PublishReceiptDto / PublishCalendarDto` 已对齐当前后端真实返回。
+- 已修复：`fetchPublishingCalendar()` 不再附带 `from / to` 查询参数，直接消费后端 `PublishCalendarDto` 聚合对象。
 
 **当前错误码**
 
@@ -1585,8 +1586,8 @@ waveform 缺少音频：
 
 **当前差异**
 
-- `apps/desktop/src/types/runtime.ts` 中的 `RenderTaskDto / RenderTemplateDto / RenderResourceUsageDto` 仍是旧口径，缺少 `stage / output / failure` 以及嵌套 `cpu / gpu / disk` 结构
-- `listRenderTemplates()` 当前前端类型写成 `RenderTemplateDto[]`，但后端 `GET /api/renders/templates` 实际返回的是 `ExportProfileDto[]`
+- 已修复：`apps/desktop/src/types/runtime.ts` 中的 `RenderTaskDto / RenderResourceUsageDto` 已对齐 `stage / output / failure` 与嵌套 `cpu / gpu / disk` 结构。
+- 已修复：`listRenderTemplates()` 返回 `ExportProfileDto[]`，与后端 `GET /api/renders/templates` 实际返回保持一致。
 
 **当前错误码**
 
@@ -1937,8 +1938,8 @@ waveform 缺少音频：
 
 **当前差异**
 
-- `tasks.video_tasks` 的 `video.import.stage.*` 广播当前未显式附带 `schema_version`；前端 `task-bus.ts` 只接收带 `schema_version` 的 Runtime 事件。后续修复事件广播时必须同步更新本文件和 `task-bus.spec.ts`。
-- `process_video_import_task` 仍额外广播历史 `video_status_changed` 事件；新页面应以 TaskBus 事件为准，旧事件仅作兼容观察。
+- 前端 `task-bus.ts` 已兼容缺少 `schema_version` 的历史事件，并在解析时补齐 `schema_version: 1`。
+- `process_video_import_task` 仍可能额外广播历史 `video_status_changed` 事件；新页面应以 TaskBus 标准事件为准，旧事件仅作兼容观察。
 
 **非任务事件示例**
 
@@ -2018,17 +2019,18 @@ waveform 缺少音频：
 
 ### 20.1 当前代码一致性异常
 
-以下项目不是文档遗漏，而是当前代码中已经存在的 wrapper / 类型 / 路由差异；后续修复时必须同时改后端、前端、测试和本文档。
+以下项目用于记录当前代码中已经存在或刚完成收口的 wrapper / 类型 / 路由差异；后续修复时必须同时改后端、前端、测试和本文档。
 
 | 模块 | 差异 | 当前处理 |
 | --- | --- | --- |
-| Prompt 模板 | 后端已实现 `PUT /api/prompt-templates/{template_id}`，但前端 `runtime-client.ts` 仍用 `PATCH` 且输入字段仍是 `kind/name/template` | 文档以后端 `kind/name/description/content` 为真实契约，并记录前端旧口径 |
-| M11 设备与工作区 | `BrowserInstanceDto` / `ExecutionBindingDto` 仍是前端兼容类型口径，后端真实对象以 `DeviceWorkspaceDto` 与 `AccountBindingDto` 为主 | 文档以当前后端 schema 为真实接口 |
-| M13 发布中心 | 前端 `PublishReceiptDto`、`PublishingCalendarDayDto[]` 仍是旧扁平类型，后端返回 `platform_response_json/received_at` 与 `PublishCalendarDto` 聚合对象 | 文档以当前后端 schema 为真实接口 |
-| M14 渲染导出 | `render_service.py` 与 `domain.models.__init__` 引用 `ExportProfile`，但 `domain.models.render` 当前缺少该 ORM 模型；前端 `RenderResourceUsageDto` 仍是旧扁平类型 | 文档记录已声明接口和当前 schema，后续需修复模型/类型后再确认契约测试 |
-| TaskBus | 视频导入阶段事件当前缺少 `schema_version`，历史 `video_status_changed` 仍存在 | 文档登记为兼容差异，后续实现需统一事件信封 |
+| Prompt 模板 | 已修复：前端 `runtime-client.ts` 使用 `PUT`，请求字段对齐 `kind/name/description/content` | 已有 `runtime-client-b-s3.spec.ts` 覆盖 |
+| M08 字幕对齐 | 已修复：前端 `SubtitleTrackDto`、`SubtitleTrackGenerateInput`、`SubtitleStyleTemplateDto`、`SubtitleExportDto` 与后端 sourceVoice / alignment / 内联导出 schema 对齐 | 已有 `runtime-client-b-s4.spec.ts`、`runtime-client-subtitles.spec.ts` 与 `subtitle-alignment-store.spec.ts` 覆盖 |
+| M11 设备与工作区 | 已修复：前端新增嵌套 browser instance routes、`BrowserInstanceWriteResultDto`，binding 入参与后端 `AccountBindingDto` 对齐 | 已有 `runtime-client-b-s5.spec.ts` 覆盖；legacy alias 继续保留为后端兼容能力 |
+| M13 发布中心 | 已修复：前端 `PublishReceiptDto`、`PublishCalendarDto` 与后端聚合 schema 对齐，publishing store 增加 calendar / receipt 消费 | 已有 `runtime-client-b-s5.spec.ts` 与 `runtime-stores-m09-m15.spec.ts` 覆盖 |
+| M14 渲染导出 | 已修复：前端 `RenderResourceUsageDto`、templates/profile 类型与后端 schema 对齐，renders store 增加 profiles/templates/resource-usage/retry 消费 | 已有 `runtime-client-b-s5.spec.ts` 与 `runtime-stores-m09-m15.spec.ts` 覆盖 |
+| TaskBus | 已修复：前端兼容缺少 `schema_version` 的历史事件并补齐为 `1`；`video_status_changed` 仍作为 legacy event type 保留 | 已有 `task-bus.spec.ts` 覆盖 |
 
-当前文档与代码对齐批次：**2026-04-19 review / workspace / subtitles / video-deconstruction / voice 收口，HTTP 接口明细已与当前后端代码全量对齐；后续主要补更多异常样例与前端联调说明**
+当前文档与代码对齐批次：**2026-04-24 Runtime HTTP 路由库存复核 + V2 类型漂移收尾，181 条 HTTP 接口明细已与当前后端代码全量对齐；后续主要补更多异常样例与端到端联调说明**
 
 ---
 
@@ -2457,44 +2459,44 @@ AI 调用层新增以下 `error_code`，Codex 在服务层抛出，Gemini 在前
 
 ---
 
-## 22. 前后端接口漂移修复清单（Gemini 实现规格）
+## 22. 前后端接口漂移修复清单（2026-04-24 已收口）
 
-> 本节列出当前前端代码与后端真实接口的不一致项。Gemini 按此表逐项修复前端。
+> 本节记录本轮已完成的前端代码与后端真实接口对齐项。后续若再次出现漂移，应继续在本节追加并同步测试。
 
-### 22.1 Prompt 模板接口（已知漂移）
-
-| 项 | 当前前端 | 后端真实接口 | 修复动作 |
-| --- | --- | --- | --- |
-| 更新方法 | `runtime-client.ts` 使用 `PATCH` | 后端路由为 `PUT /api/prompt-templates/{template_id}` | 前端改为 `PUT` |
-| 请求字段 | `{ kind, name, template }` | `{ kind, name, description, content }` | 前端字段名 `template` → `content`，新增 `description` |
-
-### 22.2 M11 设备与工作区类型（已知漂移）
+### 22.1 Prompt 模板接口（已修复）
 
 | 项 | 当前前端 | 后端真实接口 | 修复动作 |
 | --- | --- | --- | --- |
-| DTO 命名 | `BrowserInstanceDto` / `ExecutionBindingDto` | `DeviceWorkspaceDto` / `AccountBindingDto` | 前端重命名类型并更新 `runtime.ts` 中对应 type |
-| Store 命名 | 检查 `useDeviceStore` 引用的字段名 | 以 `DeviceWorkspaceDto` schema 为准 | 对齐字段 |
+| 更新方法 | `runtime-client.ts` 使用 `PUT` | 后端路由为 `PUT /api/prompt-templates/{template_id}` | 已对齐 |
+| 请求字段 | `{ kind, name, description, content }` | `{ kind, name, description, content }` | 已对齐 |
 
-### 22.3 M13 发布中心类型（已知漂移）
-
-| 项 | 当前前端 | 后端真实接口 | 修复动作 |
-| --- | --- | --- | --- |
-| 发布回执 | `PublishReceiptDto`（扁平） | 后端返回 `platform_response_json` + `received_at` | 前端 type 补齐嵌套结构 |
-| 日历视图 | `PublishingCalendarDayDto[]`（扁平数组） | 后端返回 `PublishCalendarDto`（聚合对象） | 前端 type 改为聚合结构 |
-
-### 22.4 M14 渲染导出（已知漂移 + 后端缺口）
+### 22.2 M11 设备与工作区类型（已修复）
 
 | 项 | 当前前端 | 后端真实接口 | 修复动作 |
 | --- | --- | --- | --- |
-| 资源用量 | `RenderResourceUsageDto`（扁平） | 后端 schema 结构不同 | 前端对齐后端 schema |
-| ExportProfile | 前端已引用 | `domain.models.render` 缺少 `ExportProfile` ORM 模型 | **Codex 先补 ORM**，Gemini 再对齐 |
+| DTO 命名 | `DeviceWorkspaceDto`、`BrowserInstanceDto`、`BrowserInstanceWriteResultDto`、`AccountBindingDto` | 后端当前 schema | 已对齐 |
+| Store / client 路径 | `workspaces/{ws_id}/browser-instances*` 嵌套路由 | 后端 canonical routes | 已对齐，legacy alias 仅作为后端兼容能力保留 |
 
-### 22.5 TaskBus WebSocket（已知漂移）
+### 22.3 M13 发布中心类型（已修复）
 
 | 项 | 当前前端 | 后端真实接口 | 修复动作 |
 | --- | --- | --- | --- |
-| `schema_version` | 部分事件未携带 | 全局约定所有 WS 消息必须带 `schema_version` | **Codex 后端统一补齐**，前端解析时校验 |
-| `video_status_changed` | 仍在监听 | 历史事件，后端可能不再发送 | 前端确认是否仍需监听，否则移除 |
+| 发布回执 | `PublishReceiptDto` 阶段化结构 | 后端返回 `platform_response_json` + `received_at` | 已对齐 |
+| 日历视图 | `PublishCalendarDto` 聚合对象 | 后端返回 `PublishCalendarDto` | 已对齐 |
+
+### 22.4 M14 渲染导出（已修复）
+
+| 项 | 当前前端 | 后端真实接口 | 修复动作 |
+| --- | --- | --- | --- |
+| 资源用量 | `RenderResourceUsageDto` 结构化对象 | 后端返回 `cpu/gpu/disk/collectedAt` | 已对齐 |
+| 模板/Profile | `listRenderTemplates()` 返回 `ExportProfileDto[]` | 后端 `GET /api/renders/templates` 复用 `ExportProfileDto[]` | 已对齐 |
+
+### 22.5 TaskBus WebSocket（前端兼容已修复）
+
+| 项 | 当前前端 | 后端真实接口 | 修复动作 |
+| --- | --- | --- | --- |
+| `schema_version` | 前端对缺失字段的历史事件补齐 `schema_version: 1` | 全局约定所有 WS 消息必须带 `schema_version` | 前端兼容已补齐；后端仍建议持续发送显式版本 |
+| `video_status_changed` | legacy event type 保留 | 历史事件，后端可能不再发送 | 保留兼容解析，不作为新事件类型扩展入口 |
 
 ### 22.6 AI 能力配置页面对齐
 

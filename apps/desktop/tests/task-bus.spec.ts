@@ -111,6 +111,35 @@ describe("task bus store", () => {
     );
   });
 
+  it("兼容旧 WebSocket 事件并补齐 schema_version", () => {
+    const store = useTaskBusStore();
+    const callback = vi.fn();
+
+    store.subscribe("video-legacy", callback);
+    store._handleMessage(
+      JSON.stringify({
+        type: "video_status_changed",
+        videoId: "video-legacy",
+        status: "completed"
+      })
+    );
+
+    expect(callback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schema_version: 1,
+        type: "video_status_changed",
+        videoId: "video-legacy",
+        status: "completed"
+      })
+    );
+    expect(store.lastEvents.get("video-legacy")).toEqual(
+      expect.objectContaining({
+        schema_version: 1,
+        type: "video_status_changed"
+      })
+    );
+  });
+
   it("测试环境已释放 window 时清理定时器不会抛出异常", () => {
     const store = useTaskBusStore();
 

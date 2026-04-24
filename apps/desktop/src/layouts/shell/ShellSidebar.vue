@@ -90,6 +90,25 @@ const shellUiStore = useShellUiStore();
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-color: color-mix(in srgb, var(--color-text-tertiary) 44%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.shell-sidebar__nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.shell-sidebar__nav::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-text-tertiary) 32%, transparent);
+  border-radius: var(--radius-full);
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__nav {
+  scrollbar-width: none;
+}
+
+.shell-sidebar[data-collapsed="true"] .shell-sidebar__nav::-webkit-scrollbar {
+  width: 0;
 }
 
 .shell-sidebar__group {

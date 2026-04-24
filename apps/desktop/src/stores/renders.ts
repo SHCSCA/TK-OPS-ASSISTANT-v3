@@ -3,12 +3,18 @@ import {
   cancelRenderTask,
   createRenderTask,
   deleteRenderTask,
+  fetchExportProfiles,
+  fetchRenderResourceUsage,
   fetchRenderTasks,
+  listRenderTemplates,
+  retryRenderTask,
   updateRenderTask
 } from "@/app/runtime-client";
 import { useTaskBusStore } from "@/stores/task-bus";
 import type {
   CancelRenderResultDto,
+  ExportProfileDto,
+  RenderResourceUsageDto,
   RenderTaskCreateInput,
   RenderTaskDto,
   RenderTaskUpdateInput
@@ -23,6 +29,9 @@ function getErrorMessage(error: unknown): string {
 export const useRendersStore = defineStore("renders", {
   state: () => ({
     tasks: [] as RenderTaskDto[],
+    profiles: [] as ExportProfileDto[],
+    templates: [] as ExportProfileDto[],
+    resourceUsage: null as RenderResourceUsageDto | null,
     lastCancelResult: null as CancelRenderResultDto | null,
     loading: false,
     status: "idle" as "idle" | "loading" | "empty" | "ready" | "error",
@@ -115,6 +124,36 @@ export const useRendersStore = defineStore("renders", {
         this.lastCancelResult = await cancelRenderTask(id);
         await this.loadTasks();
         return this.lastCancelResult;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        return null;
+      }
+    },
+    async retry(id: string) {
+      this.error = null;
+      try {
+        const task = await retryRenderTask(id);
+        this.tasks = this.tasks.map((item) => (item.id === id ? task : item));
+        this.status = "ready";
+        this.syncSubscriptions();
+        return task;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        return null;
+      }
+    },
+    async loadExportContext() {
+      this.error = null;
+      try {
+        const [profiles, templates, resourceUsage] = await Promise.all([
+          fetchExportProfiles(),
+          listRenderTemplates(),
+          fetchRenderResourceUsage()
+        ]);
+        this.profiles = profiles;
+        this.templates = templates;
+        this.resourceUsage = resourceUsage;
+        return { profiles, templates, resourceUsage };
       } catch (error) {
         this.error = getErrorMessage(error);
         return null;

@@ -133,7 +133,7 @@ import SubtitleTimingPanel from "@/modules/subtitles/SubtitleTimingPanel.vue";
 import SubtitleVersionPanel from "@/modules/subtitles/SubtitleVersionPanel.vue";
 import { useProjectStore } from "@/stores/project";
 import { useSubtitleAlignmentStore } from "@/stores/subtitle-alignment";
-import type { SubtitleSegmentDto } from "@/types/runtime";
+import type { SubtitleSegmentDto, SubtitleTrackDto } from "@/types/runtime";
 
 const projectStore = useProjectStore();
 const store = useSubtitleAlignmentStore();
@@ -143,7 +143,7 @@ const currentProjectId = computed(() => currentProject.value?.projectId ?? "");
 const currentProjectName = computed(() => currentProject.value?.projectName ?? "未选择项目");
 const hasScript = computed(() => store.paragraphs.length > 0);
 const hasSelectedTrack = computed(() => Boolean(store.selectedTrackId));
-const hasBlockedTrack = computed(() => store.selectedTrack?.status === "blocked");
+const hasBlockedTrack = computed(() => hasBlockingAlignment(store.selectedTrack));
 const presentationStatus = computed(() =>
   hasBlockedTrack.value && store.status === "ready" ? "blocked" : store.status
 );
@@ -316,6 +316,19 @@ async function handleSave(): Promise<void> {
 
 function handleActiveSegmentUpdate(patch: Partial<SubtitleSegmentDto>): void {
   store.updateDraftSegment(store.activeSegmentIndex, patch);
+}
+
+function hasBlockingAlignment(track: SubtitleTrackDto | null): boolean {
+  if (!track) {
+    return false;
+  }
+
+  return (
+    track.status === "blocked" ||
+    track.alignment.status === "draft" ||
+    track.alignment.status === "needs_alignment" ||
+    Boolean(track.alignment.errorCode)
+  );
 }
 </script>
 

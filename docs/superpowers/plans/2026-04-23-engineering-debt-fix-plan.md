@@ -5,12 +5,14 @@
 > **执行优先级**：P1（本迭代必须）/ P2（本迭代推进）/ P3（下迭代）
 >
 > **涉及硬约束**：`CLAUDE.md §6.1`——单文件超 400 行触发拆分评审，超 600 行强制拆分。
+>
+> **2026-04-24 代码复核**：本文最初记录的是 2026-04-23 工程债基线。当前 `main` 已清零正式页面超 600 行硬限，最高页面为 `AISystemSettingsPage.vue` 596 行；`RUNTIME-API-CALLS.md` 与 FastAPI 注册路由一致（181 / 181），M10-M14 路由登记缺口已不存在。Prompt 模板、M08 字幕、M11 设备、M13 发布、M14 渲染与 TaskBus 的前端类型 / wrapper 漂移已收口；M11 旧库迁移已补齐 `device_workspaces / execution_bindings` 的阻断列修复；剩余工程债转为字段级 D2 收口、异常样例补强与 M05-M08 深度功能链路。
 
 ---
 
-## 一、页面文件超标（9 个，均超 600 行硬线）
+## 一、页面文件硬限复核（历史基线：9 个曾超 600，当前已清零）
 
-当前只有 `apps/desktop/src/pages/settings/` 完成了 `page / composable / helpers / types / styles` 分层范式（参照：`AISystemSettingsPage.vue` 414 行 + `use-*.ts` 4 个 composable + `types.ts`）。其余 9 个页面仍是单文件堆积。
+2026-04-24 复核：16 个正式页面当前均低于 600 行硬线，样式已迁出到页面级 scoped CSS 文件或模块组件内。以下拆分方案保留为历史基线与后续精修参考；是否继续推进以“是否低于原计划 400/500 行目标、是否仍有职责堆叠”为准，不再按“超 600 行”派工。
 
 ### 整体拆分规范
 
@@ -216,7 +218,7 @@ pages/<module>/
 
 > 文档位置：`docs/RUNTIME-API-CALLS.md`
 >
-> 2026-04-23 已对照后端路由、FastAPI 注册结果、前端 Runtime client 与当前文档复核。结论：`M10 / M11 / M12` 的标准五列表已存在，当前真实剩余债务不是“后端缺路由”或“接口未登记”，而是 `M13 / M14` 文档损坏，以及本计划这一节的过期描述需要纠偏。
+> 2026-04-24 已对照后端路由、FastAPI 注册结果、前端 Runtime client、契约测试与当前文档复核。结论：`M10 / M11 / M12 / M13 / M14` 的标准五列表均已存在，当前真实剩余债务不是“后端缺路由”或“接口未登记”；本轮已进一步修复 Prompt / M08 / M11 / M13 / M14 / TaskBus 前端类型漂移，剩余是字段级 D2 收口、异常样例补强与深度链路。
 
 ### 2-A M10 账号管理（`§11`）复核结论 — 已登记，无新增后端缺口
 
@@ -230,7 +232,7 @@ pages/<module>/
 
 **保留动作**：
 
-- [ ] 后续派工与周报中，不再把 M10 归类为“后端接口登记缺口”
+- [x] 后续派工与周报中，不再把 M10 归类为“后端接口登记缺口”
 
 ---
 
@@ -250,8 +252,8 @@ pages/<module>/
 
 **保留动作**：
 
-- [ ] 后续派工与周报中，不再把 M11 归类为“后端接口登记缺口”
-- [ ] 若继续引用数量口径，统一改为“17 条 canonical + 7 条 legacy alias”
+- [x] 后续派工与周报中，不再把 M11 归类为“后端接口登记缺口”
+- [x] 若继续引用数量口径，统一改为“17 条 canonical + 7 条 legacy alias”
 
 ---
 
@@ -267,44 +269,47 @@ pages/<module>/
 
 **保留动作**：
 
-- [ ] 后续派工与周报中，不再把 M12 归类为“后端接口登记缺口”
-- [ ] 统一把自动化接口口径修正为 `/api/automation/tasks...`
+- [x] 后续派工与周报中，不再把 M12 归类为“后端接口登记缺口”
+- [x] 统一把自动化接口口径修正为 `/api/automation/tasks...`
 
 ---
 
-### 2-D M13 发布中心（`§14`）文档损坏修复 — P2
+### 2-D M13 发布中心（`§14`）文档复核 — 已登记，类型漂移已修复
 
 **后端文件**：`apps/py-runtime/src/api/routes/publishing.py`
 
-**真实问题**：
+**当前结论**：
 
-- `§14` 当前不是“缺 11 条路由登记”，而是**标题、表头和大段中文说明发生乱码损坏**
-- 路由条目本身已经存在，但当前文档已不适合作为前后端对接真源
+- `§14` 标题、表头和中文说明当前可读，11 条 `/api/publishing` 路由均已登记
+- 后端已落地 `calendar`、`receipt`、`receipts`、`precheck`、`submit`、`cancel`
+- 前端 `PublishReceiptDto` 与 `PublishCalendarDto` 已按后端聚合 schema 对齐，publishing store 已补 calendar / receipt 消费
 
-**修复动作**：
+**保留动作**：
 
-- [ ] 将 `§14` 标题从乱码修正为 “M13 发布中心”
-- [ ] 恢复表头为标准五列：`接口 / 请求参数 / 返回结果 / 错误码 / 当前前端调用点`
-- [ ] 对照 `publishing.py`、前端 Runtime client 与现有条目，逐行修复被 `?` 污染的中文说明
-- [ ] 修复示例、错误码说明、字段解释中的乱码，确保全文为 UTF-8 无 BOM
+- [x] 将 `§14` 标题确认/修正为 “M13 发布中心”
+- [x] 确认表头为标准五列：`接口 / 请求参数 / 返回结果 / 错误码 / 当前前端调用点`
+- [x] 对照 `publishing.py`、前端 Runtime client 与现有条目，确认路由条目已登记
+- [x] 修复前端发布回执与日历 DTO 类型漂移，并补齐消费层契约测试
 
 ---
 
-### 2-E M14 渲染与导出（`§15`）文档损坏修复 — P2
+### 2-E M14 渲染与导出（`§15`）文档复核 — 已登记，类型漂移已修复
 
 **后端文件**：`apps/py-runtime/src/api/routes/renders.py`
 
-**真实问题**：
+**当前结论**：
 
-- `§15` 当前不是“缺 11 条路由登记”，而是**标题、表头和多处字段解释发生乱码损坏**
-- 路由条目本身已经存在，但字段语义和错误码说明已不可靠
+- `§15` 标题、表头和中文说明当前可读，11 条 `/api/renders` 路由均已登记
+- 后端已落地 `ExportProfile` ORM、profiles、templates、resource-usage、retry、cancel
+- 前端 `RenderResourceUsageDto` 与 templates/profile 类型已按后端 schema 对齐，renders store 已补 profiles / templates / resource-usage / retry 消费；真实渲染执行 / 进度链路仍需深化
 
-**修复动作**：
+**保留动作**：
 
-- [ ] 将 `§15` 标题从乱码修正为 “M14 渲染与导出中心”
-- [ ] 恢复表头为标准五列：`接口 / 请求参数 / 返回结果 / 错误码 / 当前前端调用点`
-- [ ] 对照 `renders.py`、前端 Runtime client 与现有条目，逐行修复被 `?` 污染的中文说明
-- [ ] 修复 WebSocket 事件、示例、错误码说明中的乱码，确保全文为 UTF-8 无 BOM
+- [x] 将 `§15` 标题确认/修正为 “M14 渲染与导出中心”
+- [x] 确认表头为标准五列：`接口 / 请求参数 / 返回结果 / 错误码 / 当前前端调用点`
+- [x] 对照 `renders.py`、前端 Runtime client 与现有条目，确认路由条目已登记
+- [x] 修复前端模板/资源用量 DTO 类型漂移
+- [ ] 后续补齐真实渲染执行与进度链路
 
 ---
 
@@ -351,26 +356,26 @@ alert(`无法打开目录: ${logPath}\n请检查路径是否真实存在。`);
 
 ### P1（本迭代，立即开工）
 
-- [ ] **1-A** 拆分 `VideoDeconstructionCenterPage.vue`（1040 → ≤500 行）
-- [ ] **1-B** 拆分 `PublishingCenterPage.vue`（965 → ≤500 行）
-- [ ] **1-C** 拆分 `DeviceWorkspaceManagementPage.vue`（949 → ≤400 行）
-- [ ] **1-D** 拆分 `AssetLibraryPage.vue`（925 → ≤400 行）
-- [ ] **2-A** 同步派工与周报口径：撤销 M10 / M11 / M12 “后端接口登记缺口”表述
+- [x] **1-A** 拆分 `VideoDeconstructionCenterPage.vue`（当前 452 行，低于 500 行目标）
+- [x] **1-B** 拆分 `PublishingCenterPage.vue`（当前 466 行，低于 500 行目标）
+- [ ] **1-C** 继续精简 `DeviceWorkspaceManagementPage.vue`（当前 408 行，600 行硬限已清零，距离原计划 ≤400 还差 8 行）
+- [ ] **1-D** 继续精简 `AssetLibraryPage.vue`（当前 522 行，600 行硬限已清零，仍高于原计划 ≤400）
+- [x] **2-A** 同步派工与周报口径：撤销 M10 / M11 / M12 “后端接口登记缺口”表述
 - [ ] **3-A** 替换 `CreatorDashboardPage.vue:310` 的 `window.alert`
 
 ### P2（本迭代，有序推进）
 
-- [ ] **1-E** 拆分 `AutomationConsolePage.vue`（915 → ≤500 行）
-- [ ] **1-F** 拆分 `RenderExportCenterPage.vue`（875 → ≤500 行）
-- [ ] **1-G** 拆分 `ScriptTopicCenterPage.vue`（834 → ≤500 行）
-- [ ] **1-H** 拆分 `StoryboardPlanningCenterPage.vue`（772 → ≤500 行）
-- [ ] **1-I** 拆分 `ReviewOptimizationCenterPage.vue`（681 → ≤500 行）
-- [ ] **2-D** 修复 `RUNTIME-API-CALLS.md` 中 M13 发布中心段落的标题、表头和中文说明乱码
-- [ ] **2-E** 修复 `RUNTIME-API-CALLS.md` 中 M14 渲染与导出段落的标题、表头和中文说明乱码
+- [x] **1-E** 拆分 `AutomationConsolePage.vue`（当前 458 行，低于 500 行目标）
+- [x] **1-F** 拆分 `RenderExportCenterPage.vue`（当前 380 行，低于 500 行目标）
+- [x] **1-G** 拆分 `ScriptTopicCenterPage.vue`（当前 393 行，低于 500 行目标）
+- [ ] **1-H** 继续精简 `StoryboardPlanningCenterPage.vue`（当前 506 行，600 行硬限已清零，略高于原计划 ≤500）
+- [x] **1-I** 拆分 `ReviewOptimizationCenterPage.vue`（当前 382 行，低于 500 行目标）
+- [x] **2-D** 复核 `RUNTIME-API-CALLS.md` 中 M13 发布中心段落的标题、表头和中文说明
+- [x] **2-E** 复核 `RUNTIME-API-CALLS.md` 中 M14 渲染与导出段落的标题、表头和中文说明
 
 ### P3（下迭代）
 
-- [ ] **1-J** 拆分 `ProviderConfigDrawer.vue`（627 → ≤450 行）
+- [x] **1-J** 拆分 `ProviderConfigDrawer.vue`（当前 294 行，低于 450 行目标）
 - [ ] **3-B** 替换 `use-system-settings.ts` 两处 alert
 - [ ] **3-C** 标注 `.claude/plan/tkops-frontend-modules.md` 为历史蓝图
 

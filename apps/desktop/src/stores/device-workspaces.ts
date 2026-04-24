@@ -106,7 +106,7 @@ export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
         return null;
       }
     },
-    async loadBrowserInstances(workspaceId?: string) {
+    async loadBrowserInstances(workspaceId: string) {
       this.instancesLoading = true;
       try {
         this.browserInstances = await fetchBrowserInstances(workspaceId);
@@ -116,10 +116,10 @@ export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
         this.instancesLoading = false;
       }
     },
-    async addBrowserInstance(input: BrowserInstanceCreateInput) {
+    async addBrowserInstance(workspaceId: string, input: BrowserInstanceCreateInput) {
       this.error = null;
       try {
-        const instance = await createBrowserInstance(input);
+        const instance = await createBrowserInstance(workspaceId, input);
         this.browserInstances.unshift(instance);
         return instance;
       } catch (error) {

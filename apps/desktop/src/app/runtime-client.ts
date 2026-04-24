@@ -87,8 +87,10 @@ import type {
   AutomationTaskUpdateInput,
   BrowserInstanceCreateInput,
   BrowserInstanceDto,
+  BrowserInstanceWriteResultDto,
   TriggerTaskResultDto,
   DeviceWorkspaceCreateInput,
+  DeviceWorkspaceLogDto,
   DeviceWorkspaceDto,
   DeviceWorkspaceUpdateInput,
   ExecutionBindingDto,
@@ -99,12 +101,11 @@ import type {
   PublishPlanDto,
   PublishReceiptDto,
   PublishPlanUpdateInput,
-  PublishingCalendarDayDto,
+  PublishCalendarDto,
   PrecheckResultDto,
   SubmitPlanResultDto,
   RenderTaskCreateInput,
   RenderTaskDto,
-  RenderTemplateDto,
   RenderResourceUsageDto,
   RenderTaskUpdateInput,
   CancelRenderResultDto,
@@ -1006,33 +1007,79 @@ export async function checkDeviceWorkspaceHealth(id: string): Promise<HealthChec
 
 export async function fetchWorkspaceLogs(
   workspaceId: string,
-  cursor?: string
-): Promise<LogPageDto> {
+  since?: string
+): Promise<DeviceWorkspaceLogDto[]> {
   const params = new URLSearchParams();
-  if (cursor) {
-    params.append("cursor", cursor);
+  if (since) {
+    params.append("since", since);
   }
   const query = params.toString();
-  return requestRuntime<LogPageDto>(
+  return requestRuntime<DeviceWorkspaceLogDto[]>(
     `/api/devices/workspaces/${workspaceId}/logs${query ? `?${query}` : ""}`
   );
 }
 
 export async function fetchBrowserInstances(
-  workspaceId?: string
+  workspaceId: string
 ): Promise<BrowserInstanceDto[]> {
-  const params = new URLSearchParams();
-  if (workspaceId) params.append("workspace_id", workspaceId);
-  const query = params.toString();
   return requestRuntime<BrowserInstanceDto[]>(
-    `/api/devices/browser-instances${query ? `?${query}` : ""}`
+    `/api/devices/workspaces/${workspaceId}/browser-instances`
   );
 }
 
 export async function createBrowserInstance(
+  workspaceId: string,
   input: BrowserInstanceCreateInput
 ): Promise<BrowserInstanceDto> {
-  return requestRuntime<BrowserInstanceDto>("/api/devices/browser-instances", {
+  return requestRuntime<BrowserInstanceDto>(
+    `/api/devices/workspaces/${workspaceId}/browser-instances`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
+}
+
+export async function startBrowserInstance(
+  workspaceId: string,
+  instanceId: string
+): Promise<BrowserInstanceWriteResultDto> {
+  return requestRuntime<BrowserInstanceWriteResultDto>(
+    `/api/devices/workspaces/${workspaceId}/browser-instances/${instanceId}/start`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function stopBrowserInstance(
+  workspaceId: string,
+  instanceId: string
+): Promise<BrowserInstanceWriteResultDto> {
+  return requestRuntime<BrowserInstanceWriteResultDto>(
+    `/api/devices/workspaces/${workspaceId}/browser-instances/${instanceId}/stop`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function checkBrowserInstanceHealth(
+  workspaceId: string,
+  instanceId: string
+): Promise<BrowserInstanceWriteResultDto> {
+  return requestRuntime<BrowserInstanceWriteResultDto>(
+    `/api/devices/workspaces/${workspaceId}/browser-instances/${instanceId}/health-check`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function createLegacyDeviceWorkspaceViaBrowserAlias(
+  input: DeviceWorkspaceCreateInput
+): Promise<DeviceWorkspaceDto> {
+  return requestRuntime<DeviceWorkspaceDto>("/api/devices/browser-instances", {
     body: JSON.stringify(input),
     method: "POST"
   });
@@ -1044,17 +1091,8 @@ export async function removeBrowserInstance(id: string): Promise<void> {
   });
 }
 
-export async function fetchExecutionBindings(
-  deviceWorkspaceId?: string,
-  accountId?: string
-): Promise<ExecutionBindingDto[]> {
-  const params = new URLSearchParams();
-  if (deviceWorkspaceId) params.append("device_workspace_id", deviceWorkspaceId);
-  if (accountId) params.append("account_id", accountId);
-  const query = params.toString();
-  return requestRuntime<ExecutionBindingDto[]>(
-    `/api/devices/bindings${query ? `?${query}` : ""}`
-  );
+export async function fetchExecutionBindings(): Promise<ExecutionBindingDto[]> {
+  return requestRuntime<ExecutionBindingDto[]>("/api/devices/bindings");
 }
 
 export async function removeExecutionBinding(id: string): Promise<void> {
@@ -1122,14 +1160,8 @@ export async function fetchPublishReceipt(id: string): Promise<PublishReceiptDto
   return requestRuntime<PublishReceiptDto>(`/api/publishing/plans/${id}/receipt`);
 }
 
-export async function fetchPublishingCalendar(
-  from: string,
-  to: string
-): Promise<PublishingCalendarDayDto[]> {
-  const params = new URLSearchParams({ from, to });
-  return requestRuntime<PublishingCalendarDayDto[]>(
-    `/api/publishing/calendar?${params.toString()}`
-  );
+export async function fetchPublishingCalendar(): Promise<PublishCalendarDto> {
+  return requestRuntime<PublishCalendarDto>("/api/publishing/calendar");
 }
 
 export async function fetchPublishReceipts(id: string): Promise<PublishReceiptDto[]> {
@@ -1196,8 +1228,8 @@ export async function retryRenderTask(id: string): Promise<RenderTaskDto> {
   });
 }
 
-export async function listRenderTemplates(): Promise<RenderTemplateDto[]> {
-  return requestRuntime<RenderTemplateDto[]>("/api/renders/templates");
+export async function listRenderTemplates(): Promise<ExportProfileDto[]> {
+  return requestRuntime<ExportProfileDto[]>("/api/renders/templates");
 }
 
 export async function fetchRenderResourceUsage(): Promise<RenderResourceUsageDto> {

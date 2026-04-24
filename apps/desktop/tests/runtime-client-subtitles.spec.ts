@@ -51,7 +51,8 @@ describe("M08 字幕对齐中心 Runtime client 契约", () => {
     const result = await generateSubtitleTrack("project-1", {
       sourceText: "第一段脚本",
       language: "zh-CN",
-      stylePreset: "creator-default"
+      stylePreset: "creator-default",
+      sourceVoiceTrackId: "voice-track-1"
     });
     await fetchSubtitleTrack("subtitle-1");
     await updateSubtitleTrack("subtitle-1", {
@@ -69,7 +70,8 @@ describe("M08 字幕对齐中心 Runtime client 契约", () => {
     });
     await deleteSubtitleTrack("subtitle-1");
 
-    expect(result.track.status).toBe("blocked");
+    expect(result.track.status).toBe("ready");
+    expect(result.track.alignment.status).toBe("draft");
     expect(calls).toEqual([
       { path: "/api/subtitles/projects/project-1/tracks", method: "GET", body: undefined },
       {
@@ -78,7 +80,8 @@ describe("M08 字幕对齐中心 Runtime client 契约", () => {
         body: {
           sourceText: "第一段脚本",
           language: "zh-CN",
-          stylePreset: "creator-default"
+          stylePreset: "creator-default",
+          sourceVoiceTrackId: "voice-track-1"
         }
       },
       { path: "/api/subtitles/tracks/subtitle-1", method: "GET", body: undefined },
@@ -147,7 +150,17 @@ function subtitleTrack(id = "subtitle-1", text = "第一段脚本") {
         locked: false
       }
     ],
-    status: "blocked",
-    createdAt: now()
+    status: "ready",
+    createdAt: now(),
+    updatedAt: now(),
+    sourceVoice: null,
+    alignment: {
+      status: "draft",
+      diffSummary: null,
+      errorCode: null,
+      errorMessage: null,
+      nextAction: "绑定来源配音轨后重新对齐。",
+      updatedAt: now()
+    }
   };
 }

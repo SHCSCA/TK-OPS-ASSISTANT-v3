@@ -41,6 +41,7 @@ def initialize_domain_schema(engine: Engine) -> None:
     _repair_legacy_publish_plan_schema(engine)
     _repair_legacy_account_schema(engine)
     _repair_legacy_device_workspace_schema(engine)
+    _repair_legacy_execution_binding_schema(engine)
     _repair_legacy_automation_schema(engine)
 
 
@@ -517,6 +518,7 @@ def _repair_legacy_account_schema(engine: Engine) -> None:
 def _repair_legacy_device_workspace_schema(engine: Engine) -> None:
     required_columns = {
         "error_count": "INTEGER NOT NULL DEFAULT 0",
+        "last_used_at": "DATETIME",
         "updated_at": "DATETIME",
     }
 
@@ -538,6 +540,43 @@ def _repair_legacy_device_workspace_schema(engine: Engine) -> None:
                 ),
                 {"fallback_time": fallback_time},
             )
+
+        needs_rebuild = _has_blocking_legacy_device_workspace_columns(connection)
+
+    if needs_rebuild:
+        _rebuild_legacy_device_workspace_table(engine)
+
+
+def _repair_legacy_execution_binding_schema(engine: Engine) -> None:
+    required_columns = {
+        "source": "VARCHAR",
+        "metadata_json": "TEXT",
+        "updated_at": "DATETIME",
+    }
+
+    fallback_time = datetime.now(UTC).isoformat()
+
+    with engine.begin() as connection:
+        columns = _ensure_table_columns(connection, "execution_bindings", required_columns)
+        if columns is None:
+            return
+
+        if "updated_at" in columns:
+            connection.execute(
+                text(
+                    """
+                    UPDATE execution_bindings
+                    SET updated_at = COALESCE(NULLIF(created_at, ''), :fallback_time)
+                    WHERE updated_at IS NULL OR updated_at = ''
+                    """
+                ),
+                {"fallback_time": fallback_time},
+            )
+
+        needs_rebuild = _has_blocking_legacy_execution_binding_columns(connection)
+
+    if needs_rebuild:
+        _rebuild_legacy_execution_binding_table(engine)
 
 
 def _repair_legacy_automation_schema(engine: Engine) -> None:
@@ -592,6 +631,174 @@ def _has_blocking_legacy_asset_columns(connection) -> bool:  # type: ignore[no-u
         str(row["name"]) in legacy_columns and int(row["notnull"]) == 1
         for row in rows
     )
+
+
+def _has_blocking_legacy_device_workspace_columns(connection) -> bool:  # type: ignore[no-untyped-def]
+    rows = connection.execute(text("PRAGMA table_info(device_workspaces)")).mappings().all()
+    legacy_columns = {"device_type", "browser_profile", "health_json", "source"}
+    for row in rows:
+        column_name = str(row["name"])
+        if column_name in legacy_columns and int(row["notnull"]) == 1:
+            return True
+        if column_name in {"created_at", "updated_at"} and int(row["notnull"]) == 1:
+            if row["dflt_value"] in (None, ""):
+                return True
+    return False
+
+
+def _has_blocking_legacy_execution_binding_columns(connection) -> bool:  # type: ignore[no-untyped-def]
+    rows = connection.execute(text("PRAGMA table_info(execution_bindings)")).mappings().all()
+    nullable_columns = {"source", "metadata_json"}
+    for row in rows:
+        column_name = str(row["name"])
+        if column_name in nullable_columns and int(row["notnull"]) == 1:
+            return True
+        if column_name in {"created_at", "updated_at"} and int(row["notnull"]) == 1:
+            if row["dflt_value"] in (None, ""):
+                return True
+    return False
+
+
+def _rebuild_legacy_device_workspace_table(engine: Engine) -> None:
+    fallback_time = datetime.now(UTC).isoformat()
+
+    with engine.connect() as connection:
+        columns = _table_columns(connection, "device_workspaces")
+        if not columns:
+            return
+
+        last_used_expr = "last_used_at" if "last_used_at" in columns else "NULL"
+        error_count_expr = "error_count" if "error_count" in columns else "0"
+        updated_at_expr = "updated_at" if "updated_at" in columns else "NULL"
+
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        connection.commit()
+
+        try:
+            with connection.begin():
+                connection.execute(text("DROP TABLE IF EXISTS device_workspaces_repaired"))
+                connection.execute(
+                    text(
+                        """
+                        CREATE TABLE device_workspaces_repaired (
+                            id VARCHAR PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            root_path TEXT NOT NULL UNIQUE,
+                            status VARCHAR NOT NULL,
+                            error_count INTEGER NOT NULL DEFAULT 0,
+                            last_used_at DATETIME,
+                            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    )
+                )
+                connection.execute(
+                    text(
+                        f"""
+                        INSERT INTO device_workspaces_repaired (
+                            id,
+                            name,
+                            root_path,
+                            status,
+                            error_count,
+                            last_used_at,
+                            created_at,
+                            updated_at
+                        )
+                        SELECT
+                            id,
+                            COALESCE(NULLIF(name, ''), id),
+                            COALESCE(NULLIF(root_path, ''), id),
+                            COALESCE(NULLIF(status, ''), 'offline'),
+                            COALESCE({error_count_expr}, 0),
+                            {last_used_expr},
+                            COALESCE(NULLIF(created_at, ''), :fallback_time),
+                            COALESCE(NULLIF({updated_at_expr}, ''), NULLIF(created_at, ''), :fallback_time)
+                        FROM device_workspaces
+                        """
+                    ),
+                    {"fallback_time": fallback_time},
+                )
+                connection.execute(text("DROP TABLE device_workspaces"))
+                connection.execute(
+                    text("ALTER TABLE device_workspaces_repaired RENAME TO device_workspaces")
+                )
+        finally:
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            connection.commit()
+
+
+def _rebuild_legacy_execution_binding_table(engine: Engine) -> None:
+    fallback_time = datetime.now(UTC).isoformat()
+
+    with engine.connect() as connection:
+        columns = _table_columns(connection, "execution_bindings")
+        if not columns:
+            return
+
+        source_expr = "source" if "source" in columns else "NULL"
+        metadata_expr = "metadata_json" if "metadata_json" in columns else "NULL"
+        updated_at_expr = "updated_at" if "updated_at" in columns else "NULL"
+
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        connection.commit()
+
+        try:
+            with connection.begin():
+                connection.execute(text("DROP TABLE IF EXISTS execution_bindings_repaired"))
+                connection.execute(
+                    text(
+                        """
+                        CREATE TABLE execution_bindings_repaired (
+                            id VARCHAR PRIMARY KEY,
+                            account_id VARCHAR NOT NULL,
+                            device_workspace_id VARCHAR NOT NULL,
+                            status VARCHAR NOT NULL,
+                            source VARCHAR,
+                            metadata_json TEXT,
+                            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE,
+                            FOREIGN KEY(device_workspace_id) REFERENCES device_workspaces(id) ON DELETE CASCADE
+                        )
+                        """
+                    )
+                )
+                connection.execute(
+                    text(
+                        f"""
+                        INSERT INTO execution_bindings_repaired (
+                            id,
+                            account_id,
+                            device_workspace_id,
+                            status,
+                            source,
+                            metadata_json,
+                            created_at,
+                            updated_at
+                        )
+                        SELECT
+                            id,
+                            account_id,
+                            device_workspace_id,
+                            COALESCE(NULLIF(status, ''), 'active'),
+                            NULLIF({source_expr}, ''),
+                            NULLIF({metadata_expr}, ''),
+                            COALESCE(NULLIF(created_at, ''), :fallback_time),
+                            COALESCE(NULLIF({updated_at_expr}, ''), NULLIF(created_at, ''), :fallback_time)
+                        FROM execution_bindings
+                        """
+                    ),
+                    {"fallback_time": fallback_time},
+                )
+                connection.execute(text("DROP TABLE execution_bindings"))
+                connection.execute(
+                    text("ALTER TABLE execution_bindings_repaired RENAME TO execution_bindings")
+                )
+        finally:
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            connection.commit()
 
 
 def _rebuild_legacy_asset_table(engine: Engine) -> None:

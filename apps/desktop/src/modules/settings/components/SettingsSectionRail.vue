@@ -8,7 +8,9 @@
         class="settings-section-rail__item"
         :class="{ 'settings-section-rail__item--active': item.id === currentSection }"
         type="button"
+        :aria-label="`${item.label}：${item.summary}`"
         :data-section="item.id"
+        :title="item.summary"
         @click="$emit('select', item.id)"
       >
         <strong>{{ item.label }}</strong>
@@ -57,25 +59,31 @@ const items: Array<{ id: SettingsSectionId; label: string; summary: string }> = 
 .settings-section-rail {
   display: grid;
   align-content: start;
-  gap: 12px;
-  padding: 16px;
+  align-self: start;
+  gap: var(--space-3);
+  min-height: auto;
+  padding: var(--space-4);
   border: 1px solid var(--border-default);
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
-  min-height: 100%;
+}
+
+.settings-section-rail .detail-panel__label {
+  margin: 0;
 }
 
 .settings-section-rail__list {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .settings-section-rail__item {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--space-3);
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
@@ -84,13 +92,12 @@ const items: Array<{ id: SettingsSectionId; label: string; summary: string }> = 
 }
 
 .settings-section-rail__item strong {
-  font-size: 14px;
+  font: var(--font-title-sm);
+  letter-spacing: 0;
 }
 
 .settings-section-rail__item span {
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.5;
+  display: none;
 }
 
 .settings-section-rail__item:hover,

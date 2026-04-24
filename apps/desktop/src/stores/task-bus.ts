@@ -47,13 +47,20 @@ function resolveWebSocketUrl(): string {
   return url.toString();
 }
 
-function isRuntimeEvent(value: unknown): value is TaskEvent {
+function normalizeRuntimeEvent(value: unknown): TaskEvent | null {
   if (!value || typeof value !== "object") {
-    return false;
+    return null;
   }
 
-  const event = value as Partial<TaskEvent>;
-  return typeof event.schema_version === "number" && typeof event.type === "string";
+  const event = value as Partial<TaskEvent> & { type?: unknown; schema_version?: unknown };
+  if (typeof event.type !== "string") {
+    return null;
+  }
+
+  return {
+    ...event,
+    schema_version: typeof event.schema_version === "number" ? event.schema_version : 1
+  } as TaskEvent;
 }
 
 function inferTaskStatus(event: TaskEvent, existing: TaskInfo | undefined): TaskInfo["status"] {
@@ -263,11 +270,11 @@ const useTaskBusStoreBase = defineStore("task-bus", {
     handleIncomingMessage(data: string): void {
       try {
         const parsed = JSON.parse(data) as unknown;
-        if (!isRuntimeEvent(parsed)) {
+        const event = normalizeRuntimeEvent(parsed);
+        if (!event) {
           return;
         }
 
-        const event = parsed as TaskEvent;
         const keys = collectEventKeys(event);
 
         keys.forEach((key) => {

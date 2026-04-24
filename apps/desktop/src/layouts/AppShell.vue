@@ -7,23 +7,25 @@
     :data-page-type="currentPage.pageType"
     :data-reduced-motion="String(reducedMotion)"
     :data-sidebar-collapsed="String(sidebarCollapsed)"
+    :data-sidebar-effective-collapsed="String(effectiveSidebarCollapsed)"
     :data-theme="theme"
   >
     <header class="app-shell__title-bar">
       <ShellTitleBar
         :ai-provider-label="aiProviderLabel"
         :detail-open="isDetailPanelOpen"
-        :is-collapsed="sidebarCollapsed"
+        :is-collapsed="effectiveSidebarCollapsed"
         :license-label="licenseStatusLabel"
         :page-title="currentPage.title"
         :project-label="projectLabel"
         :reduced-motion="reducedMotion"
         :runtime-label="runtimeStatusLabel"
         :runtime-tone="runtimeStatusTone"
+        :show-sidebar-toggle="showWorkspaceChrome"
         :theme="theme"
         @toggle-detail="handleToggleDetailPanel"
         @toggle-motion="shellUiStore.toggleReducedMotion()"
-        @toggle-sidebar="shellUiStore.toggleSidebar()"
+        @toggle-sidebar="handleToggleSidebar"
         @toggle-theme="shellUiStore.toggleTheme()"
       />
       <span class="app-shell__product-position">本地 AI 视频创作中枢</span>
@@ -33,11 +35,11 @@
       <aside
         v-if="showWorkspaceChrome"
         class="app-shell__sidebar"
-        :class="{ 'is-collapsed': sidebarCollapsed }"
+        :class="{ 'is-collapsed': effectiveSidebarCollapsed }"
       >
         <ShellSidebar
           :has-project="Boolean(projectStore.currentProject)"
-          :is-collapsed="sidebarCollapsed"
+          :is-collapsed="effectiveSidebarCollapsed"
           :nav-groups="navGroups"
           :project-label="projectLabel"
         />
@@ -83,7 +85,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onMounted, watch, watchEffect } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch, watchEffect } from "vue";
 import { RouterView, useRoute } from "vue-router";
 
 
@@ -117,9 +119,22 @@ const taskBusStore = useTaskBusStore();
 
 const { detailContext, isDetailPanelOpen, reducedMotion, sidebarCollapsed, theme } = storeToRefs(shellUiStore);
 const { health } = storeToRefs(configBusStore);
+const isConstrainedShell = ref(false);
+let constrainedShellQuery: MediaQueryList | null = null;
 
 onMounted(() => {
   taskBusStore.connect();
+
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    constrainedShellQuery = window.matchMedia("(max-width: 1440px)");
+    syncShellConstraint(constrainedShellQuery);
+    constrainedShellQuery.addEventListener("change", syncShellConstraint);
+  }
+});
+
+onBeforeUnmount(() => {
+  constrainedShellQuery?.removeEventListener("change", syncShellConstraint);
+  constrainedShellQuery = null;
 });
 
 const currentPage = computed(() => routeManifest.find((item) => item.id === route.name) ?? routeManifest[0]);
@@ -224,6 +239,10 @@ const lastSyncLabel = computed(() => {
 });
 
 const hasRunningTask = computed(() => ["tasks", "rendering", "publishing"].includes(statusBarMode.value));
+const shouldProtectWorkspace = computed(
+  () => showWorkspaceChrome.value && isDetailPanelOpen.value && isConstrainedShell.value
+);
+const effectiveSidebarCollapsed = computed(() => sidebarCollapsed.value || shouldProtectWorkspace.value);
 
 watch(
   [theme, reducedMotion],
@@ -265,6 +284,22 @@ function handleToggleDetailPanel() {
   }
 
   shellUiStore.toggleDetailPanel();
+}
+
+function handleToggleSidebar() {
+  if (shouldProtectWorkspace.value) {
+    shellUiStore.closeDetailPanel();
+    if (sidebarCollapsed.value) {
+      shellUiStore.toggleSidebar();
+    }
+    return;
+  }
+
+  shellUiStore.toggleSidebar();
+}
+
+function syncShellConstraint(source?: MediaQueryList | MediaQueryListEvent) {
+  isConstrainedShell.value = Boolean(source?.matches ?? constrainedShellQuery?.matches);
 }
 
 function syncDetailContext() {
@@ -723,19 +758,25 @@ function formatShanghaiDateTime(value: string) {
   display: grid;
   grid-template-rows: var(--titlebar-height) minmax(0, 1fr) var(--statusbar-height);
   height: 100vh;
+  height: 100dvh;
+  max-width: 100%;
+  min-height: 0;
+  min-width: 0;
   overflow: hidden;
-  width: 100vw;
+  width: 100%;
 }
 
 .app-shell__title-bar {
   border-bottom: 1px solid var(--color-border-subtle);
   min-height: 0;
+  overflow: hidden;
   position: relative;
   z-index: var(--z-titlebar);
 }
 
 .app-shell__product-position {
   color: var(--color-text-secondary);
+  display: none;
   font: var(--font-caption);
   pointer-events: none;
   position: absolute;
@@ -748,16 +789,26 @@ function formatShanghaiDateTime(value: string) {
   display: grid;
   grid-template-columns:
     var(--sidebar-width-expanded)
-    minmax(var(--content-min-width), 1fr)
+    minmax(0, 1fr)
     auto;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   position: relative;
+  transition: grid-template-columns var(--motion-default) var(--ease-spring);
 }
 
 .app-shell[data-sidebar-collapsed="true"] .app-shell__workspace {
   grid-template-columns:
     var(--sidebar-width-collapsed)
-    minmax(var(--content-min-width), 1fr)
+    minmax(0, 1fr)
+    auto;
+}
+
+.app-shell[data-sidebar-effective-collapsed="true"] .app-shell__workspace {
+  grid-template-columns:
+    var(--sidebar-width-collapsed)
+    minmax(0, 1fr)
     auto;
 }
 
@@ -767,21 +818,31 @@ function formatShanghaiDateTime(value: string) {
 
 .app-shell__sidebar {
   border-right: 1px solid var(--color-border-subtle);
+  grid-column: 1;
+  grid-row: 1;
   min-height: 0;
   overflow: hidden;
+  transition:
+    box-shadow var(--motion-fast) var(--ease-standard),
+    transform var(--motion-default) var(--ease-spring);
 }
 
 .app-shell__content {
   background: var(--color-bg-canvas);
   flex: 1;
+  grid-column: 2;
+  grid-row: 1;
   min-height: 0;
-  min-width: 640px;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   position: relative;
 }
 
 .app-shell__detail {
   border-left: 1px solid var(--color-border-subtle);
+  grid-column: 3;
+  grid-row: 1;
   min-height: 0;
   opacity: 0;
   overflow: hidden;
@@ -825,27 +886,51 @@ function formatShanghaiDateTime(value: string) {
   transform: translateY(6px);
 }
 
-@media (max-width: 1280px) {
-  .app-shell__workspace,
-  .app-shell[data-sidebar-collapsed="true"] .app-shell__workspace {
-    grid-template-columns: var(--sidebar-width-expanded) minmax(0, 1fr);
+@media (max-width: 1440px) {
+  .app-shell__workspace {
+    grid-template-columns: var(--sidebar-width-expanded) minmax(0, 1fr) auto;
   }
 
-  .app-shell__detail {
-    background: var(--color-bg-elevated);
-    bottom: 0;
-    box-shadow: var(--shadow-lg);
-    position: absolute;
-    right: 0;
-    top: 0;
-    z-index: var(--z-sidebar);
+  .app-shell[data-sidebar-collapsed="true"] .app-shell__workspace {
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr) auto;
+  }
+
+  .app-shell[data-sidebar-effective-collapsed="true"] .app-shell__workspace {
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr) auto;
+  }
+
+  .app-shell__sidebar {
+    background: var(--color-bg-canvas);
+    box-shadow: none;
+    position: relative;
+    width: auto;
+    z-index: auto;
+  }
+}
+
+@media (max-width: 1199px) {
+  .app-shell__workspace {
+    grid-template-columns: var(--sidebar-width-expanded) minmax(0, 1fr) auto;
+  }
+
+  .app-shell[data-sidebar-collapsed="true"] .app-shell__workspace {
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr) auto;
+  }
+
+  .app-shell[data-sidebar-effective-collapsed="true"] .app-shell__workspace {
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(0, 1fr) auto;
   }
 }
 
 @media (max-width: 960px) {
   .app-shell__workspace,
-  .app-shell[data-sidebar-collapsed="true"] .app-shell__workspace {
+  .app-shell[data-sidebar-collapsed="true"] .app-shell__workspace,
+  .app-shell[data-sidebar-effective-collapsed="true"] .app-shell__workspace {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-shell__content {
+    grid-column: 1;
   }
 
   .app-shell__sidebar {
@@ -857,13 +942,23 @@ function formatShanghaiDateTime(value: string) {
     position: absolute;
     top: 0;
     transform: translateX(0);
-    transition: transform var(--motion-default) var(--ease-spring);
     width: var(--sidebar-width-expanded);
-    z-index: var(--z-sidebar);
+    z-index: calc(var(--z-sidebar) + 1);
   }
 
-  .app-shell[data-sidebar-collapsed="true"] .app-shell__sidebar {
+  .app-shell[data-sidebar-collapsed="true"] .app-shell__sidebar,
+  .app-shell[data-sidebar-effective-collapsed="true"] .app-shell__sidebar {
     transform: translateX(calc(-1 * var(--sidebar-width-expanded)));
+  }
+
+  .app-shell__detail {
+    background: var(--color-bg-elevated);
+    bottom: 0;
+    box-shadow: var(--shadow-lg);
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: var(--z-sidebar);
   }
 }
 </style>

@@ -3807,7 +3807,7 @@ dependencies = [
 
 [[package]]
 name = "tk-ops-desktop"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "tauri",
  "tauri-build",

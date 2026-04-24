@@ -46,10 +46,14 @@ describe("B-S3 Runtime client contract", () => {
     await runtimeClient.createPromptTemplate({
       kind: "script_segment_rewrite",
       name: "强钩子",
-      template: "请把这一段改得更抓人。"
+      description: "用于强化短视频开场钩子",
+      content: "请把这一段改得更抓人。"
     });
     await runtimeClient.updatePromptTemplate("template-1", {
-      name: "强钩子 v2"
+      kind: "script_segment_rewrite",
+      name: "强钩子 v2",
+      description: "用于强化短视频开场钩子",
+      content: "请把这一段改得更有冲击力。"
     });
     await runtimeClient.deletePromptTemplate("template-1");
     await runtimeClient.createStoryboardShot("project-1", {
@@ -94,13 +98,19 @@ describe("B-S3 Runtime client contract", () => {
         body: {
           kind: "script_segment_rewrite",
           name: "强钩子",
-          template: "请把这一段改得更抓人。"
+          description: "用于强化短视频开场钩子",
+          content: "请把这一段改得更抓人。"
         }
       },
       {
         path: "/api/prompt-templates/template-1",
         method: "PUT",
-        body: { name: "强钩子 v2" }
+        body: {
+          kind: "script_segment_rewrite",
+          name: "强钩子 v2",
+          description: "用于强化短视频开场钩子",
+          content: "请把这一段改得更有冲击力。"
+        }
       },
       { path: "/api/prompt-templates/template-1", method: "DELETE", body: undefined },
       {
@@ -279,8 +289,8 @@ function promptTemplate() {
     id: "template-1",
     kind: "script_segment_rewrite",
     name: "强钩子",
-    template: "请把这一段改得更抓人。",
-    variables: [],
+    description: "用于强化短视频开场钩子",
+    content: "请把这一段改得更抓人。",
     createdAt: "2026-04-17T12:00:00Z",
     updatedAt: "2026-04-17T12:00:00Z"
   };

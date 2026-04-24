@@ -101,20 +101,27 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
       if (path === "/api/publishing/plans" && method === "POST") return okJsonResponse(publishPlan("plan-2"));
       if (path === "/api/publishing/plans/plan-1" && method === "PATCH") return okJsonResponse(publishPlan("plan-1", "ready"));
       if (path === "/api/publishing/plans/plan-1/precheck") {
-        return okJsonResponse({ plan_id: "plan-1", items: [], has_errors: false, checked_at: now() });
+        return okJsonResponse(precheckResult());
       }
       if (path === "/api/publishing/plans/plan-1/submit") {
-        return okJsonResponse({ plan_id: "plan-1", status: "submitted", submitted_at: now(), message: "发布计划已提交" });
+        return okJsonResponse(submitResult());
       }
       if (path === "/api/publishing/plans/plan-1/cancel") return okJsonResponse(publishPlan("plan-1", "cancelled"));
       if (path === "/api/publishing/plans/plan-1" && method === "DELETE") return okJsonResponse(undefined);
+      if (path === "/api/publishing/calendar") return okJsonResponse(publishCalendar());
+      if (path === "/api/publishing/plans/plan-1/receipt") return okJsonResponse(publishReceipt());
+      if (path === "/api/publishing/plans/plan-1/receipts") return okJsonResponse([publishReceipt()]);
       if (path === "/api/renders/tasks" && method === "GET") return okJsonResponse([renderTask()]);
       if (path === "/api/renders/tasks" && method === "POST") return okJsonResponse(renderTask("render-2"));
       if (path === "/api/renders/tasks/render-1" && method === "PATCH") return okJsonResponse(renderTask("render-1", 30));
       if (path === "/api/renders/tasks/render-1/cancel") {
         return okJsonResponse({ task_id: "render-1", status: "cancelled", message: "渲染任务已取消" });
       }
+      if (path === "/api/renders/tasks/render-1/retry") return okJsonResponse(renderTask("render-1", 0, "queued"));
       if (path === "/api/renders/tasks/render-1" && method === "DELETE") return okJsonResponse(undefined);
+      if (path === "/api/renders/profiles") return okJsonResponse([exportProfile()]);
+      if (path === "/api/renders/templates") return okJsonResponse([exportProfile("profile-template")]);
+      if (path === "/api/renders/resource-usage") return okJsonResponse(renderResourceUsage());
       if (path === "/api/review/projects/project-1/summary" && method === "GET") return okJsonResponse(reviewSummary());
       if (path === "/api/review/projects/project-1/analyze") {
         return okJsonResponse({ project_id: "project-1", status: "done", message: "复盘分析已完成", analyzed_at: now() });
@@ -153,19 +160,30 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
     await publishing.precheck("plan-1");
     expect(publishing.workflowState).toBe("ready");
     await publishing.submit("plan-1");
+    await publishing.loadCalendar();
+    await publishing.loadLatestReceipt("plan-1");
+    await publishing.loadReceipts("plan-1");
     await publishing.cancel("plan-1");
     await publishing.removePlan("plan-1");
     expect(publishing.precheckResult?.has_errors).toBe(false);
     expect(publishing.submitResult?.status).toBe("submitted");
+    expect(publishing.submitResult?.receipt?.status).toBe("receipt_pending");
+    expect(publishing.calendar?.items[0].plan_id).toBe("plan-1");
+    expect(publishing.latestReceipt?.stage).toBe("receipt");
+    expect(publishing.receiptsByPlanId["plan-1"]).toHaveLength(1);
 
     const renders = useRendersStore();
     await renders.loadTasks();
     expect(renders.viewState).toBe("ready");
     await renders.addTask({ project_id: "project-1" });
     await renders.updateTask("render-1", { progress: 30 });
+    await renders.loadExportContext();
+    await renders.retry("render-1");
     await renders.cancel("render-1");
     await renders.removeTask("render-1");
     expect(renders.lastCancelResult?.status).toBe("cancelled");
+    expect(renders.templates[0].id).toBe("profile-template");
+    expect(renders.resourceUsage?.disk.status).toBe("ready");
 
     const review = useReviewStore();
     await review.loadSummary("project-1");
@@ -279,11 +297,132 @@ function automationRun() {
 }
 
 function publishPlan(id = "plan-1", status = "draft") {
-  return { id, title: "发布计划", account_id: null, account_name: null, project_id: "project-1", video_asset_id: null, status, scheduled_at: null, submitted_at: null, published_at: null, error_message: null, precheck_result_json: null, created_at: now(), updated_at: now() };
+  return {
+    id,
+    title: "发布计划",
+    account_id: null,
+    account_name: null,
+    project_id: "project-1",
+    video_asset_id: null,
+    status,
+    scheduled_at: null,
+    submitted_at: null,
+    published_at: null,
+    error_message: null,
+    precheck_result_json: null,
+    precheck_summary: { status: "ready", checked_at: now(), blocking_count: 0 },
+    latest_receipt: null,
+    publish_readiness: { can_submit: true, status: "ready", error_code: null, error_message: null, next_action: null, binding: null },
+    recovery: { can_retry: false, can_cancel: status !== "cancelled", next_action: null },
+    created_at: now(),
+    updated_at: now()
+  };
 }
 
-function renderTask(id = "render-1", progress = 0) {
-  return { id, project_id: "project-1", project_name: "Demo", preset: "1080p", format: "mp4", status: "queued", progress, output_path: null, error_message: null, started_at: null, finished_at: null, created_at: now(), updated_at: now() };
+function precheckResult() {
+  return {
+    plan_id: "plan-1",
+    items: [],
+    conflicts: [],
+    has_errors: false,
+    checked_at: now(),
+    blocking_count: 0,
+    readiness: { can_submit: true, status: "ready", error_code: null, error_message: null, next_action: null, binding: null }
+  };
+}
+
+function submitResult() {
+  return {
+    plan_id: "plan-1",
+    status: "submitted",
+    submitted_at: now(),
+    message: "发布计划已提交",
+    receipt_status: "receipt_pending",
+    error_code: null,
+    error_message: null,
+    next_action: null,
+    receipt: publishReceipt()
+  };
+}
+
+function publishReceipt() {
+  return {
+    id: "receipt-1",
+    plan_id: "plan-1",
+    status: "receipt_pending",
+    stage: "receipt",
+    summary: "已提交平台，等待平台回执。",
+    error_code: null,
+    error_message: null,
+    next_action: null,
+    is_final: false,
+    platform_response_json: null,
+    received_at: now(),
+    created_at: now()
+  };
+}
+
+function publishCalendar() {
+  return {
+    items: [
+      {
+        plan_id: "plan-1",
+        title: "发布计划",
+        status: "ready",
+        scheduled_at: now(),
+        account_name: "Creator A",
+        conflict_count: 0
+      }
+    ],
+    generated_at: now()
+  };
+}
+
+function renderTask(id = "render-1", progress = 0, status = "queued") {
+  return {
+    id,
+    project_id: "project-1",
+    project_name: "Demo",
+    preset: "1080p",
+    format: "mp4",
+    status,
+    progress,
+    output_path: null,
+    error_message: null,
+    stage: { code: status, label: "排队中" },
+    output: { path: null, exists: false, size_bytes: null, last_checked_at: now(), can_open: false },
+    failure: { error_code: null, error_message: null, next_action: null, retryable: false },
+    started_at: null,
+    finished_at: null,
+    created_at: now(),
+    updated_at: now()
+  };
+}
+
+function exportProfile(id = "profile-1") {
+  return {
+    id,
+    name: "TikTok 竖屏",
+    format: "mp4",
+    resolution: "1080x1920",
+    fps: 30,
+    video_bitrate: "8000k",
+    audio_policy: "merge_all",
+    subtitle_policy: "burn_in",
+    config_json: null,
+    is_default: id === "profile-1",
+    created_at: now(),
+    updated_at: now()
+  };
+}
+
+function renderResourceUsage() {
+  return {
+    cpu: { status: "ready", usagePct: 12, message: null },
+    gpu: { status: "unavailable", usagePct: null, message: "未检测到 GPU" },
+    disk: { status: "ready", path: "D:/tkops", totalBytes: 1000, usedBytes: 100, freeBytes: 900, usagePct: 10, message: null },
+    collectedAt: now()
+  };
 }
 
 function reviewSummary(projectName: string | null = null) {

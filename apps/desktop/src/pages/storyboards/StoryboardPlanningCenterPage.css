@@ -1,10 +1,13 @@
 .page-container {
   max-width: 1440px;
+  width: 100%;
   margin: 0 auto;
   padding: var(--space-6) var(--space-8) var(--space-8);
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .page-header {
@@ -26,6 +29,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .page-header__title {
@@ -44,11 +48,16 @@
 .page-header__actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .view-switch {
   display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
   background: var(--color-bg-muted);
   border-radius: var(--radius-md);
   padding: 2px;
@@ -59,10 +68,12 @@
   background: transparent;
   border: none;
   border-radius: calc(var(--radius-md) - 2px);
+  min-width: 88px;
   padding: 6px 12px;
   color: var(--color-text-secondary);
   font: var(--font-caption);
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     background-color var(--motion-fast) var(--ease-standard),
@@ -108,12 +119,14 @@
   gap: var(--space-4);
   flex: 1;
   min-height: 0;
+  min-width: 0;
 }
 
 .storyboard-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
 }
 
 .h-full {
@@ -123,6 +136,7 @@
 .storyboard-card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -241,6 +255,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-bg-surface);
 }

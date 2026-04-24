@@ -462,7 +462,7 @@ export type PromptTemplateInput = {
   content: string;
 };
 
-export type PromptTemplateUpdateInput = Partial<PromptTemplateInput>;
+export type PromptTemplateUpdateInput = PromptTemplateInput;
 
 export type PromptTemplateDto = {
   id: string;
@@ -670,7 +670,15 @@ export type VoiceWaveformDto = {
   samples: number[];
 };
 
-export type SubtitleTrackStatus = "blocked" | "ready" | "error" | "aligning";
+export type SubtitleTrackStatus =
+  | "draft"
+  | "pending_alignment"
+  | "aligned"
+  | "needs_alignment"
+  | "blocked"
+  | "ready"
+  | "error"
+  | "aligning";
 
 export type SubtitleStyleDto = {
   preset: string;
@@ -689,22 +697,48 @@ export type SubtitleSegmentDto = {
   locked: boolean;
 };
 
+export type SubtitleSourceVoiceDto = {
+  trackId: string;
+  revision: number;
+  updatedAt: string;
+};
+
+export type SubtitleAlignmentDiffSummaryDto = {
+  segmentCountChanged: boolean;
+  timingChangedSegments: number;
+  textChangedSegments: number;
+  lockedSegments: number;
+};
+
+export type SubtitleAlignmentDto = {
+  status: string;
+  diffSummary: SubtitleAlignmentDiffSummaryDto | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  nextAction: string | null;
+  updatedAt: string;
+};
+
 export type SubtitleTrackDto = {
   id: string;
   projectId: string;
   timelineId: string | null;
-  source: "script" | "manual" | "provider";
+  source: string;
   language: string;
   style: SubtitleStyleDto;
   segments: SubtitleSegmentDto[];
   status: SubtitleTrackStatus;
   createdAt: string;
+  updatedAt: string;
+  sourceVoice: SubtitleSourceVoiceDto | null;
+  alignment: SubtitleAlignmentDto;
 };
 
 export type SubtitleTrackGenerateInput = {
   sourceText: string;
   language: string;
   stylePreset: string;
+  sourceVoiceTrackId?: string | null;
 };
 
 export type SubtitleTrackUpdateInput = {
@@ -729,12 +763,18 @@ export type SubtitleManualAlignInput = {
 export type SubtitleStyleTemplateDto = {
   id: string;
   name: string;
+  description: string;
+  style: SubtitleStyleDto;
 };
 
 export type SubtitleExportDto = {
   trackId: string;
-  format: string;
-  filePath: string;
+  format: "srt" | "vtt" | "ass";
+  fileName: string;
+  content: string;
+  lineCount: number;
+  status: string;
+  message: string;
 };
 
 export type AssetDto = {
@@ -836,9 +876,8 @@ export type AccountBindingDto = {
   id: string;
   accountId: string;
   browserInstanceId: string | null;
-  deviceWorkspaceId?: string | null;
   status: string;
-  source: string;
+  source: string | null;
   maskedMetadataJson?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -896,8 +935,10 @@ export type AccountCreateInput = {
 };
 
 export type AccountBindingInput = {
-  deviceWorkspaceId: string;
-  browserInstanceId?: string | null;
+  browserInstanceId: string;
+  status?: string;
+  source?: string | null;
+  metadataJson?: string | null;
 };
 
 export type AutomationTaskCreateInput = {
@@ -957,6 +998,31 @@ export type DeviceWorkspaceUpdateInput = {
   status?: string | null;
 };
 
+export type DeviceWorkspaceEnvironmentStatusDto = {
+  status: string;
+  rootPathExists: boolean;
+  isDirectory: boolean;
+  browserInstanceCount: number;
+  runningBrowserInstanceCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  nextAction: string | null;
+};
+
+export type DeviceWorkspaceBindingSummaryDto = {
+  totalBindings: number;
+  activeBindings: number;
+  accountIds: string[];
+};
+
+export type DeviceWorkspaceHealthSummaryDto = {
+  status: string;
+  checkedAt: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  nextAction: string | null;
+};
+
 export type DeviceWorkspaceDto = {
   id: string;
   name: string;
@@ -964,6 +1030,9 @@ export type DeviceWorkspaceDto = {
   status: string;
   error_count: number;
   last_used_at: string | null;
+  environmentStatus: DeviceWorkspaceEnvironmentStatusDto;
+  bindingSummary: DeviceWorkspaceBindingSummaryDto;
+  healthSummary: DeviceWorkspaceHealthSummaryDto;
   created_at: string;
   updated_at: string;
 };
@@ -972,38 +1041,52 @@ export type HealthCheckResultDto = {
   workspace_id: string;
   status: string;
   checked_at: string;
+  errorCode: string | null;
+  errorMessage: string | null;
+  nextAction: string | null;
+  environmentStatus: DeviceWorkspaceEnvironmentStatusDto;
+  bindingSummary: DeviceWorkspaceBindingSummaryDto;
+};
+
+export type DeviceWorkspaceLogDto = {
+  id: string;
+  workspaceId: string;
+  kind: string;
+  level: string;
+  message: string;
+  contextJson: string | null;
+  createdAt: string;
 };
 
 export type BrowserInstanceCreateInput = {
-  workspace_id: string;
   name: string;
-  profile_path: string;
-  browser_type: string;
+  profilePath: string;
 };
 
 export type BrowserInstanceDto = {
   id: string;
-  workspace_id: string;
+  workspaceId: string;
   name: string;
-  profile_path: string;
-  browser_type: string;
   status: string;
-  last_seen_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-export type ExecutionBindingDto = {
-  id: string;
-  accountId: string;
-  deviceWorkspaceId: string;
-  browserInstanceId: string | null;
-  status: string;
-  source: string | null;
-  metadataJson: string | null;
+  profilePath: string;
+  lastCheckedAt: string | null;
+  lastStartedAt: string | null;
+  lastStoppedAt: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
   createdAt: string;
   updatedAt: string;
 };
+
+export type BrowserInstanceWriteResultDto = {
+  saved: boolean;
+  updatedAt: string;
+  versionOrRevision: string;
+  objectSummary: Record<string, string>;
+  browserInstance: BrowserInstanceDto;
+};
+
+export type ExecutionBindingDto = AccountBindingDto;
 
 export type PublishPlanCreateInput = {
   title: string;
@@ -1034,8 +1117,59 @@ export type PublishPlanDto = {
   published_at: string | null;
   error_message: string | null;
   precheck_result_json: string | null;
+  precheck_summary: PublishPlanPrecheckSummaryDto;
+  latest_receipt: PublishPlanLatestReceiptDto | null;
+  publish_readiness: PublishPlanReadinessDto;
+  recovery: PublishPlanRecoveryDto;
   created_at: string;
   updated_at: string;
+};
+
+export type PublishSuggestedActionDto = {
+  key: string;
+  label: string;
+};
+
+export type PublishBindingSummaryDto = {
+  binding_id: string | null;
+  workspace_id: string | null;
+  workspace_name: string | null;
+  workspace_status: string | null;
+  root_path: string | null;
+  updated_at: string | null;
+};
+
+export type PublishPlanPrecheckSummaryDto = {
+  status: string;
+  checked_at: string | null;
+  blocking_count: number;
+};
+
+export type PublishPlanLatestReceiptDto = {
+  id: string;
+  status: string;
+  stage: string;
+  summary: string;
+  error_code: string | null;
+  error_message: string | null;
+  next_action: PublishSuggestedActionDto | null;
+  received_at: string;
+  is_final: boolean;
+};
+
+export type PublishPlanReadinessDto = {
+  can_submit: boolean;
+  status: string;
+  error_code: string | null;
+  error_message: string | null;
+  next_action: PublishSuggestedActionDto | null;
+  binding: PublishBindingSummaryDto | null;
+};
+
+export type PublishPlanRecoveryDto = {
+  can_retry: boolean;
+  can_cancel: boolean;
+  next_action: PublishSuggestedActionDto | null;
 };
 
 export type PrecheckItemResult = {
@@ -1043,13 +1177,26 @@ export type PrecheckItemResult = {
   label: string;
   result: string;
   message?: string | null;
+  error_code?: string | null;
+  affected_target?: string | null;
+  next_action?: PublishSuggestedActionDto | null;
+};
+
+export type PrecheckConflictDto = {
+  conflicting_plan_id: string;
+  conflicting_title: string;
+  conflicting_scheduled_at: string | null;
+  reason: string;
 };
 
 export type PrecheckResultDto = {
   plan_id: string;
   items: PrecheckItemResult[];
+  conflicts: PrecheckConflictDto[];
   has_errors: boolean;
   checked_at: string;
+  blocking_count: number;
+  readiness: PublishPlanReadinessDto;
 };
 
 export type SubmitPlanResultDto = {
@@ -1057,21 +1204,40 @@ export type SubmitPlanResultDto = {
   status: string;
   submitted_at: string;
   message: string;
+  receipt_status: string;
+  error_code: string | null;
+  error_message: string | null;
+  next_action: PublishSuggestedActionDto | null;
+  receipt: PublishPlanLatestReceiptDto | null;
 };
 
 export type PublishReceiptDto = {
   id: string;
   plan_id: string;
   status: string;
-  external_url: string | null;
+  stage: string;
+  summary: string;
+  error_code: string | null;
   error_message: string | null;
-  completed_at: string | null;
+  next_action: PublishSuggestedActionDto | null;
+  is_final: boolean;
+  platform_response_json: string | null;
+  received_at: string;
   created_at: string;
 };
 
-export type PublishingCalendarDayDto = {
-  date: string;
-  plans: number;
+export type PublishCalendarItemDto = {
+  plan_id: string;
+  title: string;
+  status: string;
+  scheduled_at: string | null;
+  account_name: string | null;
+  conflict_count: number;
+};
+
+export type PublishCalendarDto = {
+  items: PublishCalendarItemDto[];
+  generated_at: string;
 };
 
 export type RenderTaskCreateInput = {
@@ -1100,10 +1266,38 @@ export type RenderTaskDto = {
   progress: number;
   output_path: string | null;
   error_message: string | null;
+  stage: RenderStageDto;
+  output: RenderOutputStatusDto;
+  failure: RenderFailureDto;
   started_at: string | null;
   finished_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type RenderSuggestedActionDto = {
+  key: string;
+  label: string;
+};
+
+export type RenderStageDto = {
+  code: string;
+  label: string;
+};
+
+export type RenderOutputStatusDto = {
+  path: string | null;
+  exists: boolean;
+  size_bytes: number | null;
+  last_checked_at: string;
+  can_open: boolean;
+};
+
+export type RenderFailureDto = {
+  error_code: string | null;
+  error_message: string | null;
+  next_action: RenderSuggestedActionDto | null;
+  retryable: boolean;
 };
 
 export type CancelRenderResultDto = {
@@ -1138,16 +1332,29 @@ export type ExportProfileDto = {
   updated_at: string;
 };
 
-export type RenderTemplateDto = {
-  id: string;
-  name: string;
-};
+export type RenderTemplateDto = ExportProfileDto;
 
 export type RenderResourceUsageDto = {
-  cpuPct: number;
-  memoryPct: number;
-  gpuPct: number | null;
-  diskFreeBytes: number;
+  cpu: UsageSnapshotDto;
+  gpu: UsageSnapshotDto;
+  disk: DiskUsageSnapshotDto;
+  collectedAt: string;
+};
+
+export type UsageSnapshotDto = {
+  status: "ready" | "unavailable";
+  usagePct: number | null;
+  message: string | null;
+};
+
+export type DiskUsageSnapshotDto = {
+  status: "ready" | "unavailable";
+  path: string;
+  totalBytes: number | null;
+  usedBytes: number | null;
+  freeBytes: number | null;
+  usagePct: number | null;
+  message: string | null;
 };
 
 export type ReviewSuggestion = {

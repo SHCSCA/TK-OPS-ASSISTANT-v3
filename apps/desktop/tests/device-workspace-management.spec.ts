@@ -25,6 +25,9 @@ describe("设备与工作区管理页面体验", () => {
         if (path === "/api/devices/workspaces" && method === "GET") {
           return okJsonResponse([workspaceFixture()]);
         }
+        if (path === "/api/devices/workspaces/ws-1/browser-instances" && method === "GET") {
+          return okJsonResponse([browserInstanceFixture()]);
+        }
         throw new Error(`Unhandled request: ${method} ${path}`);
       })
     );
@@ -43,6 +46,53 @@ describe("设备与工作区管理页面体验", () => {
     expect(shellUiStore.isDetailPanelOpen).toBe(true);
     expect(shellUiStore.detailContext.title).toBe("PC-01 工作区");
     expect(shellUiStore.detailContext.sections.some((section) => section.title === "执行绑定")).toBe(true);
+    expect(wrapper.text()).toContain("默认浏览器");
+    expect(wrapper.text()).toContain("Data/Profile-01");
+  });
+
+  it("通过工作区嵌套路由创建真实浏览器实例", async () => {
+    const calls: Array<{ body?: unknown; method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method, init) => {
+        calls.push({
+          path,
+          method,
+          body: init?.body ? JSON.parse(String(init.body)) : undefined
+        });
+        if (path === "/api/devices/workspaces" && method === "GET") {
+          return okJsonResponse([workspaceFixture()]);
+        }
+        if (path === "/api/devices/workspaces/ws-1/browser-instances" && method === "GET") {
+          return okJsonResponse([]);
+        }
+        if (path === "/api/devices/workspaces/ws-1/browser-instances" && method === "POST") {
+          return okJsonResponse(browserInstanceFixture());
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const { wrapper } = mountDevicePage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="workspace-card-ws-1"]').trigger("click");
+    await flushPromises();
+    await wrapper.get(".detail-block button").trigger("click");
+    await wrapper.get('input[placeholder="例：Profile-01"]').setValue("默认浏览器");
+    await wrapper.get('input[placeholder="Data/Profile-01"]').setValue("Data/Profile-01");
+    await wrapper.get("form.drawer-form").trigger("submit");
+    await flushPromises();
+
+    expect(calls).toContainEqual({
+      path: "/api/devices/workspaces/ws-1/browser-instances",
+      method: "POST",
+      body: {
+        name: "默认浏览器",
+        profilePath: "Data/Profile-01"
+      }
+    });
+    expect(wrapper.text()).toContain("默认浏览器");
   });
 
   it("当 Runtime 没有工作区时显示 empty 与 blocked 说明", async () => {
@@ -92,7 +142,46 @@ function workspaceFixture() {
     status: "online",
     error_count: 0,
     last_used_at: "2026-04-16T09:00:00Z",
+    environmentStatus: {
+      status: "ready",
+      rootPathExists: true,
+      isDirectory: true,
+      browserInstanceCount: 1,
+      runningBrowserInstanceCount: 0,
+      errorCode: null,
+      errorMessage: null,
+      nextAction: null
+    },
+    bindingSummary: {
+      totalBindings: 0,
+      activeBindings: 0,
+      accountIds: []
+    },
+    healthSummary: {
+      status: "unknown",
+      checkedAt: null,
+      errorCode: null,
+      errorMessage: null,
+      nextAction: null
+    },
     created_at: now(),
     updated_at: now()
+  };
+}
+
+function browserInstanceFixture() {
+  return {
+    id: "browser-1",
+    workspaceId: "ws-1",
+    name: "默认浏览器",
+    profilePath: "Data/Profile-01",
+    status: "ready",
+    lastCheckedAt: now(),
+    lastStartedAt: null,
+    lastStoppedAt: null,
+    errorCode: null,
+    errorMessage: null,
+    createdAt: now(),
+    updatedAt: now()
   };
 }

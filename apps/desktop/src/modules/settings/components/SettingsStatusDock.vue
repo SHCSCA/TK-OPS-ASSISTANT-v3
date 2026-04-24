@@ -55,8 +55,8 @@ defineProps<{
 <style scoped>
 .settings-status-dock {
   display: grid;
-  gap: 18px;
-  padding: 24px;
+  gap: var(--space-3);
+  padding: var(--space-5);
   border: 1px solid var(--border-default);
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
@@ -64,40 +64,59 @@ defineProps<{
 
 .settings-status-dock__copy {
   display: grid;
-  gap: 8px;
-  max-width: 720px;
+  gap: var(--space-2);
+  max-width: 680px;
+}
+
+.settings-status-dock__copy .detail-panel__label,
+.settings-status-dock__copy h1,
+.settings-status-dock__copy .workspace-page__summary,
+.settings-status-dock__metric .detail-panel__label {
+  margin: 0;
+}
+
+.settings-status-dock__copy h1 {
+  font: var(--font-display-md);
+  letter-spacing: 0;
+}
+
+.settings-status-dock__copy .workspace-page__summary {
+  color: var(--text-secondary);
+  font: var(--font-body-sm);
+  letter-spacing: 0;
 }
 
 .settings-status-dock__metrics {
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .settings-status-dock__metric {
   display: grid;
-  gap: 6px;
-  min-height: 112px;
-  padding: 16px;
+  gap: var(--space-1);
+  min-height: 88px;
+  padding: var(--space-4);
   border: 1px solid var(--border-default);
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-primary) 96%, transparent);
 }
 
 .settings-status-dock__metric strong {
-  font-size: 24px;
-  line-height: 1.1;
+  font: var(--font-title-lg);
+  letter-spacing: 0;
 }
 
 .settings-status-dock__metric span {
   color: var(--text-secondary);
-  font-size: 13px;
+  font: var(--font-body-sm);
+  letter-spacing: 0;
 }
 
 .settings-status-dock__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .settings-status-dock__pill {
@@ -109,7 +128,8 @@ defineProps<{
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface-primary) 94%, transparent);
   color: var(--text-primary);
-  font-size: 12px;
+  font: var(--font-caption);
+  letter-spacing: 0;
 }
 
 .settings-status-dock__pill--muted {
@@ -124,7 +144,7 @@ defineProps<{
 
 @media (max-width: 720px) {
   .settings-status-dock {
-    padding: 18px;
+    padding: var(--space-4);
   }
 
   .settings-status-dock__metrics {

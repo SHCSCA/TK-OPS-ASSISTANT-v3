@@ -55,6 +55,15 @@
   --statusbar-height: 28px;
   --content-min-width: 640px;
 
+  /* 桌面密度令牌：窗口变窄时优先收紧间距，不缩放正文 */
+  --density-page-max-width: 1360px;
+  --density-page-padding-x: var(--space-8);
+  --density-page-padding-y: var(--space-6);
+  --density-page-padding-bottom: var(--space-8);
+  --density-panel-gap: var(--space-4);
+  --density-card-padding: var(--space-4);
+  --density-control-height: 36px;
+
   /* 2.7 z-index 分层 */
   --z-base: 0;
   --z-sticky: 10;
@@ -70,6 +79,29 @@
 
   /* 兼容旧变量 */
   --motion-base: var(--motion-default);
+}
+
+@media (max-width: 1440px) {
+  :root {
+    --detail-panel-width: 340px;
+    --detail-panel-width-wide: 420px;
+    --density-page-max-width: 1240px;
+    --density-page-padding-x: var(--space-6);
+    --density-page-padding-y: var(--space-5);
+    --density-page-padding-bottom: var(--space-6);
+    --density-panel-gap: var(--space-3);
+  }
+}
+
+@media (max-width: 1199px) {
+  :root {
+    --detail-panel-width: 320px;
+    --detail-panel-width-wide: 360px;
+    --density-page-padding-x: var(--space-4);
+    --density-page-padding-y: var(--space-4);
+    --density-page-padding-bottom: var(--space-5);
+    --density-panel-gap: var(--space-3);
+  }
 }
 
 /* 2.5 阴影体系 */

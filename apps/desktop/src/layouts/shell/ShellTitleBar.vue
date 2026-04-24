@@ -3,6 +3,18 @@
     
     <!-- 左侧区 -->
     <div class="shell-title-bar__left" data-tauri-drag-region>
+      <button
+        v-if="showSidebarToggle"
+        class="shell-title-bar__sidebar-toggle icon-button"
+        :title="isCollapsed ? '展开侧边栏' : '收起侧边栏'"
+        :aria-label="isCollapsed ? '展开侧边栏' : '收起侧边栏'"
+        @click="emit('toggle-sidebar')"
+      >
+        <span class="material-symbols-outlined">
+          {{ isCollapsed ? "menu_open" : "keyboard_double_arrow_left" }}
+        </span>
+      </button>
+
       <div class="shell-brand" data-tauri-drag-region>
         <div class="shell-brand__logo" data-tauri-drag-region></div>
         <span class="shell-brand__name" data-tauri-drag-region>TK-OPS</span>
@@ -71,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 
 const props = defineProps<{
@@ -84,6 +96,7 @@ const props = defineProps<{
   reducedMotion: boolean;
   runtimeLabel: string;
   runtimeTone: "idle" | "loading" | "online" | "offline";
+  showSidebarToggle: boolean;
   theme: "light" | "dark";
 }>();
 
@@ -150,6 +163,10 @@ async function handleClose() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
   -webkit-app-region: drag;
 }
 
@@ -160,12 +177,20 @@ async function handleClose() {
   display: flex;
   align-items: center;
   gap: var(--space-3); /* 12px */
-  width: 280px;
+  flex: 0 1 280px;
+  min-width: 0;
+}
+
+.shell-title-bar__sidebar-toggle {
+  display: none;
+  flex: 0 0 auto;
+  -webkit-app-region: no-drag;
 }
 
 .shell-brand {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: var(--space-2);
 }
 
@@ -209,10 +234,11 @@ async function handleClose() {
  * 中间区 
  * ==================== */
 .shell-title-bar__center {
-  flex: 1;
+  flex: 1 1 260px;
   display: flex;
   justify-content: center;
   max-width: 560px;
+  min-width: 160px;
 }
 
 .shell-search {
@@ -225,6 +251,7 @@ async function handleClose() {
   border-radius: var(--radius-md);
   padding: 0 8px;
   gap: 8px;
+  min-width: 0;
   transition: border-color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard);
   -webkit-app-region: no-drag;
 }
@@ -246,6 +273,7 @@ async function handleClose() {
   outline: none;
   font: var(--font-body-md);
   letter-spacing: var(--ls-body-md);
+  min-width: 0;
   color: var(--color-text-primary);
 }
 
@@ -269,13 +297,19 @@ async function handleClose() {
 .shell-title-bar__right {
   display: flex;
   align-items: center;
+  flex: 0 1 auto;
   gap: var(--space-2); /* 8px */
+  justify-content: flex-end;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .shell-status-item {
   display: flex;
   align-items: center;
+  flex: 0 1 auto;
   gap: 6px;
+  min-width: 0;
 }
 
 .status-dot {
@@ -295,14 +329,23 @@ async function handleClose() {
   font: var(--font-caption);
   letter-spacing: var(--ls-caption);
   color: var(--color-text-secondary);
+  max-width: 116px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .shell-actions, .shell-window-controls {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 4px;
   -webkit-app-region: no-drag;
+}
+
+.shell-window-controls {
+  flex: 0 0 auto;
 }
 
 .icon-button {
@@ -345,6 +388,11 @@ async function handleClose() {
   }
   .shell-divider, .shell-project {
     display: none;
+  }
+}
+@media (max-width: 960px) {
+  .shell-title-bar__sidebar-toggle {
+    display: flex;
   }
 }
 @media (max-width: 760px) {

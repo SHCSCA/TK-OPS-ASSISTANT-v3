@@ -5,7 +5,7 @@
       <div class="page-header__row">
         <div>
           <h1 class="page-header__title">设备与工作区管理</h1>
-          <div class="page-header__subtitle">页面只管理 Runtime 返回的真实工作区对象、健康检查和本地路径，不包装高风险能力，也不伪造浏览器实例。</div>
+          <div class="page-header__subtitle">页面只管理 Runtime 返回的真实工作区对象、浏览器实例、健康检查和本地路径，不包装高风险能力。</div>
         </div>
         <div class="page-header__actions">
           <Button variant="secondary" @click="handleReload" :disabled="deviceWorkspacesStore.loading">
@@ -52,7 +52,7 @@
       <Card class="summary-card">
         <span class="sc-label">真实边界</span>
         <strong class="sc-val">浏览器实例 / 执行绑定</strong>
-        <p class="sc-hint">仅保留空态和 blocked 说明，不伪造数据</p>
+        <p class="sc-hint">来自 Runtime 的真实对象与绑定状态</p>
       </Card>
     </div>
 
@@ -68,7 +68,7 @@
               <input v-model="searchQuery" type="search" placeholder="搜索工作区名称或路径" />
             </div>
             <p class="rail-card__hint">
-              工作区对象只包含名称、根路径、状态、错误数和最近使用时间，不包含浏览器实例假数据。
+              工作区对象、浏览器实例与健康摘要均来自 Runtime，不补任何伪在线数据。
             </p>
           </div>
         </Card>
@@ -151,9 +151,20 @@
             <div class="detail-block">
               <div class="detail-block__header">
                 <span>浏览器实例</span>
-                <Chip size="sm" variant="neutral">empty</Chip>
+                <Chip size="sm" variant="neutral">{{ deviceWorkspacesStore.browserInstances.length }} 个</Chip>
               </div>
-              <p class="detail-empty">当前 Runtime 尚未返回浏览器实例列表。这里仅保留空态，不包装任何伪造实例或假在线状态。</p>
+              <div v-if="deviceWorkspacesStore.instancesLoading" class="detail-empty">正在读取浏览器实例...</div>
+              <div v-else-if="deviceWorkspacesStore.browserInstances.length === 0" class="detail-empty">当前工作区还没有浏览器实例，页面不会伪造实例或假在线状态。</div>
+              <div v-else class="instance-list">
+                <div v-for="instance in deviceWorkspacesStore.browserInstances" :key="instance.id" class="instance-card">
+                  <div class="ic-info">
+                    <strong>{{ instance.name }}</strong>
+                    <span>{{ instance.profilePath }}</span>
+                  </div>
+                  <Chip size="sm" :variant="statusTone(instance.status)">{{ instance.status }}</Chip>
+                </div>
+              </div>
+              <Button variant="secondary" @click="isCreatingInstance = true">新建浏览器实例</Button>
             </div>
 
             <div class="detail-block detail-block--blocked">
@@ -241,19 +252,11 @@
               </div>
               <div class="form-group">
                 <label>Profile 路径</label>
-                <input v-model="instanceForm.profile_path" type="text" placeholder="Data/Profile-01" class="ui-input-field" required />
-              </div>
-              <div class="form-group">
-                <label>浏览器类型</label>
-                <select v-model="instanceForm.browser_type" class="ui-input-field">
-                  <option value="chrome">Chrome</option>
-                  <option value="firefox">Firefox</option>
-                  <option value="edge">Edge</option>
-                </select>
+                <input v-model="instanceForm.profilePath" type="text" placeholder="Data/Profile-01" class="ui-input-field" required />
               </div>
               <div class="drawer-actions">
                 <Button variant="ghost" @click="isCreatingInstance = false">取消</Button>
-                <Button variant="primary" type="submit" :disabled="!instanceForm.name || !instanceForm.profile_path">保存实例</Button>
+                <Button variant="primary" type="submit" :disabled="!selectedWorkspace || !instanceForm.name || !instanceForm.profilePath">保存实例</Button>
               </div>
             </form>
           </div>
@@ -280,7 +283,7 @@ const selectedWorkspaceId = ref<string | null>(null);
 const isCreating = ref(false);
 const isCreatingInstance = ref(false);
 const form = reactive({ name: "", root_path: "" });
-const instanceForm = reactive({ browser_type: "chrome", name: "", profile_path: "" });
+const instanceForm = reactive({ name: "", profilePath: "" });
 const workspaces = computed(() => deviceWorkspacesStore.workspaces);
 
 const visibleWorkspaces = computed(() => {
@@ -297,9 +300,11 @@ watch(selectedWorkspace, (workspace) => {
   if (!workspace) {
     shellUiStore.clearDetailContext("binding");
     shellUiStore.closeDetailPanel();
+    deviceWorkspacesStore.browserInstances = [];
     return;
   }
   shellUiStore.openDetailWithContext(buildWorkspaceDetailContext(workspace));
+  void deviceWorkspacesStore.loadBrowserInstances(workspace.id);
 }, { immediate: true });
 
 onMounted(() => { void deviceWorkspacesStore.loadWorkspaces(); });
@@ -335,11 +340,16 @@ async function handleHealthCheck() {
   await deviceWorkspacesStore.checkHealth(selectedWorkspace.value.id);
 }
 
-function handleCreateInstance() {
-  isCreatingInstance.value = false;
+async function handleCreateInstance() {
+  if (!selectedWorkspace.value || !instanceForm.name || !instanceForm.profilePath) return;
+  const instance = await deviceWorkspacesStore.addBrowserInstance(selectedWorkspace.value.id, {
+    name: instanceForm.name.trim(),
+    profilePath: instanceForm.profilePath.trim()
+  });
+  if (!instance) return;
   instanceForm.name = "";
-  instanceForm.profile_path = "";
-  instanceForm.browser_type = "chrome";
+  instanceForm.profilePath = "";
+  isCreatingInstance.value = false;
 }
 
 async function handleDelete() {
@@ -368,7 +378,7 @@ function buildWorkspaceDetailContext(workspace: DeviceWorkspaceDto) {
           { id: "created", label: "创建时间", value: formatDateTime(workspace.created_at), mono: true },
           { id: "updated", label: "更新时间", value: formatDateTime(workspace.updated_at), mono: true }
       ]},
-      { id: "browser-instances", title: "浏览器实例", emptyLabel: "Runtime 暂时没有返回浏览器实例列表，保持空态，不伪造实例。" },
+      { id: "browser-instances", title: "浏览器实例", emptyLabel: "浏览器实例列表由 Runtime 嵌套路由返回，页面不伪造实例。" },
       { id: "binding", title: "执行绑定", emptyLabel: "Runtime 暂时没有返回执行绑定关系，页面只保留真实工作区对象。" }
     ],
     actions: [

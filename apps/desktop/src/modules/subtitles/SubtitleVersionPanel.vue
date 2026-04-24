@@ -82,6 +82,10 @@ const statusLabel = computed(() => {
 });
 
 function statusText(status: SubtitleTrackStatus): string {
+  if (status === "draft") return "草稿";
+  if (status === "pending_alignment") return "待对齐";
+  if (status === "aligned") return "已对齐";
+  if (status === "needs_alignment") return "需重新对齐";
   if (status === "blocked") return "版本：阻断草稿";
   if (status === "ready") return "可用";
   if (status === "aligning") return "对齐中";

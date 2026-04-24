@@ -35,7 +35,8 @@ describe("M08 字幕对齐中心 store", () => {
     await store.load("project-1");
     const result = await store.generate();
 
-    expect(result?.track.status).toBe("blocked");
+    expect(result?.track.status).toBe("ready");
+    expect(result?.track.alignment.status).toBe("draft");
     expect(store.status).toBe("blocked");
     expect(store.viewState).toBe("blocked");
     expect(store.generationResult?.message).toContain("字幕对齐 Provider");
@@ -193,8 +194,18 @@ function subtitleTrack(id = "subtitle-1", text = "第一段脚本", fontSize = 3
         locked: false
       }
     ],
-    status: "blocked",
-    createdAt: now()
+    status: "ready",
+    createdAt: now(),
+    updatedAt: now(),
+    sourceVoice: null,
+    alignment: {
+      status: "draft",
+      diffSummary: null,
+      errorCode: null,
+      errorMessage: null,
+      nextAction: "绑定来源配音轨后重新对齐。",
+      updatedAt: now()
+    }
   };
 }
 

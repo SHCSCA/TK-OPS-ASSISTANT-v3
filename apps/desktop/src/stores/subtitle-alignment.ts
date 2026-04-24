@@ -99,7 +99,7 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       if (this.status === "error") {
         return "error";
       }
-      if (this.status === "blocked" || this.selectedTrack?.status === "blocked") {
+      if (this.status === "blocked" || hasBlockingAlignment(this.selectedTrack)) {
         return "blocked";
       }
       return "ready";
@@ -250,7 +250,10 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
           this.activeSegmentIndex = 0;
         }
 
-        this.status = result.track?.status === "blocked" ? "blocked" : "ready";
+        this.status =
+          result.track?.status === "blocked" || hasBlockingAlignment(result.track)
+            ? "blocked"
+            : "ready";
         return result;
       } catch (error) {
         this.applyRuntimeError(error);
@@ -407,3 +410,16 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
     }
   }
 });
+
+function hasBlockingAlignment(track: SubtitleTrackDto | null): boolean {
+  if (!track) {
+    return false;
+  }
+
+  return (
+    track.status === "blocked" ||
+    track.alignment.status === "draft" ||
+    track.alignment.status === "needs_alignment" ||
+    Boolean(track.alignment.errorCode)
+  );
+}

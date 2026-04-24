@@ -3,7 +3,10 @@ import {
   cancelPublishPlan,
   createPublishPlan,
   deletePublishPlan,
+  fetchPublishingCalendar,
   fetchPublishPlans,
+  fetchPublishReceipt,
+  fetchPublishReceipts,
   runPublishingPrecheck,
   submitPublishPlan,
   updatePublishPlan
@@ -11,8 +14,10 @@ import {
 import { useTaskBusStore } from "@/stores/task-bus";
 import type {
   PrecheckResultDto,
+  PublishCalendarDto,
   PublishPlanCreateInput,
   PublishPlanDto,
+  PublishReceiptDto,
   PublishPlanUpdateInput,
   SubmitPlanResultDto
 } from "@/types/runtime";
@@ -26,6 +31,9 @@ function getErrorMessage(error: unknown): string {
 export const usePublishingStore = defineStore("publishing", {
   state: () => ({
     plans: [] as PublishPlanDto[],
+    calendar: null as PublishCalendarDto | null,
+    latestReceipt: null as PublishReceiptDto | null,
+    receiptsByPlanId: {} as Record<string, PublishReceiptDto[]>,
     precheckResult: null as PrecheckResultDto | null,
     submitResult: null as SubmitPlanResultDto | null,
     loading: false,
@@ -131,7 +139,16 @@ export const usePublishingStore = defineStore("publishing", {
       this.workflowState = "submitting";
       try {
         this.submitResult = await submitPublishPlan(id);
+        this.latestReceipt = null;
         await this.loadPlans();
+        if (this.submitResult.receipt) {
+          this.latestReceipt = {
+            ...this.submitResult.receipt,
+            plan_id: this.submitResult.plan_id,
+            platform_response_json: null,
+            created_at: this.submitResult.submitted_at
+          };
+        }
         this.workflowState = "ready";
         return this.submitResult;
       } catch (error) {
@@ -151,6 +168,37 @@ export const usePublishingStore = defineStore("publishing", {
         this.error = getErrorMessage(error);
         this.workflowState = "error";
         return null;
+      }
+    },
+    async loadCalendar() {
+      this.error = null;
+      try {
+        this.calendar = await fetchPublishingCalendar();
+        return this.calendar;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        return null;
+      }
+    },
+    async loadLatestReceipt(id: string) {
+      this.error = null;
+      try {
+        this.latestReceipt = await fetchPublishReceipt(id);
+        return this.latestReceipt;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        return null;
+      }
+    },
+    async loadReceipts(id: string) {
+      this.error = null;
+      try {
+        const receipts = await fetchPublishReceipts(id);
+        this.receiptsByPlanId[id] = receipts;
+        return receipts;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        return [];
       }
     }
   }

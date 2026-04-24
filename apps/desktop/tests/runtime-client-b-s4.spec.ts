@@ -189,20 +189,82 @@ function sampleResponse(path: string, method: string): unknown {
       },
       segments: [],
       status: "ready",
-      createdAt: "2026-04-17T12:00:00Z"
+      createdAt: "2026-04-17T12:00:00Z",
+      updatedAt: "2026-04-17T12:02:00Z",
+      sourceVoice: {
+        trackId: "voice-track-1",
+        revision: 2,
+        updatedAt: "2026-04-17T12:01:00Z"
+      },
+      alignment: {
+        status: "aligned",
+        diffSummary: {
+          segmentCountChanged: false,
+          timingChangedSegments: 1,
+          textChangedSegments: 0,
+          lockedSegments: 0
+        },
+        errorCode: null,
+        errorMessage: null,
+        nextAction: null,
+        updatedAt: "2026-04-17T12:02:00Z"
+      }
     };
   }
   if (path === "/api/subtitles/style-templates") {
-    return [{ id: "subtitle-style-1", name: "默认模板" }];
+    return [
+      {
+        id: "subtitle-style-1",
+        name: "默认模板",
+        description: "适合短视频口播的底部字幕。",
+        style: {
+          preset: "creator-default",
+          fontSize: 32,
+          position: "bottom",
+          textColor: "#FFFFFF",
+          background: "rgba(0,0,0,0.62)"
+        }
+      }
+    ];
   }
   if (path.endsWith("/export")) {
-    return { trackId: "track-1", format: "srt", filePath: "C:/exports/subtitles.srt" };
+    return {
+      trackId: "track-1",
+      format: "srt",
+      fileName: "track-1.srt",
+      content: "1\n00:00:00,100 --> 00:00:00,800\n第一段脚本\n",
+      lineCount: 3,
+      status: "ready",
+      message: "字幕文件已生成。"
+    };
   }
   if (path === "/api/renders/templates") {
-    return [{ id: "render-template-1", name: "竖屏标准模板" }];
+    return [
+      {
+        id: "profile-1",
+        name: "竖屏标准模板",
+        container: "mp4",
+        resolution: "1080x1920",
+        fps: 30,
+        bitrate: "8M",
+        audioCodec: "aac",
+        videoCodec: "h264",
+        createdAt: "2026-04-17T12:00:00Z",
+        updatedAt: "2026-04-17T12:00:00Z"
+      }
+    ];
   }
   if (path === "/api/renders/resource-usage") {
-    return { cpuPct: 12, memoryPct: 30, gpuPct: null, diskFreeBytes: 1024 };
+    return {
+      cpu: 12,
+      gpu: null,
+      disk: {
+        freeBytes: 1024,
+        totalBytes: 4096,
+        usedPct: 75
+      },
+      collectedAt: "2026-04-17T12:00:00Z"
+    };
   }
   return {};
 }
