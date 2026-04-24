@@ -1,17 +1,17 @@
 import { defineStore } from "pinia";
 
 import {
-  fetchAsset,
   deleteAsset as deleteRuntimeAsset,
+  fetchAsset,
   fetchAssetReferences,
   fetchAssets,
   importAsset
 } from "@/app/runtime-client";
-import type { AssetDto, AssetImportInput, AssetReferenceDto } from "@/types/runtime";
 import {
   resolveCollectionStatus,
   toRuntimeErrorMessage
 } from "@/stores/runtime-store-helpers";
+import type { AssetDto, AssetImportInput, AssetReferenceDto } from "@/types/runtime";
 
 type LoadStatus = "idle" | "loading" | "empty" | "ready" | "error";
 type ImportStatus = "idle" | "importing" | "succeeded" | "failed";
@@ -24,8 +24,14 @@ function getErrorMessage(error: unknown): string {
 
 function upsertAsset(assets: AssetDto[], next: AssetDto): AssetDto[] {
   const exists = assets.some((asset) => asset.id === next.id);
-  if (!exists) return [next, ...assets];
+  if (!exists) {
+    return [next, ...assets];
+  }
   return assets.map((asset) => (asset.id === next.id ? next : asset));
+}
+
+function getBlockingDeleteMessage(referenceCount: number): string {
+  return `资产存在引用，当前禁止删除，请先处理 ${referenceCount} 条引用后再重试`;
 }
 
 export const useAssetLibraryStore = defineStore("asset-library", {
@@ -63,6 +69,19 @@ export const useAssetLibraryStore = defineStore("asset-library", {
     }
   },
   actions: {
+    _upsertAssetDetail(asset: AssetDto): void {
+      this.assetDetailsById = {
+        ...this.assetDetailsById,
+        [asset.id]: asset
+      };
+      this.assets = upsertAsset(this.assets, asset);
+    },
+
+    _applyReferences(references: AssetReferenceDto[]): void {
+      this.references = references;
+      this.referenceStatus = references.length > 0 ? "blocked" : "ready";
+    },
+
     async load() {
       this.status = "loading";
       this.error = null;
@@ -80,6 +99,7 @@ export const useAssetLibraryStore = defineStore("asset-library", {
         this.error = getErrorMessage(error);
       }
     },
+
     async importLocalFile(input: AssetImportInput): Promise<AssetDto> {
       this.importStatus = "importing";
       this.importError = null;
@@ -89,11 +109,7 @@ export const useAssetLibraryStore = defineStore("asset-library", {
           source: "local",
           ...input
         });
-        this.assets = upsertAsset(this.assets, imported);
-        this.assetDetailsById = {
-          ...this.assetDetailsById,
-          [imported.id]: imported
-        };
+        this._upsertAssetDetail(imported);
         this.selectedId = imported.id;
         this.references = [];
         this.referenceStatus = "idle";
@@ -106,8 +122,11 @@ export const useAssetLibraryStore = defineStore("asset-library", {
         throw error;
       }
     },
+
     parseTags(asset: AssetDto): string[] {
-      if (!asset.tags) return [];
+      if (!asset.tags) {
+        return [];
+      }
       try {
         const parsed = JSON.parse(asset.tags) as unknown;
         return Array.isArray(parsed)
@@ -117,28 +136,42 @@ export const useAssetLibraryStore = defineStore("asset-library", {
         return [];
       }
     },
+
     async prepareDelete(id: string): Promise<boolean> {
       this.selectedId = id;
       this.deleteError = null;
       this.deleteStatus = "checking";
       this.error = null;
       try {
-        const asset = this.assetDetailsById[id] || await fetchAsset(id);
-        if (asset.referenceSummary?.blockingDelete) {
-          this.references = await fetchAssetReferences(id);
-          this.deleteError = `资产已被引用且禁止删除，请先处理 ${asset.referenceSummary.total} 条引用后再试`;
+        const [asset, references] = await Promise.all([
+          fetchAsset(id),
+          fetchAssetReferences(id)
+        ]);
+
+        this._upsertAssetDetail(asset);
+        this._applyReferences(references);
+
+        const isBlocked =
+          references.length > 0 || Boolean(asset.referenceSummary?.blockingDelete);
+
+        if (isBlocked) {
+          const referenceCount = references.length || asset.referenceSummary?.total || 0;
+          this.deleteError = getBlockingDeleteMessage(referenceCount);
           this.deleteStatus = "blocked";
           return false;
         }
+
         this.deleteStatus = "ready";
         return true;
       } catch (error) {
         this.references = [];
+        this.referenceStatus = "error";
         this.deleteError = getErrorMessage(error);
         this.deleteStatus = "error";
         return false;
       }
     },
+
     async deleteSelected() {
       if (!this.selectedId) {
         this.deleteError = "请先选择要删除的资产";
@@ -146,6 +179,13 @@ export const useAssetLibraryStore = defineStore("asset-library", {
       }
 
       const id = this.selectedId;
+      if (this.deleteStatus !== "ready") {
+        const canDelete = await this.prepareDelete(id);
+        if (!canDelete) {
+          return;
+        }
+      }
+
       this.deleteStatus = "deleting";
       this.deleteError = null;
       this.error = null;
@@ -163,8 +203,14 @@ export const useAssetLibraryStore = defineStore("asset-library", {
         this.deleteStatus = "error";
       }
     },
+
     async delete(id: string) {
       this.error = null;
+      const canDelete = await this.prepareDelete(id);
+      if (!canDelete) {
+        return;
+      }
+
       this.deleteStatus = "deleting";
       try {
         await deleteRuntimeAsset(id);
@@ -182,6 +228,7 @@ export const useAssetLibraryStore = defineStore("asset-library", {
         this.deleteStatus = "error";
       }
     },
+
     async select(id: string | null) {
       this.selectedId = id;
       this.error = null;
@@ -193,27 +240,21 @@ export const useAssetLibraryStore = defineStore("asset-library", {
 
       try {
         this.referenceStatus = "loading";
-        const [asset, references] = await Promise.all([
-          fetchAsset(id),
-          fetchAssetReferences(id)
-        ]);
-        this.assetDetailsById = {
-          ...this.assetDetailsById,
-          [id]: asset
-        };
-        this.assets = upsertAsset(this.assets, asset);
-        this.references = references;
-        this.referenceStatus = references.length > 0 ? "blocked" : "ready";
+        const [asset, references] = await Promise.all([fetchAsset(id), fetchAssetReferences(id)]);
+        this._upsertAssetDetail(asset);
+        this._applyReferences(references);
       } catch (error) {
         this.references = [];
         this.referenceStatus = "error";
         this.error = getErrorMessage(error);
       }
     },
+
     setFilterType(type: string) {
       this.filter.type = type;
       return this.load();
     },
+
     setSearchQuery(q: string) {
       this.filter.q = q;
       return this.load();

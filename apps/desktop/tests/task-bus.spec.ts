@@ -1,5 +1,5 @@
 import { createPinia, setActivePinia } from "pinia";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useTaskBusStore } from "@/stores/task-bus";
 
@@ -8,7 +8,11 @@ describe("task bus store", () => {
     setActivePinia(createPinia());
   });
 
-  it("广播 video.import.stage.progress 时按 videoId 分发并缓存最后事件", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("按 videoId 分发导入阶段进度事件，并缓存最后事件", () => {
     const store = useTaskBusStore();
     const callback = vi.fn();
 
@@ -40,7 +44,7 @@ describe("task bus store", () => {
     );
   });
 
-  it("接收 render.progress 时同步刷新任务状态并保留事件", () => {
+  it("接收 render.progress 时同步刷新任务状态，并保留兼容字段", () => {
     const store = useTaskBusStore();
 
     store._handleMessage(
@@ -76,7 +80,7 @@ describe("task bus store", () => {
     );
   });
 
-  it("接收 script.ai.stream.chunk 时按 jobId 分发", () => {
+  it("按 jobId 分发 script.ai.stream.chunk 事件", () => {
     const store = useTaskBusStore();
     const callback = vi.fn();
 
@@ -105,5 +109,18 @@ describe("task bus store", () => {
         jobId: "job-1"
       })
     );
+  });
+
+  it("测试环境已释放 window 时清理定时器不会抛出异常", () => {
+    const store = useTaskBusStore();
+
+    store._reconnectTimer = 1;
+    store._heartbeatTimer = 2;
+    vi.stubGlobal("window", undefined);
+
+    expect(() => store._clearReconnectTimer()).not.toThrow();
+    expect(() => store._clearHeartbeatTimer()).not.toThrow();
+    expect(store._reconnectTimer).toBeNull();
+    expect(store._heartbeatTimer).toBeNull();
   });
 });

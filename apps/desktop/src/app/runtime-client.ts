@@ -5,6 +5,7 @@ import type {
   AIModelCatalogRefreshResult,
   AIProviderCatalogItem,
   AIProviderHealth,
+  AIProviderHealthOverview,
   AIProviderHealthInput,
   AIProviderSecretInput,
   AIProviderSecretStatus,
@@ -294,7 +295,20 @@ export async function checkAIProviderHealth(
 }
 
 export async function fetchProviderHealth(): Promise<Record<string, AIProviderHealth>> {
-  return requestRuntime<Record<string, AIProviderHealth>>("/api/ai-providers/health");
+  const overview = await requestRuntime<AIProviderHealthOverview>("/api/ai-providers/health");
+  return Object.fromEntries(
+    (overview.providers ?? []).map((item) => [
+      item.provider,
+      {
+        provider: item.provider,
+        status: item.readiness,
+        message: item.errorMessage || item.label || item.readiness,
+        checkedAt: item.lastCheckedAt ?? overview.refreshedAt ?? null,
+        latencyMs: item.latencyMs ?? null,
+        model: null
+      } satisfies AIProviderHealth
+    ])
+  );
 }
 
 export async function fetchAIProviderCatalog(): Promise<AIProviderCatalogItem[]> {
@@ -305,6 +319,10 @@ export async function fetchAIModelCatalog(providerId: string): Promise<AIModelCa
   return requestRuntime<AIModelCatalogItem[]>(
     `/api/settings/ai-providers/${providerId}/models`
   );
+}
+
+export async function fetchAIProviderModels(providerId: string): Promise<AIModelCatalogItem[]> {
+  return fetchAIModelCatalog(providerId);
 }
 
 export async function upsertAIProviderModel(
@@ -1366,7 +1384,7 @@ function toRuntimeRequestError(
   fallbackMessage: string
 ): RuntimeRequestError {
   if (payload && !payload.ok) {
-    return new RuntimeRequestError(payload.error, {
+    return new RuntimeRequestError(normalizeRuntimeErrorMessage(payload.error, status), {
       details: payload.details,
       errorCode: payload.error_code,
       requestId: payload.requestId,
@@ -1375,6 +1393,13 @@ function toRuntimeRequestError(
   }
 
   return new RuntimeRequestError(fallbackMessage, { status });
+}
+
+function normalizeRuntimeErrorMessage(message: string, status: number): string {
+  if (status === 422 && message === "Request validation failed") {
+    return "请求参数校验失败，请检查输入后重试。";
+  }
+  return message;
 }
 
 function normalizeTaskInfo(task: TaskInfo): TaskInfo {

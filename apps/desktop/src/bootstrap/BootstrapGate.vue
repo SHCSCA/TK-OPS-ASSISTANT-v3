@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <AppShell v-if="bootstrapStore.phase === 'ready'" />
   <BootstrapLoadingScreen v-else-if="bootstrapStore.phase === 'boot_loading'" />
   <BootstrapErrorScreen

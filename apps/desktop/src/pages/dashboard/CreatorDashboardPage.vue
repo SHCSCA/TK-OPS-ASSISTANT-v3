@@ -36,7 +36,7 @@
     />
 
     <!-- 最近工程 (横向滚动) -->
-    <section class="dashboard-section">
+    <section class="dashboard-section" data-dashboard-section="project-entry">
       <div class="section__header">
         <h3 class="section__title">最近工程</h3>
         <span class="chip-count">{{ projectStore.recentProjects.length }}</span>
@@ -59,7 +59,29 @@
     </section>
 
     <!-- 待办、异常与后台任务 (三列) -->
-    <section class="dashboard-section three-col">
+    <section class="dashboard-section" data-dashboard-section="chain-rail">
+      <div class="section__header">
+        <h3 class="section__title">创作链路</h3>
+      </div>
+      <div class="chain-rail">
+        <button
+          v-for="step in chainSteps"
+          :key="step.path"
+          class="chain-rail__step"
+          type="button"
+          :disabled="!currentProject"
+          @click="router.push(step.path)"
+        >
+          <span class="chain-rail__index">{{ step.index }}</span>
+          <span>
+            <strong>{{ step.title }}</strong>
+            <small>{{ step.summary }}</small>
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <section class="dashboard-section three-col" data-dashboard-section="exception-queue">
       <ExceptionQueueCard
         title="后台运行任务"
         :badge-count="activeTaskItems.length"
@@ -198,11 +220,37 @@ const nextActionIcon = computed(() => {
   return "movie_edit";
 });
 
+const chainSteps = [
+  {
+    index: "01",
+    path: "/scripts/topics",
+    title: "脚本与选题",
+    summary: "从项目上下文进入脚本创作"
+  },
+  {
+    index: "02",
+    path: "/storyboards/planning",
+    title: "分镜规划",
+    summary: "把脚本推进到镜头结构"
+  },
+  {
+    index: "03",
+    path: "/workspace/editing",
+    title: "AI 剪辑工作台",
+    summary: "回到同一项目主链路继续制作"
+  }
+];
+
+function formatRuntimeFeedback(error: { message: string; requestId?: string } | null): string {
+  if (!error) return "";
+  return error.requestId ? `${error.message} requestId=${error.requestId}` : error.message;
+}
+
 const feedbackMessage = computed(() => {
   if (hasMissingProjectReason.value) return "当前页面缺少项目上下文，请先创建或打开一个真实项目。";
-  if (projectStore.error) return projectStore.error.message;
-  if (licenseStore.error) return licenseStore.error.message;
-  if (configBusStore.error) return configBusStore.error.message;
+  if (projectStore.error) return formatRuntimeFeedback(projectStore.error);
+  if (licenseStore.error) return formatRuntimeFeedback(licenseStore.error);
+  if (configBusStore.error) return formatRuntimeFeedback(configBusStore.error);
   return "";
 });
 
@@ -305,10 +353,7 @@ async function handleDeleteProject(projectId: string): Promise<void> {
     if (!window.confirm("确定要删除此项目吗？")) return;
   }
   
-  const success = await projectStore.deleteProject(projectId);
-  if (!success) {
-    window.alert("删除项目失败，请检查网络或稍后重试。");
-  }
+  await projectStore.deleteProject(projectId);
 }
 
 async function handleReload(): Promise<void> {
@@ -348,197 +393,4 @@ async function resumeRedirectIfNeeded(): Promise<void> {
 }
 </script>
 
-<style scoped>
-.page-container {
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  min-height: 100%;
-}
-
-.page-header {
-  display: grid;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
-
-.page-header__crumb {
-  font: var(--font-caption);
-  letter-spacing: var(--ls-caption);
-  color: var(--color-text-tertiary);
-  text-transform: uppercase;
-}
-
-.page-header__row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.page-header__title {
-  font: var(--font-display-md);
-  letter-spacing: var(--ls-display-md);
-  color: var(--color-text-primary);
-  margin: 0 0 4px 0;
-}
-
-.page-header__subtitle {
-  font: var(--font-body-md);
-  letter-spacing: var(--ls-body-md);
-  color: var(--color-text-secondary);
-}
-
-.page-header__actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.dashboard-alert {
-  padding: var(--space-4) var(--space-5);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-default);
-  background: var(--color-bg-muted);
-  line-height: 1.6;
-}
-
-.dashboard-alert[data-tone="danger"] {
-  border-color: rgba(255, 90, 99, 0.20);
-  background: rgba(255, 90, 99, 0.08);
-  color: var(--color-danger);
-}
-
-.dashboard-alert[data-tone="warning"] {
-  border-color: rgba(245, 183, 64, 0.18);
-  background: rgba(245, 183, 64, 0.08);
-  color: var(--color-warning);
-}
-
-.dashboard-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.section__header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.section__title {
-  font: var(--font-title-lg);
-  letter-spacing: var(--ls-title-lg);
-  color: var(--color-text-primary);
-  margin: 0;
-}
-
-.chip-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 24px;
-  min-width: 24px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: var(--color-bg-muted);
-  color: var(--color-text-secondary);
-  font: var(--font-caption);
-  font-weight: 700;
-}
-
-/* 横向滚动区域 */
-.projects-row {
-  display: flex;
-  gap: var(--space-4);
-  overflow-x: auto;
-  padding-bottom: var(--space-2); /* For scrollbar breathing room */
-  scroll-snap-type: x mandatory;
-  scroll-padding-left: 0;
-  /* Hide scrollbar visually but keep functional if wanted, or restyle */
-}
-
-.projects-row::-webkit-scrollbar {
-  height: 6px;
-}
-.projects-row::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
-  border-radius: 999px;
-}
-
-.two-col {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-  align-items: stretch;
-}
-
-.three-col {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
-  align-items: stretch;
-}
-
-.health-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
-.dashboard-empty {
-  display: grid;
-  gap: 8px;
-  padding: var(--space-6);
-  border-radius: var(--radius-md);
-  border: 1px dashed var(--color-border-default);
-  background: var(--color-bg-canvas);
-  text-align: center;
-}
-
-.dashboard-empty strong {
-  font: var(--font-title-md);
-  color: var(--color-text-primary);
-}
-
-.dashboard-empty p {
-  margin: 0;
-  font: var(--font-body-md);
-  color: var(--color-text-secondary);
-}
-
-.project-list-move,
-.project-list-enter-active,
-.project-list-leave-active {
-  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.project-list-enter-from,
-.project-list-leave-to {
-  opacity: 0;
-  transform: scale(0.9);
-}
-.project-list-leave-active {
-  /* Animate width and margin out so siblings slide smoothly instead of jumping */
-  min-width: 0 !important;
-  width: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  overflow: hidden;
-  border-width: 0 !important;
-}
-
-@media (max-width: 1200px) {
-  .three-col {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 960px) {
-  .two-col, .three-col, .health-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-</style>
+<style scoped src="./CreatorDashboardPage.css"></style>

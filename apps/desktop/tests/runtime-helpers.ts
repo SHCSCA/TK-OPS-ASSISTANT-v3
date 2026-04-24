@@ -54,6 +54,20 @@ export const runtimeFixtures = {
     now: "2026-04-11T10:00:00Z",
     mode: "development"
   },
+  providerHealth: {
+    providers: [
+      {
+        provider: "openai",
+        label: "OpenAI",
+        readiness: "ready",
+        lastCheckedAt: "2026-04-11T10:00:00Z",
+        latencyMs: null,
+        errorCode: null,
+        errorMessage: null
+      }
+    ],
+    refreshedAt: "2026-04-11T10:00:00Z"
+  },
   config: {
     revision: 1,
     runtime: {
@@ -340,14 +354,37 @@ export const runtimeFixtures = {
   }
 };
 
+type RouteAwareFetchOptions = {
+  fallbackUnhandledProviderHealth?: boolean;
+};
+
+function isUnhandledProviderHealthRequest(path: string, method: string, error: unknown): boolean {
+  return (
+    method === "GET" &&
+    path === "/api/ai-providers/health" &&
+    error instanceof Error &&
+    error.message.startsWith("Unhandled request")
+  );
+}
+
 export function createRouteAwareFetch(
-  resolver: (path: string, method: string, init?: RequestInit) => unknown
+  resolver: (path: string, method: string, init?: RequestInit) => unknown,
+  options: RouteAwareFetchOptions = {}
 ) {
+  const fallbackUnhandledProviderHealth = options.fallbackUnhandledProviderHealth ?? true;
+
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const requestUrl = new URL(String(input));
     const path = `${requestUrl.pathname}${requestUrl.search}`;
     const method = (init?.method ?? "GET").toUpperCase();
-    return resolver(path, method, init);
+    try {
+      return resolver(path, method, init);
+    } catch (error) {
+      if (fallbackUnhandledProviderHealth && isUnhandledProviderHealthRequest(path, method, error)) {
+        return okJsonResponse(runtimeFixtures.providerHealth);
+      }
+      throw error;
+    }
   });
 }
 

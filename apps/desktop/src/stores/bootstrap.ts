@@ -1,4 +1,4 @@
-﻿import { defineStore } from "pinia";
+import { defineStore } from "pinia";
 
 import { hasCompletedBootstrapInitialization } from "@/bootstrap/bootstrap-form";
 import type { AppSettingsUpdateInput, LicenseActivationInput } from "@/types/runtime";

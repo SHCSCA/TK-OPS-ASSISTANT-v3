@@ -17,6 +17,7 @@ import type {
   AICapabilitySettings,
   AICapabilitySupportMatrix,
   AIModelCatalogItem,
+  AIModelCatalogRefreshResult,
   AIProviderCatalogItem,
   AIProviderSecretInput,
   AIProviderModelUpsertInput,
@@ -27,13 +28,14 @@ import type {
 import type { TaskEvent } from "@/types/task-events";
 import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 
-export type AIStoreStatus = "idle" | "loading" | "saving" | "error";
+export type AIStoreStatus = "idle" | "loading" | "ready" | "saving" | "error";
 
 type AIStoreState = {
   settings: AICapabilitySettings | null;
   supportMatrix: AICapabilitySupportMatrix | null;
   providerCatalog: AIProviderCatalogItem[];
   modelCatalogByProvider: Record<string, AIModelCatalogItem[]>;
+  refreshResultByProvider: Record<string, AIModelCatalogRefreshResult>;
   providerHealth: Record<string, AIProviderHealth>;
   status: AIStoreStatus;
   error: RuntimeRequestErrorShape | null;
@@ -46,11 +48,21 @@ export const useAIStore = defineStore("ai-capability", {
     supportMatrix: null,
     providerCatalog: [],
     modelCatalogByProvider: {},
+    refreshResultByProvider: {},
     providerHealth: {},
     status: "idle",
     error: null,
     _unsubscriber: null
   }),
+
+  getters: {
+    viewState: (state): "loading" | "ready" | "error" =>
+      state.status === "error"
+        ? "error"
+        : state.status === "loading" || state.status === "saving"
+          ? "loading"
+          : "ready"
+  },
 
   actions: {
     async load(): Promise<void> {
@@ -65,7 +77,7 @@ export const useAIStore = defineStore("ai-capability", {
         this.settings = settings;
         this.supportMatrix = matrix;
         this.providerCatalog = providers;
-        this.status = "ready" as any;
+        this.status = "ready";
         
         this.initializeEventSubscription();
       } catch (error) {
@@ -103,8 +115,6 @@ export const useAIStore = defineStore("ai-capability", {
       const currentVersion = this.settings?.configVersion ?? 0;
 
       if (incomingVersion > currentVersion) {
-        console.log(`[ai-capability] Detected new config version ${incomingVersion} (Reason: ${event.reason}), refreshing...`);
-        
         try {
           const providerIds = event.providerIds ?? [];
           
@@ -160,7 +170,7 @@ export const useAIStore = defineStore("ai-capability", {
         // Ensure payload structure matches expected AICapabilitySettings format
         await saveAICapabilitySettings(payload.capabilities as any);
         await this.reloadSettings();
-        this.status = "ready" as any;
+        this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error);
       }
@@ -171,7 +181,7 @@ export const useAIStore = defineStore("ai-capability", {
       try {
         await saveAIProviderSecret(providerId, input);
         await this.reloadSettings();
-        this.status = "ready" as any;
+        this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error);
       }
@@ -182,7 +192,7 @@ export const useAIStore = defineStore("ai-capability", {
       try {
         await upsertAIProviderModel(providerId, modelId, input);
         await this.loadModelsForProvider(providerId);
-        this.status = "ready" as any;
+        this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error);
       }
@@ -202,8 +212,13 @@ export const useAIStore = defineStore("ai-capability", {
 
     async refreshProviderModels(providerId: string): Promise<void> {
       try {
-        // FIX: Method name alignment with runtime-client export
-        await refreshAIProviderModels(providerId);
+        const result = await refreshAIProviderModels(providerId);
+        this.refreshResultByProvider = {
+          ...this.refreshResultByProvider,
+          [providerId]: result
+        };
+        await this.loadModelsForProvider(providerId);
+        this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error);
       }

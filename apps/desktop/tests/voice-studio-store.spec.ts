@@ -1,9 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useVoiceStudioStore } from "@/stores/voice-studio";
-
-import { createRouteAwareFetch, errorJsonResponse, okJsonResponse } from "./runtime-helpers";
+import { useVoiceStudioStore } from "../src/stores/voice-studio";
 
 describe("M07 配音中心 store", () => {
   beforeEach(() => {
@@ -12,6 +10,7 @@ describe("M07 配音中心 store", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("加载脚本、音色和配音版本后进入 ready 状态", async () => {
@@ -28,7 +27,7 @@ describe("M07 配音中心 store", () => {
     expect(store.selectedProfileId).toBe("alloy-zh");
   });
 
-  it("生成配音版本时保存 blocked 状态和中文说明", async () => {
+  it("生成配音版本时保留 blocked 状态和中文说明", async () => {
     vi.stubGlobal("fetch", createVoiceFetch());
 
     const store = useVoiceStudioStore();
@@ -113,6 +112,9 @@ describe("M07 配音中心 store", () => {
         }
         if (path === "/api/voice/profiles") return okJsonResponse([voiceProfile()]);
         if (path === "/api/voice/projects/project-1/tracks") return okJsonResponse(tracks);
+        if (path === "/api/voice/tracks/voice-1" && method === "GET") {
+          return okJsonResponse(voiceTrack("voice-1"));
+        }
         if (path === "/api/voice/tracks/voice-1" && method === "DELETE") {
           tracks = [];
           return okJsonResponse(undefined);
@@ -130,6 +132,40 @@ describe("M07 配音中心 store", () => {
   });
 });
 
+function createRouteAwareFetch(
+  resolver: (path: string, method: string, init?: RequestInit) => unknown
+) {
+  return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const requestUrl = new URL(String(input));
+    const path = `${requestUrl.pathname}${requestUrl.search}`;
+    const method = (init?.method ?? "GET").toUpperCase();
+    return resolver(path, method, init);
+  });
+}
+
+function okJsonResponse(data: unknown, status = 200) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => ({
+      ok: true,
+      data
+    })
+  };
+}
+
+function errorJsonResponse(status: number, error: string, requestId = "req-runtime") {
+  return {
+    ok: false,
+    status,
+    json: async () => ({
+      ok: false,
+      error,
+      requestId
+    })
+  };
+}
+
 function createVoiceFetch(
   options: { disabledProfiles?: boolean; emptyScript?: boolean; withTrackDetails?: boolean } = {}
 ) {
@@ -138,11 +174,15 @@ function createVoiceFetch(
       return okJsonResponse(scriptDocument(options.emptyScript ? "" : "第一段脚本\n\n第二段脚本"));
     }
     if (path === "/api/voice/profiles") {
-      return okJsonResponse([voiceProfile(options.disabledProfiles ? { enabled: false } : undefined)]);
+      return okJsonResponse([
+        voiceProfile(options.disabledProfiles ? { enabled: false } : undefined)
+      ]);
     }
     if (path === "/api/voice/projects/project-1/tracks") return okJsonResponse([voiceTrack()]);
     if (path === "/api/voice/tracks/voice-1" && method === "GET") {
-      return okJsonResponse(options.withTrackDetails ? voiceTrackWithDetails("voice-1") : voiceTrack());
+      return okJsonResponse(
+        options.withTrackDetails ? voiceTrackWithDetails("voice-1") : voiceTrack()
+      );
     }
     if (path === "/api/voice/projects/project-1/tracks/generate") {
       return okJsonResponse({

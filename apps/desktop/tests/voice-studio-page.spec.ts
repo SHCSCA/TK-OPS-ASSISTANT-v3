@@ -28,7 +28,7 @@ describe("M07 配音中心页面", () => {
     expect(wrapper.text()).toContain("已保存阻断草稿，但没有生成真实音频。");
     expect(wrapper.text()).toContain("版本：阻断草稿");
     expect(wrapper.text()).toContain("阻断");
-    expect(wrapper.text()).toContain("娓呮櫚鍙欒堪");
+    expect(wrapper.text()).toContain("清晰叙述");
     expect(wrapper.text()).not.toMatch(/假音频/);
   });
 
@@ -104,7 +104,7 @@ function scriptDocument() {
     currentVersion: {
       revision: 1,
       source: "manual",
-      content: "绗竴娈佃剼鏈紒\n绗簩娈佃剼鏈紒",
+      content: "第一段脚本！\n第二段脚本！",
       provider: null,
       model: null,
       aiJobId: null,
@@ -124,9 +124,9 @@ function voiceProfile() {
     id: "alloy-zh",
     provider: "pending_provider",
     voiceId: "alloy",
-    displayName: "娓呮櫚鍙欒堪",
+    displayName: "清晰叙述",
     locale: "zh-CN",
-    tags: ["娓呮櫚", "鏃佺櫧"],
+    tags: ["清晰", "旁白"],
     enabled: true
   };
 }
@@ -138,12 +138,12 @@ function voiceTrack(id = "voice-1") {
     timelineId: null,
     source: "tts",
     provider: "pending_provider",
-    voiceName: "娓呮櫚鍙欒堪",
+    voiceName: "清晰叙述",
     filePath: null,
     segments: [
       {
         segmentIndex: 0,
-        text: "绗竴娈佃剼鏈紒",
+        text: "第一段脚本！",
         startMs: null,
         endMs: null,
         audioAssetId: null

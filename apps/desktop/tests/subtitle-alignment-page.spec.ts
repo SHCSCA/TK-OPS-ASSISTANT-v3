@@ -2,6 +2,26 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock(
+  "@/stores/task-bus",
+  () => ({
+    useTaskBusStore: () => ({
+      subscribeToType: () => () => undefined
+    })
+  }),
+  { virtual: true }
+);
+
+vi.mock(
+  "@/stores/asset-library",
+  () => ({
+    useAssetLibraryStore: () => ({
+      hydrate: async () => undefined
+    })
+  }),
+  { virtual: true }
+);
+
 import SubtitleAlignmentCenterPage from "@/pages/subtitles/SubtitleAlignmentCenterPage.vue";
 import { useProjectStore } from "@/stores/project";
 
@@ -28,7 +48,7 @@ describe("M08 字幕对齐中心页面", () => {
     expect(wrapper.text()).toContain("已保存阻断草稿，但没有生成真实时间码。");
     expect(wrapper.text()).toContain("版本：阻断草稿");
     expect(wrapper.text()).toContain("阻断草稿");
-    expect(wrapper.text()).toContain("绗竴娈佃剼鏈紒");
+    expect(wrapper.text()).toContain("第一段脚本！");
     expect(wrapper.text()).not.toMatch(/假时间码|成功结果/);
   });
 
@@ -109,7 +129,7 @@ function scriptDocument() {
     currentVersion: {
       revision: 1,
       source: "manual",
-      content: "绗竴娈佃剼鏈紒\n绗簩娈佃剼鏈紒",
+      content: "第一段脚本！\n第二段脚本！",
       provider: null,
       model: null,
       aiJobId: null,
@@ -124,7 +144,7 @@ function now() {
   return "2026-04-16T10:00:00Z";
 }
 
-function subtitleTrack(id = "subtitle-1", text = "绗竴娈佃剼鏈紒", fontSize = 32) {
+function subtitleTrack(id = "subtitle-1", text = "第一段脚本！", fontSize = 32) {
   return {
     id,
     projectId: "project-1",

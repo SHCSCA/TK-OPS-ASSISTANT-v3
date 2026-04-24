@@ -1,12 +1,17 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia } from "pinia";
 import { createMemoryHistory } from "vue-router";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "@/App.vue";
 import { createAppRouter } from "@/app/router";
 
 import { createRouteAwareFetch, okJsonResponse, runtimeFixtures } from "./runtime-helpers";
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openPath: vi.fn()
+}));
 
 async function mountApp(path: string) {
   const pinia = createPinia();
@@ -23,6 +28,7 @@ async function mountApp(path: string) {
 
 describe("AI 与系统设置页", () => {
   afterEach(() => {
+    vi.mocked(openPath).mockReset();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     vi.useRealTimers();
@@ -80,11 +86,11 @@ describe("AI 与系统设置页", () => {
         return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
       }
       if (path === "/api/ai-providers/health") {
-        return okJsonResponse({});
+        return okJsonResponse(runtimeFixtures.providerHealth);
       }
 
       throw new Error(`Unhandled request: ${method} ${path}`);
-    });
+    }, { fallbackUnhandledProviderHealth: false });
 
     vi.stubGlobal("fetch", fetchMock);
 
@@ -115,6 +121,11 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.get('[data-action="pick-cache-dir"]').exists()).toBe(true);
     expect(wrapper.get('[data-action="pick-export-dir"]').exists()).toBe(true);
     expect(wrapper.get('[data-action="pick-log-dir"]').exists()).toBe(true);
+    vi.mocked(openPath).mockResolvedValue(undefined);
+    await wrapper.get('[data-action="pick-log-dir"]').trigger("click");
+    await flushPromises();
+    expect(openPath).toHaveBeenCalledWith(runtimeFixtures.initializedConfig.paths.logDir);
+    expect(wrapper.text()).toContain("已请求系统打开日志目录。");
     // Open detail panel to see masked license code
     await wrapper.find('button[title="切换属性面板"]').trigger("click");
     await flushPromises();
@@ -185,11 +196,11 @@ describe("AI 与系统设置页", () => {
         return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
       }
       if (path === "/api/ai-providers/health") {
-        return okJsonResponse({});
+        return okJsonResponse(runtimeFixtures.providerHealth);
       }
 
       throw new Error(`Unhandled request: ${method} ${path}`);
-    });
+    }, { fallbackUnhandledProviderHealth: false });
 
     vi.stubGlobal("fetch", fetchMock);
 
@@ -223,7 +234,6 @@ describe("AI 与系统设置页", () => {
     );
 
     expect(saveCall).toBeTruthy();
-    console.log("saveCall BODY", saveCall?.[1]?.body);
     const payload = JSON.parse(String(saveCall?.[1]?.body)) as {
       capabilities: Array<{ capabilityId: string; model: string }>;
     };
@@ -260,7 +270,7 @@ describe("AI 与系统设置页", () => {
         return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
       }
       if (path === "/api/ai-providers/health") {
-        return okJsonResponse({});
+        return okJsonResponse(runtimeFixtures.providerHealth);
       }
       if (path === "/api/settings/ai-capabilities/providers/openai/health-check") {
         return okJsonResponse({
@@ -274,7 +284,7 @@ describe("AI 与系统设置页", () => {
       }
 
       throw new Error(`Unhandled request: ${method} ${path}`);
-    });
+    }, { fallbackUnhandledProviderHealth: false });
 
     vi.stubGlobal("fetch", fetchMock);
 
@@ -338,11 +348,11 @@ describe("AI 与系统设置页", () => {
         return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
       }
       if (path === "/api/ai-providers/health") {
-        return okJsonResponse({});
+        return okJsonResponse(runtimeFixtures.providerHealth);
       }
 
       throw new Error(`Unhandled request: ${method} ${path}`);
-    });
+    }, { fallbackUnhandledProviderHealth: false });
 
     vi.stubGlobal("fetch", fetchMock);
 
