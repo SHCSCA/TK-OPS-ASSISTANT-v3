@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-type SettingsSectionId = "system" | "provider" | "capability" | "diagnostics";
+type SettingsSectionId = "system" | "provider" | "capability";
 
 defineProps<{
   currentSection: SettingsSectionId;
@@ -46,11 +46,6 @@ const items: Array<{ id: SettingsSectionId; label: string; summary: string }> = 
     id: "capability",
     label: "能力矩阵",
     summary: "能力绑定、默认模型和提示词策略"
-  },
-  {
-    id: "diagnostics",
-    label: "诊断工作台",
-    summary: "错误、依赖和系统可用性"
   }
 ];
 </script>

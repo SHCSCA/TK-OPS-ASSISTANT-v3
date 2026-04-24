@@ -1,6 +1,7 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia } from "pinia";
 import { createMemoryHistory } from "vue-router";
+import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +12,10 @@ import { createRouteAwareFetch, okJsonResponse, runtimeFixtures } from "./runtim
 
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openPath: vi.fn()
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: vi.fn()
 }));
 
 async function mountApp(path: string) {
@@ -26,8 +31,26 @@ async function mountApp(path: string) {
   });
 }
 
+function createLargeModelCatalog(count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const number = index + 1;
+    return {
+      modelId: `bulk-model-${String(number).padStart(2, "0")}`,
+      displayName: `批量模型 ${number}`,
+      provider: "openai",
+      capabilityTypes: number % 3 === 0 ? ["text_generation", "vision"] : ["text_generation"],
+      inputModalities: number % 3 === 0 ? ["text", "image"] : ["text"],
+      outputModalities: ["text"],
+      contextWindow: null,
+      defaultFor: [],
+      enabled: true
+    };
+  });
+}
+
 describe("AI 与系统设置页", () => {
   afterEach(() => {
+    vi.mocked(open).mockReset();
     vi.mocked(openPath).mockReset();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -102,8 +125,11 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.text()).toContain("系统总线");
     expect(wrapper.text()).toContain("Provider 与模型");
     expect(wrapper.text()).toContain("能力矩阵");
-    expect(wrapper.text()).toContain("诊断工作台");
-    expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain("诊断工作台");
+    expect(wrapper.find('[data-section="diagnostics"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("打开右侧抽屉");
+    expect(wrapper.find('button[title="切换属性面板"]').exists()).toBe(false);
 
     await wrapper.get('[data-section="system"]').trigger("click");
     await flushPromises();
@@ -121,14 +147,25 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.get('[data-action="pick-cache-dir"]').exists()).toBe(true);
     expect(wrapper.get('[data-action="pick-export-dir"]').exists()).toBe(true);
     expect(wrapper.get('[data-action="pick-log-dir"]').exists()).toBe(true);
+    vi.mocked(open).mockResolvedValue("C:\\TK-OPS\\workspace");
+    await wrapper.get('[data-action="pick-workspace-root"]').trigger("click");
+    await flushPromises();
+    expect(open).toHaveBeenCalledWith({
+      defaultPath: runtimeFixtures.initializedConfig.runtime.workspaceRoot,
+      directory: true,
+      multiple: false
+    });
+
     vi.mocked(openPath).mockResolvedValue(undefined);
     await wrapper.get('[data-action="pick-log-dir"]').trigger("click");
     await flushPromises();
     expect(openPath).toHaveBeenCalledWith(runtimeFixtures.initializedConfig.paths.logDir);
     expect(wrapper.text()).toContain("已请求系统打开日志目录。");
-    // Open detail panel to see masked license code
-    await wrapper.find('button[title="切换属性面板"]').trigger("click");
+    await wrapper.get(".shell-title-bar__detail-toggle").trigger("click");
     await flushPromises();
+    expect(wrapper.get(".detail-panel-container").classes()).toContain("is-open");
+    expect(wrapper.get(".shell-detail-panel").text()).toContain("系统边界");
+    expect(wrapper.get(".shell-detail-panel").text()).toContain("当前焦点");
 
     vi.setSystemTime(new Date("2026-04-11T08:05:00.000Z"));
     await wrapper.get('select[data-field="runtime.mode"]').setValue("production");
@@ -148,7 +185,8 @@ describe("AI 与系统设置页", () => {
     expect(saveCall).toBeTruthy();
     expect(JSON.parse(String(saveCall?.[1]?.body))).toMatchObject({
       runtime: {
-        mode: "production"
+        mode: "production",
+        workspaceRoot: "C:\\TK-OPS\\workspace"
       },
       logging: {
         level: "DEBUG"
@@ -295,9 +333,19 @@ describe("AI 与系统设置页", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("Provider 与模型");
+    expect(wrapper.find(".provider-hub-layout").exists()).toBe(true);
+    expect(wrapper.find(".provider-connected-list").exists()).toBe(true);
+    expect(wrapper.find(".provider-template-library").exists()).toBe(true);
+    expect(wrapper.find(".provider-model-directory").exists()).toBe(true);
+    expect(wrapper.find(".provider-credential-inspector").exists()).toBe(true);
     expect(wrapper.text()).toContain("连接凭据");
+    expect(wrapper.text()).toContain("厂商模板库");
+    expect(wrapper.text()).toContain("新增自定义");
     expect(wrapper.find('[data-testid="provider-picker"]').exists()).toBe(true);
     expect(wrapper.findAll(".provider-catalog-card")).toHaveLength(0);
+    expect(wrapper.findAll(".provider-connected-list__item").length).toBeLessThan(
+      runtimeFixtures.aiProviderCatalog.length
+    );
 
     const providerOptions = wrapper
       .get('select[data-field="provider.selected"]')
@@ -305,6 +353,8 @@ describe("AI 与系统设置页", () => {
       .map((item) => item.text());
     expect(providerOptions).toContain("DeepSeek");
     expect(providerOptions).toContain("Ollama");
+    expect(wrapper.text()).toContain("文本");
+    expect(wrapper.text()).toContain("视觉");
 
     await wrapper.get('select[data-field="provider.health.model"]').setValue("gpt-5.4");
     await wrapper.get('[data-action="check-provider"]').trigger("click");
@@ -321,7 +371,73 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.text()).toContain("OpenAI / GPT-5.4 真实连通性测试通过。");
   });
 
-  it("在页面右侧保留诊断工作台，并支持通过分区切换打开右侧抽屉", async () => {
+  it("模型目录最多同时显示 10 条，并支持分页与筛选", async () => {
+    const largeModelCatalog = createLargeModelCatalog(25);
+    const fetchMock = createRouteAwareFetch((path, method) => {
+      if (path === "/api/license/status") {
+        return okJsonResponse(runtimeFixtures.activeLicense);
+      }
+      if (path === "/api/settings/health") {
+        return okJsonResponse(runtimeFixtures.health);
+      }
+      if (path === "/api/settings/config") {
+        return okJsonResponse(runtimeFixtures.initializedConfig);
+      }
+      if (path === "/api/settings/diagnostics") {
+        return okJsonResponse(runtimeFixtures.initializedDiagnostics);
+      }
+      if (path === "/api/settings/ai-capabilities") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+      }
+      if (path === "/api/settings/ai-providers/catalog") {
+        return okJsonResponse(runtimeFixtures.aiProviderCatalog);
+      }
+      if (path === "/api/settings/ai-providers/openai/models") {
+        return okJsonResponse(largeModelCatalog);
+      }
+      if (path === "/api/settings/ai-capabilities/support-matrix") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
+      }
+      if (path === "/api/ai-providers/health") {
+        return okJsonResponse(runtimeFixtures.providerHealth);
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    }, { fallbackUnhandledProviderHealth: false });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const wrapper = await mountApp("/settings/ai-system");
+    await flushPromises();
+
+    await wrapper.get('[data-section="provider"]').trigger("click");
+    await flushPromises();
+
+    let modelListText = wrapper.get(".provider-model-list").text();
+    expect(wrapper.findAll(".provider-model-list__item")).toHaveLength(10);
+    expect(wrapper.text()).toContain("1-10 / 25");
+    expect(modelListText).toContain("批量模型 1");
+    expect(modelListText).not.toContain("批量模型 25");
+
+    await wrapper.get('[data-action="provider.model.next-page"]').trigger("click");
+    await flushPromises();
+
+    modelListText = wrapper.get(".provider-model-list").text();
+    expect(wrapper.findAll(".provider-model-list__item")).toHaveLength(10);
+    expect(wrapper.text()).toContain("11-20 / 25");
+    expect(wrapper.findAll(".provider-model-list__item")[0].text()).toContain("批量模型 11");
+    expect(modelListText).not.toContain("批量模型 25");
+
+    await wrapper.get('input[data-field="provider.model.search"]').setValue("批量模型 25");
+    await flushPromises();
+
+    modelListText = wrapper.get(".provider-model-list").text();
+    expect(wrapper.findAll(".provider-model-list__item")).toHaveLength(1);
+    expect(wrapper.text()).toContain("1-1 / 1");
+    expect(modelListText).toContain("批量模型 25");
+  });
+
+  it("移除页面内诊断分区，并通过现有右侧抽屉承载系统上下文", async () => {
     const fetchMock = createRouteAwareFetch((path, method) => {
       if (path === "/api/license/status") {
         return okJsonResponse(runtimeFixtures.activeLicense);
@@ -359,12 +475,68 @@ describe("AI 与系统设置页", () => {
     const wrapper = await mountApp("/settings/ai-system");
     await flushPromises();
 
-    await wrapper.get('[data-section="diagnostics"]').trigger("click");
+    expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(false);
+    expect(wrapper.find('[data-section="diagnostics"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("当前运行视图");
+    expect(wrapper.text()).not.toContain("诊断工作台");
+
+    await wrapper.get(".shell-title-bar__detail-toggle").trigger("click");
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(true);
-    expect(wrapper.get(".detail-panel-container").classes()).toContain("is-open");
-    expect(wrapper.text()).toContain("当前运行视图");
-    expect(wrapper.text()).toContain("诊断工作台");
+    expect(wrapper.get(".shell-detail-panel").text()).toContain("系统边界");
+    expect(wrapper.get(".shell-detail-panel").text()).toContain("当前焦点");
+    expect(wrapper.get(".shell-detail-panel").text()).toContain("Provider / 能力");
+  });
+
+  it("目录选择失败时不回退 prompt，并给出桌面壳提示", async () => {
+    const promptSpy = vi.fn();
+    vi.stubGlobal("prompt", promptSpy);
+    vi.mocked(open).mockRejectedValue(new Error("dialog unavailable"));
+
+    const fetchMock = createRouteAwareFetch((path, method) => {
+      if (path === "/api/license/status") {
+        return okJsonResponse(runtimeFixtures.activeLicense);
+      }
+      if (path === "/api/settings/health") {
+        return okJsonResponse(runtimeFixtures.health);
+      }
+      if (path === "/api/settings/config") {
+        return okJsonResponse(runtimeFixtures.initializedConfig);
+      }
+      if (path === "/api/settings/diagnostics") {
+        return okJsonResponse(runtimeFixtures.initializedDiagnostics);
+      }
+      if (path === "/api/settings/ai-capabilities") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+      }
+      if (path === "/api/settings/ai-providers/catalog") {
+        return okJsonResponse(runtimeFixtures.aiProviderCatalog);
+      }
+      if (path === "/api/settings/ai-providers/openai/models") {
+        return okJsonResponse(runtimeFixtures.openAIModelCatalog);
+      }
+      if (path === "/api/settings/ai-capabilities/support-matrix") {
+        return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
+      }
+      if (path === "/api/ai-providers/health") {
+        return okJsonResponse(runtimeFixtures.providerHealth);
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    }, { fallbackUnhandledProviderHealth: false });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const wrapper = await mountApp("/settings/ai-system");
+    await flushPromises();
+
+    await wrapper.get('[data-section="system"]').trigger("click");
+    await flushPromises();
+
+    await wrapper.get('[data-action="pick-cache-dir"]').trigger("click");
+    await flushPromises();
+
+    expect(promptSpy).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain("当前环境无法打开系统目录选择器");
   });
 });

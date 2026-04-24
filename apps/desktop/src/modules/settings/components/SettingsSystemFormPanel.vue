@@ -1,182 +1,201 @@
 <template>
-  <div class="system-form-panel">
-    <!-- 目录设置 -->
-    <div v-if="currentSection === 'system' || currentSection === 'directory'" class="form-section">
-      <div class="form-group">
-        <label>运行模式</label>
-        <select
-          :value="form.runtime.mode"
-          class="ui-select"
-          data-field="runtime.mode"
-          @change="e => updateForm({ runtime: { mode: (e.target as HTMLSelectElement).value } })"
-        >
-          <option value="development">Development (调试)</option>
-          <option value="production">Production (生产)</option>
-        </select>
-      </div>
+  <section class="system-bus-layout">
+    <div class="system-bus-layout__main">
+      <section class="system-card system-card--runtime">
+        <div class="system-card__header">
+          <div>
+            <p class="detail-panel__label">运行与默认 AI</p>
+            <h3>配置总线</h3>
+          </div>
+          <span class="system-card__badge">统一保存</span>
+        </div>
 
-      <div class="form-grid">
-        <div class="form-group">
-          <label>默认 AI 提供商</label>
-          <select
-            :value="form.ai.provider"
-            class="ui-select"
-            data-field="ai.provider"
-            @change="e => updateForm({ ai: { provider: (e.target as HTMLSelectElement).value } })"
-          >
-            <option value="" disabled>选择 Provider</option>
-            <option
-              v-for="p in providerOptions"
-              :key="p.provider"
-              :value="p.provider"
+        <div class="system-field-grid">
+          <label class="settings-field">
+            <span>运行模式</span>
+            <select
+              :value="form.runtime.mode"
+              class="ui-select"
+              data-field="runtime.mode"
+              :disabled="disabled"
+              @change="e => updateForm({ runtime: { mode: (e.target as HTMLSelectElement).value } })"
             >
-              {{ p.label }}
-            </option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>默认生成模型</label>
-          <select
-            :value="form.ai.model"
-            class="ui-select"
-            data-field="ai.model"
-            @change="e => updateForm({ ai: { model: (e.target as HTMLSelectElement).value } })"
-          >
-            <option value="" disabled>选择模型</option>
-            <option
-              v-for="m in modelOptions"
-              :key="m.modelId"
-              :value="m.modelId"
+              <option value="development">Development (调试)</option>
+              <option value="production">Production (生产)</option>
+            </select>
+          </label>
+
+          <label class="settings-field">
+            <span>默认 AI 提供商</span>
+            <select
+              :value="form.ai.provider"
+              class="ui-select"
+              data-field="ai.provider"
+              :disabled="disabled"
+              @change="e => updateForm({ ai: { provider: (e.target as HTMLSelectElement).value } })"
             >
-              {{ m.modelId }}
-            </option>
-          </select>
-        </div>
-      </div>
+              <option value="" disabled>选择 Provider</option>
+              <option v-for="p in providerOptions" :key="p.provider" :value="p.provider">
+                {{ p.label }}
+              </option>
+            </select>
+          </label>
 
-      <div class="form-group">
-        <label>工作区根目录</label>
-        <div class="picker-row">
-          <Input :model-value="form.runtime.workspaceRoot" readonly />
-          <Button variant="secondary" data-action="pick-workspace-root" @click="$emit('pick-directory', 'runtime.workspaceRoot')">选择</Button>
-        </div>
-        <p class="hint">TK-OPS 所有的项目数据、资产记录和模型配置都将持久化到此目录下。</p>
-      </div>
+          <label class="settings-field">
+            <span>默认生成模型</span>
+            <select
+              :value="form.ai.model"
+              class="ui-select"
+              data-field="ai.model"
+              :disabled="disabled || modelOptions.length === 0"
+              @change="e => updateForm({ ai: { model: (e.target as HTMLSelectElement).value } })"
+            >
+              <option value="" disabled>{{ modelOptions.length === 0 ? "当前 Provider 暂无模型" : "选择模型" }}</option>
+              <option v-for="m in modelOptions" :key="m.modelId" :value="m.modelId">
+                {{ m.modelId }}
+              </option>
+            </select>
+          </label>
 
-      <div class="form-grid">
-        <div class="form-group">
-          <label>缓存目录</label>
-          <div class="picker-row">
+          <label class="settings-field">
+            <span>默认配音</span>
+            <select
+              :value="form.ai.voice"
+              class="ui-select"
+              data-field="ai.voice"
+              :disabled="disabled"
+              @change="e => updateForm({ ai: { voice: (e.target as HTMLSelectElement).value } })"
+            >
+              <option value="nova">Nova</option>
+              <option value="alloy">Alloy</option>
+            </select>
+          </label>
+
+          <label class="settings-field">
+            <span>字幕生成模式</span>
+            <select
+              :value="form.ai.subtitleMode"
+              class="ui-select"
+              data-field="ai.subtitleMode"
+              :disabled="disabled"
+              @change="e => updateForm({ ai: { subtitleMode: (e.target as HTMLSelectElement).value } })"
+            >
+              <option value="balanced">平衡模式</option>
+              <option value="precise">精确模式</option>
+              <option value="fast">极速模式</option>
+            </select>
+          </label>
+
+          <label class="settings-field">
+            <span>日志级别</span>
+            <select
+              :value="form.logging.level"
+              class="ui-select"
+              data-field="logging.level"
+              :disabled="disabled"
+              @change="e => updateForm({ logging: { level: (e.target as HTMLSelectElement).value } })"
+            >
+              <option value="DEBUG">DEBUG (最详细)</option>
+              <option value="INFO">INFO (推荐)</option>
+              <option value="WARNING">WARNING</option>
+              <option value="ERROR">ERROR</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="system-card system-directory-table">
+        <div class="system-card__header">
+          <div>
+            <p class="detail-panel__label">本地路径</p>
+            <h3>目录由系统选择器写入</h3>
+          </div>
+          <span class="system-card__badge">本机路径</span>
+        </div>
+
+        <div class="system-directory-table__rows">
+          <article class="system-directory-row">
+            <div>
+              <strong>工作区根目录</strong>
+              <span>项目数据、资产记录和模型配置的根目录。</span>
+            </div>
+            <Input :model-value="form.runtime.workspaceRoot" readonly />
+            <Button variant="secondary" data-action="pick-workspace-root" :disabled="disabled" @click="$emit('pick-directory', 'runtime.workspaceRoot')">
+              选择
+            </Button>
+          </article>
+
+          <article class="system-directory-row">
+            <div>
+              <strong>缓存目录</strong>
+              <span>模型缓存、资产预览和运行期临时文件。</span>
+            </div>
             <Input :model-value="form.paths.cacheDir" readonly />
-            <Button variant="secondary" data-action="pick-cache-dir" @click="$emit('pick-directory', 'paths.cacheDir')">选择</Button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>导出目录</label>
-          <div class="picker-row">
+            <Button variant="secondary" data-action="pick-cache-dir" :disabled="disabled" @click="$emit('pick-directory', 'paths.cacheDir')">
+              选择
+            </Button>
+          </article>
+
+          <article class="system-directory-row">
+            <div>
+              <strong>导出目录</strong>
+              <span>渲染结果和交付文件的默认位置。</span>
+            </div>
             <Input :model-value="form.paths.exportDir" readonly />
-            <Button variant="secondary" data-action="pick-export-dir" @click="$emit('pick-directory', 'paths.exportDir')">选择</Button>
-          </div>
+            <Button variant="secondary" data-action="pick-export-dir" :disabled="disabled" @click="$emit('pick-directory', 'paths.exportDir')">
+              选择
+            </Button>
+          </article>
         </div>
-      </div>
+      </section>
     </div>
 
-    <!-- 缓存管理 -->
-    <div v-if="currentSection === 'system' || currentSection === 'cache'" class="form-section">
-      <div class="cache-list">
-        <Card v-for="item in cacheItems" :key="item.key" class="cache-item" :interactive="false">
-          <div class="cache-info">
-            <strong>{{ item.label }}</strong>
-            <span>{{ item.size }}</span>
-          </div>
-          <Button
-            variant="danger"
-            size="sm"
-            :disabled="clearingKey === item.key"
-            @click="confirmClear(item.key, item.label)"
-          >
-            {{ clearingKey === item.key ? '清除中...' : '清除' }}
-          </Button>
-        </Card>
-      </div>
-      <div class="danger-zone">
-        <Button variant="danger" block @click="confirmClearAll">
-          {{ clearingKey === 'all' ? '清除中...' : '全部清除' }}
+    <aside class="system-bus-layout__inspector">
+      <section class="system-card system-card--inspector">
+        <p class="detail-panel__label">Inspector</p>
+        <h3>日志与缓存</h3>
+        <p class="system-card__summary">
+          常规运行配置在主区编辑，诊断和系统边界统一放到右上角详情抽屉。
+        </p>
+
+        <Button variant="secondary" data-action="pick-log-dir" :disabled="disabled" @click="$emit('open-log-directory')">
+          <template #leading><span class="material-symbols-outlined">folder_open</span></template>
+          打开日志所在目录
         </Button>
-        <p class="hint danger-hint">清除全部缓存后可能需要重新下载模型和生成预览图。</p>
-      </div>
-    </div>
 
-    <!-- 日志设置 -->
-    <div v-if="currentSection === 'system' || currentSection === 'logging'" class="form-section">
-      <div class="form-group">
-        <label>日志级别</label>
-        <select
-          :value="form.logging.level"
-          class="ui-select"
-          data-field="logging.level"
-          @change="e => updateForm({ logging: { level: (e.target as HTMLSelectElement).value } })"
-        >
-          <option value="DEBUG">DEBUG (最详细)</option>
-          <option value="INFO">INFO (推荐)</option>
-          <option value="WARNING">WARNING</option>
-          <option value="ERROR">ERROR</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>日志保留天数</label>
-        <Input type="number" :model-value="'7'" />
-      </div>
-      <Button variant="secondary" data-action="pick-log-dir" @click="$emit('open-log-directory')">
-        <template #leading><span class="material-symbols-outlined">folder_open</span></template>
-        打开日志所在目录
-      </Button>
-    </div>
+        <div class="cache-list">
+          <article v-for="item in cacheItems" :key="item.key" class="cache-item">
+            <div>
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.size }}</span>
+            </div>
+            <Button
+              variant="danger"
+              size="sm"
+              :disabled="disabled || clearingKey === item.key"
+              @click="confirmClear(item.key, item.label)"
+            >
+              {{ clearingKey === item.key ? "清除中..." : "清除" }}
+            </Button>
+          </article>
+        </div>
 
-    <!-- 字幕策略 -->
-    <div v-if="currentSection === 'system' || currentSection === 'subtitle'" class="form-section">
-      <div class="form-group">
-        <label>默认配音</label>
-        <select
-          :value="form.ai.voice"
-          class="ui-select"
-          data-field="ai.voice"
-          @change="e => updateForm({ ai: { voice: (e.target as HTMLSelectElement).value } })"
-        >
-          <option value="nova">Nova</option>
-          <option value="alloy">Alloy</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>字幕生成模式</label>
-        <select
-          :value="form.ai.subtitleMode"
-          class="ui-select"
-          data-field="ai.subtitleMode"
-          @change="e => updateForm({ ai: { subtitleMode: (e.target as HTMLSelectElement).value } })"
-        >
-          <option value="balanced">平衡模式</option>
-          <option value="precise">精确模式</option>
-          <option value="fast">极速模式</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>默认字体</label>
-        <Input :model-value="'HarmonyOS Sans SC'" />
-      </div>
-    </div>
-  </div>
+        <Button variant="danger" block :disabled="disabled || clearingKey === 'all'" @click="confirmClearAll">
+          {{ clearingKey === "all" ? "清除中..." : "全部清除缓存" }}
+        </Button>
+      </section>
+    </aside>
+  </section>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import type { AppSettingsUpdateInput, AIModelCatalogItem, AIProviderCatalogItem } from "@/types/runtime";
-import { useConfigBusStore } from "@/stores/config-bus";
-import Button from "@/components/ui/Button/Button.vue";
-import Card from "@/components/ui/Card/Card.vue";
-import Input from "@/components/ui/Input/Input.vue";
 
-const props = defineProps<{
+import Button from "@/components/ui/Button/Button.vue";
+import Input from "@/components/ui/Input/Input.vue";
+import type { AIModelCatalogItem, AIProviderCatalogItem, AppSettingsUpdateInput } from "@/types/runtime";
+
+defineProps<{
   currentSection: string;
   form: AppSettingsUpdateInput;
   disabled: boolean;
@@ -190,133 +209,198 @@ const emit = defineEmits<{
   (e: "open-log-directory"): void;
 }>();
 
-const configBusStore = useConfigBusStore();
 const clearingKey = ref<string | null>(null);
 
-/** 缓存条目——优先从诊断数据读取大小，否则显示提示 */
-const cacheItems = computed(() => {
-  return [
-    { key: "model", label: "模型缓存", size: "Runtime 尚未提供体积查询接口" },
-    { key: "asset", label: "资产预览图", size: "暂存本地，请通过资源管理器清理" },
-    { key: "render", label: "渲染缓存", size: "暂存本地，请通过资源管理器清理" }
-  ];
-});
+const cacheItems = computed(() => [
+  { key: "model", label: "模型缓存", size: "Runtime 尚未提供体积查询接口" },
+  { key: "asset", label: "资产预览图", size: "暂存本地，请通过资源管理器清理" },
+  { key: "render", label: "渲染缓存", size: "暂存本地，请通过资源管理器清理" }
+]);
 
 function updateForm(patch: Partial<AppSettingsUpdateInput>) {
   emit("update", patch);
 }
 
 function confirmClear(key: string, label: string) {
-  if (!confirm(`确定清除「${label}」吗？此操作不可撤销。`)) return;
+  if (!confirm(`确定清除「${label}」吗？此操作不可撤销。`)) {
+    return;
+  }
   clearingKey.value = key;
-  // 实际应调用 runtime-client 的缓存清除接口
-  setTimeout(() => { clearingKey.value = null; }, 1500);
+  window.setTimeout(() => {
+    clearingKey.value = null;
+  }, 1500);
 }
 
 function confirmClearAll() {
-  if (!confirm("确定清除全部缓存吗？清除后可能需要重新下载模型和生成预览图。")) return;
+  if (!confirm("确定清除全部缓存吗？清除后可能需要重新下载模型和生成预览图。")) {
+    return;
+  }
   clearingKey.value = "all";
-  setTimeout(() => { clearingKey.value = null; }, 2000);
+  window.setTimeout(() => {
+    clearingKey.value = null;
+  }, 2000);
 }
 </script>
 
 <style scoped>
-.system-form-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
+.system-bus-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.34fr);
+  gap: var(--density-panel-gap);
+  min-width: 0;
+  align-items: start;
 }
 
-.form-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
+.system-bus-layout__main,
+.system-bus-layout__inspector {
+  display: grid;
+  gap: var(--density-panel-gap);
+  min-width: 0;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+.system-card {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
 }
 
-.form-group label {
-  font: var(--font-title-sm);
-  color: var(--color-text-secondary);
-}
-
-.picker-row {
+.system-card__header {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: var(--space-3);
 }
 
-.picker-row :deep(.ui-input-wrapper) {
-  flex: 1;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
-}
-
-.hint {
-  font: var(--font-caption);
-  color: var(--color-text-tertiary);
+.system-card__header h3,
+.system-card--inspector h3,
+.system-card__summary {
   margin: 0;
 }
 
-.ui-select {
-  height: 40px;
-  padding: 0 12px;
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font: var(--font-body-md);
-  outline: none;
-  transition: border-color var(--motion-fast) var(--ease-standard);
+.system-card__header h3,
+.system-card--inspector h3 {
+  font: var(--font-title-md);
+  letter-spacing: 0;
 }
 
-.ui-select:focus { border-color: var(--color-brand-primary); }
+.system-card__badge {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-primary);
+  color: var(--text-secondary);
+  font: var(--font-caption);
+}
 
-.cache-list {
-  display: flex;
-  flex-direction: column;
+.system-card__summary,
+.cache-item span,
+.system-directory-row span {
+  color: var(--text-secondary);
+  font: var(--font-body-sm);
+  letter-spacing: 0;
+}
+
+.system-field-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
-.cache-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-4);
+.settings-field {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-.cache-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.cache-info strong {
-  font: var(--font-body-md);
-  color: var(--color-text-primary);
-}
-
-.cache-info span {
+.settings-field span {
+  color: var(--text-secondary);
   font: var(--font-caption);
-  color: var(--color-text-secondary);
 }
 
-.danger-zone {
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border-subtle);
+.settings-field select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-primary) 96%, transparent);
+  color: var(--text-primary);
+  font: var(--font-body-md);
 }
 
-.danger-hint {
-  margin-top: var(--space-2);
-  text-align: center;
-  color: var(--color-text-tertiary);
+.system-directory-table__rows,
+.cache-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.system-directory-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.42fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-primary) 92%, transparent);
+}
+
+.system-directory-row > div,
+.cache-item > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.system-directory-row strong,
+.cache-item strong {
+  font: var(--font-title-sm);
+  letter-spacing: 0;
+}
+
+.system-directory-row :deep(.ui-input-wrapper) {
+  min-width: 0;
+}
+
+.system-directory-row :deep(input) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cache-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-primary) 92%, transparent);
+}
+
+@container settings-console (max-width: 1180px) {
+  .system-bus-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .system-field-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container settings-console (max-width: 720px) {
+  .system-field-grid,
+  .system-directory-row,
+  .cache-item {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

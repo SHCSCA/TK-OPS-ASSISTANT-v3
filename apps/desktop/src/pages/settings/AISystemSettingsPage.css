@@ -37,15 +37,14 @@
 
 .settings-console__body {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 320px;
+  grid-template-columns: 220px minmax(0, 1fr);
   align-items: start;
   gap: var(--density-panel-gap);
   min-height: 0;
   min-width: 0;
 }
 
-.settings-console__workspace,
-.settings-console__inspector {
+.settings-console__workspace {
   min-width: 0;
 }
 
@@ -95,24 +94,6 @@
   min-width: 0;
 }
 
-.settings-console__workspace-actions .settings-page__button,
-.settings-console__diagnostic-actions .settings-page__button {
-  max-width: 100%;
-  min-height: 36px;
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-md);
-  box-shadow: none;
-  font: var(--font-title-sm);
-  letter-spacing: 0;
-  white-space: nowrap;
-}
-
-.settings-console__workspace-actions .settings-page__button--ghost {
-  border: 1px solid var(--border-default);
-  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
-  color: var(--text-primary);
-}
-
 .settings-console__state-pill {
   display: inline-flex;
   align-items: center;
@@ -146,118 +127,21 @@
   gap: var(--density-panel-gap);
 }
 
-.settings-console__diagnostic-stage {
-  display: grid;
-  gap: var(--density-panel-gap);
-}
-
-.settings-console__diagnostic-hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
-}
-
-.settings-console__diagnostic-hero h3 {
-  margin: 0;
-  font: var(--font-title-lg);
-  letter-spacing: 0;
-}
-
-.settings-console__diagnostic-hero .workspace-page__summary {
-  margin: 0;
-  color: var(--text-secondary);
-  font: var(--font-body-sm);
-  letter-spacing: 0;
-}
-
-.settings-console__diagnostic-grid {
-  display: grid;
-  gap: var(--space-3);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.settings-console__diagnostic-tile {
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-4);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
-}
-
-.settings-console__diagnostic-tile span {
-  color: var(--text-secondary);
-  font: var(--font-caption);
-  letter-spacing: 0;
-}
-
-.settings-console__diagnostic-tile strong {
-  font: var(--font-title-md);
-  letter-spacing: 0;
-}
-
-.settings-console__diagnostic-tile p {
-  margin: 0;
-  color: var(--text-secondary);
-  font: var(--font-body-sm);
-  letter-spacing: 0;
-}
-
-@media (max-width: 1320px) {
-  .settings-console__body {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-
-  .settings-console__inspector {
-    grid-column: 1 / -1;
-  }
-}
-
 @media (max-width: 980px) {
   .settings-console__body,
-  .settings-console__capability-layout,
-  .settings-console__diagnostic-grid {
+  .settings-console__capability-layout {
     grid-template-columns: 1fr;
   }
 }
 
 @container settings-console (max-width: 900px) {
   .settings-console__body,
-  .settings-console__capability-layout,
-  .settings-console__diagnostic-grid {
+  .settings-console__capability-layout {
     grid-template-columns: 1fr;
   }
 
-  .settings-console__inspector {
-    grid-column: auto;
-  }
-
-  .settings-console__workspace-header,
-  .settings-console__diagnostic-hero {
+  .settings-console__workspace-header {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .settings-console__workspace-actions,
-  .settings-console__diagnostic-actions {
-    justify-content: flex-start;
-  }
-}
-
-@container settings-console (max-width: 680px) {
-  .settings-console__workspace-actions,
-  .settings-console__diagnostic-actions {
-    align-items: stretch;
-    display: flex;
-  }
-
-  .settings-console__workspace-actions .settings-page__button,
-  .settings-console__diagnostic-actions .settings-page__button {
-    width: 100%;
   }
 }

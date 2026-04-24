@@ -98,6 +98,9 @@ export const useAIStore = defineStore("ai-capability", {
     async checkProvider(providerId: string, input?: AIProviderHealthInput): Promise<AIProviderHealth> {
       const health = await this.checkAIProviderHealth(providerId, input);
       this.providerHealth[providerId] = health;
+      if (health.message.includes("已从可选模型中屏蔽")) {
+        await Promise.all([this.loadModelsForProvider(providerId), this.reloadSupportMatrix()]);
+      }
       return health;
     },
 
@@ -131,6 +134,7 @@ export const useAIStore = defineStore("ai-capability", {
               }
               break;
             case "provider_models_refreshed":
+            case "provider_model_disabled":
               for (const pId of providerIds) {
                 await Promise.all([
                   this.loadModelsForProvider(pId),
@@ -180,7 +184,7 @@ export const useAIStore = defineStore("ai-capability", {
       this.status = "saving";
       try {
         await saveAIProviderSecret(providerId, input);
-        await this.reloadSettings();
+        await Promise.all([this.reloadSettings(), this.reloadProviderCatalog()]);
         this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error);

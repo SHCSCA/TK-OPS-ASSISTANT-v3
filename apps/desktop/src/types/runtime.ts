@@ -332,6 +332,11 @@ export type AIProviderCatalogItem = {
   provider: string;
   label: string;
   kind: string;
+  region: string;
+  category: string;
+  protocol: string;
+  modelSyncMode: string;
+  tags: string[];
   configured: boolean;
   baseUrl: string;
   secretSource: string;

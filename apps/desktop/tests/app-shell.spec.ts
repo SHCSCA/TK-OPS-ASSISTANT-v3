@@ -119,6 +119,8 @@ describe("App shell", () => {
     expect(shell.attributes("data-sidebar-collapsed")).toBe("true");
     expect(shell.attributes("data-detail-open")).toBe("true");
     expect(wrapper.find(".app-shell__title-bar").exists()).toBe(true);
+    expect(wrapper.find(".shell-search").exists()).toBe(false);
+    expect(wrapper.find(".shell-title-bar__detail-toggle").exists()).toBe(true);
     expect(wrapper.find(".app-shell__sidebar").classes()).toContain("is-collapsed");
     expect(wrapper.find(".app-shell__detail").classes()).toContain("is-open");
     expect(wrapper.find(".app-shell__status").exists()).toBe(true);

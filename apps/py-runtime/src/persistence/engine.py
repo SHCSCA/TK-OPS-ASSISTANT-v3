@@ -455,6 +455,16 @@ def _repair_legacy_publish_plan_schema(engine: Engine) -> None:
 def _repair_legacy_account_schema(engine: Engine) -> None:
     required_columns = {
         "name": "TEXT NOT NULL DEFAULT ''",
+        "platform": "VARCHAR NOT NULL DEFAULT 'tiktok'",
+        "username": "TEXT",
+        "avatar_url": "TEXT",
+        "status": "VARCHAR NOT NULL DEFAULT 'active'",
+        "auth_expires_at": "TEXT",
+        "follower_count": "INTEGER",
+        "following_count": "INTEGER",
+        "video_count": "INTEGER",
+        "tags": "TEXT",
+        "notes": "TEXT",
         "last_validated_at": "TEXT",
         "created_at": "TEXT NOT NULL DEFAULT ''",
         "updated_at": "TEXT NOT NULL DEFAULT ''",
@@ -478,6 +488,16 @@ def _repair_legacy_account_schema(engine: Engine) -> None:
                     UPDATE accounts
                     SET name = COALESCE(NULLIF(display_name, ''), NULLIF(name, ''))
                     WHERE (name IS NULL OR name = '')
+                    """
+                )
+            )
+        if "handle" in columns and "username" in columns:
+            connection.execute(
+                text(
+                    """
+                    UPDATE accounts
+                    SET username = NULLIF(handle, '')
+                    WHERE username IS NULL OR username = ''
                     """
                 )
             )
@@ -513,6 +533,31 @@ def _repair_legacy_account_schema(engine: Engine) -> None:
                 ),
                 {"fallback_time": fallback_time},
             )
+        if "platform" in columns:
+            connection.execute(
+                text(
+                    """
+                    UPDATE accounts
+                    SET platform = 'tiktok'
+                    WHERE platform IS NULL OR platform = ''
+                    """
+                )
+            )
+        if "status" in columns:
+            connection.execute(
+                text(
+                    """
+                    UPDATE accounts
+                    SET status = 'active'
+                    WHERE status IS NULL OR status = ''
+                    """
+                )
+            )
+
+        needs_rebuild = _has_blocking_legacy_account_columns(connection)
+
+    if needs_rebuild:
+        _rebuild_legacy_account_table(engine)
 
 
 def _repair_legacy_device_workspace_schema(engine: Engine) -> None:
@@ -624,6 +669,14 @@ def _table_columns(connection, table_name: str) -> set[str]:  # type: ignore[no-
     return {str(row["name"]) for row in rows}
 
 
+def _column_expr(columns: set[str], column_name: str) -> str:
+    return column_name if column_name in columns else "NULL"
+
+
+def _nullif_text_column_expr(columns: set[str], column_name: str) -> str:
+    return f"NULLIF({column_name}, '')" if column_name in columns else "NULL"
+
+
 def _has_blocking_legacy_asset_columns(connection) -> bool:  # type: ignore[no-untyped-def]
     rows = connection.execute(text("PRAGMA table_info(assets)")).mappings().all()
     legacy_columns = {"kind", "file_name", "mime_type"}
@@ -631,6 +684,17 @@ def _has_blocking_legacy_asset_columns(connection) -> bool:  # type: ignore[no-u
         str(row["name"]) in legacy_columns and int(row["notnull"]) == 1
         for row in rows
     )
+
+
+def _has_blocking_legacy_account_columns(connection) -> bool:  # type: ignore[no-untyped-def]
+    rows = connection.execute(text("PRAGMA table_info(accounts)")).mappings().all()
+    legacy_columns = {"handle", "display_name", "group_name", "source", "metadata_json"}
+    for row in rows:
+        column_name = str(row["name"])
+        if column_name in legacy_columns and int(row["notnull"]) == 1:
+            if row["dflt_value"] in (None, ""):
+                return True
+    return False
 
 
 def _has_blocking_legacy_device_workspace_columns(connection) -> bool:  # type: ignore[no-untyped-def]
@@ -657,6 +721,103 @@ def _has_blocking_legacy_execution_binding_columns(connection) -> bool:  # type:
             if row["dflt_value"] in (None, ""):
                 return True
     return False
+
+
+def _rebuild_legacy_account_table(engine: Engine) -> None:
+    fallback_time = datetime.now(UTC).isoformat()
+
+    with engine.connect() as connection:
+        columns = _table_columns(connection, "accounts")
+        if not columns:
+            return
+
+        display_name_expr = _nullif_text_column_expr(columns, "display_name")
+        handle_expr = _nullif_text_column_expr(columns, "handle")
+        username_expr = _nullif_text_column_expr(columns, "username")
+        avatar_expr = _nullif_text_column_expr(columns, "avatar_url")
+        auth_expires_expr = _nullif_text_column_expr(columns, "auth_expires_at")
+        follower_count_expr = _column_expr(columns, "follower_count")
+        following_count_expr = _column_expr(columns, "following_count")
+        video_count_expr = _column_expr(columns, "video_count")
+        tags_expr = _nullif_text_column_expr(columns, "tags")
+        notes_expr = _nullif_text_column_expr(columns, "notes")
+        last_validated_expr = _nullif_text_column_expr(columns, "last_validated_at")
+
+        connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        connection.commit()
+
+        try:
+            with connection.begin():
+                connection.execute(text("DROP TABLE IF EXISTS accounts_repaired"))
+                connection.execute(
+                    text(
+                        """
+                        CREATE TABLE accounts_repaired (
+                            id VARCHAR PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            platform VARCHAR NOT NULL,
+                            username TEXT,
+                            avatar_url TEXT,
+                            status VARCHAR NOT NULL,
+                            auth_expires_at TEXT,
+                            follower_count INTEGER,
+                            following_count INTEGER,
+                            video_count INTEGER,
+                            tags TEXT,
+                            notes TEXT,
+                            last_validated_at TEXT,
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL
+                        )
+                        """
+                    )
+                )
+                connection.execute(
+                    text(
+                        f"""
+                        INSERT INTO accounts_repaired (
+                            id,
+                            name,
+                            platform,
+                            username,
+                            avatar_url,
+                            status,
+                            auth_expires_at,
+                            follower_count,
+                            following_count,
+                            video_count,
+                            tags,
+                            notes,
+                            last_validated_at,
+                            created_at,
+                            updated_at
+                        )
+                        SELECT
+                            id,
+                            COALESCE(NULLIF(name, ''), {display_name_expr}, {handle_expr}, id),
+                            COALESCE(NULLIF(platform, ''), 'tiktok'),
+                            COALESCE({username_expr}, {handle_expr}),
+                            {avatar_expr},
+                            COALESCE(NULLIF(status, ''), 'active'),
+                            {auth_expires_expr},
+                            {follower_count_expr},
+                            {following_count_expr},
+                            {video_count_expr},
+                            {tags_expr},
+                            {notes_expr},
+                            {last_validated_expr},
+                            COALESCE(NULLIF(created_at, ''), :fallback_time),
+                            COALESCE(NULLIF(updated_at, ''), NULLIF(created_at, ''), :fallback_time)
+                        FROM accounts
+                        """
+                    ),
+                    {"fallback_time": fallback_time},
+                )
+                connection.execute(text("DROP TABLE accounts"))
+                connection.execute(text("ALTER TABLE accounts_repaired RENAME TO accounts"))
+        finally:
+            connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+            connection.commit()
 
 
 def _rebuild_legacy_device_workspace_table(engine: Engine) -> None:

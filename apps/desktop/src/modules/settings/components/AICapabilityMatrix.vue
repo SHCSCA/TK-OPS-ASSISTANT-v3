@@ -5,7 +5,7 @@
         <p class="detail-panel__label">能力矩阵</p>
         <h2>能力到 Provider 的绑定</h2>
         <p class="workspace-page__summary">
-          先看能力，再决定对应的 Provider、模型和提示词模板，避免在配置里来回翻找。
+          能力列表只负责选择和启停，具体 Provider、模型和提示词在右侧 Inspector 编辑。
         </p>
       </div>
     </div>
@@ -14,7 +14,7 @@
       AI 能力配置尚未加载。
     </div>
 
-    <div v-else class="capability-matrix">
+    <div v-else class="capability-matrix capability-matrix__list">
       <button
         v-for="capability in capabilities"
         :key="capability.capabilityId"
@@ -69,6 +69,8 @@ defineEmits<{
 .settings-workspace-panel {
   display: grid;
   gap: 16px;
+  min-width: 0;
+  container-type: inline-size;
 }
 
 .settings-workspace-panel__header {
@@ -91,6 +93,7 @@ defineEmits<{
 .capability-matrix {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .capability-matrix__row {
@@ -98,6 +101,7 @@ defineEmits<{
   grid-template-columns: minmax(0, 1.2fr) minmax(180px, 0.9fr) auto;
   gap: 12px;
   align-items: center;
+  min-width: 0;
   padding: 14px 16px;
   border: 1px solid var(--border-default);
   border-radius: 8px;
@@ -123,6 +127,15 @@ defineEmits<{
 .capability-matrix__meta {
   display: grid;
   gap: 4px;
+  min-width: 0;
+}
+
+.capability-matrix__main strong,
+.capability-matrix__main span,
+.capability-matrix__meta span,
+.capability-matrix__toggle span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .capability-matrix__main span,
@@ -134,14 +147,26 @@ defineEmits<{
 .capability-matrix__toggle {
   display: inline-flex;
   align-items: center;
+  justify-self: end;
   gap: 8px;
   color: var(--text-secondary);
   font-size: 12px;
+  white-space: nowrap;
 }
 
-@media (max-width: 920px) {
+@container (max-width: 620px) {
   .capability-matrix__row {
     grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .capability-matrix__meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 12px;
+  }
+
+  .capability-matrix__toggle {
+    justify-self: start;
   }
 }
 </style>

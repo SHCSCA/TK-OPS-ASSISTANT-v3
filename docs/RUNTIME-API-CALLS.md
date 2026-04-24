@@ -1721,6 +1721,13 @@ waveform 缺少音频：
 | `PUT /api/settings/ai-capabilities/providers/{provider_id}/secret` | `AIProviderSecretInput`：`apiKey`、`baseUrl?` | `AIProviderSecretStatusDto` | `404`、`422` | `updateAIProviderSecret` |
 | `POST /api/settings/ai-capabilities/providers/{provider_id}/health-check` | `AIProviderHealthCheckInput`：`model?` | `AIProviderHealthDto` | `404`、`422` | `checkAIProviderHealth` |
 
+`support-matrix` 只返回启用模型，并按能力语义匹配：
+
+- `subtitle_alignment` 可使用文本生成模型。
+- `asset_analysis` 可使用声明 `asset_analysis` 的模型，或具备 `vision` / `image` / `video` 输入并输出文本的模型。
+- `video_generation` 只使用声明视频生成或输出 `video` 的模型。
+- 健康检查发现 404、模型不存在或无权限时，Runtime 会把该模型写入停用覆盖记录，并广播 `ai-capability.changed` / `provider_model_disabled`，前端需刷新当前 Provider 模型目录和支持矩阵。
+
 ### 17.3 AI Provider 目录
 
 **核心返回 DTO**: `AIProviderCatalogItemDto`、`AIModelCatalogItemDto`、`AIModelCatalogRefreshResultDto`
@@ -1729,7 +1736,32 @@ waveform 缺少音频：
 | --- | --- | --- | --- | --- |
 | `GET /api/settings/ai-providers/catalog` | 无 | `AIProviderCatalogItemDto[]` | `500` | `fetchAIProviderCatalog` |
 | `GET /api/settings/ai-providers/{provider_id}/models` | 路径参数：`provider_id` | `AIModelCatalogItemDto[]` | `404` | `fetchAIProviderModels` |
-| `POST /api/settings/ai-providers/{provider_id}/models/refresh` | 路径参数：`provider_id` | `AIModelCatalogRefreshResultDto` | `404`、`409` | `refreshAIProviderModels` |
+| `POST /api/settings/ai-providers/{provider_id}/models/refresh` | 路径参数：`provider_id`；OpenAI 兼容类读取 `{baseUrl}/models`，Ollama / OpenRouter 使用专用目录接口 | `AIModelCatalogRefreshResultDto` | `400`、`404`、`502`；缺密钥 `provider.model.refresh_missing_secret`，缺 Base URL `provider.model.refresh_missing_base_url` | `refreshAIProviderModels` |
+
+`AIProviderCatalogItemDto` 字段：
+
+| 字段 | 含义 |
+| --- | --- |
+| `provider`、`label`、`kind` | Provider ID、展示名称和基础类型。 |
+| `region` | `domestic`、`global`、`local`、`custom`，用于 Provider Hub 模板分组。 |
+| `category` | `model_hub`、`text`、`video`、`tts`、`aggregator`、`local`、`custom` 等工作台分类。 |
+| `protocol` | Runtime 协议族，如 `openai_responses`、`openai_chat`、`anthropic_messages`、`gemini_generate`、`cohere_chat`、`manual_catalog`。 |
+| `modelSyncMode` | `remote`、`static`、`manual`，标识模型目录来自远端同步、内置目录或手动维护。 |
+| `tags` | 中文模板标签，用于前端展示和检索，不参与连通性判断。 |
+| `configured`、`status` | 由密钥、Base URL 和 Runtime 健康快照计算，不代表远端模型一定可用。 |
+| `baseUrl`、`secretSource` | 当前 Runtime 解析出的 Base URL 与密钥来源；不会返回明文 API Key。 |
+| `capabilities` | Provider 声明能力，模型级最终能力仍以 `AIModelCatalogItemDto.capabilityTypes` 为准。 |
+| `requiresBaseUrl`、`supportsModelDiscovery` | 配置要求和是否允许通过 Runtime 执行模型目录刷新。 |
+
+首批 Provider Hub 模板覆盖国际、本地、国内文本/多模态、国内视频、国内 TTS 和自定义 Provider。模板只作为接入入口，真实可用模型仍以配置后的模型目录接口为准。
+
+模型目录刷新规则：
+
+- OpenAI 兼容协议默认读取 `{baseUrl}/models`；当远端未返回 modalities 时，Runtime 使用 Model ID / 展示名做保守推断。
+- `seedance`、`kling`、`wanx`、`vidu`、`hailuo`、`video` 等标记推断为 `video_generation`，输入 `text/image`，输出 `video`。
+- `tts`、`speech`、`voice` 等标记推断为 `tts`，输入 `text`，输出 `audio`。
+- `vl`、`vision`、`visual` 等标记推断为视觉文本模型，输入 `text/image`，输出 `text`。
+- `GET /api/settings/ai-providers/{provider_id}/models` 不返回已停用模型，用于避免无权限模型继续进入 UI 选择器。
 
 ### 17.4 AI Provider 运行时聚合
 
@@ -2042,7 +2074,7 @@ waveform 缺少音频：
 
 | 层级 | 现状 | 缺口 |
 | --- | --- | --- |
-| Provider 目录层 | `_provider_catalog_metadata()` 已定义 24+ Provider | **已完成** |
+| Provider 目录层 | `_provider_catalog_metadata()` 已定义 30+ Provider，包含国内厂商模板和自定义 Provider 模板 | **已完成** |
 | 健康探针层 | `openai` / `openai_compatible` / `anthropic` / `gemini` / `cohere` 均有 `_post_*_probe` | **已完成** |
 | 文本生成 dispatch | `generate_text()` 已使用 `dispatch_text_generation(runtime_config, request)`，按 `ProviderRuntimeConfig.protocol_family` 走统一 registry | **已完成** |
 | TTS 生成 dispatch | `voice_service.py` 的 `generate_track()` 已支持 `blocked / processing` 双路径；当前仅 OpenAI TTS 可真实执行 | **已完成最小真实接入** |
@@ -2050,17 +2082,17 @@ waveform 缺少音频：
 
 ### 21.2 Provider 协议族分类
 
-所有 24+ Provider 按 HTTP 协议归为 **5 个协议族**，dispatch 只需实现 5 条路径：
+所有 Provider 按 HTTP 协议归为少量协议族，dispatch 只需实现稳定路径：
 
 | 协议族 ID | 协议特征 | 覆盖 Provider |
 | --- | --- | --- |
 | `openai_responses` | POST `/responses`，Bearer auth，`{model, instructions, input}` | `openai`（仅 Responses API） |
-| `openai_chat` | POST `/chat/completions`，Bearer auth，`{model, messages}` | `openai_compatible`, `deepseek`, `qwen`, `kimi`, `zhipu`, `minimax`, `doubao`, `baidu_qianfan`, `hunyuan`, `xai`, `mistral`, `openrouter`, `ollama`, `lm_studio`, `vllm`, `localai` |
+| `openai_chat` | POST `/chat/completions`，Bearer auth，`{model, messages}`；模型目录刷新默认读取 `/models` | `openai_compatible`, `custom_openai_compatible`, `video_generation_provider`, `asset_analysis_provider`, `deepseek`, `qwen`, `kimi`, `zhipu`, `volcengine`, `baidu_qianfan`, `tencent_hunyuan`, `xunfei_spark`, `minimax`, `baichuan`, `lingyi`, `stepfun`, `sensecore`, `openrouter`, `ollama` |
 | `anthropic_messages` | POST `/messages`，`x-api-key` header + `anthropic-version`，`{model, messages, max_tokens}` | `anthropic` |
 | `gemini_generate` | POST `/models/{model}:generateContent?key=`，无 auth header，`{contents}` | `gemini` |
 | `cohere_chat` | POST `/chat`，Bearer auth，`{model, message}` | `cohere` |
 
-> **规则**：目录中未列出协议族的 Provider（如 `azure_speech`、`elevenlabs` 等）属于 TTS/视频/分析专用，不走文本生成 dispatch。
+> **规则**：目录中标记为 `manual_catalog` 或 TTS/视频/分析专用的 Provider（如 `azure_speech`、`elevenlabs`、`kling`、`custom_video_provider` 等）不走文本生成 dispatch。
 
 ### 21.3 Provider 适配器接口契约（Codex 实现规格）
 

@@ -12,6 +12,8 @@ from repositories.automation_repository import AutomationRepository
 from repositories.device_workspace_repository import DeviceWorkspaceRepository
 from repositories.render_repository import RenderRepository
 from repositories.publishing_repository import PublishingRepository
+from schemas.accounts import AccountCreateInput
+from services.account_service import AccountService
 
 
 def test_initialize_domain_schema_repair_render_tasks_legacy_columns(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -340,6 +342,96 @@ def test_initialize_domain_schema_repair_accounts_and_device_workspaces_and_auto
     assert workspaces[0].id == "workspace-legacy"
     assert len(tasks) == 1
     assert tasks[0].id == "task-legacy"
+
+
+def test_initialize_domain_schema_rebuilds_legacy_execution_accounts_table(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+    session_factory = create_session_factory(engine)
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE accounts (
+                    id TEXT PRIMARY KEY,
+                    platform TEXT NOT NULL,
+                    handle TEXT NOT NULL,
+                    display_name TEXT NOT NULL,
+                    group_name TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO accounts (
+                    id,
+                    platform,
+                    handle,
+                    display_name,
+                    group_name,
+                    status,
+                    source,
+                    metadata_json,
+                    created_at
+                )
+                VALUES (
+                    'account-old-exec',
+                    'tiktok',
+                    'old_creator',
+                    '旧执行账号',
+                    '默认分组',
+                    'active',
+                    'legacy-runtime',
+                    '{}',
+                    '2026-04-20 10:00:00'
+                )
+                """
+            )
+        )
+
+    initialize_domain_schema(engine)
+
+    account_columns = _table_columns(engine, "accounts")
+    assert {
+        "name",
+        "platform",
+        "username",
+        "avatar_url",
+        "status",
+        "auth_expires_at",
+        "follower_count",
+        "following_count",
+        "video_count",
+        "tags",
+        "notes",
+        "last_validated_at",
+        "created_at",
+        "updated_at",
+    } <= account_columns
+
+    account_repository = AccountRepository(session_factory=session_factory)
+    service = AccountService(account_repository)
+    accounts = service.list_accounts()
+
+    assert len(accounts) == 1
+    assert accounts[0].id == "account-old-exec"
+    assert accounts[0].name == "旧执行账号"
+    assert accounts[0].username == "old_creator"
+
+    created = service.create_account(
+        AccountCreateInput(
+            name="新增真实账号",
+            username="new_creator",
+        )
+    )
+    assert created.name == "新增真实账号"
+    assert created.username == "new_creator"
 
 
 def _table_columns(engine, table_name: str) -> set[str]:  # type: ignore[no-untyped-def]

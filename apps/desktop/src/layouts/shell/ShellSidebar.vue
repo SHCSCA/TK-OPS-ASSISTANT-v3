@@ -32,9 +32,7 @@
 
     <footer class="shell-sidebar__footer">
       <div class="shell-sidebar__user-card">
-        <div class="shell-sidebar__avatar">
-          <span class="material-symbols-outlined">person</span>
-        </div>
+        <TkopsBrandMark class="shell-sidebar__brand-mark" size="md" />
         <div class="shell-sidebar__user-info">
           <span class="user-name">本地创作者</span>
           <span class="user-status">{{ hasProject ? "工作区已连接" : "离线授权" }}</span>
@@ -50,6 +48,7 @@
 
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
+import TkopsBrandMark from "@/components/brand/TkopsBrandMark.vue";
 import type { RouteManifestItem } from "@/types/router";
 import { useShellUiStore } from "@/stores/shell-ui";
 
@@ -248,21 +247,8 @@ const shellUiStore = useShellUiStore();
   display: none;
 }
 
-.shell-sidebar__avatar {
-  align-items: center;
-  background: var(--gradient-ai-primary);
-  border-radius: var(--radius-full);
-  color: var(--color-text-on-brand);
-  display: flex;
+.shell-sidebar__brand-mark {
   flex-shrink: 0;
-  height: 32px;
-  justify-content: center;
-  width: 32px;
-  box-shadow: var(--shadow-glow-brand);
-}
-
-.shell-sidebar__avatar .material-symbols-outlined {
-  font-size: 16px;
 }
 
 .shell-sidebar__user-info {
@@ -272,14 +258,14 @@ const shellUiStore = useShellUiStore();
 
 .shell-sidebar__user-info .user-name {
   font: var(--font-title-sm);
-  letter-spacing: var(--ls-title-sm);
+  letter-spacing: 0;
   color: var(--color-text-primary);
   line-height: 1.2;
 }
 
 .shell-sidebar__user-info .user-status {
   font: var(--font-caption);
-  letter-spacing: var(--ls-caption);
+  letter-spacing: 0;
   color: var(--color-text-tertiary);
   margin-top: 2px;
 }

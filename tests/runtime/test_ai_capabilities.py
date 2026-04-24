@@ -260,7 +260,10 @@ def test_ai_provider_catalog_model_catalog_and_refresh_are_runtime_backed(
     assert providers['openai']['kind'] == 'commercial'
     assert providers['openai_compatible']['requiresBaseUrl'] is True
     assert providers['ollama']['kind'] == 'local'
-    assert providers['deepseek']['supportsModelDiscovery'] is False
+    assert providers['deepseek']['region'] == 'domestic'
+    assert providers['deepseek']['supportsModelDiscovery'] is True
+    assert providers['volcengine']['category'] == 'model_hub'
+    assert providers['custom_openai_compatible']['region'] == 'custom'
     assert 'apiKey' not in providers['openai']
 
     models_response = client.get('/api/settings/ai-providers/ollama/models')
@@ -302,6 +305,107 @@ def test_ai_provider_catalog_model_catalog_and_refresh_are_runtime_backed(
     assert refreshed['displayName'] == 'qwen2.5-vl:7b'
     assert refreshed['capabilityTypes'] == ['text_generation', 'vision']
     assert refreshed['inputModalities'] == ['text', 'image']
+
+
+def test_openai_compatible_provider_model_refresh_reads_remote_model_catalog(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+    client.put(
+        '/api/settings/ai-capabilities/providers/custom_openai_compatible/secret',
+        json={
+            'apiKey': 'sk-custom-compatible',
+            'baseUrl': 'https://custom.example.test/v1',
+        },
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
+        captured['url'] = url
+        captured['headers'] = headers
+        return {
+            'data': [
+                {
+                    'id': 'custom-text-vision',
+                    'name': 'Custom Text Vision',
+                    'capabilities': ['text_generation', 'vision'],
+                    'input_modalities': ['text', 'image'],
+                    'output_modalities': ['text'],
+                    'context_length': 128000,
+                }
+            ]
+        }
+
+    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
+    refresh_response = client.post('/api/settings/ai-providers/custom_openai_compatible/models/refresh')
+
+    assert refresh_response.status_code == 200
+    assert refresh_response.json()['data'] == {
+        'provider': 'custom_openai_compatible',
+        'status': 'refreshed',
+        'message': '已从远端刷新 1 个模型。',
+    }
+    assert captured['url'] == 'https://custom.example.test/v1/models'
+    assert captured['headers']['authorization'] == 'Bearer sk-custom-compatible'
+
+    models_response = client.get('/api/settings/ai-providers/custom_openai_compatible/models')
+    assert models_response.status_code == 200
+    models = {item['modelId']: item for item in models_response.json()['data']}
+    assert models['custom-text-vision']['displayName'] == 'Custom Text Vision'
+    assert models['custom-text-vision']['capabilityTypes'] == ['text_generation', 'vision']
+    assert models['custom-text-vision']['inputModalities'] == ['text', 'image']
+    assert models['custom-text-vision']['outputModalities'] == ['text']
+
+
+def test_openai_compatible_refresh_infers_doubao_seedance_as_video_model(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+    client.put(
+        '/api/settings/ai-capabilities/providers/volcengine/secret',
+        json={'apiKey': 'sk-test-volcengine'},
+    )
+
+    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
+        assert url == 'https://ark.cn-beijing.volces.com/api/v3/models'
+        return {
+            'data': [
+                {
+                    'id': 'doubao-seedance-1-5-pro-251215',
+                    'name': 'Doubao-Seedance-1.5-pro 251215',
+                }
+            ]
+        }
+
+    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
+    refresh_response = client.post('/api/settings/ai-providers/volcengine/models/refresh')
+
+    assert refresh_response.status_code == 200
+    models_response = client.get('/api/settings/ai-providers/volcengine/models')
+    models = {item['modelId']: item for item in models_response.json()['data']}
+    seedance = models['doubao-seedance-1-5-pro-251215']
+    assert seedance['capabilityTypes'] == ['video_generation']
+    assert seedance['inputModalities'] == ['text', 'image']
+    assert seedance['outputModalities'] == ['video']
+    assert 'text_generation' not in seedance['capabilityTypes']
+
+
+def test_generic_video_and_asset_providers_are_configurable_and_refreshable(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-providers/catalog')
+
+    assert response.status_code == 200
+    providers = {item['provider']: item for item in response.json()['data']}
+    for provider_id in {'video_generation_provider', 'asset_analysis_provider'}:
+        provider = providers[provider_id]
+        assert provider['requiresBaseUrl'] is True
+        assert provider['supportsModelDiscovery'] is True
+        assert provider['modelSyncMode'] == 'remote'
+        assert provider['status'] in {'missing_secret', 'misconfigured'}
 
 
 def test_openrouter_model_refresh_requires_secret_and_returns_structured_error(runtime_app) -> None:
@@ -467,6 +571,69 @@ def test_ai_capability_support_matrix_limits_models_by_capability(
     assert any(
         item['provider'] == 'video_generation_provider'
         for item in capabilities['video_generation']['models']
+    )
+    assert 'openai' in capabilities['subtitle_alignment']['providers']
+    assert any(
+        item['provider'] == 'openai'
+        and item['modelId'] == 'gpt-5-mini'
+        for item in capabilities['subtitle_alignment']['models']
+    )
+    assert 'openai' in capabilities['asset_analysis']['providers']
+    assert any(
+        item['provider'] == 'openai'
+        and item['modelId'] == 'gpt-5.4'
+        for item in capabilities['asset_analysis']['models']
+    )
+
+
+def test_no_access_model_is_hidden_from_provider_catalog_and_support_matrix(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+    client.put(
+        '/api/settings/ai-capabilities/providers/volcengine/secret',
+        json={'apiKey': 'sk-test-volcengine'},
+    )
+
+    def fake_probe(runtime, model: str):
+        assert runtime.provider == 'volcengine'
+        assert model == 'doubao-seed-1.6'
+        return {
+            'status': 'misconfigured',
+            'message': (
+                '远端返回 HTTP 404：The model or endpoint doubao-seed-1.6 '
+                'does not exist or you do not have access to it.'
+            ),
+            'latency_ms': 32,
+        }
+
+    monkeypatch.setattr(
+        runtime_app.state.ai_capability_service,
+        '_probe_provider_connectivity',
+        fake_probe,
+    )
+
+    health_response = client.post(
+        '/api/settings/ai-capabilities/providers/volcengine/health-check',
+        json={'model': 'doubao-seed-1.6'},
+    )
+
+    assert health_response.status_code == 200
+    health = health_response.json()['data']
+    assert health['status'] == 'misconfigured'
+    assert '已从可选模型中屏蔽' in health['message']
+
+    models_response = client.get('/api/settings/ai-providers/volcengine/models')
+    assert models_response.status_code == 200
+    model_ids = {item['modelId'] for item in models_response.json()['data']}
+    assert 'doubao-seed-1.6' not in model_ids
+
+    matrix_response = client.get('/api/settings/ai-capabilities/support-matrix')
+    capabilities = {item['capabilityId']: item for item in matrix_response.json()['data']['capabilities']}
+    assert all(
+        not (item['provider'] == 'volcengine' and item['modelId'] == 'doubao-seed-1.6')
+        for item in capabilities['script_generation']['models']
     )
 
 def test_ai_provider_health_refresh_persists_aggregate_snapshots(

@@ -1,0 +1,232 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1900" viewBox="0 0 1600 1900">
+  <defs>
+    <style>
+      .bg { fill: #f6f8fb; }
+      .frame { fill: #ffffff; stroke: #dce3eb; stroke-width: 1; }
+      .panel { fill: #ffffff; stroke: #d9e2ea; stroke-width: 1; }
+      .panel-soft { fill: #f8fbfd; stroke: #d9e2ea; stroke-width: 1; }
+      .surface { fill: #f2f7fa; stroke: #c9d8e1; stroke-width: 1; }
+      .accent { fill: #e2f6f9; stroke: #6ab9c8; stroke-width: 1.2; }
+      .accent-line { stroke: #15a6b8; stroke-width: 3; }
+      .success { fill: #e8f8ef; stroke: #50b979; }
+      .warn { fill: #fff6df; stroke: #e2ad42; }
+      .danger { fill: #fff0f0; stroke: #e06c75; }
+      .title { fill: #07111f; font: 700 34px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .subtitle { fill: #40546b; font: 400 18px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .h2 { fill: #07111f; font: 700 24px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .h3 { fill: #07111f; font: 700 18px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .body { fill: #24374f; font: 400 15px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .muted { fill: #66778b; font: 400 13px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .label { fill: #6c7b8f; font: 700 12px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .tiny { fill: #6c7b8f; font: 400 11px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .mono { fill: #23364c; font: 400 13px Consolas, "Microsoft YaHei", monospace; }
+      .button { fill: #ffffff; stroke: #d6e0e8; stroke-width: 1; }
+      .button-primary { fill: #0f9eaf; stroke: #0f9eaf; }
+      .button-text { fill: #102236; font: 700 13px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .button-text-light { fill: #ffffff; font: 700 13px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .chip { fill: #ffffff; stroke: #d6e0e8; stroke-width: 1; }
+      .chip-text { fill: #30445c; font: 400 12px "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif; }
+      .line { stroke: #d9e2ea; stroke-width: 1; }
+      .shadow { filter: drop-shadow(0 12px 24px rgba(38, 54, 77, 0.08)); }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1600" height="1900"/>
+
+  <text class="title" x="72" y="72">AI 与系统设置改版设计稿 V1</text>
+  <text class="subtitle" x="72" y="108">主窗口工作区优先：系统目录使用系统选择器，诊断收敛到右上角抽屉，设置页只保留真实编辑工作。</text>
+
+  <g transform="translate(72 145)">
+    <rect class="panel shadow" x="0" y="0" width="452" height="88" rx="10"/>
+    <text class="label" x="24" y="30">目录选择</text>
+    <text class="h3" x="24" y="58">调用 Tauri 系统目录选择器</text>
+    <text class="muted" x="24" y="78">浏览器预览不再弹 prompt，只显示环境提示。</text>
+
+    <rect class="panel shadow" x="484" y="0" width="452" height="88" rx="10"/>
+    <text class="label" x="508" y="30">诊断工作台</text>
+    <text class="h3" x="508" y="58">取消重复主页面</text>
+    <text class="muted" x="508" y="78">错误、日志、健康检查进入右侧抽屉事件流。</text>
+
+    <rect class="panel shadow" x="968" y="0" width="452" height="88" rx="10"/>
+    <text class="label" x="992" y="30">三块设置页</text>
+    <text class="h3" x="992" y="58">对象列表 + 工作区 + Inspector</text>
+    <text class="muted" x="992" y="78">右侧只编辑当前对象，不再堆重复说明和大标题。</text>
+  </g>
+
+  <g transform="translate(72 290)">
+    <text class="h2" x="0" y="0">1. 系统总线：路径与默认 AI 集中编辑</text>
+    <text class="subtitle" x="0" y="30">去掉大段重复标题，目录行改成表格式，选择按钮直接触发系统 picker。</text>
+
+    <rect class="frame shadow" x="0" y="60" width="1456" height="430" rx="14"/>
+    <rect class="surface" x="0" y="60" width="1456" height="48" rx="14"/>
+    <text class="h3" x="24" y="91">TK-OPS</text>
+    <text class="body" x="144" y="91">AI 与系统设置</text>
+    <rect class="chip" x="1100" y="72" width="94" height="24" rx="12"/>
+    <text class="chip-text" x="1118" y="89">Runtime 在线</text>
+    <rect class="button" x="1384" y="70" width="34" height="28" rx="6"/>
+    <text class="button-text" x="1394" y="90">⋮</text>
+
+    <rect class="surface" x="0" y="108" width="64" height="382"/>
+    <rect class="accent" x="12" y="260" width="40" height="44" rx="9"/>
+    <text class="body" x="25" y="288">⚙</text>
+
+    <rect class="panel" x="88" y="132" width="214" height="330" rx="12"/>
+    <text class="h3" x="112" y="168">工作分区</text>
+    <rect class="accent" x="110" y="202" width="168" height="42" rx="8"/>
+    <text class="button-text" x="132" y="229">系统总线</text>
+    <text class="body" x="132" y="282">Provider 与模型</text>
+    <text class="body" x="132" y="334">能力矩阵</text>
+
+    <g transform="translate(336 132)">
+      <text class="label" x="0" y="0">系统总线</text>
+      <text class="h2" x="0" y="36">运行、路径和默认模型</text>
+      <text class="subtitle" x="0" y="66">配置总线只显示可编辑项，诊断状态进入右侧抽屉。</text>
+
+      <rect class="panel-soft" x="0" y="96" width="488" height="112" rx="10"/>
+      <text class="label" x="20" y="124">运行模式</text>
+      <text class="body" x="20" y="152">Production</text>
+      <line class="line" x1="170" y1="116" x2="170" y2="188"/>
+      <text class="label" x="194" y="124">默认 Provider</text>
+      <text class="body" x="194" y="152">deepseek</text>
+      <line class="line" x1="340" y1="116" x2="340" y2="188"/>
+      <text class="label" x="364" y="124">默认模型</text>
+      <text class="body" x="364" y="152">从目录选择</text>
+
+      <rect class="panel" x="0" y="232" width="780" height="154" rx="10"/>
+      <text class="h3" x="20" y="264">本地路径</text>
+      <text class="muted" x="112" y="264">全部通过系统目录选择器写入配置总线</text>
+      <line class="line" x1="20" y1="284" x2="760" y2="284"/>
+      <text class="label" x="20" y="312">工作区根目录</text>
+      <text class="mono" x="170" y="312">C:\Users\wz\Desktop\py\TK-OPS...</text>
+      <rect class="button" x="650" y="294" width="88" height="28" rx="7"/>
+      <text class="button-text" x="673" y="314">选择</text>
+      <line class="line" x1="20" y1="330" x2="760" y2="330"/>
+      <text class="label" x="20" y="358">缓存目录</text>
+      <text class="mono" x="170" y="358">.runtime-data\cache</text>
+      <rect class="button" x="650" y="340" width="88" height="28" rx="7"/>
+      <text class="button-text" x="673" y="360">选择</text>
+    </g>
+
+    <g transform="translate(1160 132)">
+      <rect class="panel-soft" x="0" y="0" width="246" height="330" rx="12"/>
+      <text class="label" x="18" y="30">右上角抽屉内容</text>
+      <text class="h3" x="18" y="62">系统边界</text>
+      <rect class="chip" x="18" y="84" width="112" height="24" rx="12"/>
+      <text class="chip-text" x="32" y="101">按需打开</text>
+      <line class="line" x1="18" y1="124" x2="228" y2="124"/>
+      <text class="label" x="18" y="154">Runtime</text>
+      <text class="body" x="18" y="180">在线 / 版本</text>
+      <text class="label" x="18" y="220">最近错误</text>
+      <text class="muted" x="18" y="246">仅显示异常和恢复动作</text>
+      <rect class="button-primary" x="18" y="278" width="138" height="32" rx="8"/>
+      <text class="button-text-light" x="40" y="300">导出诊断</text>
+    </g>
+  </g>
+
+  <g transform="translate(72 850)">
+    <text class="h2" x="0" y="0">2. Provider 与模型：注册表、模型目录、凭据三段式</text>
+    <text class="subtitle" x="0" y="30">右侧只处理凭据和连接检查，中间负责模型目录，左侧负责快速切换 Provider。</text>
+
+    <rect class="frame shadow" x="0" y="60" width="1456" height="430" rx="14"/>
+    <rect class="surface" x="0" y="60" width="64" height="430" rx="14"/>
+    <rect class="panel" x="88" y="92" width="214" height="354" rx="12"/>
+    <text class="h3" x="112" y="128">工作分区</text>
+    <text class="body" x="132" y="184">系统总线</text>
+    <rect class="accent" x="110" y="210" width="168" height="42" rx="8"/>
+    <text class="button-text" x="132" y="237">Provider 与模型</text>
+    <text class="body" x="132" y="290">能力矩阵</text>
+
+    <g transform="translate(336 96)">
+      <text class="label" x="0" y="0">Provider 与模型</text>
+      <text class="h2" x="0" y="36">接入注册表与连接凭据</text>
+      <text class="subtitle" x="0" y="66">选择 Provider 后，中间和右侧同步更新，检查结果不遮挡主区。</text>
+
+      <rect class="panel-soft" x="0" y="98" width="260" height="282" rx="10"/>
+      <text class="h3" x="18" y="130">Provider 列表</text>
+      <rect class="accent" x="16" y="154" width="228" height="48" rx="8"/>
+      <text class="button-text" x="32" y="181">OpenAI</text>
+      <text class="tiny" x="170" y="181">缺少密钥</text>
+      <rect class="panel" x="16" y="216" width="228" height="44" rx="8"/>
+      <text class="body" x="32" y="244">DeepSeek</text>
+      <rect class="panel" x="16" y="272" width="228" height="44" rx="8"/>
+      <text class="body" x="32" y="300">SiliconFlow</text>
+
+      <rect class="panel" x="284" y="98" width="430" height="282" rx="10"/>
+      <text class="label" x="306" y="130">模型目录</text>
+      <text class="h3" x="306" y="158">OpenAI 可用模型</text>
+      <rect class="button" x="596" y="126" width="92" height="32" rx="8"/>
+      <text class="button-text" x="618" y="148">刷新</text>
+      <line class="line" x1="306" y1="178" x2="690" y2="178"/>
+      <text class="body" x="306" y="214">gpt-5</text>
+      <text class="muted" x="430" y="214">文本 / 视觉 / TTS</text>
+      <line class="line" x1="306" y1="236" x2="690" y2="236"/>
+      <text class="body" x="306" y="272">gpt-5-mini</text>
+      <text class="muted" x="430" y="272">快速生成</text>
+      <line class="line" x1="306" y1="294" x2="690" y2="294"/>
+      <text class="body" x="306" y="330">健康检查模型</text>
+      <rect class="chip" x="522" y="312" width="118" height="26" rx="13"/>
+      <text class="chip-text" x="548" y="330">gpt-5</text>
+
+      <rect class="panel-soft" x="738" y="98" width="332" height="282" rx="10"/>
+      <text class="label" x="760" y="130">Inspector</text>
+      <text class="h3" x="760" y="158">凭据与连接</text>
+      <rect class="warn" x="760" y="178" width="286" height="44" rx="8"/>
+      <text class="body" x="778" y="205">缺少 API Key</text>
+      <text class="label" x="760" y="252">API Key</text>
+      <rect class="panel" x="760" y="262" width="286" height="36" rx="8"/>
+      <text class="muted" x="778" y="286">输入后覆盖已保存密钥</text>
+      <rect class="button-primary" x="760" y="324" width="118" height="34" rx="8"/>
+      <text class="button-text-light" x="792" y="347">保存</text>
+      <rect class="button" x="894" y="324" width="152" height="34" rx="8"/>
+      <text class="button-text" x="918" y="347">连接检查</text>
+    </g>
+  </g>
+
+  <g transform="translate(72 1410)">
+    <text class="h2" x="0" y="0">3. 能力矩阵：能力选择与策略编辑分离</text>
+    <text class="subtitle" x="0" y="30">能力列表做扫描，右侧 Inspector 做当前能力策略，不再出现大面积空白和重复解释。</text>
+
+    <rect class="frame shadow" x="0" y="60" width="1456" height="360" rx="14"/>
+    <rect class="surface" x="0" y="60" width="64" height="360" rx="14"/>
+    <rect class="panel" x="88" y="92" width="214" height="296" rx="12"/>
+    <text class="h3" x="112" y="128">工作分区</text>
+    <text class="body" x="132" y="184">系统总线</text>
+    <text class="body" x="132" y="237">Provider 与模型</text>
+    <rect class="accent" x="110" y="262" width="168" height="42" rx="8"/>
+    <text class="button-text" x="132" y="289">能力矩阵</text>
+
+    <g transform="translate(336 96)">
+      <text class="label" x="0" y="0">能力策略</text>
+      <text class="h2" x="0" y="36">能力到 Provider 的绑定</text>
+      <text class="subtitle" x="0" y="66">选中能力后直接编辑策略；提示词编辑区保持固定宽度，减少阅读疲劳。</text>
+
+      <rect class="panel-soft" x="0" y="96" width="430" height="212" rx="10"/>
+      <text class="h3" x="20" y="128">能力列表</text>
+      <rect class="accent" x="18" y="150" width="394" height="46" rx="8"/>
+      <text class="button-text" x="34" y="179">脚本生成</text>
+      <text class="chip-text" x="242" y="179">openai / gpt-5</text>
+      <rect class="panel" x="18" y="210" width="394" height="42" rx="8"/>
+      <text class="body" x="34" y="237">脚本改写</text>
+      <text class="muted" x="242" y="237">deepseek / 默认</text>
+      <rect class="panel" x="18" y="264" width="394" height="42" rx="8"/>
+      <text class="body" x="34" y="291">字幕对齐</text>
+      <text class="muted" x="242" y="291">未启用</text>
+
+      <rect class="panel" x="456" y="96" width="286" height="212" rx="10"/>
+      <text class="label" x="476" y="128">绑定预览</text>
+      <text class="h3" x="476" y="158">脚本生成</text>
+      <text class="body" x="476" y="196">Provider：OpenAI</text>
+      <text class="body" x="476" y="226">模型：gpt-5</text>
+      <text class="body" x="476" y="256">角色：短视频编剧</text>
+
+      <rect class="panel-soft" x="768" y="96" width="302" height="212" rx="10"/>
+      <text class="label" x="790" y="128">Inspector</text>
+      <text class="h3" x="790" y="158">策略编辑</text>
+      <rect class="chip" x="790" y="176" width="104" height="26" rx="13"/>
+      <text class="chip-text" x="812" y="194">已启用</text>
+      <text class="label" x="790" y="226">系统提示词</text>
+      <rect class="panel" x="790" y="238" width="256" height="44" rx="8"/>
+      <text class="muted" x="808" y="264">编辑当前能力，不展开全部能力</text>
+    </g>
+  </g>
+</svg>
