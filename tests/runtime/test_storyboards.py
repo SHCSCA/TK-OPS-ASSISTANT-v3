@@ -42,6 +42,98 @@ class FakeAITextGenerationService:
         )
 
 
+class JsonStoryboardAITextGenerationService:
+    def __init__(self, jobs: AIJobRepository) -> None:
+        self._jobs = jobs
+
+    def generate_text(self, capability_id: str, prompt: dict[str, str], **kwargs: object) -> FakeGenerationResult:
+        assert capability_id == 'storyboard_generation'
+        job = self._jobs.create_running(
+            project_id=str(kwargs.get('project_id')) if kwargs.get('project_id') else None,
+            capability_id=capability_id,
+            provider='volcengine',
+            model='doubao-seed-2.0-pro',
+        )
+        self._jobs.mark_succeeded(job.id, duration_ms=18)
+        return FakeGenerationResult(
+            text='''
+            {
+              "schemaVersion": "storyboard_document_v1",
+              "metadata": {
+                "storyboardId": "sb-json-001",
+                "basedOnScriptRevision": "v1",
+                "videoRatio": "9:16",
+                "targetDurationSec": 30,
+                "shotCount": 2,
+                "readyForVideoGeneration": true,
+                "readyForVoiceGeneration": true,
+                "readyForSubtitleAlignment": true
+              },
+              "overview": [
+                {
+                  "shotId": "SH01",
+                  "segmentId": "S01",
+                  "time": "0-3秒",
+                  "shotGoal": "开场钩子",
+                  "visualFocus": "旧杯和新杯反差",
+                  "isKeyframe": true,
+                  "aiVideoReady": false,
+                  "needsRealFootage": true
+                }
+              ],
+              "shots": [
+                {
+                  "shotId": "SH01",
+                  "segmentId": "S01",
+                  "time": "0-3秒",
+                  "shotSize": "特写",
+                  "visualContent": "手把旧杯推开，冰霸杯放到桌面中心",
+                  "action": "人物拿起杯子看向镜头",
+                  "cameraAngle": "桌面平视",
+                  "cameraMovement": "轻微推进",
+                  "voiceover": "下午三点别再喝温咖啡了。",
+                  "subtitle": "下午三点，拒绝温咖啡",
+                  "audio": "冰块声",
+                  "shootingNote": "保持桌面干净，杯身正对镜头",
+                  "transition": "硬切",
+                  "visualPrompt": "9:16 手机竖屏，办公室桌面，真实自然光"
+                },
+                {
+                  "shotId": "SH02",
+                  "segmentId": "S02",
+                  "time": "3-7秒",
+                  "shotSize": "近景",
+                  "visualContent": "倒入咖啡形成分层",
+                  "action": "手稳住杯身慢慢倒咖啡",
+                  "cameraAngle": "45度侧拍",
+                  "cameraMovement": "固定",
+                  "voiceover": "这一杯冰咖啡能陪我撑完整个下午。",
+                  "subtitle": "一杯撑完整个下午",
+                  "audio": "轻快 Lo-fi",
+                  "shootingNote": "咖啡颜色要和牛奶形成对比",
+                  "transition": "推近",
+                  "visualPrompt": "9:16 手机竖屏，冰咖啡分层特写"
+                }
+              ],
+              "relations": ["S01 → SH01", "S02 → SH02"],
+              "handoff": {
+                "nextAgent": "video_generation",
+                "storyboardId": "sb-json-001",
+                "shotIds": ["SH01", "SH02"],
+                "shotsReadyForAiVideo": ["SH02"],
+                "shotsNeedRealFootage": ["SH01"],
+                "keyframes": ["SH01"],
+                "notes": "按 shot_id 进入视频生成。"
+              }
+            }
+            ''',
+            provider='volcengine',
+            model='doubao-seed-2.0-pro',
+            ai_job_id=job.id,
+            request_id=job.id,
+        )
+
+
 class FencedJsonAITextGenerationService:
     def __init__(self, jobs: AIJobRepository) -> None:
         self._jobs = jobs
@@ -188,6 +280,37 @@ def test_storyboard_generation_uses_current_script_and_persists_versions(runtime
     assert saved_payload['lastOperation']['aiJobStatus'] is None
 
 
+def test_storyboard_generation_stores_json_document_and_derives_scenes(runtime_app) -> None:
+    runtime_app.state.ai_text_generation_service = JsonStoryboardAITextGenerationService(
+        runtime_app.state.ai_job_repository
+    )
+    client = TestClient(runtime_app)
+
+    project_response = client.post(
+        '/api/dashboard/projects',
+        json={'name': 'Storyboard JSON Project', 'description': 'structured storyboard'},
+    )
+    project_id = project_response.json()['data']['id']
+
+    script_response = client.put(
+        f'/api/scripts/projects/{project_id}/document',
+        json={'content': 'S01 下午三点别再喝温咖啡了。'},
+    )
+    assert script_response.status_code == 200
+
+    generate_response = client.post(f'/api/storyboards/projects/{project_id}/generate')
+
+    assert generate_response.status_code == 200
+    version = generate_response.json()['data']['currentVersion']
+    assert version['format'] == 'json_v1'
+    assert version['storyboardJson']['metadata']['storyboardId'] == 'sb-json-001'
+    assert version['storyboardJson']['shots'][0]['shotId'] == 'SH01'
+    assert version['scenes'][0]['sceneId'] == 'SH01'
+    assert version['scenes'][0]['title'] == 'SH01 · S01'
+    assert version['scenes'][0]['voiceover'] == '下午三点别再喝温咖啡了。'
+    assert version['scenes'][1]['subtitle'] == '一杯撑完整个下午'
+
+
 def test_storyboard_generation_accepts_fenced_json_provider_output(runtime_app) -> None:
     runtime_app.state.ai_text_generation_service = FencedJsonAITextGenerationService(
         runtime_app.state.ai_job_repository
@@ -212,12 +335,14 @@ def test_storyboard_generation_accepts_fenced_json_provider_output(runtime_app) 
     payload = generate_response.json()['data']
     assert payload['currentVersion']['provider'] == 'deepseek'
     assert payload['currentVersion']['model'] == 'deepseek-chat'
-    assert '```json' in payload['currentVersion']['markdown']
+    assert payload['currentVersion']['format'] == 'json_v1'
+    assert payload['currentVersion']['markdown'] is None
+    assert payload['currentVersion']['storyboardJson']['schemaVersion'] == 'storyboard_document_v1'
     assert payload['currentVersion']['scenes'][0]['title'] == '开场钩子'
     assert payload['currentVersion']['scenes'][1]['summary'] == '展示杯身和容量'
 
 
-def test_storyboard_generation_accepts_markdown_table_provider_output(runtime_app) -> None:
+def test_storyboard_generation_rejects_markdown_table_provider_output(runtime_app) -> None:
     runtime_app.state.ai_text_generation_service = MarkdownTableAITextGenerationService(
         runtime_app.state.ai_job_repository
     )
@@ -237,17 +362,8 @@ def test_storyboard_generation_accepts_markdown_table_provider_output(runtime_ap
 
     generate_response = client.post(f'/api/storyboards/projects/{project_id}/generate')
 
-    assert generate_response.status_code == 200
-    payload = generate_response.json()['data']
-    scenes = payload['currentVersion']['scenes']
-    assert len(scenes) == 2
-    assert scenes[0]['title'] == '镜头1 0-2s'
-    assert '冰块落入透明杯' in scenes[0]['summary']
-    assert '微距俯拍' in scenes[0]['visualPrompt']
-    assert scenes[0]['time'] == '0-2s'
-    assert scenes[0]['cameraAngle'] == '微距俯拍'
-    assert scenes[0]['voiceover'] == '春天第一杯冷饮'
-    assert '| 时间点 | 画面内容 |' in payload['currentVersion']['markdown']
+    assert generate_response.status_code == 502
+    assert '分镜 Provider 未返回有效 JSON' in str(generate_response.json())
 
 
 def test_storyboard_markdown_parser_ignores_non_storyboard_document_headings() -> None:
@@ -279,7 +395,7 @@ def test_storyboard_markdown_parser_ignores_non_storyboard_document_headings() -
     assert scenes[1]['title'] == '镜头2 3-6秒'
 
 
-def test_storyboard_generation_preserves_unparsed_markdown_provider_output(runtime_app) -> None:
+def test_storyboard_generation_rejects_unparsed_markdown_provider_output(runtime_app) -> None:
     runtime_app.state.ai_text_generation_service = PlainMarkdownAITextGenerationService(
         runtime_app.state.ai_job_repository
     )
@@ -299,11 +415,8 @@ def test_storyboard_generation_preserves_unparsed_markdown_provider_output(runti
 
     generate_response = client.post(f'/api/storyboards/projects/{project_id}/generate')
 
-    assert generate_response.status_code == 200
-    payload = generate_response.json()['data']
-    assert payload['currentVersion']['markdown'].startswith('# TikTok 分镜执行方案')
-    assert payload['currentVersion']['scenes']
-    assert '没有结构化镜头表' in payload['currentVersion']['scenes'][0]['summary']
+    assert generate_response.status_code == 502
+    assert '分镜 Provider 未返回有效 JSON' in str(generate_response.json())
 
 
 def test_storyboard_manual_save_preserves_markdown_source(runtime_app) -> None:

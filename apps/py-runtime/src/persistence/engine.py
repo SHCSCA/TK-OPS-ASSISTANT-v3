@@ -33,6 +33,7 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 def initialize_domain_schema(engine: Engine) -> None:
     Base.metadata.create_all(engine)
+    _repair_legacy_script_version_schema(engine)
     _repair_legacy_project_schema(engine)
     _repair_legacy_voice_track_schema(engine)
     _repair_legacy_subtitle_track_schema(engine)
@@ -61,6 +62,25 @@ def _repair_legacy_project_schema(engine: Engine) -> None:
                 continue
             connection.execute(
                 text(f"ALTER TABLE projects ADD COLUMN {column_name} {column_sql}")
+            )
+
+
+def _repair_legacy_script_version_schema(engine: Engine) -> None:
+    required_columns = {
+        "format": "VARCHAR NOT NULL DEFAULT 'legacy_markdown'",
+        "document_json": "TEXT",
+    }
+
+    with engine.begin() as connection:
+        columns = _table_columns(connection, "script_versions")
+        if not columns:
+            return
+
+        for column_name, column_sql in required_columns.items():
+            if column_name in columns:
+                continue
+            connection.execute(
+                text(f"ALTER TABLE script_versions ADD COLUMN {column_name} {column_sql}")
             )
 
 

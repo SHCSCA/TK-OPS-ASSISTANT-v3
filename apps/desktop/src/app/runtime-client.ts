@@ -1,4 +1,5 @@
 import type {
+  AICapabilityBindingInput,
   AICapabilitySettings,
   AICapabilitySupportMatrix,
   AIModelCatalogItem,
@@ -267,7 +268,7 @@ export async function fetchAICapabilitySettings(): Promise<AICapabilitySettings>
 }
 
 export async function saveAICapabilitySettings(
-  capabilities: AICapabilitySettings["capabilities"]
+  capabilities: AICapabilityBindingInput[]
 ): Promise<AICapabilitySettings> {
   return requestRuntime<AICapabilitySettings>("/api/settings/ai-capabilities", {
     body: JSON.stringify({ capabilities }),
@@ -484,10 +485,11 @@ export async function saveStoryboardDocument(
   projectId: string,
   basedOnScriptRevision: number,
   scenes: StoryboardScene[],
-  markdown?: string
+  markdown?: string | null,
+  storyboardJson?: Record<string, unknown> | null
 ): Promise<StoryboardDocument> {
   return requestRuntime<StoryboardDocument>(`/api/storyboards/projects/${projectId}/document`, {
-    body: JSON.stringify({ basedOnScriptRevision, markdown, scenes }),
+    body: JSON.stringify({ basedOnScriptRevision, markdown, scenes, storyboardJson }),
     method: "PUT"
   });
 }

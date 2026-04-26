@@ -41,9 +41,8 @@ describe("AI settings layout contract", () => {
 
     expect(settingsPage).not.toContain("SettingsDiagnosticPanel");
     expect(settingsPage).not.toContain('data-testid="settings-inline-diagnostics"');
-    expect(settingsPage).not.toContain("currentSection === 'diagnostics'");
-    expect(sectionRail).not.toContain("诊断工作台");
-    expect(sectionRail).not.toContain("diagnostics");
+    expect(settingsPage).toContain("currentSection === 'diagnostics'");
+    expect(sectionRail).toContain("检测中心");
     expect(settingsPage).not.toContain("打开右侧抽屉");
     expect(settingsPage).not.toContain("切换属性面板");
     expect(settingsCss).toMatch(/\.settings-console\s*{[\s\S]*width:\s*100%;/);

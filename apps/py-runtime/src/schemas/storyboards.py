@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 from schemas.scripts import AIJobRecordDto
@@ -60,11 +62,12 @@ class StoryboardSaveInput(BaseModel):
     basedOnScriptRevision: int = Field(ge=1)
     scenes: list[StoryboardSceneDto] = Field(default_factory=list)
     markdown: str | None = None
+    storyboardJson: dict[str, Any] | None = None
 
     @model_validator(mode='after')
     def require_storyboard_content(self) -> 'StoryboardSaveInput':
-        if not self.scenes and not (self.markdown or '').strip():
-            raise ValueError('请提供分镜 Markdown 原文或至少一个结构化分镜。')
+        if not self.scenes and not (self.markdown or '').strip() and self.storyboardJson is None:
+            raise ValueError('请提供分镜结构化 JSON、原文或至少一个结构化分镜。')
         return self
 
 
@@ -74,6 +77,8 @@ class StoryboardVersionDto(BaseModel):
     source: str
     scenes: list[StoryboardSceneDto]
     markdown: str | None = None
+    format: Literal["json_v1", "legacy_markdown"] = "legacy_markdown"
+    storyboardJson: dict[str, Any] | None = None
     provider: str | None = None
     model: str | None = None
     aiJobId: str | None = None

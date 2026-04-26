@@ -370,10 +370,47 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
         item['capabilityId']: item for item in capabilities_payload['capabilities']
     }
     providers = {item['provider']: item for item in capabilities_payload['providers']}
-    assert updated['script_generation']['agentRole'] == 'Senior TikTok script strategist'
+    assert updated['script_generation']['provider'] == 'openai'
+    assert updated['script_generation']['model'] == 'gpt-5'
+    assert updated['script_generation']['agentRole'] == DEFAULT_AGENT_PROMPT_CONFIG['script_generation']['agent_role']
+    assert updated['script_generation']['promptPreview']['editable'] is False
+    assert (
+        updated['script_generation']['promptPreview']['systemPrompt']
+        == DEFAULT_AGENT_PROMPT_CONFIG['script_generation']['system_prompt']
+    )
     assert updated['video_generation']['provider'] == 'openai_compatible'
     assert providers['openai']['configured'] is True
     assert providers['openai']['maskedSecret']
+
+
+def test_ai_capability_update_does_not_persist_user_prompt_edits(runtime_client: TestClient) -> None:
+    capabilities = runtime_client.get('/api/settings/ai-capabilities').json()['data']['capabilities']
+    for item in capabilities:
+        if item['capabilityId'] == 'script_generation':
+            item['provider'] = 'openai'
+            item['model'] = 'gpt-5'
+            item['agentRole'] = '用户自定义角色'
+            item['systemPrompt'] = '用户自定义系统提示词'
+            item['userPromptTemplate'] = '用户自定义模板 {{topic}}'
+
+    update_response = runtime_client.put(
+        '/api/settings/ai-capabilities',
+        json={'capabilities': capabilities},
+    )
+
+    assert update_response.status_code == 200
+    updated = {
+        item['capabilityId']: item
+        for item in update_response.json()['data']['capabilities']
+    }
+    assert updated['script_generation']['provider'] == 'openai'
+    assert updated['script_generation']['model'] == 'gpt-5'
+    assert updated['script_generation']['agentRole'] == DEFAULT_AGENT_PROMPT_CONFIG['script_generation']['agent_role']
+    assert updated['script_generation']['systemPrompt'] == DEFAULT_AGENT_PROMPT_CONFIG['script_generation']['system_prompt']
+    assert (
+        updated['script_generation']['userPromptTemplate']
+        == DEFAULT_AGENT_PROMPT_CONFIG['script_generation']['user_prompt_template']
+    )
 
 
 def test_ai_provider_catalog_model_catalog_and_refresh_are_runtime_backed(

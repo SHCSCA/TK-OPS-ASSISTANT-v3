@@ -8,6 +8,7 @@ import {
   generateSubtitleTrack,
   updateSubtitleTrack
 } from "@/app/runtime-client";
+import { extractScriptDocumentDownstreamText } from "@/modules/scripts/script-document-view-model";
 import { useTaskBusStore } from "@/stores/task-bus";
 import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 import type {
@@ -122,7 +123,10 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
         this.document = document;
         this.tracks = tracks;
         this.trackDetailsById = Object.fromEntries(tracks.map((track) => [track.id, track]));
-        this.paragraphs = this.extractParagraphs(document.currentVersion?.content ?? "");
+        this.paragraphs = this.extractParagraphs(
+          document.currentVersion?.documentJson ?? null,
+          document.currentVersion?.content ?? ""
+        );
 
         const initialTrackId = tracks[0]?.id ?? null;
         this.selectedTrackId = initialTrackId;
@@ -377,12 +381,8 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       this.tracks = [track, ...this.tracks];
     },
 
-    extractParagraphs(content: string): SubtitleParagraph[] {
-      return content
-        .split(/\n\s*\n/)
-        .map((paragraph) => paragraph.trim())
-        .filter((paragraph) => paragraph.length > 0)
-        .map((text) => ({ text }));
+    extractParagraphs(documentJson: Record<string, any> | null, content = ""): SubtitleParagraph[] {
+      return extractScriptDocumentDownstreamText(documentJson, "subtitle", content).map(({ text }) => ({ text }));
     },
 
     resetDraftSegments(): void {

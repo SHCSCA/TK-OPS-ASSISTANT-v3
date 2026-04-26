@@ -294,12 +294,19 @@ describe("AI 与系统设置页", () => {
 
     expect(saveCall).toBeTruthy();
     const payload = JSON.parse(String(saveCall?.[1]?.body)) as {
-      capabilities: Array<{ capabilityId: string; model: string }>;
+      capabilities: Array<{
+        capabilityId: string;
+        model: string;
+        systemPrompt?: string;
+        userPromptTemplate?: string;
+      }>;
     };
     expect(payload.capabilities).toHaveLength(7);
     expect(payload.capabilities.find((item) => item.capabilityId === "script_generation")?.model).toBe(
       "gpt-5.4"
     );
+    expect(payload.capabilities[0]).not.toHaveProperty("systemPrompt");
+    expect(payload.capabilities[0]).not.toHaveProperty("userPromptTemplate");
   }, 20000);
 
   it("展示紧凑 Provider 配置，并支持真实连通性测试入口", async () => {

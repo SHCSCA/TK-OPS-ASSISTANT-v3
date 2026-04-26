@@ -17,14 +17,23 @@ CAPABILITY_IDS = (
 )
 
 
+class AICapabilityPromptPreviewDto(BaseModel):
+    agentRole: str
+    systemPrompt: str
+    userPromptTemplate: str
+    editable: bool = False
+    source: str = "system_default"
+
+
 class AICapabilityConfigDto(BaseModel):
     capabilityId: str
     enabled: bool
     provider: str
     model: str
-    agentRole: str
-    systemPrompt: str
-    userPromptTemplate: str
+    agentRole: str = ""
+    systemPrompt: str = ""
+    userPromptTemplate: str = ""
+    promptPreview: AICapabilityPromptPreviewDto | None = None
 
 
 class AICapabilityConfigListInput(BaseModel):

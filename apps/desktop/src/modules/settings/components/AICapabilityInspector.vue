@@ -21,7 +21,7 @@
         <div class="capability-binding-preview__grid">
           <span>Provider <strong>{{ capability.provider || "未绑定" }}</strong></span>
           <span>模型 <strong>{{ capability.model || "未绑定" }}</strong></span>
-          <span>Agent <strong>{{ capability.agentRole || "未设置" }}</strong></span>
+          <span>Agent <strong>{{ promptView.agentRole || "系统默认" }}</strong></span>
           <span>状态 <strong>{{ capability.enabled ? "已启用" : "已停用" }}</strong></span>
         </div>
         <div v-if="supportSummary.length > 0" class="capability-inspector__chips">
@@ -60,34 +60,36 @@
           </select>
         </label>
 
-        <label class="settings-field">
-          <span>Agent 角色</span>
-          <input
-            v-model="capability.agentRole"
-            :data-field="`capability.${capability.capabilityId}.agentRole`"
-            :disabled="disabled"
-          />
-        </label>
-
-        <label class="settings-field">
-          <span>系统提示词</span>
-          <textarea
-            v-model="capability.systemPrompt"
-            class="editor-textarea"
-            :data-field="`capability.${capability.capabilityId}.systemPrompt`"
-            :disabled="disabled"
-          />
-        </label>
-
-        <label class="settings-field">
-          <span>用户提示词模板</span>
-          <textarea
-            v-model="capability.userPromptTemplate"
-            class="editor-textarea editor-textarea--compact"
-            :data-field="`capability.${capability.capabilityId}.userPromptTemplate`"
-            :disabled="disabled"
-          />
-        </label>
+        <section class="prompt-readonly-panel" aria-label="系统默认提示词预览">
+          <div class="prompt-readonly-panel__heading">
+            <div>
+              <p class="detail-panel__label">系统默认角色提示词</p>
+              <h3>{{ promptView.agentRole || "未设置角色" }}</h3>
+            </div>
+            <span class="settings-workspace-panel__pill">只读</span>
+          </div>
+          <p class="prompt-readonly-panel__hint">
+            提示词由系统默认角色配置提供，当前页面只允许配置 Provider、模型和启用状态。
+          </p>
+          <label class="settings-field">
+            <span>系统提示词</span>
+            <textarea
+              :value="promptView.systemPrompt"
+              class="editor-textarea"
+              :data-field="`capability.${capability.capabilityId}.systemPromptPreview`"
+              readonly
+            />
+          </label>
+          <label class="settings-field">
+            <span>用户提示词模板</span>
+            <textarea
+              :value="promptView.userPromptTemplate"
+              class="editor-textarea editor-textarea--compact"
+              :data-field="`capability.${capability.capabilityId}.userPromptTemplatePreview`"
+              readonly
+            />
+          </label>
+        </section>
       </section>
     </div>
   </section>
@@ -124,6 +126,12 @@ const summary = computed(() => {
 
   return `当前绑定 ${props.capability.provider || "未绑定 Provider"} / ${props.capability.model || "未绑定模型"}。修改后统一通过底部保存条提交。`;
 });
+const promptView = computed(() => ({
+  agentRole: props.capability?.promptPreview?.agentRole || props.capability?.agentRole || "",
+  systemPrompt: props.capability?.promptPreview?.systemPrompt || props.capability?.systemPrompt || "",
+  userPromptTemplate:
+    props.capability?.promptPreview?.userPromptTemplate || props.capability?.userPromptTemplate || ""
+}));
 const supportSummary = computed(() => {
   if (!props.supportItem) {
     return [];
@@ -300,6 +308,39 @@ watch(
 
 .editor-textarea--compact {
   min-height: 100px;
+}
+
+.prompt-readonly-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-primary) 92%, transparent);
+}
+
+.prompt-readonly-panel__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prompt-readonly-panel__heading h3,
+.prompt-readonly-panel__heading .detail-panel__label {
+  margin: 0;
+}
+
+.prompt-readonly-panel__hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.prompt-readonly-panel .editor-textarea {
+  cursor: text;
+  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
 }
 
 @media (max-width: 1120px) {

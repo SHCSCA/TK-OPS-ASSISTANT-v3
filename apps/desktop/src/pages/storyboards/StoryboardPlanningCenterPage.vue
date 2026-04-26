@@ -7,7 +7,7 @@
           <div>
             <h1 class="page-header__title">分镜规划中心</h1>
             <div class="page-header__subtitle">
-              以当前项目已采用的脚本 Markdown 为基线，生成、预览并保存可执行的 TikTok 分镜方案。
+              以当前项目已采用的脚本结构为基线，生成、预览并保存可执行的 TikTok 分镜方案。
             </div>
           </div>
           <div class="page-header__actions">
@@ -58,8 +58,8 @@
           <Card class="storyboard-card h-full">
             <div class="storyboard-card__header">
               <div>
-                <h3>脚本 Markdown 对照</h3>
-                <p class="storyboard-card__caption">展示当前已采用脚本原文，分镜生成与校对均以此为准。</p>
+                <h3>脚本结构对照</h3>
+                <p class="storyboard-card__caption">展示当前已采用脚本结构，分镜生成与校对均以此为准。</p>
               </div>
               <Chip size="sm">v{{ scriptRevision || "-" }}</Chip>
             </div>
@@ -67,6 +67,10 @@
               <div v-if="!hasScriptContent" class="empty-text">
                 当前项目尚未采用脚本文案，请先到脚本与选题中心完成脚本确认。
               </div>
+              <ScriptStructuredPreview
+                v-else-if="scriptDocumentJson"
+                :document-json="scriptDocumentJson"
+              />
               <ScriptMarkdownPreview v-else :markdown="scriptMarkdownContent" />
             </div>
           </Card>
@@ -95,20 +99,29 @@
                   <button
                     type="button"
                     class="editor-mode-switch__button"
-                    :class="{ 'is-active': editorMode === 'preview' }"
-                    data-storyboard-view="preview"
-                    @click="editorMode = 'preview'"
+                    :class="{ 'is-active': editorMode === 'list' }"
+                    data-storyboard-view="list"
+                    @click="editorMode = 'list'"
                   >
-                    预览
+                    列表视图
                   </button>
                   <button
                     type="button"
                     class="editor-mode-switch__button"
-                    :class="{ 'is-active': editorMode === 'source' }"
-                    data-storyboard-view="source"
-                    @click="editorMode = 'source'"
+                    :class="{ 'is-active': editorMode === 'outline' }"
+                    data-storyboard-view="outline"
+                    @click="editorMode = 'outline'"
                   >
-                    原文
+                    大纲视图
+                  </button>
+                  <button
+                    type="button"
+                    class="editor-mode-switch__button"
+                    :class="{ 'is-active': editorMode === 'preview' }"
+                    data-storyboard-view="preview"
+                    @click="editorMode = 'preview'"
+                  >
+                    预览模式
                   </button>
                 </div>
               </div>
@@ -140,24 +153,18 @@
                 <p>
                   当前项目还没有生成分镜
                   <br />
-                  <small>点击右上角“AI 生成分镜”，会基于脚本 Markdown 生成完整执行方案。</small>
+                  <small>点击右上角“AI 生成分镜”，会基于脚本结构生成完整执行方案。</small>
                 </p>
               </div>
 
               <div v-else class="storyboard-editor-content">
-                <div v-if="editorMode === 'preview'" class="storyboard-preview-pane scroll-area" data-storyboard-preview-mode>
-                  <ScriptMarkdownPreview :markdown="storyboardMarkdown" />
-                </div>
-                <div v-else class="storyboard-source" data-storyboard-source-mode>
-                  <label class="storyboard-source__label" for="storyboard-markdown-source">Markdown 原文</label>
-                  <textarea
-                    id="storyboard-markdown-source"
-                    v-model="storyboardSource"
-                    class="storyboard-source__textarea"
-                    data-storyboard-source-input
-                    :disabled="isBusy"
-                    placeholder="在这里维护分镜 Markdown 原文。"
+                <div class="storyboard-preview-pane scroll-area" data-storyboard-preview-mode>
+                  <StoryboardStructuredPreview
+                    v-if="storyboardDocumentJson"
+                    :storyboard-json="storyboardDocumentJson"
+                    :mode="editorMode"
                   />
+                  <ScriptMarkdownPreview v-else :markdown="storyboardMarkdown" />
                 </div>
               </div>
             </div>
@@ -181,6 +188,8 @@ import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 import ScriptMarkdownPreview from "@/pages/scripts/components/ScriptMarkdownPreview.vue";
+import ScriptStructuredPreview from "@/pages/scripts/components/ScriptStructuredPreview.vue";
+import StoryboardStructuredPreview from "@/pages/storyboards/components/StoryboardStructuredPreview.vue";
 import { buildStoryboardMarkdown } from "@/pages/storyboards/storyboard-markdown";
 import { useProjectStore } from "@/stores/project";
 import { createRouteDetailContext, useShellUiStore } from "@/stores/shell-ui";
@@ -189,7 +198,7 @@ import { useStoryboardStore } from "@/stores/storyboard";
 import type { StoryboardScene } from "@/types/runtime";
 
 type PageState = "loading" | "empty" | "ready" | "error" | "blocked";
-type EditorMode = "preview" | "source";
+type EditorMode = "list" | "outline" | "preview";
 
 const projectStore = useProjectStore();
 const scriptStudioStore = useScriptStudioStore();
@@ -198,7 +207,7 @@ const storyboardStore = useStoryboardStore();
 
 const scenes = ref<StoryboardScene[]>([]);
 const storyboardSource = ref("");
-const editorMode = ref<EditorMode>("preview");
+const editorMode = ref<EditorMode>("list");
 const selectedSceneId = ref<string | null>(null);
 
 const currentProjectId = computed(() => projectStore.currentProject?.projectId ?? "");
@@ -213,14 +222,20 @@ const isOutdated = computed(() => {
 const recentJobs = computed(() => storyboardStore.document?.recentJobs ?? []);
 const latestJob = computed(() => recentJobs.value[0] ?? null);
 const currentVersion = computed(() => storyboardStore.document?.currentVersion ?? null);
+const scriptDocumentJson = computed(() => scriptStudioStore.document?.currentVersion?.documentJson ?? null);
+const storyboardDocumentJson = computed(() => currentVersion.value?.storyboardJson ?? null);
 const hasScenes = computed(() => scenes.value.length > 0);
 const hasScriptContent = computed(
-  () => (scriptStudioStore.document?.currentVersion?.content ?? "").trim().length > 0
+  () => Boolean(scriptDocumentJson.value) || (scriptStudioStore.document?.currentVersion?.content ?? "").trim().length > 0
 );
 const scriptMarkdownContent = computed(() => scriptStudioStore.document?.currentVersion?.content ?? "");
 const storyboardMarkdown = computed(() => storyboardSource.value);
-const storyboardLength = computed(() => storyboardMarkdown.value.trim().length);
-const hasStoryboardContent = computed(() => hasScenes.value || storyboardLength.value > 0);
+const storyboardLength = computed(() =>
+  storyboardDocumentJson.value
+    ? JSON.stringify(storyboardDocumentJson.value).length
+    : storyboardMarkdown.value.trim().length
+);
+const hasStoryboardContent = computed(() => Boolean(storyboardDocumentJson.value) || hasScenes.value || storyboardLength.value > 0);
 const hasBlockedJob = computed(() => recentJobs.value.some((job) => job.status === "blocked"));
 const isGenerating = computed(() => storyboardStore.status === "generating");
 const isBusy = computed(
@@ -304,7 +319,7 @@ const latestJobLabel = computed(() => {
 });
 
 const generateDisabled = computed(() => isBusy.value || !hasScriptContent.value);
-const saveDisabled = computed(() => isBusy.value || storyboardLength.value === 0);
+const saveDisabled = computed(() => isBusy.value || (!storyboardDocumentJson.value && storyboardLength.value === 0));
 
 watch(
   currentProjectId,
@@ -402,7 +417,8 @@ async function handleSave(): Promise<void> {
   await storyboardStore.save(
     basedOnRevision,
     scenes.value.map((scene) => normalizeScene(scene)),
-    storyboardMarkdown.value
+    storyboardDocumentJson.value ? null : storyboardMarkdown.value,
+    storyboardDocumentJson.value
   );
 }
 

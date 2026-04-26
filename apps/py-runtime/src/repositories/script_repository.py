@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -15,6 +16,8 @@ class StoredScriptVersion:
     revision: int
     source: str
     content: str
+    format: str
+    document_json: dict[str, object] | None
     provider: str | None
     model: str | None
     ai_job_id: str | None
@@ -49,6 +52,8 @@ class ScriptRepository:
         *,
         source: str,
         content: str,
+        format: str = "legacy_markdown",
+        document_json: dict[str, object] | None = None,
         provider: str | None = None,
         model: str | None = None,
         ai_job_id: str | None = None,
@@ -60,6 +65,8 @@ class ScriptRepository:
                 revision=revision,
                 source=source,
                 content=content,
+                format=format,
+                document_json=json.dumps(document_json, ensure_ascii=False) if document_json is not None else None,
                 provider=provider,
                 model=model,
                 ai_job_id=ai_job_id,
@@ -84,6 +91,8 @@ class ScriptRepository:
             revision=version.revision,
             source=version.source,
             content=version.content,
+            format=version.format or "legacy_markdown",
+            document_json=_loads_json_object(version.document_json),
             provider=version.provider,
             model=version.model,
             ai_job_id=version.ai_job_id,
@@ -93,3 +102,13 @@ class ScriptRepository:
 
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _loads_json_object(payload: str | None) -> dict[str, object] | None:
+    if not payload:
+        return None
+    try:
+        loaded = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+    return loaded if isinstance(loaded, dict) else None

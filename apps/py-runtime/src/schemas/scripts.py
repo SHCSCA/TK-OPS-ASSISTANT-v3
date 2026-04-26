@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 from schemas.tasks import TaskStatus
@@ -47,6 +49,8 @@ class ScriptVersionDto(BaseModel):
     revision: int
     source: str
     content: str
+    format: Literal["json_v1", "legacy_markdown"] = "legacy_markdown"
+    documentJson: dict[str, Any] | None = None
     provider: str | None = None
     model: str | None = None
     aiJobId: str | None = None

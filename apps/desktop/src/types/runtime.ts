@@ -304,7 +304,19 @@ export type AICapabilityConfig = {
   agentRole: string;
   systemPrompt: string;
   userPromptTemplate: string;
+  promptPreview?: {
+    agentRole: string;
+    systemPrompt: string;
+    userPromptTemplate: string;
+    editable: boolean;
+    source: string;
+  } | null;
 };
+
+export type AICapabilityBindingInput = Pick<
+  AICapabilityConfig,
+  "capabilityId" | "enabled" | "provider" | "model"
+>;
 
 export type AIProviderSecretStatus = {
   provider: string;
@@ -459,6 +471,8 @@ export type ScriptVersion = {
   revision: number;
   source: string;
   content: string;
+  format?: "json_v1" | "legacy_markdown";
+  documentJson?: Record<string, any> | null;
   provider: string | null;
   model: string | null;
   aiJobId: string | null;
@@ -538,6 +552,8 @@ export type StoryboardVersion = {
   source: string;
   scenes: StoryboardScene[];
   markdown?: string | null;
+  format?: "json_v1" | "legacy_markdown";
+  storyboardJson?: Record<string, any> | null;
   provider: string | null;
   model: string | null;
   aiJobId: string | null;

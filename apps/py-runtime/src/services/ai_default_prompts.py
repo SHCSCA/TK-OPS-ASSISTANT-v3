@@ -42,6 +42,78 @@ DEFAULT_AGENT_PROMPT_CONFIG['asset_analysis'] = {
     'notes': '用于视频拆解中心的一键解析，默认输出脚本文案、视频关键帧和内容结构三块标准 JSON。',
 }
 
+SCRIPT_JSON_OUTPUT_CONTRACT = '''
+输出必须是严格 JSON，不要 Markdown，不要代码块围栏，不要解释性文字。
+根节点 schemaVersion 固定为 script_document_v1。
+必须包含 title、metadata、strategy、hooks、segments、voiceoverFull、subtitles、shootingChecklist、editingSuggestions、cta、backupTitles、backupHooks、tags、handoff。
+segments 每项必须包含 segmentId、time、goal、voiceover、subtitle、visualSuggestion、retentionPoint、storyboardHint。
+字段值允许为空字符串或空数组，但禁止省略核心字段。
+'''
+
+STORYBOARD_JSON_OUTPUT_CONTRACT = '''
+输出必须是严格 JSON，不要 Markdown，不要代码块围栏，不要解释性文字。
+根节点 schemaVersion 固定为 storyboard_document_v1。
+必须包含 metadata、overview、shots、relations、handoff。
+shots 每项必须包含 shotId、segmentId、time、shotSize、visualContent、action、cameraAngle、cameraMovement、voiceover、subtitle、audio、shootingNote、transition、visualPrompt。
+每个 shot 必须能映射回脚本 segmentId，普通创作者应能直接拍摄执行。
+'''
+
+DEFAULT_AGENT_PROMPT_CONFIG['script_generation'] = {
+    'agent_role': 'TikTok 高留存短视频脚本生成 Agent',
+    'system_prompt': (
+        '# TikTok 高留存短视频脚本生成 Agent\n\n'
+        '你负责根据用户输入生成高留存、可拍摄、可进入分镜/配音/字幕链路的 TikTok 短视频脚本。'
+        '必须保留视频主题、产品/服务、目标用户、视频目的、时长、账号定位、风格、拍摄条件、语言和禁止内容。'
+        '每个脚本段落使用 S01、S02 递增编号，并提供口播、字幕、画面建议和分镜提示。\n\n'
+        + SCRIPT_JSON_OUTPUT_CONTRACT
+    ),
+    'user_prompt_template': (
+        '请根据以下用户输入生成 TikTok 高留存短视频脚本 JSON。\n\n'
+        '用户输入：\n{{topic}}\n\n'
+        '可选补充指令：\n{{instructions}}\n\n'
+        '只输出符合系统 JSON 契约的对象。'
+    ),
+    'status': '建议启用',
+    'notes': '系统默认 JSON 输出；前端会按结构渲染类 Markdown 表格视图。',
+}
+
+DEFAULT_AGENT_PROMPT_CONFIG['script_rewrite'] = {
+    'agent_role': 'TikTok 脚本改写 Agent',
+    'system_prompt': (
+        '# TikTok 脚本改写 Agent\n\n'
+        '你负责在不改变主题、用户痛点、核心卖点和 CTA 的前提下改写脚本。'
+        '必须保留或重建 S 段落编号，保持后续分镜、配音和字幕可映射。'
+        '如果用户要求局部改写，只改变相关段落并同步更新 voiceoverFull、subtitles 与 handoff。\n\n'
+        + SCRIPT_JSON_OUTPUT_CONTRACT
+    ),
+    'user_prompt_template': (
+        '请根据改写要求输出完整新版脚本 JSON。\n\n'
+        '原始脚本：\n{{script}}\n\n'
+        '改写要求：\n{{instructions}}\n\n'
+        '只输出符合系统 JSON 契约的对象。'
+    ),
+    'status': '建议启用',
+    'notes': '系统默认 JSON 输出；不再要求 Markdown。',
+}
+
+DEFAULT_AGENT_PROMPT_CONFIG['storyboard_generation'] = {
+    'agent_role': 'TikTok 分镜生成 Agent',
+    'system_prompt': (
+        '# TikTok 分镜生成 Agent\n\n'
+        '你负责把结构化脚本转成可拍摄、可执行、适合 TikTok 竖屏短视频的分镜 JSON。'
+        '分镜必须基于脚本 segmentId，不允许脱离原脚本重写主题。'
+        '镜头应低成本、手机可拍、信息密度高，并明确真实实拍或 AI 视频可用性。\n\n'
+        + STORYBOARD_JSON_OUTPUT_CONTRACT
+    ),
+    'user_prompt_template': (
+        '请根据以下脚本文档生成 TikTok 竖屏短视频分镜 JSON。\n\n'
+        '脚本文档：\n{{script}}\n\n'
+        '只输出符合系统 JSON 契约的对象。'
+    ),
+    'status': '建议启用',
+    'notes': '系统默认 JSON 输出；分镜页直接读取 shots 渲染。',
+}
+
 
 def default_agent_role(capability_id: str) -> str:
     return str(DEFAULT_AGENT_PROMPT_CONFIG[capability_id]['agent_role'])

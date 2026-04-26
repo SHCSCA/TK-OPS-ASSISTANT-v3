@@ -247,7 +247,7 @@ describe("Storyboard planning center", () => {
     });
   });
 
-  it("switches preview and source modes from the same storyboard markdown", async () => {
+  it("switches list, outline and preview modes from the same storyboard version", async () => {
     const pinia = prepareProject();
     let savedPayload: Record<string, unknown> | null = null;
     const fetchMock = createRouteAwareFetch((path, method, init) => {
@@ -368,15 +368,16 @@ describe("Storyboard planning center", () => {
     expect(wrapper.text()).toContain("视频基础信息");
     expect(wrapper.text()).toContain("Spring Iced Coffee");
 
-    await wrapper.get('[data-storyboard-view="source"]').trigger("click");
-    const sourceInput = wrapper.get("[data-storyboard-source-input]");
-    expect((sourceInput.element as HTMLTextAreaElement).value).toContain("TikTok 分镜执行方案");
+    await wrapper.get('[data-storyboard-view="outline"]').trigger("click");
+    expect(wrapper.find("[data-storyboard-preview-mode]").exists()).toBe(true);
+    expect(wrapper.text()).toContain("TikTok 分镜执行方案");
+    await wrapper.get('[data-storyboard-view="preview"]').trigger("click");
+    expect(wrapper.find("[data-storyboard-preview-mode]").exists()).toBe(true);
 
-    await sourceInput.setValue("# 手动分镜\n\n| 镜头 | 时间 | 画面内容 |\n|---|---|---|\n| 镜头1 | 0-3秒 | 手持冰霸杯 |");
     await wrapper.get('[data-action="save-storyboard"]').trigger("click");
     await flushPromises();
 
-    expect(savedPayload?.markdown).toContain("手动分镜");
+    expect(savedPayload?.markdown).toContain("TikTok 分镜执行方案");
     expect(savedPayload?.scenes).toEqual(expect.any(Array));
   });
 
@@ -447,10 +448,8 @@ describe("Storyboard planning center", () => {
     });
     await flushPromises();
 
-    await wrapper.get('[data-storyboard-view="source"]').trigger("click");
-    const source = (wrapper.get("[data-storyboard-source-input]").element as HTMLTextAreaElement).value;
-    expect(source).toContain("当前版本缺少 AI 原始 Markdown");
-    expect(source).not.toContain("| 镜头 | 时间 | 景别 | 画面内容 |");
+    expect(wrapper.text()).toContain("当前版本缺少 AI 原始 Markdown");
+    expect(wrapper.text()).not.toContain("| 镜头 | 时间 | 景别 | 画面内容 |");
     await wrapper.get('[data-storyboard-view="preview"]').trigger("click");
     expect(wrapper.find("[data-storyboard-preview-mode]").exists()).toBe(true);
     expect(wrapper.text()).not.toContain("分镜 Provider 未返回镜头列表。");

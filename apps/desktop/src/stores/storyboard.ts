@@ -75,7 +75,8 @@ export const useStoryboardStore = defineStore("storyboard", {
     async save(
       basedOnScriptRevision: number,
       scenes: StoryboardScene[],
-      markdown?: string
+      markdown?: string | null,
+      storyboardJson?: Record<string, unknown> | null
     ): Promise<void> {
       if (!this.projectId) {
         return;
@@ -89,7 +90,8 @@ export const useStoryboardStore = defineStore("storyboard", {
           this.projectId,
           basedOnScriptRevision,
           scenes,
-          markdown
+          markdown,
+          storyboardJson
         );
         this.status = "ready";
       } catch (error) {

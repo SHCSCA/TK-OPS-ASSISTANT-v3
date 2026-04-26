@@ -331,7 +331,23 @@ describe("Video deconstruction center", () => {
       },
       applyVideoExtractionToProject: vi.fn(),
       deleteImportedVideo: vi.fn(),
-      fetchImportedVideos: vi.fn(async () => []),
+      fetchImportedVideos: vi.fn(async () => [
+        {
+          id: "video-ready",
+          projectId: "project-video",
+          filePath: "C:/media/ready.mp4",
+          fileName: "ready.mp4",
+          fileSizeBytes: 4096,
+          durationSeconds: 7,
+          width: 1080,
+          height: 1920,
+          frameRate: 30,
+          codec: "h264",
+          status: "ready",
+          errorMessage: null,
+          createdAt: "2026-04-26T00:00:00Z"
+        }
+      ]),
       fetchRuntimeMediaDiagnostics: vi.fn(async () => ({
         ffprobe: {
           status: "ready",
@@ -448,7 +464,23 @@ describe("Video deconstruction center", () => {
       },
       applyVideoExtractionToProject: vi.fn(),
       deleteImportedVideo: vi.fn(),
-      fetchImportedVideos: vi.fn(async () => []),
+      fetchImportedVideos: vi.fn(async () => [
+        {
+          id: "video-ready",
+          projectId: "project-video",
+          filePath: "C:/media/ready.mp4",
+          fileName: "ready.mp4",
+          fileSizeBytes: 4096,
+          durationSeconds: 7,
+          width: 1080,
+          height: 1920,
+          frameRate: 30,
+          codec: "h264",
+          status: "ready",
+          errorMessage: null,
+          createdAt: "2026-04-26T00:00:00Z"
+        }
+      ]),
       fetchRuntimeMediaDiagnostics: vi.fn(async () => ({
         ffprobe: {
           status: "ready",
