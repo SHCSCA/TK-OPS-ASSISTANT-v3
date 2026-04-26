@@ -154,7 +154,15 @@ defineEmits<{
 }>();
 
 function keyframeSpeechText(keyframe: VideoKeyframeDto): string {
-  return [keyframe.speech, keyframe.onscreenText].filter(Boolean).join(" / ") || "未识别口播或字幕";
+  const items = [keyframe.speech, keyframe.onscreenText]
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item, index, array) => array.findIndex((other) => normalizeCaption(other) === normalizeCaption(item)) === index);
+  return items.join(" / ") || "未识别口播或字幕";
+}
+
+function normalizeCaption(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 function formatRange(startMs: number, endMs: number): string {

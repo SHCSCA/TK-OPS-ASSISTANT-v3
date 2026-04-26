@@ -16,6 +16,7 @@ VIDEO_DECONSTRUCTION_OUTPUT_CONTRACT = """## 视频拆解中心输出契约
 - 不要把文件名、视频时长、分辨率当作主题、脚本、关键帧或内容结构。
 - 每个 keyframe 必须描述真实可见画面，不要写“视频文件”“素材内容”“Download.mp4”这类元数据。
 - 无法识别语音或字幕时，对应字段使用空字符串；仍然要尽量输出可见画面的 keyframes。
+- 如果口播 speech 与屏幕字幕 onscreenText 完全相同，speech 保留口播内容，onscreenText 只填写屏幕上额外出现的字幕、贴纸或标题；没有额外文字则使用空字符串。
 - 画面也无法识别时，返回空字符串和空数组，不要编造剧情、人物身份、卖点或字幕。
 - 时间段必须使用毫秒 startMs/endMs，按画面变化或信息变化拆分，普通短视频通常每 3-5 秒一个 keyframe。
 - script.lines、keyframes、segments 的时间轴必须尽量一致，方便前端三块界面同步展示。

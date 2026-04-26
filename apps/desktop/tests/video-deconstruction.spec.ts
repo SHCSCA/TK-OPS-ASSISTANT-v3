@@ -867,7 +867,7 @@ describe("Video deconstruction center", () => {
           endMs: 3000,
           visual: "标准关键帧画面",
           speech: "第一句标准口播。",
-          onscreenText: "标准字幕",
+          onscreenText: "第一句标准口播。",
           shotType: "近景",
           camera: "手持正面",
           intent: "开头钩子"
@@ -985,7 +985,8 @@ describe("Video deconstruction center", () => {
     await wrapper.findAll(".result-tabs button").find((button) => button.text().includes("视频关键帧"))?.trigger("click");
     await flushPromises();
     expect(wrapper.text()).toContain("标准关键帧画面");
-    expect(wrapper.text()).toContain("标准字幕");
+    expect(wrapper.text()).toContain("第一句标准口播。");
+    expect(wrapper.text()).not.toContain("第一句标准口播。 / 第一句标准口播。");
 
     await wrapper.findAll(".result-tabs button").find((button) => button.text().includes("内容结构"))?.trigger("click");
     await flushPromises();
