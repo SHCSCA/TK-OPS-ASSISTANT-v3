@@ -20,13 +20,14 @@ describe("page responsive layout contract", () => {
     expect(css).toMatch(/@media\s*\(max-width:\s*1200px\)\s*{[\s\S]*\.script-workspace\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
   });
 
-  it("keeps storyboard view controls readable when the shell content narrows", () => {
+  it("keeps storyboard list workspace readable when the shell content narrows", () => {
     const css = readSource("../src/pages/storyboards/StoryboardPlanningCenterPage.css");
 
     expect(css).toMatch(/\.page-header__actions\s*{[\s\S]*flex-wrap:\s*wrap;/);
-    expect(css).toMatch(/\.editor-mode-switch\s*{[\s\S]*display:\s*inline-flex;/);
-    expect(css).toMatch(/\.editor-mode-switch__button\s*{[\s\S]*min-width:\s*56px;/);
-    expect(css).toMatch(/\.editor-mode-switch__button\.is-active\s*{[\s\S]*box-shadow:\s*var\(--shadow-xs\);/);
+    expect(css).toMatch(/\.board-tags\s*{[\s\S]*flex-wrap:\s*wrap;/);
+    expect(css).toMatch(/\.storyboard-editor-content\s*{[\s\S]*min-width:\s*0;/);
+    expect(css).toMatch(/\.storyboard-preview-pane\s*{[\s\S]*overflow-y:\s*auto;/);
+    expect(css).not.toContain("editor-mode-switch");
   });
 
   it("keeps review workspace content inside the shell content host", () => {

@@ -24,7 +24,7 @@
 ## 前端设计
 
 - 脚本页通过 `documentJson` 构造 ViewModel，渲染标题、信息表、段落表、口播稿、字幕稿和 CTA。
-- 分镜页通过 `storyboardJson` 构造 ViewModel，列表视图、大纲视图和预览模式共用同一份结构化数据。
+- 分镜页通过 `storyboardJson.shots` 构造单一列表工作面，不再保留大纲视图和预览模式入口。
 - 配音中心优先读取 `voiceoverFull`，其次读取段落 `voiceover`，最后降级旧 Markdown。
 - 字幕对齐中心优先读取 `subtitles`，其次读取段落 `subtitle`，最后降级旧 Markdown。
 - 复制功能由 JSON 生成可读纯文本，不复制内部 JSON。

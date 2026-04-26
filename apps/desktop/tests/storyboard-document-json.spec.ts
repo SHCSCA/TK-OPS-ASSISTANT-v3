@@ -6,7 +6,7 @@ import {
 } from "@/modules/storyboards/storyboard-document-view-model";
 
 describe("storyboard document json view model", () => {
-  it("uses storyboard json shots as the single source for list and preview views", () => {
+  it("uses storyboard json shots as the single source for the list workspace", () => {
     const storyboardJson = {
       schemaVersion: "storyboard_document_v1",
       metadata: {

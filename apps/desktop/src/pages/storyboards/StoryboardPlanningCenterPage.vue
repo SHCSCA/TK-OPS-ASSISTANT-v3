@@ -95,35 +95,6 @@
                 </Chip>
                 <Chip v-if="currentModelLabel" variant="brand">{{ currentModelLabel }}</Chip>
                 <Chip size="sm">{{ scenes.length }} 个分镜</Chip>
-                <div class="editor-mode-switch" role="tablist" aria-label="分镜显示模式">
-                  <button
-                    type="button"
-                    class="editor-mode-switch__button"
-                    :class="{ 'is-active': editorMode === 'list' }"
-                    data-storyboard-view="list"
-                    @click="editorMode = 'list'"
-                  >
-                    列表视图
-                  </button>
-                  <button
-                    type="button"
-                    class="editor-mode-switch__button"
-                    :class="{ 'is-active': editorMode === 'outline' }"
-                    data-storyboard-view="outline"
-                    @click="editorMode = 'outline'"
-                  >
-                    大纲视图
-                  </button>
-                  <button
-                    type="button"
-                    class="editor-mode-switch__button"
-                    :class="{ 'is-active': editorMode === 'preview' }"
-                    data-storyboard-view="preview"
-                    @click="editorMode = 'preview'"
-                  >
-                    预览模式
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -158,11 +129,10 @@
               </div>
 
               <div v-else class="storyboard-editor-content">
-                <div class="storyboard-preview-pane scroll-area" data-storyboard-preview-mode>
+                <div class="storyboard-preview-pane scroll-area" data-storyboard-list-workspace>
                   <StoryboardStructuredPreview
                     v-if="storyboardDocumentJson"
                     :storyboard-json="storyboardDocumentJson"
-                    :mode="editorMode"
                   />
                   <ScriptMarkdownPreview v-else :markdown="storyboardMarkdown" />
                 </div>
@@ -198,7 +168,6 @@ import { useStoryboardStore } from "@/stores/storyboard";
 import type { StoryboardScene } from "@/types/runtime";
 
 type PageState = "loading" | "empty" | "ready" | "error" | "blocked";
-type EditorMode = "list" | "outline" | "preview";
 
 const projectStore = useProjectStore();
 const scriptStudioStore = useScriptStudioStore();
@@ -207,7 +176,6 @@ const storyboardStore = useStoryboardStore();
 
 const scenes = ref<StoryboardScene[]>([]);
 const storyboardSource = ref("");
-const editorMode = ref<EditorMode>("list");
 const selectedSceneId = ref<string | null>(null);
 
 const currentProjectId = computed(() => projectStore.currentProject?.projectId ?? "");

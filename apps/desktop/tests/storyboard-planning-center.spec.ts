@@ -181,8 +181,8 @@ describe("Storyboard planning center", () => {
 
     await vi.waitFor(() => {
       expect(wrapper.findAll("[data-scene-card]")).toHaveLength(0);
-      expect(wrapper.find("[data-storyboard-preview-mode]").exists()).toBe(true);
-      expect(wrapper.find("[data-storyboard-preview-mode] table").exists()).toBe(true);
+      expect(wrapper.find("[data-storyboard-list-workspace]").exists()).toBe(true);
+      expect(wrapper.find("[data-storyboard-list-workspace] table").exists()).toBe(true);
       expect(wrapper.text()).toContain("镜头1");
       expect(wrapper.text()).toContain("手持冰霸杯特写");
       expect(wrapper.text()).toContain("deepseek-chat");
@@ -247,7 +247,7 @@ describe("Storyboard planning center", () => {
     });
   });
 
-  it("switches list, outline and preview modes from the same storyboard version", async () => {
+  it("renders a single storyboard list workspace from the same storyboard version", async () => {
     const pinia = prepareProject();
     let savedPayload: Record<string, unknown> | null = null;
     const fetchMock = createRouteAwareFetch((path, method, init) => {
@@ -279,6 +279,33 @@ describe("Storyboard planning center", () => {
                 visualPrompt: "9:16 竖屏，真实自然窗光，透明冰霸杯微距特写"
               }
             ],
+            format: "json_v1",
+            storyboardJson: {
+              schemaVersion: "storyboard_document_v1",
+              metadata: {
+                storyboardId: "sb-001",
+                basedOnScriptRevision: 3,
+                shotCount: 1
+              },
+              shots: [
+                {
+                  shotId: "镜头1",
+                  segmentId: "S01",
+                  time: "0-3秒",
+                  shotSize: "近景/特写",
+                  visualContent: "手持冰霸杯特写",
+                  action: "缓慢转动杯身",
+                  cameraAngle: "微距俯拍",
+                  cameraMovement: "轻微推进",
+                  voiceover: "This is my spring addiction.",
+                  subtitle: "This is my spring addiction.",
+                  audio: "冰块声",
+                  transition: "快切",
+                  shootingNote: "突出透明质感",
+                  visualPrompt: "9:16 竖屏，真实自然窗光，透明冰霸杯微距特写"
+                }
+              ]
+            },
             markdown: [
               "# TikTok 分镜执行方案",
               "",
@@ -362,22 +389,21 @@ describe("Storyboard planning center", () => {
     });
     await flushPromises();
 
-    expect(wrapper.find("[data-storyboard-preview-mode]").exists()).toBe(true);
-    expect(wrapper.find("[data-storyboard-preview-mode] table").exists()).toBe(true);
-    expect(wrapper.text()).toContain("TikTok 分镜执行方案");
-    expect(wrapper.text()).toContain("视频基础信息");
+    expect(wrapper.find("[data-storyboard-list-workspace]").exists()).toBe(true);
+    expect(wrapper.find("[data-storyboard-list-workspace] table").exists()).toBe(true);
+    expect(wrapper.text()).toContain("TikTok 分镜规划文档");
+    expect(wrapper.text()).toContain("详细分镜表");
     expect(wrapper.text()).toContain("Spring Iced Coffee");
-
-    await wrapper.get('[data-storyboard-view="outline"]').trigger("click");
-    expect(wrapper.find("[data-storyboard-preview-mode]").exists()).toBe(true);
-    expect(wrapper.text()).toContain("TikTok 分镜执行方案");
-    await wrapper.get('[data-storyboard-view="preview"]').trigger("click");
-    expect(wrapper.find("[data-storyboard-preview-mode]").exists()).toBe(true);
+    expect(wrapper.find('[data-storyboard-view="outline"]').exists()).toBe(false);
+    expect(wrapper.find('[data-storyboard-view="preview"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("大纲视图");
+    expect(wrapper.text()).not.toContain("预览模式");
 
     await wrapper.get('[data-action="save-storyboard"]').trigger("click");
     await flushPromises();
 
-    expect(savedPayload?.markdown).toContain("TikTok 分镜执行方案");
+    expect(savedPayload?.markdown).toBeNull();
+    expect(savedPayload?.storyboardJson).toEqual(expect.any(Object));
     expect(savedPayload?.scenes).toEqual(expect.any(Array));
   });
 
@@ -450,8 +476,7 @@ describe("Storyboard planning center", () => {
 
     expect(wrapper.text()).toContain("当前版本缺少 AI 原始 Markdown");
     expect(wrapper.text()).not.toContain("| 镜头 | 时间 | 景别 | 画面内容 |");
-    await wrapper.get('[data-storyboard-view="preview"]').trigger("click");
-    expect(wrapper.find("[data-storyboard-preview-mode]").exists()).toBe(true);
+    expect(wrapper.find("[data-storyboard-list-workspace]").exists()).toBe(true);
     expect(wrapper.text()).not.toContain("分镜 Provider 未返回镜头列表。");
   });
 });

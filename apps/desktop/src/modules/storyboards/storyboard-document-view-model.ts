@@ -27,7 +27,6 @@ export type StoryboardShotView = {
 export type StoryboardViewModel = {
   title: string;
   infoTable: StoryboardDocumentTable;
-  overviewTable: StoryboardDocumentTable;
   shotTable: StoryboardDocumentTable;
   shots: StoryboardShotView[];
 };
@@ -63,19 +62,6 @@ export function buildStoryboardViewModel(storyboardJson: StoryboardDocumentJson 
         ["目标时长", asText(metadata.targetDurationSec)],
         ["镜头数量", asText(metadata.shotCount || shots.length)]
       ].filter((row) => row[1])
-    },
-    overviewTable: {
-      headers: ["镜头", "段落", "时间", "镜头目标", "画面重点", "关键帧", "AI 视频", "真实实拍"],
-      rows: normalizeShots(document.overview).map((item) => [
-        asText(item.shotId),
-        asText(item.segmentId),
-        asText(item.time),
-        asText(item.shotGoal),
-        asText(item.visualFocus),
-        boolLabel(item.isKeyframe),
-        boolLabel(item.aiVideoReady),
-        boolLabel(item.needsRealFootage)
-      ])
     },
     shotTable: {
       headers: SHOT_HEADERS,
@@ -168,12 +154,6 @@ function normalizeRepeatedText(value: unknown): string {
     .filter(Boolean);
   const uniqueParts = parts.filter((part, index) => parts.findIndex((item) => item === part) === index);
   return uniqueParts.length > 0 ? uniqueParts.join(" / ") : text;
-}
-
-function boolLabel(value: unknown): string {
-  if (value === true) return "是";
-  if (value === false) return "否";
-  return asText(value);
 }
 
 function isRecord(value: unknown): value is Record<string, any> {
