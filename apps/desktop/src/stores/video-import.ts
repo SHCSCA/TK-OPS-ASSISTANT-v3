@@ -2,20 +2,32 @@ import { defineStore } from "pinia";
 
 import {
   RuntimeRequestError,
+  deconstructVideo,
   deleteImportedVideo,
   fetchImportedVideos,
+  fetchVideoSegments,
+  fetchVideoResult,
   importVideo,
   applyVideoExtractionToProject,
+  fetchVideoStructure,
   fetchVideoStages,
+  fetchVideoTranscript,
   rerunVideoStage
 } from "@/app/runtime-client";
 import { useTaskBusStore } from "@/stores/task-bus";
 import { useProjectStore } from "@/stores/project";
 import type { TaskEvent, TaskInfo } from "@/types/task-events";
-import type { RuntimeRequestErrorShape, VideoStageDto } from "@/types/runtime";
+import type {
+  RuntimeRequestErrorShape,
+  VideoDeconstructionResultDto,
+  VideoSegmentDto,
+  VideoStageDto,
+  VideoStructureExtractionDto,
+  VideoTranscriptDto
+} from "@/types/runtime";
 import type { ImportedVideo } from "@/types/video";
 
-export type VideoImportStatus = "idle" | "loading" | "ready" | "importing" | "error" | "applying";
+export type VideoImportStatus = "idle" | "loading" | "ready" | "importing" | "deconstructing" | "error" | "applying";
 
 type VideoImportState = {
   error: RuntimeRequestErrorShape | null;
@@ -23,6 +35,10 @@ type VideoImportState = {
   taskSnapshots: Record<string, TaskInfo>;
   videos: ImportedVideo[];
   videoStages: Record<string, VideoStageDto[]>;
+  transcripts: Record<string, VideoTranscriptDto>;
+  segments: Record<string, VideoSegmentDto[]>;
+  structures: Record<string, VideoStructureExtractionDto>;
+  results: Record<string, VideoDeconstructionResultDto>;
   _taskUnsubscribers: Record<string, () => void>;
 };
 
@@ -33,6 +49,10 @@ export const useVideoImportStore = defineStore("video-import", {
     taskSnapshots: {},
     videos: [],
     videoStages: {},
+    transcripts: {},
+    segments: {},
+    structures: {},
+    results: {},
     _taskUnsubscribers: {}
   }),
   actions: {
@@ -63,12 +83,23 @@ export const useVideoImportStore = defineStore("video-import", {
         console.error(`Failed to load stages for video ${videoId}:`, error);
       }
     },
+    async loadVideoResult(videoId: string): Promise<void> {
+      try {
+        this.applyVideoResult(videoId, await fetchVideoResult(videoId));
+      } catch (error) {
+        console.error(`Failed to load standardized result for video ${videoId}:`, error);
+        await this.loadLegacyVideoResult(videoId);
+      }
+    },
     async rerunStage(videoId: string, stageId: string): Promise<void> {
       this.error = null;
       try {
-        // FIX: Match backend rerun signature if needed, or stick to runtime-client
         await rerunVideoStage(videoId, stageId);
         await this.loadVideoStages(videoId);
+        const projectId = this.videos.find((item) => item.id === videoId)?.projectId;
+        if (projectId) {
+          await this.loadVideos(projectId);
+        }
       } catch (error) {
         this.applyRuntimeError(error, `重试阶段 ${stageId} 失败。`);
       }
@@ -86,6 +117,20 @@ export const useVideoImportStore = defineStore("video-import", {
         return video;
       } catch (error) {
         this.applyRuntimeError(error, "导入视频失败。");
+        return null;
+      }
+    },
+    async deconstructVideoFile(videoId: string): Promise<VideoDeconstructionResultDto | null> {
+      this.status = "deconstructing";
+      this.error = null;
+
+      try {
+        const result = await deconstructVideo(videoId);
+        this.applyVideoResult(videoId, result);
+        this.status = "ready";
+        return result;
+      } catch (error) {
+        this.applyRuntimeError(error, "执行视频拆解失败。");
         return null;
       }
     },
@@ -147,6 +192,34 @@ export const useVideoImportStore = defineStore("video-import", {
 
       const lastEvent = taskBusStore.lastEvents?.get(videoId);
       return lastEvent ? deriveTaskInfoFromVideoEvent(videoId, lastEvent) : undefined;
+    },
+    applyVideoResult(videoId: string, result: VideoDeconstructionResultDto): void {
+      this.results = { ...this.results, [videoId]: result };
+      this.transcripts = { ...this.transcripts, [videoId]: result.transcript };
+      this.segments = { ...this.segments, [videoId]: result.segments };
+      this.structures = { ...this.structures, [videoId]: result.structure };
+      this.videoStages = { ...this.videoStages, [videoId]: result.stages };
+    },
+    async loadLegacyVideoResult(videoId: string): Promise<void> {
+      const [stagesResult, transcriptResult, segmentsResult, structureResult] = await Promise.allSettled([
+        fetchVideoStages(videoId),
+        fetchVideoTranscript(videoId),
+        fetchVideoSegments(videoId),
+        fetchVideoStructure(videoId)
+      ]);
+
+      if (stagesResult.status === "fulfilled") {
+        this.videoStages = { ...this.videoStages, [videoId]: stagesResult.value };
+      }
+      if (transcriptResult.status === "fulfilled") {
+        this.transcripts = { ...this.transcripts, [videoId]: transcriptResult.value };
+      }
+      if (segmentsResult.status === "fulfilled") {
+        this.segments = { ...this.segments, [videoId]: segmentsResult.value };
+      }
+      if (structureResult.status === "fulfilled") {
+        this.structures = { ...this.structures, [videoId]: structureResult.value };
+      }
     },
     watchVideoTask(projectId: string, videoId: string): void {
       this.unwatchVideoTask(videoId);

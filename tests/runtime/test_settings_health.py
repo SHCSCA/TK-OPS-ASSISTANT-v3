@@ -74,6 +74,7 @@ def test_settings_media_diagnostics_reports_ffprobe_state(runtime_app) -> None:
     assert set(payload["data"]["ffprobe"]) == {
         "status",
         "path",
+        "source",
         "version",
         "errorCode",
         "errorMessage",
@@ -148,6 +149,7 @@ def test_provider_health_refresh_emits_ai_capability_changed_event(runtime_app) 
         "storyboard_generation",
         "tts_generation",
         "subtitle_alignment",
+        "video_transcription",
         "video_generation",
         "asset_analysis",
     }

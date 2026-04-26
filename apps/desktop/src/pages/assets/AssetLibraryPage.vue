@@ -380,8 +380,7 @@ async function importFromPaths(filePaths: string[]) {
 
 async function pickAssetFilePaths(): Promise<string[]> {
   try {
-    const dialogModuleName = "@tauri-apps/plugin-dialog";
-    const { open } = await import(/* @vite-ignore */ dialogModuleName);
+    const { open } = await import("@tauri-apps/plugin-dialog");
     const selected = await open({
       multiple: true,
       filters: [{ name: "创作资产", extensions: ["mp4", "mov", "mkv", "webm", "png", "jpg", "jpeg", "webp", "gif", "mp3", "wav", "m4a", "aac", "txt", "md", "srt", "json", "csv", "pdf", "doc", "docx"] }]

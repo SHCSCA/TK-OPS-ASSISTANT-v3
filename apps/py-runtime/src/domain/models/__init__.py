@@ -28,7 +28,11 @@ from domain.models.script import ScriptVersion
 from domain.models.storyboard import StoryboardVersion
 from domain.models.system_config import SessionContext, SystemConfig
 from domain.models.timeline import SubtitleTrack, Timeline, VoiceTrack
-from domain.models.video_deconstruction import VideoStageRun
+from domain.models.video_deconstruction import (
+    VideoDeconstructionArtifact,
+    VideoStageRun,
+    VideoTranscript,
+)
 from domain.models.voice_profile import VoiceProfile
 
 __all__ = [
@@ -66,6 +70,8 @@ __all__ = [
     'SystemConfig',
     'Timeline',
     'VideoStageRun',
+    'VideoDeconstructionArtifact',
+    'VideoTranscript',
     'VoiceProfile',
     'VoiceTrack',
     'generate_uuid',

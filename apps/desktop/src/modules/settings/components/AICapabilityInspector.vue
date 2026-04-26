@@ -41,7 +41,7 @@
           >
             <option value="">{{ providerOptions.length === 0 ? "当前能力暂无可用 Provider" : "请选择 Provider" }}</option>
             <option v-for="option in providerOptions" :key="option.provider" :value="option.provider">
-              {{ option.label }}
+              {{ option.configured ? "● " : "" }}{{ option.label }}{{ option.configured ? "" : "（未配置）" }}
             </option>
           </select>
         </label>
@@ -94,11 +94,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 import type {
   AICapabilityConfig,
   AICapabilitySupportItem,
+  AIModelCatalogItem,
   AIProviderCatalogItem
 } from "@/types/runtime";
 
@@ -107,7 +108,12 @@ const props = defineProps<{
   capabilityLabel: string;
   disabled: boolean;
   providerCatalog: AIProviderCatalogItem[];
+  modelCatalogByProvider: Record<string, AIModelCatalogItem[]>;
   supportItem: AICapabilitySupportItem | null;
+}>();
+
+const emit = defineEmits<{
+  (e: "loadModels", providerId: string): void;
 }>();
 
 const title = computed(() => (props.capability ? `${props.capabilityLabel} 策略` : "能力策略"));
@@ -124,45 +130,56 @@ const supportSummary = computed(() => {
   }
 
   return [
-    `可选 Provider ${props.supportItem.providers.length}`,
-    `可选模型 ${props.supportItem.models.length}`
+    `推荐 Provider ${props.supportItem.providers.length}`,
+    `推荐模型 ${props.supportItem.models.length}`
   ];
 });
 const providerOptions = computed(() => {
-  if (!props.supportItem) {
-    return [];
-  }
-
-  return props.supportItem.providers.map((providerId) => {
-    const provider = props.providerCatalog.find((item) => item.provider === providerId);
-    return {
-      label: provider?.label ?? providerId,
-      provider: providerId
-    };
+  return [...props.providerCatalog].sort((a, b) => {
+    const aReady = a.configured ? 0 : 1;
+    const bReady = b.configured ? 0 : 1;
+    if (aReady !== bReady) return aReady - bReady;
+    return a.label.localeCompare(b.label, "zh-Hans-CN");
   });
 });
 const modelOptions = computed(() => {
-  if (!props.supportItem || !props.capability) {
+  if (!props.capability?.provider) {
     return [];
   }
 
-  return props.supportItem.models.filter((item) => item.provider === props.capability?.provider);
+  const loadedModels = props.modelCatalogByProvider[props.capability.provider] ?? [];
+  if (loadedModels.length > 0) {
+    return loadedModels;
+  }
+  return props.supportItem?.models.filter((item) => item.provider === props.capability?.provider) ?? [];
 });
 
+const previousProvider = ref("");
+
 watch(
-  () => [props.capability?.provider, props.supportItem?.providers, props.supportItem?.models],
-  () => {
+  () => props.capability?.provider ?? "",
+  (provider) => {
     if (!props.capability) {
       return;
     }
 
-    if (providerOptions.value.length > 0) {
-      const hasProvider = providerOptions.value.some((item) => item.provider === props.capability?.provider);
-      if (!hasProvider) {
-        props.capability.provider = providerOptions.value[0].provider;
-      }
+    if (provider && previousProvider.value && provider !== previousProvider.value) {
+      props.capability.model = "";
     }
+    if (provider && !(provider in props.modelCatalogByProvider)) {
+      emit("loadModels", provider);
+    }
+    previousProvider.value = provider;
+  },
+  { immediate: true }
+);
 
+watch(
+  () => [props.capability?.model, modelOptions.value],
+  () => {
+    if (!props.capability) {
+      return;
+    }
     if (modelOptions.value.length > 0) {
       const hasModel = modelOptions.value.some((item) => item.modelId === props.capability?.model);
       if (!hasModel) {

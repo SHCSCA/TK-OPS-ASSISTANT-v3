@@ -25,7 +25,7 @@
     </table>
     
     <div class="matrix-footer">
-      <p class="hint">提示：Provider 下拉只显示支持对应能力类型的提供商。</p>
+      <p class="hint">提示：Provider 已全量开放，执行前请通过检测中心确认能力与协议是否可用。</p>
       <div class="actions">
         <Button variant="secondary" @click="$emit('reset')">恢复默认</Button>
         <Button variant="primary" :disabled="!dirty" @click="$emit('save')">保存绑定</Button>

@@ -15,6 +15,7 @@ from ai.providers.base import (
     TTSRequest,
     TTSResponse,
     TextGenerationAdapter,
+    TextGenerationMediaInput,
     TextGenerationRequest,
     TextGenerationResponse,
 )
@@ -186,6 +187,57 @@ def test_request_json_rejects_non_dict_json(
 
     assert exc_info.value.error_code == 'ai_provider_empty_response'
     assert 'JSON' in str(exc_info.value.detail)
+
+
+def test_openai_chat_adapter_sends_video_url_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_request_json(endpoint, *, bearer_token, headers, payload, timeout):
+        captured['endpoint'] = endpoint
+        captured['bearer_token'] = bearer_token
+        captured['headers'] = headers
+        captured['payload'] = payload
+        captured['timeout'] = timeout
+        return {'choices': [{'message': {'content': '已完成视频拆解'}}]}
+
+    monkeypatch.setattr('ai.providers.openai_chat.request_json', fake_request_json)
+
+    adapter = OpenAIChatTextGenerationAdapter(
+        base_url='https://ark.cn-beijing.volces.com/api/v3',
+        api_key='test-key',
+    )
+    result = adapter.generate(
+        TextGenerationRequest(
+            model='doubao-seed-2-0-pro-260215',
+            system_prompt='系统',
+            user_prompt='请拆解视频',
+            request_id='req-video',
+            media_inputs=(
+                TextGenerationMediaInput(
+                    kind='video',
+                    url='data:video/mp4;base64,AAAA',
+                    mime_type='video/mp4',
+                    fps=1.0,
+                    filename='demo.mp4',
+                ),
+            ),
+        )
+    )
+
+    assert result.text == '已完成视频拆解'
+    payload = captured['payload']
+    assert isinstance(payload, dict)
+    messages = payload['messages']
+    assert messages[1]['role'] == 'user'
+    assert messages[1]['content'] == [
+        {
+            'type': 'video_url',
+            'video_url': {'url': 'data:video/mp4;base64,AAAA', 'fps': 1.0},
+        },
+        {'type': 'text', 'text': '请拆解视频'},
+    ]
 
 
 def test_request_bytes_reads_binary_response(monkeypatch: pytest.MonkeyPatch) -> None:

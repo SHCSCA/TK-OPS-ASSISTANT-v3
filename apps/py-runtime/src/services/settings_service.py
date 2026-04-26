@@ -29,6 +29,7 @@ from schemas.settings import (
     PublishingQueueHealthDto,
     RenderQueueHealthDto,
     RuntimeDiagnosticsDto,
+    RuntimeDiagnosticItemDto,
     RuntimeHealthSnapshotDto,
     RuntimeSubsystemHealthDto,
     RuntimeLogItemDto,
@@ -37,6 +38,7 @@ from schemas.settings import (
 )
 from services.ffprobe import get_ffprobe_availability
 from services.license_service import LicenseService
+from services.media_tool_resolver import configure_ffprobe_path
 from services.task_manager import TaskManager
 from services.ws_manager import ws_manager
 
@@ -97,6 +99,7 @@ class SettingsService:
     def get_settings(self) -> AppSettingsDto:
         stored = self._load_or_create()
         settings = self._to_settings_dto(stored)
+        self._sync_media_tool_config(settings)
         self._ensure_runtime_directories(settings)
         return settings
 
@@ -111,6 +114,7 @@ class SettingsService:
         document = payload.model_dump(mode="json")
         stored = self._repository.save(document)
         settings = self._to_settings_dto(stored)
+        self._sync_media_tool_config(settings)
         self._ensure_runtime_directories(settings)
 
         if self._on_settings_updated is not None:
@@ -155,13 +159,18 @@ class SettingsService:
 
     def get_diagnostics(self) -> RuntimeDiagnosticsDto:
         settings = self.get_settings()
+        items = self._build_diagnostic_items(settings)
         return RuntimeDiagnosticsDto(
             databasePath=str(self._runtime_config.database_path),
+            cacheDir=settings.paths.cacheDir,
             logDir=settings.paths.logDir,
             revision=settings.revision,
             mode=settings.runtime.mode,
             healthStatus="online",
             configScope=settings.scope,
+            checkedAt=_utc_now_iso(),
+            overallStatus=self._summarize_diagnostic_status(items),
+            items=items,
         )
 
     def get_media_diagnostics(self) -> MediaDiagnosticsDto:
@@ -170,12 +179,326 @@ class SettingsService:
             ffprobe=FfprobeDiagnosticsDto(
                 status=ffprobe.status,
                 path=ffprobe.path,
+                source=ffprobe.source,
                 version=ffprobe.version,
                 errorCode=ffprobe.error_code,
                 errorMessage=ffprobe.error_message,
             ),
             checkedAt=_utc_now_iso(),
         )
+
+    def _build_diagnostic_items(self, settings: AppSettingsDto) -> list[RuntimeDiagnosticItemDto]:
+        return [
+            self._build_license_diagnostic_item(),
+            RuntimeDiagnosticItemDto(
+                id="runtime.health",
+                label="Runtime 服务",
+                group="基础运行",
+                status="ready",
+                summary="Runtime 在线。",
+                impact="前端可以访问本地服务和任务状态。",
+                detail=f"模式：{settings.runtime.mode}；版本：{self._runtime_config.version}",
+                actionLabel="重新检测",
+                actionTarget="settings.diagnostics.rescan",
+            ),
+            self._build_database_diagnostic_item(),
+            self._build_directory_diagnostic_item(
+                item_id="directory.workspace",
+                label="工作目录",
+                path=Path(settings.runtime.workspaceRoot),
+                impact="项目工程、资产引用和本地工作区需要可写目录。",
+            ),
+            self._build_directory_diagnostic_item(
+                item_id="directory.cache",
+                label="缓存目录",
+                path=Path(settings.paths.cacheDir),
+                impact="AI 生成、预览和媒体处理缓存需要可写目录。",
+            ),
+            self._build_directory_diagnostic_item(
+                item_id="directory.logs",
+                label="日志目录",
+                path=Path(settings.paths.logDir),
+                impact="异常、任务和审计日志需要写入该目录。",
+            ),
+            self._build_ffprobe_diagnostic_item(),
+            self._build_ai_provider_diagnostic_item(settings),
+            self._build_video_transcription_diagnostic_item(),
+            RuntimeDiagnosticItemDto(
+                id="websocket.task_bus",
+                label="WebSocket 任务通道",
+                group="任务通信",
+                status="ready",
+                summary="任务通道已随 Runtime 初始化。",
+                impact="长任务进度、配置变更和状态刷新依赖该通道。",
+                detail="当前 Runtime 已注册 WebSocket 路由。",
+                actionLabel="重新检测",
+                actionTarget="settings.diagnostics.rescan",
+            ),
+        ]
+
+    def _build_license_diagnostic_item(self) -> RuntimeDiagnosticItemDto:
+        health = self._build_license_health()
+        if health.status == "active":
+            return RuntimeDiagnosticItemDto(
+                id="license.status",
+                label="许可证",
+                group="授权",
+                status="ready",
+                summary="许可证已激活。",
+                impact="可使用完整本地创作链路。",
+                detail="授权状态：active",
+                actionLabel="重新检测",
+                actionTarget="settings.diagnostics.rescan",
+            )
+        return RuntimeDiagnosticItemDto(
+            id="license.status",
+            label="许可证",
+            group="授权",
+            status="warning",
+            summary="许可证未激活或处于受限状态。",
+            impact="部分创作、发布或自动化能力可能受限。",
+            detail=f"授权状态：{health.status}",
+            actionLabel="前往授权",
+            actionTarget="settings.license.open",
+        )
+
+    def _build_database_diagnostic_item(self) -> RuntimeDiagnosticItemDto:
+        database_path = self._runtime_config.database_path
+        parent = database_path.parent
+        if self._is_directory_writable(parent):
+            return RuntimeDiagnosticItemDto(
+                id="database.sqlite",
+                label="数据库",
+                group="基础运行",
+                status="ready",
+                summary="数据库目录可读写。",
+                impact="项目、任务、配置和资产索引可正常持久化。",
+                detail=str(database_path),
+                actionLabel="重新检测",
+                actionTarget="settings.diagnostics.rescan",
+            )
+        return RuntimeDiagnosticItemDto(
+            id="database.sqlite",
+            label="数据库",
+            group="基础运行",
+            status="failed",
+            summary="数据库目录不可写。",
+            impact="项目、任务、配置和资产索引无法可靠保存。",
+            detail=str(database_path),
+            actionLabel="检查目录权限",
+            actionTarget="settings.paths.open",
+        )
+
+    def _build_directory_diagnostic_item(
+        self,
+        *,
+        item_id: str,
+        label: str,
+        path: Path,
+        impact: str,
+    ) -> RuntimeDiagnosticItemDto:
+        if self._is_directory_writable(path):
+            return RuntimeDiagnosticItemDto(
+                id=item_id,
+                label=label,
+                group="目录",
+                status="ready",
+                summary=f"{label}可读写。",
+                impact=impact,
+                detail=str(path),
+                actionLabel="重新检测",
+                actionTarget="settings.diagnostics.rescan",
+            )
+        return RuntimeDiagnosticItemDto(
+            id=item_id,
+            label=label,
+            group="目录",
+            status="failed",
+            summary=f"{label}不可写。",
+            impact=impact,
+            detail=str(path),
+            actionLabel="检查目录权限",
+            actionTarget="settings.paths.open",
+        )
+
+    def _build_ffprobe_diagnostic_item(self) -> RuntimeDiagnosticItemDto:
+        ffprobe = get_ffprobe_availability()
+        if ffprobe.status == "ready":
+            return RuntimeDiagnosticItemDto(
+                id="media.ffprobe",
+                label="FFprobe 媒体探针",
+                group="媒体工具",
+                status="ready",
+                summary="已检测到 FFprobe。",
+                impact="可解析视频时长、分辨率、编码格式等元数据。",
+                detail=f"来源：{ffprobe.source}；路径：{ffprobe.path}；版本：{ffprobe.version or '未知'}",
+                actionLabel="重新检测",
+                actionTarget="settings.diagnostics.rescan",
+            )
+        return RuntimeDiagnosticItemDto(
+            id="media.ffprobe",
+            label="FFprobe 媒体探针",
+            group="媒体工具",
+            status="warning",
+            summary="未检测到 FFprobe，视频元数据将使用基础降级解析。",
+            impact="视频时长、分辨率、编码格式识别可能不完整。",
+            detail=ffprobe.error_message,
+            actionLabel="准备媒体工具",
+            actionTarget="settings.media_tools.prepare",
+        )
+
+    def _build_ai_provider_diagnostic_item(self, settings: AppSettingsDto) -> RuntimeDiagnosticItemDto:
+        health = self._build_ai_provider_health(settings)
+        if health.status in {"ready", "configured"}:
+            return RuntimeDiagnosticItemDto(
+                id="ai.provider",
+                label="AI Provider",
+                group="AI",
+                status="ready",
+                summary="默认 AI Provider 已配置。",
+                impact="脚本、改写、分镜和其他 AI 能力可按配置调用。",
+                detail=f"Provider：{health.providerId}；模型：{settings.ai.model}",
+                actionLabel="连接检查",
+                actionTarget="settings.provider.check",
+            )
+        return RuntimeDiagnosticItemDto(
+            id="ai.provider",
+            label="AI Provider",
+            group="AI",
+            status="warning",
+            summary="默认 AI Provider 尚未完成配置。",
+            impact="脚本、改写、分镜和其他 AI 能力可能不可用。",
+            detail=f"Provider：{health.providerId}；状态：{health.status}",
+            actionLabel="配置 Provider",
+            actionTarget="settings.provider.open",
+        )
+
+    def _build_video_transcription_diagnostic_item(self) -> RuntimeDiagnosticItemDto:
+        if self._ai_capability_service is None:
+            return RuntimeDiagnosticItemDto(
+                id="ai.video_transcription",
+                label="视频解析模型",
+                group="AI",
+                status="warning",
+                summary="视频解析模型尚未接入配置总线。",
+                impact="视频拆解无法调用多模态模型。",
+                detail="Runtime 未绑定 AI 能力服务。",
+                actionLabel="重新检测",
+                actionTarget="settings.diagnostics.rescan",
+            )
+
+        try:
+            capability, runtime = self._resolve_video_analysis_capability()
+        except Exception as exc:
+            log.exception("视频解析模型诊断失败")
+            return RuntimeDiagnosticItemDto(
+                id="ai.video_transcription",
+                label="视频解析模型",
+                group="AI",
+                status="warning",
+                summary="视频解析模型配置读取失败。",
+                impact="视频拆解可能不可用。",
+                detail=str(exc),
+                actionLabel="重新检测",
+                actionTarget="settings.diagnostics.rescan",
+            )
+
+        if capability is None or runtime is None:
+            return RuntimeDiagnosticItemDto(
+                id="ai.video_transcription",
+                label="视频解析模型",
+                group="AI",
+                status="warning",
+                summary="视频解析模型未启用。",
+                impact="视频拆解会退回基础分段，无法生成画面与语音对齐结果。",
+                detail="请在 AI 能力中启用素材分析，或把视频转录能力绑定到多模态文本模型。",
+                actionLabel="配置视频解析模型",
+                actionTarget="settings.provider.open",
+            )
+
+        if not runtime.supports_text_generation:
+            return RuntimeDiagnosticItemDto(
+                id="ai.video_transcription",
+                label="视频解析模型",
+                group="AI",
+                status="warning",
+                summary="视频解析模型尚未配置为多模态文本模型。",
+                impact="视频拆解无法直接生成画面与语音对齐时间轴。",
+                detail=f"Provider：{runtime.provider}；协议：{runtime.protocol_family}",
+                actionLabel="切换视频解析模型",
+                actionTarget="settings.provider.open",
+            )
+        if runtime.requires_secret and not runtime.api_key:
+            return RuntimeDiagnosticItemDto(
+                id="ai.video_transcription",
+                label="视频解析模型",
+                group="AI",
+                status="warning",
+                summary="视频解析模型尚未配置 API Key。",
+                impact="视频拆解无法调用远端多模态模型。",
+                detail=f"Provider：{runtime.provider}；模型：{capability.model}",
+                actionLabel="配置视频解析模型",
+                actionTarget="settings.provider.open",
+            )
+        if runtime.base_url.strip() == "":
+            return RuntimeDiagnosticItemDto(
+                id="ai.video_transcription",
+                label="视频解析模型",
+                group="AI",
+                status="warning",
+                summary="视频解析模型尚未配置 Base URL。",
+                impact="视频拆解无法调用远端多模态模型。",
+                detail=f"Provider：{runtime.provider}；模型：{capability.model}",
+                actionLabel="配置视频解析模型",
+                actionTarget="settings.provider.open",
+            )
+        return RuntimeDiagnosticItemDto(
+            id="ai.video_transcription",
+            label="视频解析模型",
+            group="AI",
+            status="ready",
+            summary="视频解析模型已配置。",
+            impact="视频拆解可直接生成画面、语音与内容结构。",
+            detail=f"能力：{capability.capabilityId}；Provider：{runtime.provider}；模型：{capability.model}",
+            actionLabel="重新检测",
+            actionTarget="settings.diagnostics.rescan",
+        )
+
+    def _resolve_video_analysis_capability(self):
+        assert self._ai_capability_service is not None
+        candidates = []
+        for capability_id in ("asset_analysis", "video_transcription"):
+            capability = self._ai_capability_service.get_capability(capability_id)
+            if not capability.enabled:
+                continue
+            runtime = self._ai_capability_service.get_provider_runtime_config(capability.provider)
+            candidates.append((capability, runtime))
+            if runtime.supports_text_generation:
+                return capability, runtime
+        if candidates:
+            return candidates[0]
+        return None, None
+
+    def _summarize_diagnostic_status(
+        self,
+        items: list[RuntimeDiagnosticItemDto],
+    ) -> str:
+        if any(item.status == "failed" for item in items):
+            return "failed"
+        if any(item.status == "warning" for item in items):
+            return "warning"
+        return "ready"
+
+    def _is_directory_writable(self, path: Path) -> bool:
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            probe = path / ".tkops-write-test"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+            return True
+        except Exception:
+            log.exception("目录写入检测失败: %s", path)
+            return False
 
     def _build_config_changed_event(
         self,
@@ -204,7 +527,7 @@ class SettingsService:
         previous: dict[str, Any] | None,
         current: dict[str, Any],
     ) -> list[str]:
-        keys = ("runtime", "paths", "logging", "ai")
+        keys = ("runtime", "paths", "logging", "ai", "media")
         if previous is None:
             return list(keys)
         return [key for key in keys if previous.get(key) != current.get(key)]
@@ -510,16 +833,22 @@ class SettingsService:
                     "voice": "alloy",
                     "subtitleMode": "balanced",
                 },
+                "media": {"ffprobePath": ""},
             }
         )
 
     def _to_settings_dto(self, stored: StoredSystemConfig) -> AppSettingsDto:
+        document = dict(stored.document)
+        document.setdefault("media", {"ffprobePath": ""})
         return AppSettingsDto.model_validate(
             {
                 "revision": stored.revision,
-                **stored.document,
+                **document,
             }
         )
+
+    def _sync_media_tool_config(self, settings: AppSettingsDto) -> None:
+        configure_ffprobe_path(settings.media.ffprobePath)
 
     def _ensure_runtime_directories(self, settings: AppSettingsDto) -> None:
         for directory in (

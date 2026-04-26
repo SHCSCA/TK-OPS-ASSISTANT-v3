@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ai.providers.base import TextGenerationResponse
+from ai.providers.base import TextGenerationMediaInput, TextGenerationResponse
 from ai.providers.errors import ProviderHTTPException
 from ai.providers.openai_responses import OpenAIResponsesTextGenerationAdapter
 from domain.models import Base
@@ -26,30 +26,61 @@ class _FakeCapability:
 
 
 class _FakeCapabilityService:
-    def __init__(self, capability: _FakeCapability, runtime: ProviderRuntimeConfig) -> None:
+    def __init__(
+        self,
+        capability: _FakeCapability,
+        runtime: ProviderRuntimeConfig,
+        *,
+        resolved_model: str | None = None,
+        capability_id: str = 'script_generation',
+    ) -> None:
         self._capability = capability
         self._runtime = runtime
+        self._resolved_model = resolved_model
+        self._capability_id = capability_id
 
     def get_capability(self, capability_id: str) -> _FakeCapability:
-        assert capability_id == 'script_generation'
+        assert capability_id == self._capability_id
         return self._capability
 
     def get_provider_runtime_config(self, provider_id: str) -> ProviderRuntimeConfig:
         assert provider_id == self._capability.provider
         return self._runtime
 
+    def resolve_provider_model_id(
+        self,
+        provider_id: str,
+        model_id: str,
+        *,
+        capability_id: str | None = None,
+        required_capability_type: str | None = None,
+    ) -> str:
+        assert provider_id == self._capability.provider
+        assert model_id == self._capability.model
+        assert capability_id in {self._capability_id, None}
+        assert required_capability_type in {'text_generation', 'asset_analysis', None}
+        return self._resolved_model or model_id
+
 
 def _make_service(
     tmp_path: Path,
     capability: _FakeCapability,
     runtime: ProviderRuntimeConfig,
+    *,
+    resolved_model: str | None = None,
+    capability_id: str = 'script_generation',
 ) -> AITextGenerationService:
     engine = create_runtime_engine(tmp_path / 'runtime.db')
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
     job_repository = AIJobRepository(session_factory=session_factory)
     return AITextGenerationService(
-        capability_service=_FakeCapabilityService(capability, runtime),
+        capability_service=_FakeCapabilityService(
+            capability,
+            runtime,
+            resolved_model=resolved_model,
+            capability_id=capability_id,
+        ),
         ai_job_repository=job_repository,
     )
 
@@ -234,6 +265,98 @@ def test_generate_text_dispatches_openai_compatible_via_registry(
         capability_ids=('script_generation',),
     )
     assert recent_jobs[0].status == 'succeeded'
+
+
+def test_generate_text_uses_resolved_runtime_model_id(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _make_service(
+        tmp_path,
+        _FakeCapability(
+            enabled=True,
+            provider='volcengine',
+            model='doubao-seed-1.6',
+            agentRole='角色',
+            systemPrompt='系统',
+            userPromptTemplate='主题：{{topic}}',
+        ),
+        _make_runtime('volcengine'),
+        resolved_model='doubao-seed-1-6-251015',
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_dispatch(runtime_config, request):
+        captured['provider'] = runtime_config.provider
+        captured['request_model'] = request.model
+        return TextGenerationResponse(
+            text='resolved-output',
+            provider='volcengine',
+            model=request.model,
+        )
+
+    monkeypatch.setattr('ai.providers.dispatch_text_generation', fake_dispatch)
+
+    result = service.generate_text(
+        'script_generation',
+        {'topic': 'TK-OPS'},
+    )
+
+    assert captured == {
+        'provider': 'volcengine',
+        'request_model': 'doubao-seed-1-6-251015',
+    }
+    assert result.provider == 'volcengine'
+    assert result.model == 'doubao-seed-1-6-251015'
+
+
+def test_generate_text_extends_timeout_for_media_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _make_service(
+        tmp_path,
+        _FakeCapability(
+            enabled=True,
+            provider='volcengine',
+            model='doubao-seed-2-0-pro-260215',
+            agentRole='角色',
+            systemPrompt='系统',
+            userPromptTemplate='拆解：{{media_file}}',
+        ),
+        _make_runtime('volcengine'),
+        capability_id='video_transcription',
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_dispatch(runtime_config, request):
+        captured['timeout_seconds'] = request.timeout_seconds
+        captured['media_inputs'] = request.media_inputs
+        return TextGenerationResponse(
+            text='{"segments":[{"startMs":0,"endMs":1000,"visual":"画面"}]}',
+            provider='volcengine',
+            model=request.model,
+        )
+
+    monkeypatch.setattr('ai.providers.dispatch_text_generation', fake_dispatch)
+
+    service.generate_text(
+        'video_transcription',
+        {'media_file': '请拆解视频'},
+        media_inputs=(
+            TextGenerationMediaInput(
+                kind='video',
+                url='data:video/mp4;base64,AAAA',
+                mime_type='video/mp4',
+                filename='sample.mp4',
+            ),
+        ),
+    )
+
+    assert captured['timeout_seconds'] == 180.0
+    assert len(captured['media_inputs']) == 1
 
 
 def test_generate_text_keeps_chinese_error_when_provider_does_not_support_text_generation(

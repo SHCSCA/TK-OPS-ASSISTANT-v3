@@ -7,6 +7,7 @@ from schemas.video_deconstruction import (
     ApplyVideoExtractionResultDto,
     ImportVideoInput,
     ImportedVideoDto,
+    VideoDeconstructionResultDto,
     VideoSegmentDto,
     VideoStageDto,
     VideoStructureExtractionDto,
@@ -72,6 +73,20 @@ def get_transcript(video_id: str, request: Request) -> dict[str, object]:
     transcript = get_video_deconstruction_service(request).get_transcript(video_id)
     assert isinstance(transcript, VideoTranscriptDto)
     return ok_response(transcript.model_dump(mode="json"))
+
+
+@router.post("/videos/{video_id}/deconstruct")
+def deconstruct_video(video_id: str, request: Request) -> dict[str, object]:
+    result = get_video_deconstruction_service(request).deconstruct_video(video_id)
+    assert isinstance(result, VideoDeconstructionResultDto)
+    return ok_response(result.model_dump(mode="json"))
+
+
+@router.get("/videos/{video_id}/result")
+def get_deconstruction_result(video_id: str, request: Request) -> dict[str, object]:
+    result = get_video_deconstruction_service(request).get_result(video_id)
+    assert isinstance(result, VideoDeconstructionResultDto)
+    return ok_response(result.model_dump(mode="json"))
 
 
 @router.post("/videos/{video_id}/segment")

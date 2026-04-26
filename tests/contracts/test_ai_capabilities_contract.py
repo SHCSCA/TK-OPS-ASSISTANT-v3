@@ -76,6 +76,7 @@ def test_ai_capability_mutations_broadcast_changed_events(
         "storyboard_generation",
         "tts_generation",
         "subtitle_alignment",
+        "video_transcription",
         "video_generation",
         "asset_analysis",
     }
@@ -97,7 +98,7 @@ def test_ai_capability_settings_contract_uses_settings_prefix_and_expected_shape
         'scope',
         'diagnosticSummary',
     }
-    assert len(payload['data']['capabilities']) == 7
+    assert len(payload['data']['capabilities']) == 8
     assert len(payload['data']['providers']) >= 10
     assert set(payload['data']['capabilities'][0]) == {
         'capabilityId',
@@ -181,7 +182,7 @@ def test_ai_provider_catalog_contract_exposes_multi_provider_registry(
     payload = response.json()
     assert set(payload) == {'ok', 'data'}
     assert payload['ok'] is True
-    assert len(payload['data']) >= 28
+    assert len(payload['data']) >= 31
 
     providers = {item['provider']: item for item in payload['data']}
     assert {
@@ -211,9 +212,15 @@ def test_ai_provider_catalog_contract_exposes_multi_provider_registry(
         'tencent_tts',
         'baidu_tts',
         'xunfei_tts',
+        'volcengine_asr',
+        'aliyun_asr',
+        'tencent_asr',
+        'baidu_asr',
+        'xunfei_asr',
         'custom_openai_compatible',
         'custom_video_provider',
         'custom_tts_provider',
+        'custom_transcription_provider',
         'openrouter',
         'ollama',
     } <= set(providers)
@@ -238,6 +245,7 @@ def test_ai_provider_catalog_contract_exposes_multi_provider_registry(
     assert 'text_generation' in providers['openai']['capabilities']
     assert providers['volcengine']['region'] == 'domestic'
     assert providers['volcengine']['modelSyncMode'] == 'remote'
+    assert 'asset_analysis' in providers['volcengine']['capabilities']
     assert 'video_generation' in providers['volcengine']['capabilities']
     assert providers['custom_openai_compatible']['region'] == 'custom'
     assert providers['custom_openai_compatible']['requiresBaseUrl'] is True
@@ -279,6 +287,13 @@ def test_domestic_provider_model_catalog_marks_media_capabilities(
     payload = response.json()
     assert payload['ok'] is True
     models = payload['data']
+    assert any(
+        item['provider'] == 'volcengine'
+        and 'asset_analysis' in item['capabilityTypes']
+        and 'video' in item['inputModalities']
+        and 'text' in item['outputModalities']
+        for item in models
+    )
     assert any(
         item['provider'] == 'volcengine'
         and 'video_generation' in item['capabilityTypes']
@@ -337,7 +352,7 @@ def test_ai_capability_support_matrix_contract_maps_capabilities_to_models(
     assert set(payload) == {'ok', 'data'}
     assert payload['ok'] is True
     assert set(payload['data']) == {'capabilities'}
-    assert len(payload['data']['capabilities']) == 7
+    assert len(payload['data']['capabilities']) == 8
 
     script_generation = next(
         item

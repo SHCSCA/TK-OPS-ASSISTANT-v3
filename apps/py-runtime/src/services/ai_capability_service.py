@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -40,6 +41,11 @@ from schemas.ai_capabilities import (
     AIProviderSecretStatusDto,
     CAPABILITY_IDS,
 )
+from services.ai_default_prompts import (
+    default_agent_role as _default_agent_role_from_config,
+    default_system_prompt as _default_system_prompt_from_config,
+    default_user_prompt_template as _default_user_prompt_template_from_config,
+)
 from services.ws_manager import ws_manager
 
 log = logging.getLogger(__name__)
@@ -56,6 +62,7 @@ class ProviderRuntimeConfig:
     supports_text_generation: bool
     supports_tts: bool
     protocol_family: str
+    supports_speech_to_text: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -553,7 +560,12 @@ class AICapabilityService:
                 latencyMs=None,
             )
 
-        resolved_model = (model or self._default_probe_model(provider_id)).strip()
+        requested_model = (model or self._default_probe_model(provider_id)).strip()
+        resolved_model = self.resolve_provider_model_id(
+            provider_id,
+            requested_model,
+            required_capability_type="text_generation",
+        )
         if resolved_model == "":
             return AIProviderHealthDto(
                 provider=provider_id,
@@ -605,6 +617,43 @@ class AICapabilityService:
     def get_provider_runtime_config(self, provider_id: str) -> ProviderRuntimeConfig:
         return self._get_catalog_runtime_config(provider_id)
 
+    def resolve_provider_model_id(
+        self,
+        provider_id: str,
+        model_id: str,
+        *,
+        capability_id: str | None = None,
+        required_capability_type: str | None = None,
+    ) -> str:
+        requested_model = model_id.strip()
+        if requested_model == "":
+            return ""
+
+        required_type = required_capability_type
+        if required_type is None and capability_id in CAPABILITY_IDS:
+            required_type = _capability_type_for(capability_id)
+
+        enabled_models = [
+            item
+            for item in self._model_catalog()
+            if item.provider == provider_id and item.enabled
+        ]
+        exact_enabled = next(
+            (item for item in enabled_models if item.modelId == requested_model),
+            None,
+        )
+        if exact_enabled is not None:
+            return exact_enabled.modelId
+
+        candidates = _resolve_model_alias_candidates(
+            enabled_models,
+            requested_model,
+            required_capability_type=required_type,
+        )
+        if candidates:
+            return candidates[0].modelId
+        return requested_model
+
     def _get_catalog_runtime_config(self, provider_id: str) -> ProviderRuntimeConfig:
         metadata = _get_provider_catalog_metadata(provider_id)
         base_urls = {item.provider_id: item.base_url for item in self._repository.load_provider_settings()}
@@ -631,6 +680,7 @@ class AICapabilityService:
             requires_secret=bool(metadata["requires_secret"]),
             supports_text_generation="text_generation" in metadata["capabilities"],
             supports_tts="tts" in metadata["capabilities"],
+            supports_speech_to_text="speech_to_text" in metadata["capabilities"],
             protocol_family=_protocol_family_for(provider_id),
         )
 
@@ -692,13 +742,24 @@ class AICapabilityService:
         }
 
     def _model_catalog(self) -> list[AIModelCatalogItemDto]:
+        static_models = _static_model_catalog()
         models = {
             (item.provider, item.modelId): item
-            for item in _static_model_catalog()
+            for item in static_models
         }
-        for item in self._repository.load_provider_models():
-            dto = self._to_model_dto(item)
+        remote_models = [
+            self._to_model_dto(item)
+            for item in self._repository.load_provider_models()
+        ]
+        for dto in remote_models:
             models[(dto.provider, dto.modelId)] = dto
+        for item in static_models:
+            key = (item.provider, item.modelId)
+            current = models.get(key)
+            if current is None or not current.enabled:
+                continue
+            if _is_static_model_superseded(item, remote_models):
+                models.pop(key, None)
         return sorted(models.values(), key=lambda item: (item.provider, item.modelId))
 
     def _default_probe_model(self, provider_id: str) -> str:
@@ -744,19 +805,23 @@ class AICapabilityService:
     def _load_or_create_capabilities(self) -> list[StoredAICapabilityConfig]:
         stored = self._repository.load_capabilities()
         if stored:
-            return sorted(stored, key=lambda item: CAPABILITY_IDS.index(item.capability_id))
+            known_stored = [item for item in stored if item.capability_id in CAPABILITY_IDS]
+            configs_by_id = {
+                item.capability_id: _migrate_default_capability(item)
+                for item in known_stored
+            }
+            changed = len(known_stored) != len(stored)
+            for capability_id in CAPABILITY_IDS:
+                if capability_id not in configs_by_id:
+                    configs_by_id[capability_id] = _default_capability_config(capability_id)
+                    changed = True
+            migrated = [configs_by_id[capability_id] for capability_id in CAPABILITY_IDS]
+            if changed or migrated != stored:
+                migrated = self._repository.save_capabilities(migrated)
+            return migrated
 
         defaults = [
-            StoredAICapabilityConfig(
-                capability_id=capability_id,
-                enabled=capability_id in {"script_generation", "script_rewrite", "storyboard_generation"},
-                provider="openai",
-                model="gpt-5" if capability_id == "script_generation" else "gpt-5-mini",
-                agent_role=_default_agent_role(capability_id),
-                system_prompt=_default_system_prompt(capability_id),
-                user_prompt_template=_default_template(capability_id),
-                updated_at=_utc_now(),
-            )
+            _default_capability_config(capability_id)
             for capability_id in CAPABILITY_IDS
         ]
         return self._repository.save_capabilities(defaults)
@@ -786,6 +851,37 @@ class AICapabilityService:
         )
 
 
+def _default_capability_config(capability_id: str) -> StoredAICapabilityConfig:
+    return StoredAICapabilityConfig(
+        capability_id=capability_id,
+        enabled=capability_id in {"script_generation", "script_rewrite", "storyboard_generation"},
+        provider=_default_provider_for_capability(capability_id),
+        model=_default_model_for_capability(capability_id),
+        agent_role=_default_agent_role(capability_id),
+        system_prompt=_default_system_prompt(capability_id),
+        user_prompt_template=_default_template(capability_id),
+        updated_at=_utc_now(),
+    )
+
+
+def _default_provider_for_capability(capability_id: str) -> str:
+    if capability_id == "asset_analysis":
+        return "volcengine"
+    if capability_id == "video_transcription":
+        return "openai"
+    return "openai"
+
+
+def _default_model_for_capability(capability_id: str) -> str:
+    if capability_id == "script_generation":
+        return "gpt-5"
+    if capability_id == "asset_analysis":
+        return "doubao-seed-2.0-pro"
+    if capability_id == "video_transcription":
+        return "whisper-1"
+    return "gpt-5-mini"
+
+
 def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
     return {
         "openai": _catalog_item(
@@ -794,7 +890,7 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             "TK_OPS_OPENAI_API_KEY",
             "TK_OPS_OPENAI_BASE_URL",
             "https://api.openai.com/v1/responses",
-            ["text_generation", "vision", "tts"],
+            ["text_generation", "vision", "tts", "speech_to_text"],
             category="model_hub",
             protocol="openai_responses",
             tags=["国际", "文本", "视觉", "TTS"],
@@ -805,7 +901,7 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             "TK_OPS_OPENAI_COMPATIBLE_API_KEY",
             "TK_OPS_OPENAI_COMPATIBLE_BASE_URL",
             "",
-            ["text_generation", "vision"],
+            ["text_generation", "vision", "speech_to_text"],
             requires_base_url=True,
             supports_model_discovery=True,
             category="custom",
@@ -893,12 +989,12 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             "TK_OPS_VOLCENGINE_API_KEY",
             "TK_OPS_VOLCENGINE_BASE_URL",
             "https://ark.cn-beijing.volces.com/api/v3",
-            ["text_generation", "vision", "video_generation", "tts"],
+            ["text_generation", "vision", "asset_analysis", "video_generation", "tts"],
             region="domestic",
             category="model_hub",
             protocol="openai_chat",
             supports_model_discovery=True,
-            tags=["国内", "文本", "视觉", "视频", "TTS"],
+            tags=["国内", "文本", "视觉", "视频理解", "视频", "TTS"],
         ),
         "baidu_qianfan": _catalog_item(
             "百度千帆",
@@ -1125,6 +1221,76 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             model_sync_mode="manual",
             tags=["国内", "TTS"],
         ),
+        "volcengine_asr": _catalog_item(
+            "火山语音识别",
+            "media",
+            "TK_OPS_VOLCENGINE_ASR_API_KEY",
+            "TK_OPS_VOLCENGINE_ASR_BASE_URL",
+            "",
+            ["speech_to_text"],
+            region="domestic",
+            category="speech_to_text",
+            protocol="domestic_asr",
+            requires_base_url=True,
+            model_sync_mode="manual",
+            tags=["国内", "转录", "语音识别"],
+        ),
+        "aliyun_asr": _catalog_item(
+            "阿里云语音识别",
+            "media",
+            "TK_OPS_ALIYUN_ASR_API_KEY",
+            "TK_OPS_ALIYUN_ASR_BASE_URL",
+            "",
+            ["speech_to_text"],
+            region="domestic",
+            category="speech_to_text",
+            protocol="domestic_asr",
+            requires_base_url=True,
+            model_sync_mode="manual",
+            tags=["国内", "转录", "语音识别"],
+        ),
+        "tencent_asr": _catalog_item(
+            "腾讯云语音识别",
+            "media",
+            "TK_OPS_TENCENT_ASR_API_KEY",
+            "TK_OPS_TENCENT_ASR_BASE_URL",
+            "",
+            ["speech_to_text"],
+            region="domestic",
+            category="speech_to_text",
+            protocol="domestic_asr",
+            requires_base_url=True,
+            model_sync_mode="manual",
+            tags=["国内", "转录", "语音识别"],
+        ),
+        "baidu_asr": _catalog_item(
+            "百度语音识别",
+            "media",
+            "TK_OPS_BAIDU_ASR_API_KEY",
+            "TK_OPS_BAIDU_ASR_BASE_URL",
+            "",
+            ["speech_to_text"],
+            region="domestic",
+            category="speech_to_text",
+            protocol="domestic_asr",
+            requires_base_url=True,
+            model_sync_mode="manual",
+            tags=["国内", "转录", "语音识别"],
+        ),
+        "xunfei_asr": _catalog_item(
+            "讯飞语音转写",
+            "media",
+            "TK_OPS_XUNFEI_ASR_API_KEY",
+            "TK_OPS_XUNFEI_ASR_BASE_URL",
+            "",
+            ["speech_to_text"],
+            region="domestic",
+            category="speech_to_text",
+            protocol="domestic_asr",
+            requires_base_url=True,
+            model_sync_mode="manual",
+            tags=["国内", "转录", "语音识别"],
+        ),
         "kling": _catalog_item(
             "可灵",
             "media",
@@ -1264,6 +1430,20 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             requires_base_url=True,
             model_sync_mode="manual",
             tags=["自定义", "TTS"],
+        ),
+        "custom_transcription_provider": _catalog_item(
+            "自定义转录 Provider",
+            "custom",
+            "TK_OPS_CUSTOM_TRANSCRIPTION_PROVIDER_API_KEY",
+            "TK_OPS_CUSTOM_TRANSCRIPTION_PROVIDER_BASE_URL",
+            "",
+            ["speech_to_text"],
+            region="custom",
+            category="custom",
+            protocol="openai_audio_transcriptions",
+            requires_base_url=True,
+            supports_model_discovery=True,
+            tags=["自定义", "转录", "语音识别"],
         ),
     }
 
@@ -1703,6 +1883,8 @@ def _capability_kinds_from_modalities(
         capability_kinds.append("text_generation")
     if "image" in normalized_inputs and "video" not in normalized_outputs:
         capability_kinds.append("vision")
+    if "audio" in normalized_inputs and "text" in normalized_outputs:
+        capability_kinds.append("speech_to_text")
     if "video" in normalized_inputs and "text" in normalized_outputs:
         capability_kinds.append("asset_analysis")
     if "video" in normalized_outputs:
@@ -1718,6 +1900,18 @@ def _infer_modalities_from_model_name(
     display_name: str,
 ) -> tuple[list[str], list[str]]:
     token = f"{provider_id} {model_id} {display_name}".lower().replace("_", "-")
+    alias_token = _normalize_model_alias_token(token)
+    if provider_id == "volcengine" and any(
+        marker in alias_token
+        for marker in (
+            "doubao-seed-2-0",
+            "doubao-seed-1-8",
+            "doubao-seed-1-6-vision",
+            "doubao-1-5-vision",
+        )
+    ):
+        return ["text", "image", "video"], ["text"]
+
     video_markers = (
         "seedance",
         "seaweed",
@@ -1759,10 +1953,23 @@ def _capability_kinds_from_value(value: object) -> list[str]:
         "chat": "text_generation",
         "vision": "vision",
         "image": "vision",
+        "视觉": "vision",
+        "视觉理解": "asset_analysis",
+        "视频理解": "asset_analysis",
+        "多模态": "asset_analysis",
         "video": "video_generation",
         "video_generation": "video_generation",
+        "视频生成": "video_generation",
         "tts": "tts",
         "speech": "tts",
+        "语音合成": "tts",
+        "speech_to_text": "speech_to_text",
+        "transcription": "speech_to_text",
+        "audio_transcription": "speech_to_text",
+        "asr": "speech_to_text",
+        "语音识别": "speech_to_text",
+        "音频转写": "speech_to_text",
+        "语音转写": "speech_to_text",
         "asset_analysis": "asset_analysis",
         "subtitle_alignment": "subtitle_alignment",
     }
@@ -1790,6 +1997,14 @@ def _model_supports_capability(model: AIModelCatalogItemDto, capability_id: str)
         return (
             "subtitle_alignment" in capability_types
             or ("text_generation" in capability_types and "text" in output_modalities)
+        )
+    if capability_id == "video_transcription":
+        return (
+            "speech_to_text" in capability_types
+            or (
+                "text" in output_modalities
+                and ("video" in input_modalities or "asset_analysis" in capability_types)
+            )
         )
     if capability_id == "video_generation":
         return "video_generation" in capability_types or "video" in output_modalities
@@ -1822,6 +2037,87 @@ def _is_model_access_denied_message(message: str) -> bool:
         "不存在",
     )
     return "404" in normalized and any(marker in normalized for marker in access_markers)
+
+
+def _resolve_model_alias_candidates(
+    models: list[AIModelCatalogItemDto],
+    requested_model: str,
+    *,
+    required_capability_type: str | None,
+) -> list[AIModelCatalogItemDto]:
+    requested_token = _normalize_model_alias_token(requested_model)
+    if requested_token == "":
+        return []
+
+    matches: list[tuple[tuple[int, str], AIModelCatalogItemDto]] = []
+    for item in models:
+        if (
+            required_capability_type is not None
+            and required_capability_type not in item.capabilityTypes
+        ):
+            continue
+        rank = _model_alias_match_rank(item, requested_token)
+        if rank is None:
+            continue
+        matches.append(((rank, item.modelId), item))
+    matches.sort(key=lambda entry: entry[1].modelId, reverse=True)
+    matches.sort(key=lambda entry: entry[0][0])
+    return [item for _, item in matches]
+
+
+def _is_static_model_superseded(
+    static_model: AIModelCatalogItemDto,
+    remote_models: list[AIModelCatalogItemDto],
+) -> bool:
+    static_token = _normalize_model_alias_token(static_model.modelId)
+    if static_token == "":
+        return False
+
+    for item in remote_models:
+        if item.provider != static_model.provider or not item.enabled:
+            continue
+        if not set(item.capabilityTypes).intersection(static_model.capabilityTypes):
+            continue
+        rank = _model_alias_match_rank(item, static_token)
+        if rank in {1, 2, 3}:
+            return True
+    return False
+
+
+def _model_alias_match_rank(
+    model: AIModelCatalogItemDto,
+    requested_token: str,
+) -> int | None:
+    normalized_id = _normalize_model_alias_token(model.modelId)
+    normalized_display = _normalize_model_alias_token(model.displayName)
+
+    if normalized_id == requested_token:
+        return 0
+    if normalized_display == requested_token:
+        return 1
+    if _is_versioned_model_successor(normalized_id, requested_token):
+        return 2
+    if _is_versioned_model_successor(normalized_display, requested_token):
+        return 3
+    if normalized_id.startswith(f"{requested_token}-"):
+        return 4
+    if normalized_display.startswith(f"{requested_token}-"):
+        return 5
+    return None
+
+
+def _is_versioned_model_successor(candidate_token: str, requested_token: str) -> bool:
+    prefix = f"{requested_token}-"
+    if not candidate_token.startswith(prefix):
+        return False
+    suffix = candidate_token[len(prefix) :]
+    first_segment = suffix.split("-", 1)[0]
+    return first_segment.isdigit() and len(first_segment) >= 6
+
+
+def _normalize_model_alias_token(value: str) -> str:
+    parts = re.split(r"[^a-z0-9]+", value.lower())
+    return "-".join(part for part in parts if part)
 
 
 def _ollama_model_supports_vision(model_id: str, details: dict[str, object]) -> bool:
@@ -1859,6 +2155,7 @@ def _capability_type_for(capability_id: str) -> str:
         "storyboard_generation": "text_generation",
         "tts_generation": "tts",
         "subtitle_alignment": "subtitle_alignment",
+        "video_transcription": "speech_to_text",
         "video_generation": "video_generation",
         "asset_analysis": "asset_analysis",
     }[capability_id]
@@ -1870,6 +2167,7 @@ def _static_model_catalog() -> list[AIModelCatalogItemDto]:
         _model("openai", "gpt-5.4", "GPT-5.4", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation", "script_rewrite", "storyboard_generation"]),
         _model("openai", "gpt-5-mini", "GPT-5 Mini", ["text_generation"], ["text"], ["text"], ["script_rewrite"]),
         _model("openai", "gpt-4o-mini-tts", "GPT-4o Mini TTS", ["tts"], ["text"], ["audio"], ["tts_generation"]),
+        _model("openai", "whisper-1", "Whisper 1", ["speech_to_text"], ["audio", "video"], ["text"], ["video_transcription"]),
         _model("anthropic", "claude-sonnet", "Claude Sonnet", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation", "script_rewrite"]),
         _model("gemini", "gemini-pro", "Gemini Pro", ["text_generation", "vision", "asset_analysis"], ["text", "image", "video"], ["text"], ["storyboard_generation", "asset_analysis"]),
         _model("deepseek", "deepseek-chat", "DeepSeek Chat", ["text_generation"], ["text"], ["text"], ["script_generation", "script_rewrite"]),
@@ -1877,6 +2175,8 @@ def _static_model_catalog() -> list[AIModelCatalogItemDto]:
         _model("kimi", "moonshot-v1", "Kimi", ["text_generation"], ["text"], ["text"], ["script_rewrite"]),
         _model("zhipu", "glm-4", "GLM-4", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation"]),
         _model("volcengine", "doubao-seed-1.6", "豆包 Seed 1.6", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation", "storyboard_generation"]),
+        _model("volcengine", "doubao-seed-2.0-pro", "Doubao-Seed-2.0-pro", ["text_generation", "vision", "asset_analysis"], ["text", "image", "video"], ["text"], ["asset_analysis"]),
+        _model("volcengine", "doubao-seed-2.0-lite", "Doubao-Seed-2.0-lite", ["text_generation", "vision", "asset_analysis"], ["text", "image", "video"], ["text"], ["asset_analysis"]),
         _model("volcengine", "seedance-2.0", "Seedance 2.0", ["video_generation"], ["text", "image"], ["video"], ["video_generation"]),
         _model("volcengine", "doubao-tts", "豆包 TTS", ["tts"], ["text"], ["audio"], ["tts_generation"]),
         _model("baidu_qianfan", "ernie-4.5", "ERNIE 4.5", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation", "asset_analysis"]),
@@ -1899,6 +2199,11 @@ def _static_model_catalog() -> list[AIModelCatalogItemDto]:
         _model("tencent_tts", "tencent-cloud-tts", "腾讯云 TTS", ["tts"], ["text"], ["audio"], ["tts_generation"]),
         _model("baidu_tts", "baidu-speech-tts", "百度智能语音 TTS", ["tts"], ["text"], ["audio"], ["tts_generation"]),
         _model("xunfei_tts", "xunfei-tts", "讯飞语音 TTS", ["tts"], ["text"], ["audio"], ["tts_generation"]),
+        _model("volcengine_asr", "volcengine-asr", "火山语音识别", ["speech_to_text"], ["audio", "video"], ["text"], ["video_transcription"]),
+        _model("aliyun_asr", "aliyun-file-transcription", "阿里云文件转写", ["speech_to_text"], ["audio", "video"], ["text"], []),
+        _model("tencent_asr", "tencent-asr", "腾讯云语音识别", ["speech_to_text"], ["audio", "video"], ["text"], []),
+        _model("baidu_asr", "baidu-speech-asr", "百度语音识别", ["speech_to_text"], ["audio", "video"], ["text"], []),
+        _model("xunfei_asr", "xunfei-lfasr", "讯飞长语音转写", ["speech_to_text"], ["audio", "video"], ["text"], []),
         _model("kling", "kling-v1.6", "可灵 1.6", ["video_generation"], ["text", "image"], ["video"], ["video_generation"]),
         _model("jimeng", "jimeng-video", "即梦视频", ["video_generation"], ["text", "image"], ["video"], ["video_generation"]),
         _model("wanxiang", "wanx2.1", "通义万相 2.1", ["video_generation"], ["text", "image"], ["video"], ["video_generation"]),
@@ -1907,9 +2212,11 @@ def _static_model_catalog() -> list[AIModelCatalogItemDto]:
         _model("video_generation_provider", "video-default", "默认视频生成模型", ["video_generation"], ["text", "image"], ["video"], ["video_generation"]),
         _model("asset_analysis_provider", "asset-analysis-default", "默认资产分析模型", ["asset_analysis"], ["text", "image", "video"], ["text"], ["asset_analysis"]),
         _model("openai_compatible", "custom-compatible-model", "自定义兼容模型", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation", "storyboard_generation"]),
+        _model("openai_compatible", "custom-transcription-model", "自定义转录模型", ["speech_to_text"], ["audio", "video"], ["text"], ["video_transcription"]),
         _model("custom_openai_compatible", "custom-compatible-model", "自定义兼容模型", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation", "storyboard_generation"]),
         _model("custom_video_provider", "custom-video-model", "自定义视频模型", ["video_generation"], ["text", "image"], ["video"], ["video_generation"]),
         _model("custom_tts_provider", "custom-tts-model", "自定义 TTS 模型", ["tts"], ["text"], ["audio"], ["tts_generation"]),
+        _model("custom_transcription_provider", "custom-transcription-model", "自定义转录模型", ["speech_to_text"], ["audio", "video"], ["text"], ["video_transcription"]),
     ]
 
 
@@ -1936,39 +2243,81 @@ def _model(
 
 
 def _default_agent_role(capability_id: str) -> str:
-    return {
-        "script_generation": "资深短视频脚本策划",
-        "script_rewrite": "短视频脚本改写编辑",
-        "storyboard_generation": "分镜规划导演",
-        "tts_generation": "配音导演",
-        "subtitle_alignment": "字幕对齐编辑",
-        "video_generation": "视频生成导演",
-        "asset_analysis": "素材分析师",
-    }[capability_id]
+    return _default_agent_role_from_config(capability_id)
+
+
+_LEGACY_DEFAULT_TEMPLATES: dict[str, set[str]] = {
+    "script_generation": {"主题：{{topic}}"},
+    "script_rewrite": {"原脚本：\n{{script}}\n\n改写要求：{{instructions}}"},
+    "storyboard_generation": {"脚本内容：\n{{script}}"},
+    "tts_generation": {"脚本内容：\n{{script}}"},
+    "subtitle_alignment": {"脚本内容：\n{{script}}"},
+    "video_transcription": {"{{media_file}}"},
+    "video_generation": {"分镜内容：\n{{storyboard}}"},
+    "asset_analysis": {"素材内容：\n{{assets}}"},
+}
+
+_MOJIBAKE_MARKERS = ("锛", "歿", "鑴", "涓", "瀛", "瑙", "绱", "鍥", "銆", "乀")
+
+
+def _looks_like_legacy_default_capability(item: StoredAICapabilityConfig) -> bool:
+    if item.user_prompt_template.strip() in _LEGACY_DEFAULT_TEMPLATES.get(item.capability_id, set()):
+        return True
+
+    if _looks_like_legacy_video_transcription_prompt(item):
+        return True
+
+    if _looks_like_legacy_asset_analysis_prompt(item):
+        return True
+
+    combined = "\n".join((item.agent_role, item.system_prompt, item.user_prompt_template))
+    return any(marker in combined for marker in _MOJIBAKE_MARKERS)
+
+
+def _looks_like_legacy_video_transcription_prompt(item: StoredAICapabilityConfig) -> bool:
+    if item.capability_id != "video_transcription":
+        return False
+    return (
+        item.agent_role.strip() == "视频转录 Agent"
+        and "# 视频转录 Agent" in item.system_prompt
+        and "{{media_file}}" in item.user_prompt_template
+    )
+
+
+def _looks_like_legacy_asset_analysis_prompt(item: StoredAICapabilityConfig) -> bool:
+    if item.capability_id != "asset_analysis":
+        return False
+    return (
+        item.agent_role.strip() == "素材分析 Agent"
+        and "# 素材分析 Agent" in item.system_prompt
+        and "请分析以下素材内容" in item.user_prompt_template
+        and "{{content}}" in item.user_prompt_template
+    )
+
+
+def _migrate_default_capability(item: StoredAICapabilityConfig) -> StoredAICapabilityConfig:
+    if item.capability_id not in CAPABILITY_IDS:
+        return item
+    if not _looks_like_legacy_default_capability(item):
+        return item
+    return StoredAICapabilityConfig(
+        capability_id=item.capability_id,
+        enabled=item.enabled,
+        provider=item.provider,
+        model=item.model,
+        agent_role=_default_agent_role(item.capability_id),
+        system_prompt=_default_system_prompt(item.capability_id),
+        user_prompt_template=_default_template(item.capability_id),
+        updated_at=_utc_now(),
+    )
 
 
 def _default_system_prompt(capability_id: str) -> str:
-    return {
-        "script_generation": "围绕用户主题生成高留存、可拍摄的短视频脚本。",
-        "script_rewrite": "在保持原意的前提下提升脚本节奏、开场和转化效率。",
-        "storyboard_generation": "把脚本文本拆解为清晰的镜头与视觉提示。",
-        "tts_generation": "为脚本生成适合配音的语气和节奏说明。",
-        "subtitle_alignment": "让字幕语言和节奏更适合短视频表达。",
-        "video_generation": "把分镜转成可执行的视频生成提示。",
-        "asset_analysis": "总结素材内容、价值点和可复用结构。",
-    }[capability_id]
+    return _default_system_prompt_from_config(capability_id)
 
 
 def _default_template(capability_id: str) -> str:
-    return {
-        "script_generation": "主题：{{topic}}",
-        "script_rewrite": "原脚本：\n{{script}}\n\n改写要求：{{instructions}}",
-        "storyboard_generation": "脚本内容：\n{{script}}",
-        "tts_generation": "脚本内容：\n{{script}}",
-        "subtitle_alignment": "脚本内容：\n{{script}}",
-        "video_generation": "分镜内容：\n{{storyboard}}",
-        "asset_analysis": "素材内容：\n{{assets}}",
-    }[capability_id]
+    return _default_user_prompt_template_from_config(capability_id)
 
 
 def _mask_secret(value: str | None) -> str:

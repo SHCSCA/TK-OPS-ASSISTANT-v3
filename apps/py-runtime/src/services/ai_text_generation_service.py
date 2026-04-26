@@ -7,12 +7,15 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from ai import providers as ai_providers
-from ai.providers.base import TextGenerationRequest
+from ai.providers.base import TextGenerationMediaInput, TextGenerationRequest
 from ai.providers.errors import ProviderHTTPException
 from repositories.ai_job_repository import AIJobRepository
 from services.ai_capability_service import AICapabilityService
 
 log = logging.getLogger(__name__)
+
+TEXT_GENERATION_TIMEOUT_SECONDS = 60.0
+MEDIA_TEXT_GENERATION_TIMEOUT_SECONDS = 180.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +42,7 @@ class AITextGenerationService:
         *,
         project_id: str | None = None,
         request_id: str | None = None,
+        media_inputs: tuple[TextGenerationMediaInput, ...] = (),
     ) -> GeneratedTextResult:
         capability = self._capability_service.get_capability(capability_id)
         if not capability.enabled:
@@ -72,11 +76,22 @@ class AITextGenerationService:
         instructions = '\n\n'.join(
             [item for item in (capability.agentRole.strip(), capability.systemPrompt.strip()) if item]
         )
+        required_capability_type = (
+            'asset_analysis'
+            if media_inputs and capability_id == 'video_transcription'
+            else None
+        )
+        resolved_model = self._capability_service.resolve_provider_model_id(
+            capability.provider,
+            capability.model,
+            capability_id=capability_id,
+            required_capability_type=required_capability_type,
+        )
         job = self._ai_job_repository.create_running(
             project_id=project_id,
             capability_id=capability_id,
             provider=capability.provider,
-            model=capability.model,
+            model=resolved_model,
         )
         started_at = time.perf_counter()
 
@@ -84,10 +99,12 @@ class AITextGenerationService:
             output = ai_providers.dispatch_text_generation(
                 provider_runtime,
                 TextGenerationRequest(
-                    model=capability.model,
+                    model=resolved_model,
                     system_prompt=instructions,
                     user_prompt=prompt,
                     request_id=request_id,
+                    timeout_seconds=_timeout_seconds_for(media_inputs),
+                    media_inputs=media_inputs,
                 ),
             )
             output_text = output.text
@@ -141,7 +158,7 @@ class AITextGenerationService:
         return GeneratedTextResult(
             text=output_text,
             provider=capability.provider,
-            model=capability.model,
+            model=resolved_model,
             ai_job_id=job.id,
         )
 
@@ -151,3 +168,7 @@ def _render_template(template: str, variables: dict[str, str]) -> str:
     for key, value in variables.items():
         rendered = rendered.replace(f'{{{{{key}}}}}', value)
     return rendered
+
+
+def _timeout_seconds_for(media_inputs: tuple[TextGenerationMediaInput, ...]) -> float:
+    return MEDIA_TEXT_GENERATION_TIMEOUT_SECONDS if media_inputs else TEXT_GENERATION_TIMEOUT_SECONDS

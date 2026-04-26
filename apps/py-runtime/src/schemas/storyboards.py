@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from schemas.scripts import AIJobRecordDto
 from schemas.tasks import TaskStatus
@@ -11,6 +11,18 @@ class StoryboardShotDto(BaseModel):
     title: str
     summary: str
     visualPrompt: str
+    action: str | None = None
+    audio: str | None = None
+    cameraAngle: str | None = None
+    cameraMovement: str | None = None
+    shootingNote: str | None = None
+    shotLabel: str | None = None
+    shotSize: str | None = None
+    subtitle: str | None = None
+    time: str | None = None
+    transition: str | None = None
+    visualContent: str | None = None
+    voiceover: str | None = None
 
 
 class StoryboardSceneDto(BaseModel):
@@ -18,6 +30,18 @@ class StoryboardSceneDto(BaseModel):
     title: str
     summary: str
     visualPrompt: str
+    action: str | None = None
+    audio: str | None = None
+    cameraAngle: str | None = None
+    cameraMovement: str | None = None
+    shootingNote: str | None = None
+    shotLabel: str | None = None
+    shotSize: str | None = None
+    subtitle: str | None = None
+    time: str | None = None
+    transition: str | None = None
+    visualContent: str | None = None
+    voiceover: str | None = None
 
 
 class StoryboardShotInput(BaseModel):
@@ -34,7 +58,14 @@ class StoryboardShotUpdateInput(BaseModel):
 
 class StoryboardSaveInput(BaseModel):
     basedOnScriptRevision: int = Field(ge=1)
-    scenes: list[StoryboardSceneDto] = Field(min_length=1)
+    scenes: list[StoryboardSceneDto] = Field(default_factory=list)
+    markdown: str | None = None
+
+    @model_validator(mode='after')
+    def require_storyboard_content(self) -> 'StoryboardSaveInput':
+        if not self.scenes and not (self.markdown or '').strip():
+            raise ValueError('请提供分镜 Markdown 原文或至少一个结构化分镜。')
+        return self
 
 
 class StoryboardVersionDto(BaseModel):
@@ -42,6 +73,7 @@ class StoryboardVersionDto(BaseModel):
     basedOnScriptRevision: int
     source: str
     scenes: list[StoryboardSceneDto]
+    markdown: str | None = None
     provider: str | None = None
     model: str | None = None
     aiJobId: str | None = None

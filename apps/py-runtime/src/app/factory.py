@@ -89,6 +89,8 @@ from services.subtitle_service import SubtitleService
 from services.task_manager import task_manager
 from services.video_deconstruction_service import VideoDeconstructionService
 from services.video_import_service import VideoImportService
+from services.video_multimodal_analysis_service import VideoMultimodalAnalysisService
+from services.video_transcription_service import VideoTranscriptionService
 from services.voice_artifact_store import VoiceArtifactStore
 from services.voice_service import VoiceService
 from services.workspace_service import WorkspaceService
@@ -207,6 +209,12 @@ def create_app() -> FastAPI:
         capability_service=ai_capability_service,
         ai_job_repository=ai_job_repository,
     )
+    video_transcription_service = VideoTranscriptionService(
+        capability_service=ai_capability_service,
+    )
+    video_multimodal_analysis_service = VideoMultimodalAnalysisService(
+        ai_text_generation_service=ai_text_generation_service,
+    )
     prompt_template_service = PromptTemplateService(prompt_template_repository)
     script_service = ScriptService(
         dashboard_service=dashboard_service,
@@ -225,6 +233,8 @@ def create_app() -> FastAPI:
     video_deconstruction_service = VideoDeconstructionService(
         imported_video_repository=imported_video_repository,
         stage_repository=video_deconstruction_repository,
+        transcription_service=video_transcription_service,
+        multimodal_analysis_service=video_multimodal_analysis_service,
         task_manager=task_manager,
     )
     asset_service = AssetService(
@@ -340,6 +350,7 @@ def create_app() -> FastAPI:
     app.state.dashboard_service = dashboard_service
     app.state.ai_capability_service = ai_capability_service
     app.state.ai_text_generation_service = ai_text_generation_service
+    app.state.video_transcription_service = video_transcription_service
     app.state.script_service = script_service
     app.state.storyboard_service = storyboard_service
     app.state.prompt_template_service = prompt_template_service

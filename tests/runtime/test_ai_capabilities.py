@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from services.ai_default_prompts import DEFAULT_AGENT_PROMPT_CONFIG
+from services.video_deconstruction_prompt import (
+    VIDEO_DECONSTRUCTION_JSON_SCHEMA_TEXT,
+    VIDEO_DECONSTRUCTION_OUTPUT_CONTRACT,
+)
+
 
 def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_secret(
     runtime_client: TestClient,
@@ -19,7 +25,7 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
         'degradedProviderCount',
         'lastHealthRefreshAt',
     }
-    assert len(payload['data']['capabilities']) == 7
+    assert len(payload['data']['capabilities']) == 8
     capability_ids = {item['capabilityId'] for item in payload['data']['capabilities']}
     assert capability_ids == {
         'script_generation',
@@ -27,6 +33,7 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
         'storyboard_generation',
         'tts_generation',
         'subtitle_alignment',
+        'video_transcription',
         'video_generation',
         'asset_analysis',
     }
@@ -39,6 +46,113 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
     assert providers['openai']['readiness'] == 'not_configured'
     assert providers['openai']['scope'] == 'runtime_local'
     assert 'apiKey' not in providers['openai']
+    asset_analysis = next(
+        item for item in payload['data']['capabilities']
+        if item['capabilityId'] == 'asset_analysis'
+    )
+    assert asset_analysis['provider'] == 'volcengine'
+    assert asset_analysis['model'] == 'doubao-seed-2.0-pro'
+
+
+def test_ai_capabilities_use_agent_prompt_config_defaults(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-capabilities')
+
+    assert response.status_code == 200
+    payload = response.json()
+    capabilities = {
+        item['capabilityId']: item for item in payload['data']['capabilities']
+    }
+
+    for capability_id in capabilities:
+        expected = DEFAULT_AGENT_PROMPT_CONFIG[capability_id]
+        actual = capabilities[capability_id]
+        assert actual['agentRole'] == expected['agent_role']
+        assert actual['systemPrompt'] == expected['system_prompt']
+        assert actual['userPromptTemplate'] == expected['user_prompt_template']
+
+    assert 'quality_review' in DEFAULT_AGENT_PROMPT_CONFIG
+    assert 'quality_review' not in capabilities
+    assert '{{voice_id}}' in capabilities['tts_generation']['userPromptTemplate']
+    assert '{{audio_url}}' in capabilities['subtitle_alignment']['userPromptTemplate']
+    assert '{{media_file}}' in capabilities['video_transcription']['userPromptTemplate']
+    video_prompt = (
+        capabilities['video_transcription']['systemPrompt']
+        + capabilities['video_transcription']['userPromptTemplate']
+    )
+    assert VIDEO_DECONSTRUCTION_OUTPUT_CONTRACT in video_prompt
+    assert VIDEO_DECONSTRUCTION_JSON_SCHEMA_TEXT in video_prompt
+    assert VIDEO_DECONSTRUCTION_OUTPUT_CONTRACT in capabilities['asset_analysis']['systemPrompt']
+    assert VIDEO_DECONSTRUCTION_OUTPUT_CONTRACT in capabilities['asset_analysis']['userPromptTemplate']
+    assert VIDEO_DECONSTRUCTION_JSON_SCHEMA_TEXT in capabilities['asset_analysis']['systemPrompt']
+    assert VIDEO_DECONSTRUCTION_JSON_SCHEMA_TEXT in capabilities['asset_analysis']['userPromptTemplate']
+    asset_prompt = capabilities['asset_analysis']['systemPrompt'] + capabilities['asset_analysis']['userPromptTemplate']
+    assert '脚本文案' in asset_prompt
+    assert '视频关键帧' in asset_prompt
+    assert '内容结构' in asset_prompt
+    assert '严格 JSON' in asset_prompt
+    assert '不要把文件名、视频时长、分辨率当作主题、脚本、关键帧或内容结构' in asset_prompt
+    assert '无法识别语音或字幕时，对应字段使用空字符串' in asset_prompt
+
+
+def test_ai_capabilities_migrate_legacy_asset_analysis_default_prompt(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-capabilities')
+    capabilities = response.json()['data']['capabilities']
+    for item in capabilities:
+        if item['capabilityId'] == 'asset_analysis':
+            item['agentRole'] = '素材分析 Agent'
+            item['systemPrompt'] = '# 素材分析 Agent\n\n你是 TK-OPS 的素材分析 Agent，负责分析用户导入的视频、图片、音频或文档素材。'
+            item['userPromptTemplate'] = (
+                '请分析以下素材内容，并输出可回流到脚本、分镜、字幕或视频生成的结构化信息。\n\n'
+                '## 素材内容\n\n{{content}}\n\n输出要求：输出 Markdown 格式。'
+            )
+
+    update_response = runtime_client.put(
+        '/api/settings/ai-capabilities',
+        json={'capabilities': capabilities},
+    )
+    assert update_response.status_code == 200
+
+    migrated_response = runtime_client.get('/api/settings/ai-capabilities')
+    migrated = {
+        item['capabilityId']: item for item in migrated_response.json()['data']['capabilities']
+    }
+    assert migrated['asset_analysis']['agentRole'] == '视频拆解 Agent'
+    assert VIDEO_DECONSTRUCTION_OUTPUT_CONTRACT in migrated['asset_analysis']['systemPrompt']
+    assert VIDEO_DECONSTRUCTION_JSON_SCHEMA_TEXT in migrated['asset_analysis']['userPromptTemplate']
+
+
+def test_ai_capabilities_migrate_legacy_video_transcription_default_prompt(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-capabilities')
+    capabilities = response.json()['data']['capabilities']
+    for item in capabilities:
+        if item['capabilityId'] == 'video_transcription':
+            item['agentRole'] = '视频转录 Agent'
+            item['systemPrompt'] = (
+                '# 视频转录 Agent\n\n'
+                '你是 TK-OPS 的视频转录 Agent，负责把本地视频或音频中的语音内容转写为纯文本。'
+            )
+            item['userPromptTemplate'] = '{{media_file}}'
+
+    update_response = runtime_client.put(
+        '/api/settings/ai-capabilities',
+        json={'capabilities': capabilities},
+    )
+    assert update_response.status_code == 200
+
+    migrated_response = runtime_client.get('/api/settings/ai-capabilities')
+    migrated = {
+        item['capabilityId']: item for item in migrated_response.json()['data']['capabilities']
+    }
+    assert migrated['video_transcription']['agentRole'] == '视频拆解 Agent'
+    assert '{{media_file}}' in migrated['video_transcription']['userPromptTemplate']
+    assert VIDEO_DECONSTRUCTION_OUTPUT_CONTRACT in migrated['video_transcription']['systemPrompt']
+    assert VIDEO_DECONSTRUCTION_JSON_SCHEMA_TEXT in migrated['video_transcription']['userPromptTemplate']
 
 
 def test_ai_capability_mutations_emit_broadcast_events(runtime_app) -> None:
@@ -113,16 +227,18 @@ def test_ai_capability_mutations_emit_broadcast_events(runtime_app) -> None:
         'storyboard_generation',
         'tts_generation',
         'subtitle_alignment',
+        'video_transcription',
         'video_generation',
         'asset_analysis',
     }
 
 
-def test_provider_runtime_config_exposes_protocol_family_and_tts_flags(runtime_app) -> None:
+def test_provider_runtime_config_exposes_protocol_family_and_media_flags(runtime_app) -> None:
     service = runtime_app.state.ai_capability_service
 
     openai_runtime = service.get_provider_runtime_config('openai')
     openai_compatible_runtime = service.get_provider_runtime_config('openai_compatible')
+    volcengine_asr_runtime = service.get_provider_runtime_config('volcengine_asr')
     anthropic_runtime = service.get_provider_runtime_config('anthropic')
     gemini_runtime = service.get_provider_runtime_config('gemini')
     cohere_runtime = service.get_provider_runtime_config('cohere')
@@ -130,10 +246,14 @@ def test_provider_runtime_config_exposes_protocol_family_and_tts_flags(runtime_a
 
     assert openai_runtime.protocol_family == 'openai_responses'
     assert openai_runtime.supports_tts is True
+    assert openai_runtime.supports_speech_to_text is True
     assert openai_runtime.requires_secret is True
     assert openai_compatible_runtime.protocol_family == 'openai_chat'
     assert openai_compatible_runtime.supports_tts is False
+    assert openai_compatible_runtime.supports_speech_to_text is True
     assert openai_compatible_runtime.requires_secret is True
+    assert volcengine_asr_runtime.protocol_family == 'domestic_asr'
+    assert volcengine_asr_runtime.supports_speech_to_text is True
     assert anthropic_runtime.protocol_family == 'anthropic_messages'
     assert gemini_runtime.protocol_family == 'gemini_generate'
     assert cohere_runtime.protocol_family == 'cohere_chat'
@@ -192,6 +312,15 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                     'agentRole': 'Subtitle aligner',
                     'systemPrompt': 'Align subtitles.',
                     'userPromptTemplate': 'Subtitle: {{script}}',
+                },
+                {
+                    'capabilityId': 'video_transcription',
+                    'enabled': False,
+                    'provider': 'openai',
+                    'model': 'whisper-1',
+                    'agentRole': 'Video transcriber',
+                    'systemPrompt': 'Transcribe video speech.',
+                    'userPromptTemplate': '{{media_file}}',
                 },
                 {
                     'capabilityId': 'video_generation',
@@ -393,19 +522,155 @@ def test_openai_compatible_refresh_infers_doubao_seedance_as_video_model(
     assert 'text_generation' not in seedance['capabilityTypes']
 
 
-def test_generic_video_and_asset_providers_are_configurable_and_refreshable(
+def test_volcengine_refresh_infers_doubao_seed_vision_models_as_asset_analysis(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+    client.put(
+        '/api/settings/ai-capabilities/providers/volcengine/secret',
+        json={'apiKey': 'sk-test-volcengine'},
+    )
+
+    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
+        assert url == 'https://ark.cn-beijing.volces.com/api/v3/models'
+        return {
+            'data': [
+                {
+                    'id': 'doubao-seed-2-0-pro-260302',
+                    'name': 'Doubao-Seed-2.0-pro',
+                },
+                {
+                    'id': 'doubao-seed-2-0-lite-260326',
+                    'name': 'Doubao-Seed-2.0-lite',
+                },
+            ]
+        }
+
+    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
+    refresh_response = client.post('/api/settings/ai-providers/volcengine/models/refresh')
+
+    assert refresh_response.status_code == 200
+    matrix_response = client.get('/api/settings/ai-capabilities/support-matrix')
+    capabilities = {
+        item['capabilityId']: item
+        for item in matrix_response.json()['data']['capabilities']
+    }
+    asset_model_ids = {
+        item['modelId']
+        for item in capabilities['asset_analysis']['models']
+        if item['provider'] == 'volcengine'
+    }
+    transcription_model_ids = {
+        item['modelId']
+        for item in capabilities['video_transcription']['models']
+        if item['provider'] == 'volcengine'
+    }
+
+    assert 'doubao-seed-2-0-pro-260302' in asset_model_ids
+    assert 'doubao-seed-2-0-lite-260326' in asset_model_ids
+    assert 'doubao-seed-2-0-pro-260302' in transcription_model_ids
+    assert 'doubao-seed-2-0-lite-260326' in transcription_model_ids
+
+
+def test_volcengine_legacy_alias_is_hidden_and_resolved_to_latest_remote_model(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+    client.put(
+        '/api/settings/ai-capabilities/providers/volcengine/secret',
+        json={'apiKey': 'sk-test-volcengine'},
+    )
+
+    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
+        assert url == 'https://ark.cn-beijing.volces.com/api/v3/models'
+        return {
+            'data': [
+                {
+                    'id': 'doubao-seed-1-6-250615',
+                    'name': 'doubao-seed-1-6',
+                    'capabilities': ['text_generation'],
+                    'input_modalities': ['text'],
+                    'output_modalities': ['text'],
+                },
+                {
+                    'id': 'doubao-seed-1-6-251015',
+                    'name': 'doubao-seed-1-6',
+                    'capabilities': ['text_generation'],
+                    'input_modalities': ['text'],
+                    'output_modalities': ['text'],
+                },
+                {
+                    'id': 'doubao-seed-1-6-vision-250815',
+                    'name': 'doubao-seed-1-6-vision',
+                    'capabilities': ['vision'],
+                    'input_modalities': ['text', 'image'],
+                    'output_modalities': ['text'],
+                },
+            ]
+        }
+
+    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
+    refresh_response = client.post('/api/settings/ai-providers/volcengine/models/refresh')
+    assert refresh_response.status_code == 200
+
+    models_response = client.get('/api/settings/ai-providers/volcengine/models')
+    assert models_response.status_code == 200
+    model_ids = {item['modelId'] for item in models_response.json()['data']}
+    assert 'doubao-seed-1.6' not in model_ids
+    assert 'doubao-seed-1-6-251015' in model_ids
+
+    captured: dict[str, object] = {}
+
+    def fake_probe(runtime, model: str):
+        captured['provider'] = runtime.provider
+        captured['model'] = model
+        return {
+            'status': 'ready',
+            'message': f'{runtime.provider}:{model}',
+            'latency_ms': 18,
+        }
+
+    monkeypatch.setattr(
+        runtime_app.state.ai_capability_service,
+        '_probe_provider_connectivity',
+        fake_probe,
+    )
+    health_response = client.post(
+        '/api/settings/ai-capabilities/providers/volcengine/health-check',
+        json={'model': 'doubao-seed-1.6'},
+    )
+
+    assert health_response.status_code == 200
+    payload = health_response.json()['data']
+    assert captured == {
+        'provider': 'volcengine',
+        'model': 'doubao-seed-1-6-251015',
+    }
+    assert payload['model'] == 'doubao-seed-1-6-251015'
+
+
+def test_generic_media_providers_are_configurable_and_refreshable(
     runtime_client: TestClient,
 ) -> None:
     response = runtime_client.get('/api/settings/ai-providers/catalog')
 
     assert response.status_code == 200
     providers = {item['provider']: item for item in response.json()['data']}
-    for provider_id in {'video_generation_provider', 'asset_analysis_provider'}:
+    for provider_id in {'video_generation_provider', 'asset_analysis_provider', 'custom_transcription_provider'}:
         provider = providers[provider_id]
         assert provider['requiresBaseUrl'] is True
         assert provider['supportsModelDiscovery'] is True
         assert provider['modelSyncMode'] == 'remote'
         assert provider['status'] in {'missing_secret', 'misconfigured'}
+
+    for provider_id in {'volcengine_asr', 'aliyun_asr', 'tencent_asr', 'baidu_asr', 'xunfei_asr'}:
+        provider = providers[provider_id]
+        assert provider['requiresBaseUrl'] is True
+        assert provider['supportsModelDiscovery'] is False
+        assert provider['modelSyncMode'] == 'manual'
+        assert provider['category'] == 'speech_to_text'
 
 
 def test_openrouter_model_refresh_requires_secret_and_returns_structured_error(runtime_app) -> None:
@@ -560,6 +825,7 @@ def test_ai_capability_support_matrix_limits_models_by_capability(
         'storyboard_generation',
         'tts_generation',
         'subtitle_alignment',
+        'video_transcription',
         'video_generation',
         'asset_analysis',
     }
@@ -578,10 +844,38 @@ def test_ai_capability_support_matrix_limits_models_by_capability(
         and item['modelId'] == 'gpt-5-mini'
         for item in capabilities['subtitle_alignment']['models']
     )
+    assert 'openai' in capabilities['video_transcription']['providers']
+    assert any(
+        item['provider'] == 'openai'
+        and item['modelId'] == 'whisper-1'
+        for item in capabilities['video_transcription']['models']
+    )
+    assert 'custom_transcription_provider' in capabilities['video_transcription']['providers']
+    assert {
+        'volcengine_asr',
+        'aliyun_asr',
+        'tencent_asr',
+        'baidu_asr',
+        'xunfei_asr',
+    } <= set(capabilities['video_transcription']['providers'])
+    assert 'gemini' in capabilities['video_transcription']['providers']
+    assert 'asset_analysis_provider' in capabilities['video_transcription']['providers']
+    assert 'video_generation_provider' not in capabilities['video_transcription']['providers']
+    assert any(
+        item['provider'] == 'volcengine'
+        and item['modelId'] == 'doubao-seed-2.0-pro'
+        for item in capabilities['video_transcription']['models']
+    )
     assert 'openai' in capabilities['asset_analysis']['providers']
+    assert 'volcengine' in capabilities['asset_analysis']['providers']
     assert any(
         item['provider'] == 'openai'
         and item['modelId'] == 'gpt-5.4'
+        for item in capabilities['asset_analysis']['models']
+    )
+    assert any(
+        item['provider'] == 'volcengine'
+        and item['modelId'] == 'doubao-seed-2.0-pro'
         for item in capabilities['asset_analysis']['models']
     )
 

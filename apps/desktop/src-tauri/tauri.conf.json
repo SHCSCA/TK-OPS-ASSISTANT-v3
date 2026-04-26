@@ -5,7 +5,7 @@
   "identifier": "com.tkops.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "",
+    "beforeBuildCommand": "npm run prepare:media-tools && npm run build",
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:1420"
   },
@@ -37,6 +37,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": [
+      "resources/bin/ffprobe/windows-x64/ffprobe.exe"
+    ],
     "icon": [
       "../../../tkops.ico"
     ]

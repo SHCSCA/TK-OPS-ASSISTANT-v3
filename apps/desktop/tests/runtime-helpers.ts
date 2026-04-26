@@ -87,6 +87,9 @@ export const runtimeFixtures = {
       model: "gpt-5.4",
       voice: "alloy",
       subtitleMode: "balanced"
+    },
+    media: {
+      ffprobePath: ""
     }
   },
   diagnostics: {
@@ -115,6 +118,9 @@ export const runtimeFixtures = {
       model: "gpt-5.4",
       voice: "alloy",
       subtitleMode: "balanced"
+    },
+    media: {
+      ffprobePath: ""
     }
   },
   initializedDiagnostics: {
@@ -122,7 +128,34 @@ export const runtimeFixtures = {
     logDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/logs",
     revision: 2,
     mode: "development",
-    healthStatus: "online"
+    healthStatus: "online",
+    configScope: "runtime_local",
+    checkedAt: "2026-04-11T10:00:00Z",
+    overallStatus: "warning",
+    items: [
+      {
+        id: "media.ffprobe",
+        label: "FFprobe 媒体探针",
+        group: "媒体工具",
+        status: "warning",
+        summary: "未检测到 FFprobe，视频元数据将使用基础降级解析。",
+        impact: "视频时长、分辨率、编码格式识别可能不完整。",
+        detail: "来源：fallback",
+        actionLabel: "准备媒体工具",
+        actionTarget: "settings.media_tools.prepare"
+      },
+      {
+        id: "runtime.health",
+        label: "Runtime 服务",
+        group: "基础运行",
+        status: "ready",
+        summary: "Runtime 在线。",
+        impact: "前端可以访问本地服务。",
+        detail: "online",
+        actionLabel: "重新检测",
+        actionTarget: "settings.diagnostics.rescan"
+      }
+    ]
   },
   emptyDashboardSummary: {
     recentProjects: [],

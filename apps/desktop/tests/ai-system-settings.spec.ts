@@ -125,8 +125,8 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.text()).toContain("系统总线");
     expect(wrapper.text()).toContain("Provider 与模型");
     expect(wrapper.text()).toContain("能力矩阵");
-    expect(wrapper.text()).not.toContain("诊断工作台");
-    expect(wrapper.find('[data-section="diagnostics"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain("检测中心");
+    expect(wrapper.find('[data-section="diagnostics"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(false);
     expect(wrapper.text()).not.toContain("打开右侧抽屉");
     expect(wrapper.find('button[title="切换属性面板"]').exists()).toBe(false);
@@ -147,12 +147,23 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.get('[data-action="pick-cache-dir"]').exists()).toBe(true);
     expect(wrapper.get('[data-action="pick-export-dir"]').exists()).toBe(true);
     expect(wrapper.get('[data-action="pick-log-dir"]').exists()).toBe(true);
+    expect(wrapper.get('[data-action="pick-ffprobe-path"]').exists()).toBe(true);
     vi.mocked(open).mockResolvedValue("C:\\TK-OPS\\workspace");
     await wrapper.get('[data-action="pick-workspace-root"]').trigger("click");
     await flushPromises();
     expect(open).toHaveBeenCalledWith({
       defaultPath: runtimeFixtures.initializedConfig.runtime.workspaceRoot,
       directory: true,
+      multiple: false
+    });
+
+    vi.mocked(open).mockResolvedValue("C:\\TK-OPS\\tools\\ffprobe.exe");
+    await wrapper.get('[data-action="pick-ffprobe-path"]').trigger("click");
+    await flushPromises();
+    expect(open).toHaveBeenCalledWith({
+      defaultPath: runtimeFixtures.initializedConfig.media.ffprobePath || undefined,
+      directory: false,
+      filters: [{ extensions: ["exe"], name: "FFprobe" }],
       multiple: false
     });
 
@@ -195,6 +206,9 @@ describe("AI 与系统设置页", () => {
         model: "gpt-5.4-mini",
         voice: "nova",
         subtitleMode: "precise"
+      },
+      media: {
+        ffprobePath: "C:\\TK-OPS\\tools\\ffprobe.exe"
       }
     });
     expect(wrapper.text()).toContain("配置已就绪");
@@ -256,6 +270,13 @@ describe("AI 与系统设置页", () => {
           .element as HTMLSelectElement
       ).value
     ).toBe("openai");
+    const providerSelect = wrapper.get('select[data-field="capability.script_generation.provider"]')
+      .element as HTMLSelectElement;
+    const providerOptions = Array.from(providerSelect.options);
+    expect(providerOptions.map((option) => option.value)).toEqual(
+      expect.arrayContaining(["openai", "deepseek", "qwen", "volcengine", "ollama", "custom_openai_compatible"])
+    );
+    expect(providerOptions.find((option) => option.value === "qwen")?.disabled).toBe(false);
     expect(
       (wrapper.get('select[data-field="capability.script_generation.model"]').element as HTMLSelectElement)
         .value
@@ -437,7 +458,7 @@ describe("AI 与系统设置页", () => {
     expect(modelListText).toContain("批量模型 25");
   });
 
-  it("移除页面内诊断分区，并通过现有右侧抽屉承载系统上下文", async () => {
+  it("在检测中心一键检测系统运行必需配置", async () => {
     const fetchMock = createRouteAwareFetch((path, method) => {
       if (path === "/api/license/status") {
         return okJsonResponse(runtimeFixtures.activeLicense);
@@ -475,17 +496,21 @@ describe("AI 与系统设置页", () => {
     const wrapper = await mountApp("/settings/ai-system");
     await flushPromises();
 
-    expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(false);
-    expect(wrapper.find('[data-section="diagnostics"]').exists()).toBe(false);
-    expect(wrapper.text()).not.toContain("当前运行视图");
-    expect(wrapper.text()).not.toContain("诊断工作台");
-
-    await wrapper.get(".shell-title-bar__detail-toggle").trigger("click");
+    await wrapper.get('[data-section="diagnostics"]').trigger("click");
     await flushPromises();
 
-    expect(wrapper.get(".shell-detail-panel").text()).toContain("系统边界");
-    expect(wrapper.get(".shell-detail-panel").text()).toContain("当前焦点");
-    expect(wrapper.get(".shell-detail-panel").text()).toContain("Provider / 能力");
+    expect(wrapper.find('[data-testid="settings-inline-diagnostics"]').exists()).toBe(true);
+    expect(wrapper.text()).toContain("检测中心");
+    expect(wrapper.text()).toContain("FFprobe 媒体探针");
+    expect(wrapper.text()).toContain("准备媒体工具");
+
+    await wrapper.get('[data-action="run-system-diagnostics"]').trigger("click");
+    await flushPromises();
+
+    const diagnosticsCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/api/settings/diagnostics")
+    );
+    expect(diagnosticsCalls.length).toBeGreaterThanOrEqual(2);
   });
 
   it("目录选择失败时不回退 prompt，并给出桌面壳提示", async () => {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ImportVideoInput(BaseModel):
@@ -74,6 +74,62 @@ class VideoStructureExtractionDto(BaseModel):
     storyboardJson: str | None = None
     createdAt: str
     updatedAt: str
+
+
+class VideoScriptLineDto(BaseModel):
+    startMs: int
+    endMs: int
+    text: str
+    type: str = "speech"
+
+
+class VideoScriptResultDto(BaseModel):
+    title: str
+    language: str
+    fullText: str
+    lines: list[VideoScriptLineDto] = Field(default_factory=list)
+
+
+class VideoKeyframeDto(BaseModel):
+    index: int
+    startMs: int
+    endMs: int
+    visual: str
+    speech: str
+    onscreenText: str
+    shotType: str
+    camera: str
+    intent: str
+
+
+class VideoContentStructureDto(BaseModel):
+    topic: str
+    hook: str
+    painPoints: list[str] = Field(default_factory=list)
+    sellingPoints: list[str] = Field(default_factory=list)
+    rhythm: list[str] = Field(default_factory=list)
+    cta: str
+    reusableForScript: list[str] = Field(default_factory=list)
+    reusableForStoryboard: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+
+
+class VideoResultSourceDto(BaseModel):
+    provider: str
+    model: str
+    promptVersion: str
+
+
+class VideoDeconstructionResultDto(BaseModel):
+    videoId: str
+    transcript: VideoTranscriptDto
+    segments: list[VideoSegmentDto]
+    structure: VideoStructureExtractionDto
+    stages: list[VideoStageDto]
+    script: VideoScriptResultDto
+    keyframes: list[VideoKeyframeDto]
+    contentStructure: VideoContentStructureDto
+    source: VideoResultSourceDto
 
 
 class ApplyVideoExtractionResultDto(BaseModel):

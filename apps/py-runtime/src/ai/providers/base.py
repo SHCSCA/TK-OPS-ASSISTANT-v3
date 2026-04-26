@@ -6,6 +6,15 @@ from typing import Mapping
 
 
 @dataclass(frozen=True, slots=True)
+class TextGenerationMediaInput:
+    kind: str
+    url: str
+    mime_type: str | None = None
+    fps: float | None = None
+    filename: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class TextGenerationRequest:
     model: str
     system_prompt: str = ""
@@ -15,6 +24,7 @@ class TextGenerationRequest:
     max_output_tokens: int | None = None
     timeout_seconds: float = 60.0
     headers: Mapping[str, str] = field(default_factory=dict)
+    media_inputs: tuple[TextGenerationMediaInput, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True, slots=True)

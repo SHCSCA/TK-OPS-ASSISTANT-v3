@@ -23,10 +23,9 @@
       >
         <option value="" disabled>选择 Provider</option>
         <option
-          v-for="p in filteredProviders"
+          v-for="p in selectableProviders"
           :key="p.provider"
           :value="p.provider"
-          :disabled="!p.configured"
           :class="{ 'option-unconfigured': !p.configured }"
         >
           {{ p.configured ? '● ' : '' }}{{ p.label }}{{ p.configured ? '' : ' (未配置)' }}
@@ -72,17 +71,14 @@ const emit = defineEmits<{
   (e: "loadModels", providerId: string): void;
 }>();
 
-/** 按能力过滤：只显示支持当前能力的 Provider */
-const filteredProviders = computed(() => {
-  if (!props.supportMatrix) return props.providerCatalog;
-
-  const supportItem = props.supportMatrix.capabilities.find(
-    c => c.capabilityId === props.row.capabilityId
-  );
-  if (!supportItem) return props.providerCatalog;
-
-  const supportedIds = new Set(supportItem.providers);
-  return props.providerCatalog.filter(p => supportedIds.has(p.provider));
+/** Provider 全量开放：能力兼容性在执行与诊断阶段提示 */
+const selectableProviders = computed(() => {
+  return [...props.providerCatalog].sort((a, b) => {
+    const aReady = a.configured ? 0 : 1;
+    const bReady = b.configured ? 0 : 1;
+    if (aReady !== bReady) return aReady - bReady;
+    return a.label.localeCompare(b.label, "zh-Hans-CN");
+  });
 });
 
 /** 模型排序：defaultFor 匹配的排在前面 */

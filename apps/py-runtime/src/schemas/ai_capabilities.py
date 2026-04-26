@@ -11,6 +11,7 @@ CAPABILITY_IDS = (
     'storyboard_generation',
     'tts_generation',
     'subtitle_alignment',
+    'video_transcription',
     'video_generation',
     'asset_analysis',
 )

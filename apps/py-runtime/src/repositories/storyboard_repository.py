@@ -17,6 +17,7 @@ class StoredStoryboardVersion:
     based_on_script_revision: int
     source: str
     scenes: list[dict[str, str]]
+    markdown: str | None
     provider: str | None
     model: str | None
     ai_job_id: str | None
@@ -44,6 +45,7 @@ class StoryboardRepository:
         based_on_script_revision: int,
         source: str,
         scenes: list[dict[str, str]],
+        markdown: str | None = None,
         provider: str | None = None,
         model: str | None = None,
         ai_job_id: str | None = None,
@@ -55,7 +57,10 @@ class StoryboardRepository:
                 revision=revision,
                 based_on_script_revision=based_on_script_revision,
                 source=source,
-                scenes_json=json.dumps(scenes, ensure_ascii=False),
+                scenes_json=json.dumps(
+                    {'scenes': scenes, 'markdown': markdown} if markdown else scenes,
+                    ensure_ascii=False,
+                ),
                 provider=provider,
                 model=model,
                 ai_job_id=ai_job_id,
@@ -75,12 +80,14 @@ class StoryboardRepository:
         return int(current or 0) + 1
 
     def _to_version(self, version: StoryboardVersion) -> StoredStoryboardVersion:
+        payload = _loads_storyboard_payload(version.scenes_json)
         return StoredStoryboardVersion(
             project_id=version.project_id,
             revision=version.revision,
             based_on_script_revision=version.based_on_script_revision,
             source=version.source,
-            scenes=json.loads(version.scenes_json),
+            scenes=payload[0],
+            markdown=payload[1],
             provider=version.provider,
             model=version.model,
             ai_job_id=version.ai_job_id,
@@ -90,3 +97,15 @@ class StoryboardRepository:
 
 def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _loads_storyboard_payload(payload: str) -> tuple[list[dict[str, str]], str | None]:
+    loaded = json.loads(payload)
+    if isinstance(loaded, list):
+        return loaded, None
+    if isinstance(loaded, dict):
+        scenes = loaded.get('scenes')
+        markdown = loaded.get('markdown')
+        if isinstance(scenes, list):
+            return scenes, str(markdown) if markdown else None
+    return [], None

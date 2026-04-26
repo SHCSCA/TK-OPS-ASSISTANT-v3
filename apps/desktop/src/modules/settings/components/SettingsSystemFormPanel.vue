@@ -146,6 +146,21 @@
               选择
             </Button>
           </article>
+
+          <article class="system-directory-row">
+            <div>
+              <strong>FFprobe 可执行文件</strong>
+              <span>可填写 ffprobe.exe，也可填写包含 ffprobe.exe 的 bin 目录；留空时自动发现。</span>
+            </div>
+            <Input
+              :model-value="form.media.ffprobePath"
+              placeholder="自动发现，或选择 ffprobe.exe / bin 目录"
+              @update:model-value="value => updateForm({ media: { ffprobePath: value } })"
+            />
+            <Button variant="secondary" data-action="pick-ffprobe-path" :disabled="disabled" @click="$emit('pick-file', 'media.ffprobePath')">
+              选择
+            </Button>
+          </article>
         </div>
       </section>
     </div>
@@ -206,6 +221,7 @@ defineProps<{
 const emit = defineEmits<{
   (e: "update", patch: Partial<AppSettingsUpdateInput>): void;
   (e: "pick-directory", field: "runtime.workspaceRoot" | "paths.cacheDir" | "paths.exportDir" | "paths.logDir"): void;
+  (e: "pick-file", field: "media.ffprobePath"): void;
   (e: "open-log-directory"): void;
 }>();
 

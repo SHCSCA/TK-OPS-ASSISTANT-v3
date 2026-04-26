@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+import logging
 from copy import deepcopy
 from uuid import uuid4
 
@@ -23,6 +23,9 @@ from schemas.storyboards import (
 from services.ai_text_generation_service import AITextGenerationService
 from services.dashboard_service import DashboardService
 from services.script_service import ScriptService
+from services.storyboard_scene_parser import parse_storyboard_scenes
+
+log = logging.getLogger(__name__)
 
 
 class StoryboardService:
@@ -81,13 +84,17 @@ class StoryboardService:
         *,
         based_on_script_revision: int,
         scenes: list[dict[str, str]],
+        markdown: str | None = None,
     ) -> StoryboardDocumentDto:
         project = self._dashboard_service.require_project(project_id)
+        normalized_markdown = markdown.strip() if markdown else None
+        scenes_to_save = _manual_markdown_to_scenes(normalized_markdown, scenes)
         stored = self._repository.save_version(
             project.id,
             based_on_script_revision=based_on_script_revision,
             source='manual',
-            scenes=scenes,
+            scenes=scenes_to_save,
+            markdown=normalized_markdown,
         )
         self._dashboard_service.update_project_versions(
             project.id,
@@ -236,12 +243,13 @@ class StoryboardService:
             project_id=project.id,
             request_id=request_id,
         )
-        scenes = _parse_scenes(result.text)
+        scenes = _provider_markdown_to_scenes(result.text)
         stored = self._repository.save_version(
             project.id,
             based_on_script_revision=script_document.currentVersion.revision,
             source='ai_generate',
             scenes=scenes,
+            markdown=result.text,
             provider=result.provider,
             model=result.model,
             ai_job_id=result.ai_job_id,
@@ -258,6 +266,7 @@ class StoryboardService:
             basedOnScriptRevision=stored.based_on_script_revision,
             source=stored.source,
             scenes=[StoryboardSceneDto.model_validate(item) for item in stored.scenes],
+            markdown=stored.markdown,
             provider=stored.provider,
             model=stored.model,
             aiJobId=stored.ai_job_id,
@@ -405,38 +414,6 @@ class StoryboardService:
         return self.get_document(project_id)
 
 
-def _parse_scenes(raw_text: str) -> list[dict[str, str]]:
-    normalized = raw_text.strip()
-    if normalized.startswith('```'):
-        normalized = normalized.strip('`')
-        if normalized.startswith('json'):
-            normalized = normalized[4:].strip()
-    try:
-        payload = json.loads(normalized)
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=502, detail='分镜 Provider 返回了无效 JSON。') from exc
-
-    if not isinstance(payload, list) or not payload:
-        raise HTTPException(status_code=502, detail='分镜 Provider 未返回镜头列表。')
-
-    scenes: list[dict[str, str]] = []
-    for item in payload:
-        if not isinstance(item, dict):
-            continue
-        scenes.append(
-            {
-                'sceneId': str(item.get('sceneId') or uuid4().hex),
-                'title': str(item.get('title') or 'Untitled Scene'),
-                'summary': str(item.get('summary') or ''),
-                'visualPrompt': str(item.get('visualPrompt') or ''),
-            }
-        )
-
-    if not scenes:
-        raise HTTPException(status_code=502, detail='分镜 Provider 返回了空镜头。')
-    return scenes
-
-
 def _script_to_shots(script_content: str) -> list[dict[str, str]]:
     paragraphs = [
         line.strip()
@@ -452,3 +429,41 @@ def _script_to_shots(script_content: str) -> list[dict[str, str]]:
         }
         for index, paragraph in enumerate(paragraphs, start=1)
     ]
+
+
+def _manual_markdown_to_scenes(
+    markdown: str | None,
+    fallback_scenes: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    if not markdown:
+        return fallback_scenes
+
+    try:
+        parsed = parse_storyboard_scenes(markdown)
+    except HTTPException:
+        log.exception('手动保存分镜 Markdown 解析失败，已使用兜底分镜结构。')
+        return fallback_scenes or [_fallback_scene_from_markdown(markdown)]
+    return parsed or fallback_scenes or [_fallback_scene_from_markdown(markdown)]
+
+
+def _provider_markdown_to_scenes(markdown: str) -> list[dict[str, str]]:
+    normalized_markdown = markdown.strip()
+    if not normalized_markdown:
+        raise HTTPException(status_code=502, detail='分镜 Provider 未返回有效 Markdown。')
+
+    try:
+        parsed = parse_storyboard_scenes(normalized_markdown)
+    except HTTPException:
+        log.exception('分镜 Provider 返回 Markdown 但无法解析镜头，已保留原文并使用兜底分镜。')
+        return [_fallback_scene_from_markdown(normalized_markdown)]
+    return parsed or [_fallback_scene_from_markdown(normalized_markdown)]
+
+
+def _fallback_scene_from_markdown(markdown: str) -> dict[str, str]:
+    first_line = next((line.strip() for line in markdown.splitlines() if line.strip()), '手动分镜')
+    return {
+        'sceneId': uuid4().hex,
+        'title': first_line[:32],
+        'summary': markdown[:500],
+        'visualPrompt': markdown[:500],
+    }

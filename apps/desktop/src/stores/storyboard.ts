@@ -72,7 +72,11 @@ export const useStoryboardStore = defineStore("storyboard", {
         this.applyRuntimeError(error);
       }
     },
-    async save(basedOnScriptRevision: number, scenes: StoryboardScene[]): Promise<void> {
+    async save(
+      basedOnScriptRevision: number,
+      scenes: StoryboardScene[],
+      markdown?: string
+    ): Promise<void> {
       if (!this.projectId) {
         return;
       }
@@ -84,7 +88,8 @@ export const useStoryboardStore = defineStore("storyboard", {
         this.document = await saveStoryboardDocument(
           this.projectId,
           basedOnScriptRevision,
-          scenes
+          scenes,
+          markdown
         );
         this.status = "ready";
       } catch (error) {

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RuntimeSubsystemHealthDto(BaseModel):
@@ -79,11 +79,16 @@ class AISettingsSection(BaseModel):
     subtitleMode: str
 
 
+class MediaSettingsSection(BaseModel):
+    ffprobePath: str = ""
+
+
 class AppSettingsUpdateInput(BaseModel):
     runtime: RuntimeSettingsSection
     paths: PathSettingsSection
     logging: LoggingSettingsSection
     ai: AISettingsSection
+    media: MediaSettingsSection = Field(default_factory=MediaSettingsSection)
 
 
 class AppSettingsDto(AppSettingsUpdateInput):
@@ -101,19 +106,36 @@ class ConfigChangedEventDto(BaseModel):
 
 class RuntimeDiagnosticsDto(BaseModel):
     databasePath: str
+    cacheDir: str
     logDir: str
     revision: int
     mode: str
     healthStatus: str
     configScope: str
+    checkedAt: str
+    overallStatus: Literal["ready", "warning", "failed"]
+    items: list["RuntimeDiagnosticItemDto"]
 
 
 class FfprobeDiagnosticsDto(BaseModel):
     status: str
     path: str | None = None
+    source: str | None = None
     version: str | None = None
     errorCode: str | None = None
     errorMessage: str | None = None
+
+
+class RuntimeDiagnosticItemDto(BaseModel):
+    id: str
+    label: str
+    group: str
+    status: Literal["ready", "warning", "failed"]
+    summary: str
+    impact: str
+    detail: str | None = None
+    actionLabel: str | None = None
+    actionTarget: str | None = None
 
 
 class MediaDiagnosticsDto(BaseModel):

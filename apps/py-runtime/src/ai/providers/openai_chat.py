@@ -25,7 +25,7 @@ class OpenAIChatTextGenerationAdapter(TextGenerationAdapter):
                     'model': request.model,
                     'messages': [
                         {'role': 'system', 'content': request.system_prompt},
-                        {'role': 'user', 'content': request.user_prompt},
+                        {'role': 'user', 'content': _build_user_content(request)},
                     ],
                 },
                 timeout=request.timeout_seconds,
@@ -72,3 +72,21 @@ class OpenAIChatTextGenerationAdapter(TextGenerationAdapter):
             model=request.model,
             provider_request_id=request.request_id,
         )
+
+
+def _build_user_content(request: TextGenerationRequest) -> str | list[dict[str, object]]:
+    if not request.media_inputs:
+        return request.user_prompt
+
+    content: list[dict[str, object]] = []
+    for media in request.media_inputs:
+        if media.kind != 'video':
+            log.warning('OpenAI-compatible Chat 暂不支持媒体类型: %s', media.kind)
+            continue
+        video_url: dict[str, object] = {'url': media.url}
+        if media.fps is not None:
+            video_url['fps'] = media.fps
+        content.append({'type': 'video_url', 'video_url': video_url})
+
+    content.append({'type': 'text', 'text': request.user_prompt})
+    return content

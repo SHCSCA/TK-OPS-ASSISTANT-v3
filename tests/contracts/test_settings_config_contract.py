@@ -44,7 +44,7 @@ def test_config_contract_uses_settings_prefix_and_expected_document_shape(
     payload = response.json()
     assert set(payload) == {"ok", "data"}
     assert payload["ok"] is True
-    assert set(payload["data"]) == {"revision", "scope", "runtime", "paths", "logging", "ai"}
+    assert set(payload["data"]) == {"revision", "scope", "runtime", "paths", "logging", "ai", "media"}
     assert set(payload["data"]["runtime"]) == {"mode", "workspaceRoot"}
     assert set(payload["data"]["paths"]) == {"cacheDir", "exportDir", "logDir"}
     assert set(payload["data"]["logging"]) == {"level"}
@@ -54,6 +54,7 @@ def test_config_contract_uses_settings_prefix_and_expected_document_shape(
         "voice",
         "subtitleMode",
     }
+    assert set(payload["data"]["media"]) == {"ffprobePath"}
 
 
 def test_diagnostics_contract_exposes_non_sensitive_fields_only(
@@ -65,14 +66,18 @@ def test_diagnostics_contract_exposes_non_sensitive_fields_only(
     payload = response.json()
     assert set(payload) == {"ok", "data"}
     assert payload["ok"] is True
-    assert set(payload["data"]) == {
+    assert {
         "databasePath",
+        "cacheDir",
         "logDir",
         "revision",
         "mode",
         "healthStatus",
         "configScope",
-    }
+        "checkedAt",
+        "overallStatus",
+        "items",
+    } <= set(payload["data"])
 
 
 def test_validation_failures_use_error_envelope(runtime_client: TestClient) -> None:

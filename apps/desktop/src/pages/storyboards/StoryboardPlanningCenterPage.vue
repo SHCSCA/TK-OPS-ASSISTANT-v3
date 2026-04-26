@@ -7,16 +7,10 @@
           <div>
             <h1 class="page-header__title">分镜规划中心</h1>
             <div class="page-header__subtitle">
-              以当前项目已采用的脚本文案为基线，生成、校对并保存可继续细化的分镜草稿。
+              以当前项目已采用的脚本 Markdown 为基线，生成、预览并保存可执行的 TikTok 分镜方案。
             </div>
           </div>
           <div class="page-header__actions">
-            <div class="view-switch" aria-label="分镜视图切换">
-              <button class="view-btn is-active" type="button">列表视图</button>
-              <button class="view-btn" type="button" disabled>大纲视图</button>
-              <button class="view-btn" type="button" disabled>预览模式</button>
-            </div>
-
             <Button
               v-if="isOutdated"
               variant="warning"
@@ -60,34 +54,20 @@
       </header>
 
       <div class="storyboard-workspace">
-        <aside
-          class="storyboard-panel storyboard-panel--script"
-          data-storyboard-section="script-nav"
-        >
+        <aside class="storyboard-panel storyboard-panel--script" data-storyboard-section="script-reference">
           <Card class="storyboard-card h-full">
             <div class="storyboard-card__header">
               <div>
-                <h3>脚本段落导航</h3>
-                <p class="storyboard-card__caption">按段落对照当前已采用脚本，便于逐镜头校对。</p>
+                <h3>脚本 Markdown 对照</h3>
+                <p class="storyboard-card__caption">展示当前已采用脚本原文，分镜生成与校对均以此为准。</p>
               </div>
-              <Chip size="sm">{{ scriptSegments.length }} 段</Chip>
+              <Chip size="sm">v{{ scriptRevision || "-" }}</Chip>
             </div>
-            <div class="storyboard-card__body scroll-area no-padding">
-              <div v-if="scriptSegments.length === 0" class="empty-text">
+            <div class="storyboard-card__body scroll-area script-preview-pane" data-storyboard-script-preview>
+              <div v-if="!hasScriptContent" class="empty-text">
                 当前项目尚未采用脚本文案，请先到脚本与选题中心完成脚本确认。
               </div>
-              <div v-else class="segment-list">
-                <div
-                  v-for="segment in scriptSegments"
-                  :key="segment.id"
-                  class="segment-item"
-                  :class="{ 'is-active': selectedSegmentId === segment.id }"
-                  @click="selectedSegmentId = segment.id"
-                >
-                  <strong>{{ segment.title }}</strong>
-                  <p>{{ segment.excerpt }}</p>
-                </div>
-              </div>
+              <ScriptMarkdownPreview v-else :markdown="scriptMarkdownContent" />
             </div>
           </Card>
         </aside>
@@ -109,11 +89,32 @@
                 <Chip v-if="currentRevisionLabel !== '-'" :variant="isOutdated ? 'warning' : 'default'">
                   基于文案 v{{ basedOnScriptRevision }}
                 </Chip>
+                <Chip v-if="currentModelLabel" variant="brand">{{ currentModelLabel }}</Chip>
                 <Chip size="sm">{{ scenes.length }} 个分镜</Chip>
+                <div class="editor-mode-switch" role="tablist" aria-label="分镜显示模式">
+                  <button
+                    type="button"
+                    class="editor-mode-switch__button"
+                    :class="{ 'is-active': editorMode === 'preview' }"
+                    data-storyboard-view="preview"
+                    @click="editorMode = 'preview'"
+                  >
+                    预览
+                  </button>
+                  <button
+                    type="button"
+                    class="editor-mode-switch__button"
+                    :class="{ 'is-active': editorMode === 'source' }"
+                    data-storyboard-view="source"
+                    @click="editorMode = 'source'"
+                  >
+                    原文
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="board-body scroll-area bg-canvas">
+            <div class="board-body">
               <div v-if="pageState === 'loading'" class="board-empty">
                 <span class="material-symbols-outlined spinning">progress_activity</span>
                 <p>正在读取当前项目的分镜数据...</p>
@@ -134,78 +135,36 @@
                   <small>分镜规划依赖已采用脚本，请先完成脚本确认。</small>
                 </p>
               </div>
-              <div v-else-if="scenes.length === 0" class="board-empty">
+              <div v-else-if="!hasStoryboardContent" class="board-empty">
                 <span class="material-symbols-outlined">view_carousel</span>
                 <p>
                   当前项目还没有生成分镜
                   <br />
-                  <small>点击右上角“AI 生成分镜”后，会把返回结果填充到当前工作台。</small>
+                  <small>点击右上角“AI 生成分镜”，会基于脚本 Markdown 生成完整执行方案。</small>
                 </p>
               </div>
-              <div v-else class="scene-grid">
-                <transition-group name="scene-list">
-                  <div
-                    v-for="(scene, index) in scenes"
-                    :key="scene.sceneId"
-                    class="scene-card"
-                    :class="{ 'is-active': selectedSceneId === scene.sceneId }"
-                    data-scene-card
-                    @click="selectedSceneId = scene.sceneId"
-                  >
-                    <div class="scene-header">
-                      <div class="scene-header__title">
-                        <Chip size="sm">分镜 {{ index + 1 }}</Chip>
-                        <strong>{{ linkedSegmentTitle(index) }}</strong>
-                      </div>
-                    </div>
 
-                    <div class="scene-fields">
-                      <div class="form-group">
-                        <Input v-model="scene.title" label="分镜标题" />
-                      </div>
-                      <div class="form-group">
-                        <Input v-model="scene.summary" label="画面摘要" multiline :rows="2" />
-                      </div>
-                      <div class="form-group">
-                        <Input v-model="scene.visualPrompt" label="视觉提示词" multiline :rows="3" />
-                      </div>
-                    </div>
-
-                    <div class="scene-footer">
-                      <span>{{ versionSourceLabel }}</span>
-                      <span>{{ currentVersionTimestamp }}</span>
-                    </div>
-                  </div>
-                </transition-group>
+              <div v-else class="storyboard-editor-content">
+                <div v-if="editorMode === 'preview'" class="storyboard-preview-pane scroll-area" data-storyboard-preview-mode>
+                  <ScriptMarkdownPreview :markdown="storyboardMarkdown" />
+                </div>
+                <div v-else class="storyboard-source" data-storyboard-source-mode>
+                  <label class="storyboard-source__label" for="storyboard-markdown-source">Markdown 原文</label>
+                  <textarea
+                    id="storyboard-markdown-source"
+                    v-model="storyboardSource"
+                    class="storyboard-source__textarea"
+                    data-storyboard-source-input
+                    :disabled="isBusy"
+                    placeholder="在这里维护分镜 Markdown 原文。"
+                  />
+                </div>
               </div>
             </div>
-          </Card>
 
-          <Card class="storyboard-card version-card" data-storyboard-section="version-summary">
-            <div class="storyboard-card__header">
-              <div>
-                <h3>版本与生成状态</h3>
-                <p class="storyboard-card__caption">展示当前分镜来源、模型信息与最近一次作业状态。</p>
-              </div>
-              <Chip size="sm">{{ versions.length }} 个版本</Chip>
-            </div>
-            <div class="version-grid">
-              <div class="version-item">
-                <span>当前修订</span>
-                <strong>{{ currentRevisionDisplay }}</strong>
-              </div>
-              <div class="version-item">
-                <span>文案基线</span>
-                <strong>v{{ basedOnScriptRevision || "-" }}</strong>
-              </div>
-              <div class="version-item">
-                <span>生成模型</span>
-                <strong>{{ modelLabel }}</strong>
-              </div>
-              <div class="version-item">
-                <span>最近作业</span>
-                <strong>{{ latestJobLabel }}</strong>
-              </div>
+            <div class="board-footer">
+              <span>当前共 {{ storyboardLength }} 字，识别到 {{ scenes.length }} 个分镜。</span>
+              <span>{{ currentRevisionDisplay }} · {{ latestJobLabel }}</span>
             </div>
           </Card>
         </main>
@@ -221,7 +180,8 @@ import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
 import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
-import Input from "@/components/ui/Input/Input.vue";
+import ScriptMarkdownPreview from "@/pages/scripts/components/ScriptMarkdownPreview.vue";
+import { buildStoryboardMarkdown } from "@/pages/storyboards/storyboard-markdown";
 import { useProjectStore } from "@/stores/project";
 import { createRouteDetailContext, useShellUiStore } from "@/stores/shell-ui";
 import { useScriptStudioStore } from "@/stores/script-studio";
@@ -229,6 +189,7 @@ import { useStoryboardStore } from "@/stores/storyboard";
 import type { StoryboardScene } from "@/types/runtime";
 
 type PageState = "loading" | "empty" | "ready" | "error" | "blocked";
+type EditorMode = "preview" | "source";
 
 const projectStore = useProjectStore();
 const scriptStudioStore = useScriptStudioStore();
@@ -236,8 +197,9 @@ const shellUiStore = useShellUiStore();
 const storyboardStore = useStoryboardStore();
 
 const scenes = ref<StoryboardScene[]>([]);
+const storyboardSource = ref("");
+const editorMode = ref<EditorMode>("preview");
 const selectedSceneId = ref<string | null>(null);
-const selectedSegmentId = ref<string | null>(null);
 
 const currentProjectId = computed(() => projectStore.currentProject?.projectId ?? "");
 const projectName = computed(() => projectStore.currentProject?.projectName ?? "未选择项目");
@@ -248,7 +210,6 @@ const isOutdated = computed(() => {
   return basedOnScriptRevision.value < scriptRevision.value;
 });
 
-const versions = computed(() => storyboardStore.document?.versions ?? []);
 const recentJobs = computed(() => storyboardStore.document?.recentJobs ?? []);
 const latestJob = computed(() => recentJobs.value[0] ?? null);
 const currentVersion = computed(() => storyboardStore.document?.currentVersion ?? null);
@@ -256,6 +217,10 @@ const hasScenes = computed(() => scenes.value.length > 0);
 const hasScriptContent = computed(
   () => (scriptStudioStore.document?.currentVersion?.content ?? "").trim().length > 0
 );
+const scriptMarkdownContent = computed(() => scriptStudioStore.document?.currentVersion?.content ?? "");
+const storyboardMarkdown = computed(() => storyboardSource.value);
+const storyboardLength = computed(() => storyboardMarkdown.value.trim().length);
+const hasStoryboardContent = computed(() => hasScenes.value || storyboardLength.value > 0);
 const hasBlockedJob = computed(() => recentJobs.value.some((job) => job.status === "blocked"));
 const isGenerating = computed(() => storyboardStore.status === "generating");
 const isBusy = computed(
@@ -267,19 +232,16 @@ const isBusy = computed(
 
 const pageState = computed<PageState>(() => {
   if (
-    (storyboardStore.status === "loading" && !hasScenes.value) ||
+    (storyboardStore.status === "loading" && !hasStoryboardContent.value) ||
     (scriptStudioStore.status === "loading" && !hasScriptContent.value)
   ) {
     return "loading";
   }
-  if (storyboardStore.status === "error" || scriptStudioStore.status === "error") {
+  if ((storyboardStore.status === "error" || scriptStudioStore.status === "error") && !hasStoryboardContent.value) {
     return "error";
   }
-  if (!hasScenes.value) {
+  if (!hasStoryboardContent.value) {
     return hasBlockedJob.value ? "blocked" : "empty";
-  }
-  if (hasBlockedJob.value) {
-    return "blocked";
   }
   return "ready";
 });
@@ -311,15 +273,11 @@ const pageStateDescription = computed(() => {
   }
   if (pageState.value === "empty") {
     return hasScriptContent.value
-      ? "当前项目已有脚本文案，可直接生成分镜或继续同步。"
+      ? "当前项目已有脚本文案，可直接生成分镜。"
       : "分镜规划依赖脚本文案，请先完成脚本确认。";
   }
-  return "当前页面展示真实分镜版本、作业状态与可继续编辑的镜头草稿。";
+  return "当前页面展示真实分镜版本、作业状态与可继续编辑的镜头方案。";
 });
-
-const scriptSegments = computed(() =>
-  parseScriptSegments(scriptStudioStore.document?.currentVersion?.content ?? "")
-);
 
 const selectedScene = computed(
   () => scenes.value.find((scene) => scene.sceneId === selectedSceneId.value) ?? scenes.value[0] ?? null
@@ -339,27 +297,20 @@ const currentRevisionLabel = computed(() => currentVersion.value?.revision ?? "-
 const currentRevisionDisplay = computed(() =>
   currentVersion.value ? `修订 ${currentVersion.value.revision}` : "尚未生成分镜版本"
 );
-const currentVersionTimestamp = computed(() =>
-  currentVersion.value ? formatDateTime(currentVersion.value.createdAt) : "尚未同步"
-);
-const versionSourceLabel = computed(() => currentVersion.value?.source ?? "本地规划");
-const modelLabel = computed(
-  () => currentVersion.value?.model ?? latestJob.value?.model ?? "等待生成"
-);
+const currentModelLabel = computed(() => currentVersion.value?.model ?? latestJob.value?.model ?? "");
 const latestJobLabel = computed(() => {
   if (!latestJob.value) return "暂无作业";
   return `${jobStatusLabel(latestJob.value.status)} / ${latestJob.value.provider}`;
 });
 
 const generateDisabled = computed(() => isBusy.value || !hasScriptContent.value);
-const saveDisabled = computed(() => isBusy.value || scenes.value.length === 0);
+const saveDisabled = computed(() => isBusy.value || storyboardLength.value === 0);
 
 watch(
   currentProjectId,
   (projectId, previousProjectId) => {
     if (!projectId || projectId === previousProjectId) return;
     selectedSceneId.value = null;
-    selectedSegmentId.value = null;
     void storyboardStore.load(projectId);
     void scriptStudioStore.load(projectId);
   },
@@ -369,22 +320,16 @@ watch(
 watch(
   () => storyboardStore.document?.currentVersion?.scenes,
   (value) => {
-    scenes.value = (value ?? []).map((scene) => ({ ...scene }));
+    scenes.value = (value ?? []).map((scene) => normalizeScene(scene));
     selectedSceneId.value = scenes.value[0]?.sceneId ?? null;
+    storyboardSource.value =
+      storyboardStore.document?.currentVersion?.markdown || buildStoryboardMarkdown(scenes.value);
   },
   { immediate: true }
 );
 
 watch(
-  scriptSegments,
-  (value) => {
-    selectedSegmentId.value = value[0]?.id ?? null;
-  },
-  { immediate: true }
-);
-
-watch(
-  [projectName, selectedScene, currentVersion, pageState, recentJobs, scriptSegments, isOutdated],
+  [projectName, selectedScene, currentVersion, pageState, recentJobs, isOutdated],
   () => {
     shellUiStore.setDetailContext(
       createRouteDetailContext("contextual", {
@@ -398,7 +343,7 @@ watch(
         },
         metrics: [
           { id: "revision", label: "分镜修订", value: currentRevisionDisplay.value },
-          { id: "segments", label: "脚本段落", value: String(scriptSegments.value.length) },
+          { id: "script", label: "文案版本", value: `v${scriptRevision.value || "-"}` },
           { id: "scenes", label: "分镜数量", value: String(scenes.value.length) }
         ],
         sections: [
@@ -408,7 +353,7 @@ watch(
             fields: [
               {
                 id: "script",
-                label: "文案版本",
+                label: "文案基线",
                 value: `v${basedOnScriptRevision.value}` + (isOutdated.value ? "（已过期）" : "")
               },
               {
@@ -454,11 +399,32 @@ async function handleSync(): Promise<void> {
 
 async function handleSave(): Promise<void> {
   const basedOnRevision = storyboardStore.document?.basedOnScriptRevision ?? scriptRevision.value;
-  await storyboardStore.save(basedOnRevision, scenes.value);
+  await storyboardStore.save(
+    basedOnRevision,
+    scenes.value.map((scene) => normalizeScene(scene)),
+    storyboardMarkdown.value
+  );
 }
 
-function linkedSegmentTitle(index: number): string {
-  return scriptSegments.value[index]?.title ?? `段落 ${index + 1}`;
+function normalizeScene(scene: StoryboardScene): StoryboardScene {
+  const visualContent = scene.visualContent ?? scene.summary ?? "";
+  return {
+    ...scene,
+    action: scene.action ?? "",
+    audio: scene.audio ?? "",
+    cameraAngle: scene.cameraAngle ?? "",
+    cameraMovement: scene.cameraMovement ?? "",
+    shootingNote: scene.shootingNote ?? "",
+    shotLabel: scene.shotLabel ?? scene.title ?? "",
+    shotSize: scene.shotSize ?? "",
+    subtitle: scene.subtitle ?? "",
+    time: scene.time ?? "",
+    title: scene.title || scene.shotLabel || "未命名镜头",
+    transition: scene.transition ?? "",
+    visualContent,
+    visualPrompt: scene.visualPrompt ?? "",
+    voiceover: scene.voiceover ?? ""
+  };
 }
 
 function jobStatusLabel(status: string): string {
@@ -479,27 +445,6 @@ function formatDateTime(value: string): string {
     month: "numeric",
     day: "numeric"
   }).format(new Date(value));
-}
-
-function parseScriptSegments(value: string): Array<{ excerpt: string; id: string; title: string }> {
-  const normalized = value
-    .split(/\n\s*\n/)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-
-  return normalized.map((segment, index) => {
-    const lines = segment
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-    const rawTitle = lines[0] ?? `段落 ${index + 1}`;
-
-    return {
-      excerpt: lines.slice(1).join(" ").slice(0, 88) || "当前段落只有标题，可继续补充脚本正文。",
-      id: `segment-${index + 1}`,
-      title: rawTitle.replace(/^#+\s*/, "")
-    };
-  });
 }
 </script>
 

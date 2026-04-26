@@ -2,12 +2,13 @@ import { openPath } from "@tauri-apps/plugin-opener";
 
 import type { AICapabilityConfig, AppSettings, AppSettingsUpdateInput } from "@/types/runtime";
 
-export type SettingsSectionId = "system" | "provider" | "capability";
+export type SettingsSectionId = "system" | "provider" | "capability" | "diagnostics";
 export type DirectoryField =
   | "runtime.workspaceRoot"
   | "paths.cacheDir"
   | "paths.exportDir"
   | "paths.logDir";
+export type FileField = "media.ffprobePath";
 
 export const capabilityLabels: Record<string, string> = {
   script_generation: "脚本生成",
@@ -15,6 +16,7 @@ export const capabilityLabels: Record<string, string> = {
   storyboard_generation: "分镜生成",
   tts_generation: "配音生成",
   subtitle_alignment: "字幕对齐",
+  video_transcription: "视频解析",
   video_generation: "视频生成",
   asset_analysis: "资产分析"
 };
@@ -65,6 +67,11 @@ const sectionCopies: Record<SettingsSectionId, SectionCopy> = {
     eyebrow: "能力策略",
     title: "能力到 Provider 的绑定",
     summary: "先选中能力，再编辑 Provider、模型、角色和提示词策略。"
+  },
+  diagnostics: {
+    eyebrow: "检测中心",
+    title: "系统运行必需项检测",
+    summary: "一键检测授权、Runtime、目录、媒体工具、AI Provider 和任务通道。"
   }
 };
 
@@ -99,6 +106,9 @@ export function createEmptySettingsInput(): AppSettingsUpdateInput {
       model: "",
       voice: "",
       subtitleMode: ""
+    },
+    media: {
+      ffprobePath: ""
     }
   };
 }
@@ -122,6 +132,9 @@ export function settingsToInput(source: AppSettings): AppSettingsUpdateInput {
       model: source.ai.model,
       voice: source.ai.voice,
       subtitleMode: source.ai.subtitleMode
+    },
+    media: {
+      ffprobePath: source.media?.ffprobePath ?? ""
     }
   };
 }
@@ -137,6 +150,7 @@ export function applySettingsToForm(target: AppSettingsUpdateInput, source: AppS
   target.ai.model = source.ai.model;
   target.ai.voice = source.ai.voice;
   target.ai.subtitleMode = source.ai.subtitleMode;
+  target.media.ffprobePath = source.media?.ffprobePath ?? "";
 }
 
 export function cloneSettingsInput(source: AppSettingsUpdateInput): AppSettingsUpdateInput {
@@ -158,6 +172,9 @@ export function cloneSettingsInput(source: AppSettingsUpdateInput): AppSettingsU
       model: source.ai.model,
       voice: source.ai.voice,
       subtitleMode: source.ai.subtitleMode
+    },
+    media: {
+      ffprobePath: source.media.ffprobePath
     }
   };
 }
@@ -204,6 +221,21 @@ export async function pickDirectoryPath(currentValue: string): Promise<string> {
     return typeof selected === "string" ? selected : "";
   } catch {
     throw new Error("当前环境无法打开系统目录选择器，请在 TK-OPS 桌面应用中重试。");
+  }
+}
+
+export async function pickFfprobePath(currentValue: string): Promise<string> {
+  try {
+    const dialog = await import("@tauri-apps/plugin-dialog");
+    const selected = await dialog.open({
+      defaultPath: currentValue || undefined,
+      directory: false,
+      filters: [{ extensions: ["exe"], name: "FFprobe" }],
+      multiple: false
+    });
+    return typeof selected === "string" ? selected : "";
+  } catch {
+    throw new Error("当前环境无法打开 FFprobe 文件选择器，请在 TK-OPS 桌面应用中重试。");
   }
 }
 

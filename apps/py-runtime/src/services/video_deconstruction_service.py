@@ -13,11 +13,13 @@ from repositories.imported_video_repository import ImportedVideoRepository
 from repositories.script_repository import ScriptRepository
 from repositories.storyboard_repository import StoryboardRepository
 from repositories.video_deconstruction_repository import (
+    StoredVideoDeconstructionArtifact,
     StoredVideoStageRun,
     VideoDeconstructionRepository,
 )
 from schemas.video_deconstruction import (
     ApplyVideoExtractionResultDto,
+    VideoDeconstructionResultDto,
     VideoSegmentDto,
     VideoStageDto,
     VideoStructureExtractionDto,
@@ -25,6 +27,14 @@ from schemas.video_deconstruction import (
 )
 from services.dashboard_service import DashboardService
 from services.task_manager import TaskInfo, TaskManager, task_manager as default_task_manager
+from services.video_deconstruction_result_builder import build_standard_video_result
+from services.video_multimodal_analysis_service import VideoMultimodalAnalysisService
+from services.video_transcription_service import (
+    PROVIDER_REQUIRED_MESSAGE as TRANSCRIPTION_PROVIDER_REQUIRED_MESSAGE,
+    VideoTranscriptionConfigurationError,
+    VideoTranscriptionExecutionError,
+    VideoTranscriptionService,
+)
 from services.ws_manager import ws_manager
 
 log = logging.getLogger(__name__)
@@ -59,15 +69,19 @@ _PROVIDER_REQUIRED_STATUS = "provider_required"
 _BLOCKED_STATUS = "blocked"
 _ACTIVE_TASK_STATUSES = {"queued", "running"}
 _RETRYABLE_STAGE_STATUSES = {"failed", _BLOCKED_STATUS, _PROVIDER_REQUIRED_STATUS, "cancelled"}
+_COMPLETED_STAGE_STATUSES = {"succeeded", "skipped"}
 
-_PROVIDER_REQUIRED_MESSAGE = "当前未接入可用转录 Provider，转录已阻塞；接入 Provider 后可重试。"
-_SEGMENT_BLOCKED_MESSAGE = "视频转录尚未成功，分段已阻塞；请先完成转录后重试。"
+_PROVIDER_REQUIRED_MESSAGE = TRANSCRIPTION_PROVIDER_REQUIRED_MESSAGE
+_SEGMENT_WITHOUT_TRANSCRIPT_MESSAGE = "未配置可用视频解析模型，已使用基础元数据生成画面分段。"
 _STRUCTURE_BLOCKED_MESSAGE = "视频分段尚未成功，结构提取已阻塞；请先完成分段后重试。"
 _APPLY_BLOCKED_MESSAGE = "视频结构提取尚未成功，无法应用到项目；请先完成结构提取后重试。"
+_MULTIMODAL_ARTIFACT_TYPE = "multimodal_timeline"
+_TRANSCRIPT_SKIPPED_BY_MULTIMODAL_MESSAGE = "多模态视频拆解已生成语音与画面时间轴，未单独执行转录。"
+_MULTIMODAL_STRUCTURE_SUMMARY = "已通过多模态模型生成画面与语音时间轴。"
 
 _STAGES = (
-    _StageDefinition(_IMPORT_STAGE_ID, "导入", False),
-    _StageDefinition(_TRANSCRIPT_STAGE_ID, "转录", True),
+    _StageDefinition(_IMPORT_STAGE_ID, "导入", True),
+    _StageDefinition(_TRANSCRIPT_STAGE_ID, "视频解析", True),
     _StageDefinition(_SEGMENT_STAGE_ID, "分段", True),
     _StageDefinition(_STRUCTURE_STAGE_ID, "结构提取", True),
 )
@@ -80,10 +94,14 @@ class VideoDeconstructionService:
         *,
         imported_video_repository: ImportedVideoRepository,
         stage_repository: VideoDeconstructionRepository,
+        transcription_service: VideoTranscriptionService | None = None,
+        multimodal_analysis_service: VideoMultimodalAnalysisService | None = None,
         task_manager: TaskManager | None = None,
     ) -> None:
         self._imported_video_repository = imported_video_repository
         self._stage_repository = stage_repository
+        self._transcription_service = transcription_service
+        self._multimodal_analysis_service = multimodal_analysis_service
         self._task_manager = task_manager or default_task_manager
 
     def get_stages(self, video_id: str) -> list[VideoStageDto]:
@@ -114,7 +132,7 @@ class VideoDeconstructionService:
     def start_transcription(self, video_id: str) -> VideoTranscriptDto:
         try:
             video = self._get_video(video_id)
-            stored = self._resolve_transcription_stage(video_id)
+            stored = self._execute_transcription(video)
             return self._build_transcript_dto(video, stored)
         except HTTPException:
             raise
@@ -133,23 +151,100 @@ class VideoDeconstructionService:
             log.exception("查询视频转录状态失败: %s", video_id)
             raise HTTPException(status_code=500, detail="查询视频转录状态失败") from exc
 
-    def run_segmentation(self, video_id: str) -> list[VideoSegmentDto]:
+    def deconstruct_video(self, video_id: str) -> VideoDeconstructionResultDto:
         try:
             video = self._get_video(video_id)
-            self._require_stage_succeeded(
-                video_id,
-                _TRANSCRIPT_STAGE_ID,
-                _SEGMENT_BLOCKED_MESSAGE,
-                blocked_stage_id=_SEGMENT_STAGE_ID,
-                blocked_message=_SEGMENT_BLOCKED_MESSAGE,
-            )
+            if not Path(video.file_path).is_file():
+                raise HTTPException(status_code=404, detail="原始视频文件不存在，请重新导入。")
+
+            multimodal_artifact = self._execute_multimodal_deconstruction(video)
+            if multimodal_artifact is not None:
+                transcript_stage = self._upsert_stage_run(
+                    video_id,
+                    _TRANSCRIPT_STAGE_ID,
+                    status="skipped",
+                    progress_pct=100,
+                    result_summary=_TRANSCRIPT_SKIPPED_BY_MULTIMODAL_MESSAGE,
+                    error_message=None,
+                )
+                segments = self._build_segments(video)
+                self._upsert_stage_run(
+                    video_id,
+                    _SEGMENT_STAGE_ID,
+                    status="succeeded",
+                    progress_pct=100,
+                    result_summary=f"已生成 {len(segments)} 个画面语音对齐片段",
+                    error_message=None,
+                )
+                stored_structure = self._upsert_stage_run(
+                    video_id,
+                    _STRUCTURE_STAGE_ID,
+                    status="succeeded",
+                    progress_pct=100,
+                    result_summary=_MULTIMODAL_STRUCTURE_SUMMARY,
+                    error_message=None,
+                )
+                return self._build_result_dto(video, transcript_stage, stored_structure)
+
+            transcript_stage = self._execute_transcription(video)
             segments = self._build_segments(video)
+            transcript_missing = transcript_stage.status != "succeeded"
+            segment_summary = (
+                _SEGMENT_WITHOUT_TRANSCRIPT_MESSAGE
+                if transcript_missing
+                else f"已生成 {len(segments)} 个基础切段"
+            )
             self._upsert_stage_run(
                 video_id,
                 _SEGMENT_STAGE_ID,
                 status="succeeded",
                 progress_pct=100,
-                result_summary=f"已生成 {len(segments)} 个基础切段",
+                result_summary=segment_summary,
+                error_message=None,
+            )
+            stored_structure = self._upsert_stage_run(
+                video_id,
+                _STRUCTURE_STAGE_ID,
+                status="succeeded",
+                progress_pct=100,
+                result_summary="已生成脚本和分镜结构草稿",
+                error_message=None,
+            )
+            return self._build_result_dto(video, transcript_stage, stored_structure)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.exception("执行一键视频拆解失败: %s", video_id)
+            raise HTTPException(status_code=500, detail="执行一键视频拆解失败") from exc
+
+    def get_result(self, video_id: str) -> VideoDeconstructionResultDto:
+        try:
+            video = self._get_video(video_id)
+            transcript_stage = self._stage_repository.get_stage_run(video_id, _TRANSCRIPT_STAGE_ID)
+            structure_stage = self._stage_repository.get_stage_run(video_id, _STRUCTURE_STAGE_ID)
+            return self._build_result_dto(video, transcript_stage, structure_stage)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.exception("查询视频拆解标准结果失败: %s", video_id)
+            raise HTTPException(status_code=500, detail="查询视频拆解标准结果失败") from exc
+
+    def run_segmentation(self, video_id: str) -> list[VideoSegmentDto]:
+        try:
+            video = self._get_video(video_id)
+            transcript_stage = self._stage_repository.get_stage_run(video_id, _TRANSCRIPT_STAGE_ID)
+            segments = self._build_segments(video)
+            transcript_missing = transcript_stage is None or transcript_stage.status != "succeeded"
+            self._upsert_stage_run(
+                video_id,
+                _SEGMENT_STAGE_ID,
+                status="succeeded",
+                progress_pct=100,
+                result_summary=(
+                    _SEGMENT_WITHOUT_TRANSCRIPT_MESSAGE
+                    if transcript_missing
+                    else f"已生成 {len(segments)} 个基础切段"
+                ),
                 error_message=None,
             )
             return segments
@@ -249,6 +344,19 @@ class VideoDeconstructionService:
         owner_ref = _stage_owner_ref(video_id, stage_id)
 
         async def _run_stage(progress_callback):
+            if stage_id == _IMPORT_STAGE_ID:
+                from runtime_tasks.video_tasks import process_video_import_task
+
+                await process_video_import_task(
+                    video_id=video_id,
+                    task_id=task_id,
+                    file_path=video.file_path,
+                    repository=self._imported_video_repository,
+                    stage_repository=self._stage_repository,
+                    progress_callback=progress_callback,
+                )
+                return
+
             await self._emit_stage_event(
                 "video.import.stage.started",
                 video_id,
@@ -271,44 +379,29 @@ class VideoDeconstructionService:
                     raise FileNotFoundError(f"视频文件不存在：{video.file_path}")
 
                 if stage_id == _TRANSCRIPT_STAGE_ID:
-                    await progress_callback(70, "当前未接入可用转录 Provider，已写入阻塞状态")
-                    self._upsert_stage_run(
-                        video_id,
-                        stage_id,
-                        status=_PROVIDER_REQUIRED_STATUS,
-                        progress_pct=0,
-                        result_summary=_PROVIDER_REQUIRED_MESSAGE,
-                        error_message=_PROVIDER_REQUIRED_MESSAGE,
-                    )
-                    await progress_callback(100, _PROVIDER_REQUIRED_MESSAGE)
+                    await progress_callback(55, "正在调用视频转录 Provider")
+                    stored = self._execute_transcription(video)
+                    summary = stored.result_summary or "视频转录已完成。"
+                    await progress_callback(100, summary)
                     await self._emit_stage_event(
                         "video.import.stage.completed",
                         video_id,
                         stage_id,
                         taskId=task_id,
                         ownerRef=owner_ref,
-                        resultSummary=_PROVIDER_REQUIRED_MESSAGE,
+                        resultSummary=summary,
                     )
                     return
 
                 if stage_id == _SEGMENT_STAGE_ID:
                     transcript_stage = self._stage_repository.get_stage_run(video_id, _TRANSCRIPT_STAGE_ID)
-                    if transcript_stage is None or transcript_stage.status != "succeeded":
-                        await progress_callback(100, _SEGMENT_BLOCKED_MESSAGE)
-                        self._mark_stage_blocked(video_id, _SEGMENT_STAGE_ID, _SEGMENT_BLOCKED_MESSAGE)
-                        await self._emit_stage_event(
-                            "video.import.stage.completed",
-                            video_id,
-                            stage_id,
-                            taskId=task_id,
-                            ownerRef=owner_ref,
-                            resultSummary=_SEGMENT_BLOCKED_MESSAGE,
-                        )
-                        return
-
                     await progress_callback(55, f"正在处理 {stage_definition.label} 阶段")
                     segments = self._build_segments(video)
-                    summary = f"已完成 {stage_definition.label} 阶段重跑，生成 {len(segments)} 个切段"
+                    summary = (
+                        _SEGMENT_WITHOUT_TRANSCRIPT_MESSAGE
+                        if transcript_stage is None or transcript_stage.status != "succeeded"
+                        else f"已完成 {stage_definition.label} 阶段重跑，生成 {len(segments)} 个切段"
+                    )
                     self._upsert_stage_run(
                         video_id,
                         stage_id,
@@ -449,6 +542,84 @@ class VideoDeconstructionService:
             error_message=_PROVIDER_REQUIRED_MESSAGE,
         )
 
+    def _execute_transcription(self, video) -> StoredVideoStageRun:
+        if self._transcription_service is None:
+            return self._upsert_stage_run(
+                video.id,
+                _TRANSCRIPT_STAGE_ID,
+                status=_PROVIDER_REQUIRED_STATUS,
+                progress_pct=0,
+                result_summary=_PROVIDER_REQUIRED_MESSAGE,
+                error_message=_PROVIDER_REQUIRED_MESSAGE,
+            )
+
+        try:
+            result = self._transcription_service.transcribe_file(video.file_path)
+        except VideoTranscriptionConfigurationError as exc:
+            message = str(exc) or _PROVIDER_REQUIRED_MESSAGE
+            return self._upsert_stage_run(
+                video.id,
+                _TRANSCRIPT_STAGE_ID,
+                status=_PROVIDER_REQUIRED_STATUS,
+                progress_pct=0,
+                result_summary=message,
+                error_message=message,
+            )
+        except FileNotFoundError as exc:
+            message = str(exc)
+            return self._upsert_stage_run(
+                video.id,
+                _TRANSCRIPT_STAGE_ID,
+                status="failed",
+                progress_pct=0,
+                result_summary=None,
+                error_message=message,
+            )
+        except VideoTranscriptionExecutionError as exc:
+            message = str(exc) or "视频转录 Provider 执行失败。"
+            return self._upsert_stage_run(
+                video.id,
+                _TRANSCRIPT_STAGE_ID,
+                status="failed",
+                progress_pct=0,
+                result_summary=None,
+                error_message=message,
+            )
+
+        transcript = self._stage_repository.upsert_transcript(
+            video.id,
+            text=result.text,
+            language=result.language,
+            provider=result.provider,
+            model=result.model,
+        )
+        return self._upsert_stage_run(
+            video.id,
+            _TRANSCRIPT_STAGE_ID,
+            status="succeeded",
+            progress_pct=100,
+            result_summary=f"已完成视频转录，识别 {len(transcript.text)} 字。",
+            error_message=None,
+        )
+
+    def _execute_multimodal_deconstruction(self, video) -> StoredVideoDeconstructionArtifact | None:
+        if self._multimodal_analysis_service is None:
+            return None
+        try:
+            result = self._multimodal_analysis_service.analyze_video(video)
+            if result is None:
+                return None
+            return self._stage_repository.upsert_artifact(
+                video.id,
+                _MULTIMODAL_ARTIFACT_TYPE,
+                payload_json=json.dumps(result.payload, ensure_ascii=False),
+                provider=result.provider,
+                model=result.model,
+            )
+        except Exception as exc:  # pragma: no cover - 防御性兜底
+            log.exception("保存多模态视频拆解结果失败: %s", video.id)
+            return None
+
     def _require_stage_succeeded(
         self,
         video_id: str,
@@ -506,18 +677,24 @@ class VideoDeconstructionService:
         status = stored.status if stored is not None else _PROVIDER_REQUIRED_STATUS
         created_at = stored.created_at if stored is not None else video.created_at
         updated_at = stored.updated_at if stored is not None else video.created_at
+        transcript = self._stage_repository.get_transcript(video.id) if status == "succeeded" else None
         return VideoTranscriptDto(
             id=f"transcript-{video.id}",
             videoId=video.id,
-            language="zh-CN",
-            text=None,
+            language=transcript.language if transcript is not None else None,
+            text=transcript.text if transcript is not None else None,
             status=status,
             createdAt=created_at,
             updatedAt=updated_at,
         )
 
     def _build_segments(self, video) -> list[VideoSegmentDto]:
+        artifact_payload = self._load_multimodal_payload(video.id)
+        if artifact_payload is not None:
+            return self._build_multimodal_segments(video, artifact_payload)
+
         end_ms = int((video.duration_seconds or 0) * 1000)
+        transcript = self._stage_repository.get_transcript(video.id)
         metadata = json.dumps(
             {
                 "width": video.width,
@@ -535,11 +712,66 @@ class VideoDeconstructionService:
                 startMs=0,
                 endMs=end_ms,
                 label=video.file_name,
-                transcriptText=None,
+                transcriptText=transcript.text if transcript is not None else None,
                 metadataJson=metadata,
                 createdAt=video.created_at,
             )
         ]
+
+    def _load_multimodal_payload(self, video_id: str) -> dict[str, object] | None:
+        artifact = self._stage_repository.get_artifact(video_id, _MULTIMODAL_ARTIFACT_TYPE)
+        if artifact is None:
+            return None
+        try:
+            payload = json.loads(artifact.payload_json)
+        except json.JSONDecodeError:
+            log.warning("多模态视频拆解结果 JSON 损坏: %s", video_id)
+            return None
+        if not isinstance(payload, dict):
+            return None
+        segments = payload.get("segments")
+        if not isinstance(segments, list) or not segments:
+            return None
+        return payload
+
+    def _build_multimodal_segments(
+        self,
+        video,
+        payload: dict[str, object],
+    ) -> list[VideoSegmentDto]:
+        raw_segments = payload.get("segments")
+        if not isinstance(raw_segments, list):
+            return []
+        segments: list[VideoSegmentDto] = []
+        for index, item in enumerate(raw_segments, start=1):
+            if not isinstance(item, dict):
+                continue
+            start_ms = _coerce_int(item.get("startMs"), default=(index - 1) * 3000)
+            end_ms = _coerce_int(item.get("endMs"), default=start_ms + 3000)
+            if end_ms <= start_ms:
+                end_ms = start_ms + 3000
+            metadata = {
+                "source": "multimodal",
+                "visual": str(item.get("visual") or ""),
+                "speech": str(item.get("speech") or ""),
+                "onscreenText": str(item.get("onscreenText") or ""),
+                "shotType": str(item.get("shotType") or ""),
+                "intent": str(item.get("intent") or ""),
+            }
+            segments.append(
+                VideoSegmentDto(
+                    id=f"segment-{video.id}-{index}",
+                    videoId=video.id,
+                    segmentIndex=index,
+                    startMs=start_ms,
+                    endMs=end_ms,
+                    label=str(item.get("intent") or item.get("shotType") or f"片段 {index}"),
+                    transcriptText=str(item.get("speech") or "") or None,
+                    metadataJson=json.dumps(metadata, ensure_ascii=False),
+                    createdAt=video.created_at,
+                )
+            )
+        return segments
 
     def _build_structure_dto(
         self,
@@ -559,6 +791,35 @@ class VideoDeconstructionService:
             storyboardJson=storyboard_json,
             createdAt=created_at,
             updatedAt=updated_at,
+        )
+
+    def _build_result_dto(
+        self,
+        video,
+        transcript_stage: StoredVideoStageRun | None,
+        structure_stage: StoredVideoStageRun | None,
+    ) -> VideoDeconstructionResultDto:
+        transcript = self._build_transcript_dto(video, transcript_stage)
+        segments = self._build_segments(video)
+        structure = self._build_structure_dto(video, structure_stage)
+        artifact = self._stage_repository.get_artifact(video.id, _MULTIMODAL_ARTIFACT_TYPE)
+        script, keyframes, content_structure, source = build_standard_video_result(
+            video,
+            transcript=transcript,
+            segments=segments,
+            structure=structure,
+            artifact=artifact,
+        )
+        return VideoDeconstructionResultDto(
+            videoId=video.id,
+            transcript=transcript,
+            segments=segments,
+            structure=structure,
+            stages=self.get_stages(video.id),
+            script=script,
+            keyframes=keyframes,
+            contentStructure=content_structure,
+            source=source,
         )
 
     def _build_structure_payload(self, video) -> tuple[str, str]:
@@ -585,18 +846,55 @@ class VideoDeconstructionService:
         )
 
     def _build_script_content(self, video) -> str:
+        artifact_payload = self._load_multimodal_payload(video.id)
+        if artifact_payload is not None:
+            segments = self._build_multimodal_segments(video, artifact_payload)
+            lines = [
+                f"来源视频：{video.file_name}",
+                f"视频 ID：{video.id}",
+                f"项目 ID：{video.project_id}",
+                "多模态拆解片段：",
+            ]
+            for item in segments:
+                metadata = json.loads(item.metadataJson or "{}")
+                lines.extend(
+                    [
+                        f"片段 {item.segmentIndex}：{item.startMs}ms - {item.endMs}ms",
+                        f"画面：{metadata.get('visual') or '未识别'}",
+                        f"语音：{item.transcriptText or '未识别'}",
+                    ]
+                )
+            return "\n".join(lines)
+
         end_ms = int((video.duration_seconds or 0) * 1000)
+        transcript = self._stage_repository.get_transcript(video.id)
+        transcript_text = transcript.text if transcript is not None else "待完成视频转录后回填。"
         return "\n".join(
             [
                 f"来源视频：{video.file_name}",
                 f"视频 ID：{video.id}",
                 f"项目 ID：{video.project_id}",
                 f"片段 1：0ms - {end_ms}ms",
-                "转写文本：待接入 Provider 后回填。",
+                f"转写文本：{transcript_text}",
             ]
         )
 
     def _build_storyboard_scenes(self, video) -> list[dict[str, str]]:
+        artifact_payload = self._load_multimodal_payload(video.id)
+        if artifact_payload is not None:
+            scenes: list[dict[str, str]] = []
+            for item in self._build_multimodal_segments(video, artifact_payload):
+                metadata = json.loads(item.metadataJson or "{}")
+                scenes.append(
+                    {
+                        "sceneId": f"scene-{item.segmentIndex}",
+                        "title": item.label,
+                        "summary": item.transcriptText or str(metadata.get("intent") or ""),
+                        "visualPrompt": str(metadata.get("visual") or ""),
+                    }
+                )
+            return scenes
+
         return [
             {
                 "sceneId": "scene-1",
@@ -775,7 +1073,7 @@ class VideoDeconstructionService:
             return active_states[0].stage_id
 
         for state in states:
-            if state.status != "succeeded":
+            if state.status not in _COMPLETED_STAGE_STATUSES:
                 return state.stage_id
         return states[-1].stage_id
 
@@ -824,11 +1122,13 @@ class VideoDeconstructionService:
         error_message: str | None,
     ) -> tuple[str | None, str | None]:
         if status == "pending":
-            return None, "可开始视频转录。"
+            return None, "可开始视频解析。"
         if status == "succeeded":
-            return None, "转录已完成，可以继续执行视频分段。"
+            return None, "视频解析已完成，可以继续执行视频分段。"
+        if status == "skipped":
+            return None, "已由多模态模型完成画面与语音对齐，无需单独转录。"
         if status == _PROVIDER_REQUIRED_STATUS:
-            return "provider.required", "请先配置可用转录 Provider 后重试。"
+            return "provider.required", "请先配置可用视频解析模型后重试。"
         if status == _BLOCKED_STATUS:
             return "task.conflict", "请先完成导入阶段后重试。"
         error_code = self._build_failed_stage_error_code(_TRANSCRIPT_STAGE_ID, error_message)
@@ -840,7 +1140,7 @@ class VideoDeconstructionService:
         error_message: str | None,
     ) -> tuple[str | None, str | None]:
         if status == "pending":
-            return None, "请先完成转录，再执行视频分段。"
+            return None, "可直接执行视频分段；未完成转录时将生成无逐字稿的结构结果。"
         if status == "succeeded":
             return None, "分段已完成，可以继续执行结构提取。"
         if status == _BLOCKED_STATUS:
@@ -880,7 +1180,7 @@ class VideoDeconstructionService:
         if error_code.endswith(".cancelled"):
             return "当前阶段已取消，如仍需继续可重新发起该阶段。"
         if stage_id == _TRANSCRIPT_STAGE_ID:
-            return "请检查 Provider 配置、视频文件与 Runtime 日志后，再重试转录。"
+            return "请检查视频解析模型配置、视频文件与 Runtime 日志后，再重试。"
         if stage_id == _SEGMENT_STAGE_ID:
             return "请检查转录结果与视频文件状态后，再重试视频分段。"
         if stage_id == _STRUCTURE_STAGE_ID:
@@ -945,3 +1245,10 @@ def _utc_now() -> str:
     from datetime import UTC, datetime
 
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _coerce_int(value: object, *, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default

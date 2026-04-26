@@ -20,6 +20,9 @@ export function createBootstrapSettingsInput(): AppSettingsUpdateInput {
       model: "",
       voice: "",
       subtitleMode: ""
+    },
+    media: {
+      ffprobePath: ""
     }
   };
 }
@@ -39,6 +42,7 @@ export function applySettingsToBootstrapForm(
   target.ai.model = source.ai.model;
   target.ai.voice = source.ai.voice;
   target.ai.subtitleMode = source.ai.subtitleMode;
+  target.media.ffprobePath = source.media?.ffprobePath ?? "";
 }
 
 export function cloneBootstrapSettingsInput(
@@ -63,6 +67,9 @@ export function cloneBootstrapSettingsInput(
       model: source.ai.model,
       voice: source.ai.voice,
       subtitleMode: source.ai.subtitleMode
+    },
+    media: {
+      ffprobePath: source.media.ffprobePath
     }
   };
 }

@@ -75,17 +75,50 @@ export type AppSettings = {
     voice: string;
     subtitleMode: string;
   };
+  media: {
+    ffprobePath: string;
+  };
 };
 
 export type AppSettingsUpdateInput = Omit<AppSettings, "revision">;
 
+export type RuntimeDiagnosticStatus = "ready" | "warning" | "failed";
+
+export type RuntimeDiagnosticItem = {
+  id: string;
+  label: string;
+  group: string;
+  status: RuntimeDiagnosticStatus;
+  summary: string;
+  impact: string;
+  detail: string | null;
+  actionLabel: string | null;
+  actionTarget: string | null;
+};
+
 export type RuntimeDiagnostics = {
   databasePath: string;
+  cacheDir: string;
   logDir: string;
   revision: number;
   configScope: string;
   mode: string;
   healthStatus: string;
+  checkedAt: string;
+  overallStatus: RuntimeDiagnosticStatus;
+  items: RuntimeDiagnosticItem[];
+};
+
+export type MediaDiagnostics = {
+  ffprobe: {
+    status: string;
+    path: string | null;
+    source: string | null;
+    version: string | null;
+    errorCode: string | null;
+    errorMessage: string | null;
+  };
+  checkedAt: string;
 };
 
 export type BootstrapDirectoryReport = {
@@ -259,6 +292,7 @@ export type AICapabilityId =
   | "storyboard_generation"
   | "tts_generation"
   | "subtitle_alignment"
+  | "video_transcription"
   | "video_generation"
   | "asset_analysis";
 
@@ -484,6 +518,18 @@ export type StoryboardScene = {
   title: string;
   summary: string;
   visualPrompt: string;
+  action?: string;
+  audio?: string;
+  cameraAngle?: string;
+  cameraMovement?: string;
+  shootingNote?: string;
+  shotLabel?: string;
+  shotSize?: string;
+  subtitle?: string;
+  time?: string;
+  transition?: string;
+  visualContent?: string;
+  voiceover?: string;
 };
 
 export type StoryboardVersion = {
@@ -491,6 +537,7 @@ export type StoryboardVersion = {
   basedOnScriptRevision: number;
   source: string;
   scenes: StoryboardScene[];
+  markdown?: string | null;
   provider: string | null;
   model: string | null;
   aiJobId: string | null;
@@ -1437,6 +1484,62 @@ export type VideoStructureExtractionDto = {
   storyboardJson: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type VideoScriptLineDto = {
+  startMs: number;
+  endMs: number;
+  text: string;
+  type: string;
+};
+
+export type VideoScriptResultDto = {
+  title: string;
+  language: string;
+  fullText: string;
+  lines: VideoScriptLineDto[];
+};
+
+export type VideoKeyframeDto = {
+  index: number;
+  startMs: number;
+  endMs: number;
+  visual: string;
+  speech: string;
+  onscreenText: string;
+  shotType: string;
+  camera: string;
+  intent: string;
+};
+
+export type VideoContentStructureDto = {
+  topic: string;
+  hook: string;
+  painPoints: string[];
+  sellingPoints: string[];
+  rhythm: string[];
+  cta: string;
+  reusableForScript: string[];
+  reusableForStoryboard: string[];
+  risks: string[];
+};
+
+export type VideoResultSourceDto = {
+  provider: string;
+  model: string;
+  promptVersion: string;
+};
+
+export type VideoDeconstructionResultDto = {
+  videoId: string;
+  transcript: VideoTranscriptDto;
+  segments: VideoSegmentDto[];
+  structure: VideoStructureExtractionDto;
+  stages: VideoStageDto[];
+  script: VideoScriptResultDto;
+  keyframes: VideoKeyframeDto[];
+  contentStructure: VideoContentStructureDto;
+  source: VideoResultSourceDto;
 };
 
 export type VideoStageDto = {

@@ -16,6 +16,7 @@ describe("page responsive layout contract", () => {
     expect(css).toMatch(/\.script-workspace\s*{[\s\S]*min-width:\s*0;/);
     expect(css).toMatch(/\.script-panel\s*{[\s\S]*min-width:\s*0;/);
     expect(css).toMatch(/\.script-card\s*{[\s\S]*min-width:\s*0;/);
+    expect(css).toMatch(/\.editor-body\s*{[^}]*overflow-y:\s*auto;/);
     expect(css).toMatch(/@media\s*\(max-width:\s*1200px\)\s*{[\s\S]*\.script-workspace\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
   });
 

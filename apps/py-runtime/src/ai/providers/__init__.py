@@ -6,6 +6,7 @@ from ai.providers.base import (
     TTSRequest,
     TTSResponse,
     TextGenerationAdapter,
+    TextGenerationMediaInput,
     TextGenerationRequest,
     TextGenerationResponse,
 )
@@ -72,6 +73,7 @@ __all__ = [
     'TTSRequest',
     'TTSResponse',
     'TextGenerationAdapter',
+    'TextGenerationMediaInput',
     'TextGenerationRequest',
     'TextGenerationResponse',
     'dispatch_text_generation',

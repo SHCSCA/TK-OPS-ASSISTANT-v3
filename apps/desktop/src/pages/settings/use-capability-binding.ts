@@ -9,12 +9,13 @@ const CAPABILITY_LABELS: Record<string, string> = {
   storyboard_generation: "分镜生成",
   tts_generation: "配音生成",
   subtitle_alignment: "字幕对齐",
+  video_transcription: "视频解析",
   video_generation: "视频生成",
-  asset_analysis: "素材分析"
+  asset_analysis: "素材/视频分析"
 };
 
 /**
- * 能力绑定矩阵：7 项 AI 能力的 Provider/Model 绑定管理
+ * 能力绑定矩阵：统一管理 AI 能力的 Provider/Model 绑定
  */
 export function useCapabilityBinding() {
   const aiStore = useAIStore();

@@ -41,6 +41,7 @@ def save_storyboard_document(
         project_id,
         based_on_script_revision=payload.basedOnScriptRevision,
         scenes=[item.model_dump(mode='json') for item in payload.scenes],
+        markdown=payload.markdown,
     )
     return ok_response(document.model_dump(mode='json'))
 

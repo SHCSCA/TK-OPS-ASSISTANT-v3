@@ -6,6 +6,7 @@ import {
   fetchAIProviderCatalog,
   fetchAIProviderModels,
   fetchProviderHealth,
+  fetchRuntimeDiagnostics,
   refreshAIProviderModels,
   updateRuntimeConfig
 } from "@/app/runtime-client";
@@ -84,6 +85,26 @@ describe("AI 与系统设置 Runtime client", () => {
       message: "OpenAI",
       checkedAt: "2026-04-11T10:00:00Z",
       latencyMs: null
+    });
+  });
+
+  it("读取设置检测中心报告", async () => {
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method) => {
+        if (path === "/api/settings/diagnostics" && method === "GET") {
+          return okJsonResponse(runtimeFixtures.initializedDiagnostics);
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const report = await fetchRuntimeDiagnostics();
+
+    expect(report.overallStatus).toBe("warning");
+    expect(report.items.find((item) => item.id === "media.ffprobe")).toMatchObject({
+      status: "warning",
+      actionLabel: "准备媒体工具"
     });
   });
 

@@ -8,6 +8,7 @@ from services.ffprobe import (
     get_ffprobe_availability,
     parse_ffprobe_output,
 )
+from services.media_tool_resolver import MediaToolResolution
 
 
 def test_parse_valid_ffprobe_json() -> None:
@@ -59,7 +60,18 @@ def test_parse_missing_format_duration() -> None:
 
 
 def test_ffprobe_availability_reports_missing_binary(monkeypatch) -> None:
-    monkeypatch.setattr('services.ffprobe.shutil.which', lambda _name: None)
+    monkeypatch.setattr(
+        "services.ffprobe.resolve_ffprobe",
+        lambda: MediaToolResolution(
+            status="unavailable",
+            tool="ffprobe",
+            path=None,
+            source="fallback",
+            version=None,
+            error_code="media.ffprobe_unavailable",
+            error_message="FFprobe 未安装或未配置到可执行路径。",
+        ),
+    )
 
     result = get_ffprobe_availability()
 
@@ -74,7 +86,18 @@ def test_ffprobe_availability_reports_incompatible_binary(monkeypatch, tmp_path:
     fake_binary = tmp_path / 'ffprobe.exe'
     fake_binary.write_text('not-used', encoding='utf-8')
 
-    monkeypatch.setattr('services.ffprobe.shutil.which', lambda _name: str(fake_binary))
+    monkeypatch.setattr(
+        "services.ffprobe.resolve_ffprobe",
+        lambda: MediaToolResolution(
+            status="ready",
+            tool="ffprobe",
+            path=str(fake_binary),
+            source="path",
+            version=None,
+            error_code=None,
+            error_message=None,
+        ),
+    )
 
     def _raise(*_args, **_kwargs):
         raise RuntimeError('boom')

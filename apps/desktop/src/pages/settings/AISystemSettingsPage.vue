@@ -41,6 +41,7 @@
             :provider-options="capabilityStore.providerCatalog"
             @update="handleSystemUpdate"
             @pick-directory="handlePickDirectory"
+            @pick-file="handlePickFile"
             @open-log-directory="handleOpenLogDirectory"
           />
 
@@ -62,6 +63,14 @@
             @update:health-model="selectedProviderHealthModel = $event"
           />
 
+          <SettingsDiagnosticsCenter
+            v-else-if="currentSection === 'diagnostics'"
+            :error-message="diagnosticErrors.join('；')"
+            :loading="store.status === 'loading'"
+            :report="store.diagnostics"
+            @run="handleRunDiagnostics"
+          />
+
           <div v-else class="settings-console__capability-layout">
             <AICapabilityMatrix
               :capabilities="capabilityForms"
@@ -74,8 +83,10 @@
               :capability="selectedCapability"
               :capability-label="selectedCapabilityLabel"
               :disabled="isCapabilityDisabled"
+              :model-catalog-by-provider="capabilityStore.modelCatalogByProvider"
               :provider-catalog="capabilityStore.providerCatalog"
               :support-item="selectedSupportItem"
+              @load-models="capabilityStore.loadModelsForProvider"
             />
           </div>
         </section>
@@ -102,6 +113,7 @@ import { computed, onMounted, reactive, ref, watch, watchEffect } from "vue";
 import AICapabilityInspector from "@/modules/settings/components/AICapabilityInspector.vue";
 import AICapabilityMatrix from "@/modules/settings/components/AICapabilityMatrix.vue";
 import ProviderCatalogPanel from "@/modules/settings/components/ProviderCatalogPanel.vue";
+import SettingsDiagnosticsCenter from "@/modules/settings/components/SettingsDiagnosticsCenter.vue";
 import SettingsSaveBar from "@/modules/settings/components/SettingsSaveBar.vue";
 import SettingsSectionRail from "@/modules/settings/components/SettingsSectionRail.vue";
 import SettingsStatusDock from "@/modules/settings/components/SettingsStatusDock.vue";
@@ -124,10 +136,12 @@ import {
   configStatusLabel as getConfigStatusLabel,
   createEmptySettingsInput,
   type DirectoryField,
+  type FileField,
   formatDateOnly,
   formatErrorSummary,
   openDirectoryPath,
   pickDirectoryPath,
+  pickFfprobePath,
   runtimeStatusLabel as getRuntimeStatusLabel,
   sectionCopy,
   serializeCapabilities,
@@ -393,6 +407,7 @@ function handleSystemUpdate(patch: Partial<AppSettingsUpdateInput>) {
   if (patch.paths) Object.assign(form.paths, patch.paths);
   if (patch.logging) Object.assign(form.logging, patch.logging);
   if (patch.ai) Object.assign(form.ai, patch.ai);
+  if (patch.media) Object.assign(form.media, patch.media);
 }
 
 async function handleSave(): Promise<void> {
@@ -437,6 +452,11 @@ async function handleRefreshProviderModels(): Promise<void> {
   await capabilityStore.refreshProviderModels(selectedProviderId.value);
 }
 
+async function handleRunDiagnostics(): Promise<void> {
+  localBanner.value = null;
+  await store.refresh();
+}
+
 async function handlePickDirectory(field: DirectoryField): Promise<void> {
   localBanner.value = null;
   try {
@@ -465,6 +485,24 @@ async function handlePickDirectory(field: DirectoryField): Promise<void> {
   } catch (error) {
     localBanner.value = {
       message: error instanceof Error ? error.message : "当前环境无法打开系统目录选择器。",
+      tone: "error"
+    };
+  }
+}
+
+async function handlePickFile(field: FileField): Promise<void> {
+  localBanner.value = null;
+  try {
+    if (field !== "media.ffprobePath") {
+      return;
+    }
+    const selected = await pickFfprobePath(form.media.ffprobePath);
+    if (selected) {
+      form.media.ffprobePath = selected;
+    }
+  } catch (error) {
+    localBanner.value = {
+      message: error instanceof Error ? error.message : "当前环境无法打开系统文件选择器。",
       tone: "error"
     };
   }

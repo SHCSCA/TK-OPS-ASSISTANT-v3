@@ -29,6 +29,7 @@ def test_settings_config_returns_default_document(
         "voice": "alloy",
         "subtitleMode": "balanced",
     }
+    assert payload["data"]["media"] == {"ffprobePath": ""}
 
 
 def test_settings_config_update_persists_across_app_recreation(
@@ -53,6 +54,9 @@ def test_settings_config_update_persists_across_app_recreation(
             "voice": "nova",
             "subtitleMode": "precise",
         },
+        "media": {
+            "ffprobePath": str(runtime_data_dir / "tools" / "ffprobe.exe"),
+        },
     }
 
     write_response = client.put("/api/settings/config", json=update_payload)
@@ -65,6 +69,7 @@ def test_settings_config_update_persists_across_app_recreation(
     assert written["data"]["runtime"]["mode"] == "production"
     assert written["data"]["logging"]["level"] == "DEBUG"
     assert written["data"]["ai"]["model"] == "gpt-5.4-mini"
+    assert written["data"]["media"]["ffprobePath"].endswith("ffprobe.exe")
 
     from app.factory import create_app
 
@@ -79,6 +84,7 @@ def test_settings_config_update_persists_across_app_recreation(
     )
     assert payload["data"]["paths"]["logDir"] == str(runtime_data_dir / "logs-next")
     assert payload["data"]["ai"]["voice"] == "nova"
+    assert payload["data"]["media"]["ffprobePath"].endswith("ffprobe.exe")
 
 
 def test_settings_config_update_broadcasts_config_changed_event(
@@ -117,6 +123,7 @@ def test_settings_config_update_broadcasts_config_changed_event(
                     "voice": "alloy",
                     "subtitleMode": "balanced",
                 },
+                "media": {"ffprobePath": str(runtime_data_dir / "ffprobe.exe")},
             },
         )
     finally:
@@ -130,7 +137,7 @@ def test_settings_config_update_broadcasts_config_changed_event(
     assert event["scope"] == "runtime_local"
     assert event["revision"] == 2
     assert event["updatedAt"]
-    assert event["changedKeys"] == ["runtime", "paths"]
+    assert event["changedKeys"] == ["runtime", "paths", "media"]
 
 
 def test_settings_diagnostics_returns_non_sensitive_runtime_details(
@@ -142,14 +149,17 @@ def test_settings_diagnostics_returns_non_sensitive_runtime_details(
     assert response.status_code == 200
     payload = response.json()
     assert payload["ok"] is True
-    assert payload["data"] == {
-        "databasePath": str(runtime_data_dir / "runtime.db"),
-        "logDir": str(runtime_data_dir / "logs"),
-        "revision": 1,
-        "mode": "test",
-        "healthStatus": "online",
-        "configScope": "runtime_local",
-    }
+    data = payload["data"]
+    assert data["databasePath"] == str(runtime_data_dir / "runtime.db")
+    assert data["cacheDir"] == str(runtime_data_dir / "cache")
+    assert data["logDir"] == str(runtime_data_dir / "logs")
+    assert data["revision"] == 1
+    assert data["mode"] == "test"
+    assert data["healthStatus"] == "online"
+    assert data["configScope"] == "runtime_local"
+    assert data["overallStatus"] in {"ready", "warning"}
+    assert data["checkedAt"]
+    assert data["items"]
 
 
 def test_unhandled_runtime_errors_are_wrapped_with_request_id(
@@ -195,6 +205,7 @@ def test_settings_update_writes_structured_audit_log(
                 "voice": "alloy",
                 "subtitleMode": "balanced",
             },
+            "media": {"ffprobePath": ""},
         },
     )
 

@@ -21,6 +21,7 @@ import type {
   LicenseStatus,
   LogFilter,
   LogPageDto,
+  MediaDiagnostics,
   RuntimeDiagnostics,
   RuntimeEnvelope,
   RuntimeRequestErrorShape,
@@ -112,6 +113,7 @@ import type {
   ReviewSummaryDto,
   ReviewSummaryUpdateInput,
   AnalyzeProjectResultDto,
+  VideoDeconstructionResultDto,
   VideoStageDto,
   VideoSegmentDto,
   VideoStructureExtractionDto,
@@ -161,6 +163,10 @@ export async function updateRuntimeConfig(
 
 export async function fetchRuntimeDiagnostics(): Promise<RuntimeDiagnostics> {
   return requestRuntime<RuntimeDiagnostics>("/api/settings/diagnostics");
+}
+
+export async function fetchRuntimeMediaDiagnostics(): Promise<MediaDiagnostics> {
+  return requestRuntime<MediaDiagnostics>("/api/settings/diagnostics/media");
 }
 
 export async function initializeDirectories(): Promise<BootstrapDirectoryReport> {
@@ -477,10 +483,11 @@ export async function fetchStoryboardDocument(projectId: string): Promise<Storyb
 export async function saveStoryboardDocument(
   projectId: string,
   basedOnScriptRevision: number,
-  scenes: StoryboardScene[]
+  scenes: StoryboardScene[],
+  markdown?: string
 ): Promise<StoryboardDocument> {
   return requestRuntime<StoryboardDocument>(`/api/storyboards/projects/${projectId}/document`, {
-    body: JSON.stringify({ basedOnScriptRevision, scenes }),
+    body: JSON.stringify({ basedOnScriptRevision, markdown, scenes }),
     method: "PUT"
   });
 }
@@ -1292,6 +1299,21 @@ export async function startVideoTranscription(videoId: string): Promise<VideoTra
 export async function fetchVideoTranscript(videoId: string): Promise<VideoTranscriptDto> {
   return requestRuntime<VideoTranscriptDto>(
     `/api/video-deconstruction/videos/${videoId}/transcript`
+  );
+}
+
+export async function deconstructVideo(videoId: string): Promise<VideoDeconstructionResultDto> {
+  return requestRuntime<VideoDeconstructionResultDto>(
+    `/api/video-deconstruction/videos/${videoId}/deconstruct`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export async function fetchVideoResult(videoId: string): Promise<VideoDeconstructionResultDto> {
+  return requestRuntime<VideoDeconstructionResultDto>(
+    `/api/video-deconstruction/videos/${videoId}/result`
   );
 }
 
