@@ -18,6 +18,8 @@ class StoredStoryboardVersion:
     source: str
     scenes: list[dict[str, str]]
     markdown: str | None
+    format: str
+    storyboard_json: dict[str, object] | None
     provider: str | None
     model: str | None
     ai_job_id: str | None
@@ -46,6 +48,8 @@ class StoryboardRepository:
         source: str,
         scenes: list[dict[str, str]],
         markdown: str | None = None,
+        format: str = "legacy_markdown",
+        storyboard_json: dict[str, object] | None = None,
         provider: str | None = None,
         model: str | None = None,
         ai_job_id: str | None = None,
@@ -58,7 +62,12 @@ class StoryboardRepository:
                 based_on_script_revision=based_on_script_revision,
                 source=source,
                 scenes_json=json.dumps(
-                    {'scenes': scenes, 'markdown': markdown} if markdown else scenes,
+                    {
+                        'scenes': scenes,
+                        'markdown': markdown,
+                        'format': format,
+                        'storyboardJson': storyboard_json,
+                    },
                     ensure_ascii=False,
                 ),
                 provider=provider,
@@ -88,6 +97,8 @@ class StoryboardRepository:
             source=version.source,
             scenes=payload[0],
             markdown=payload[1],
+            format=payload[2],
+            storyboard_json=payload[3],
             provider=version.provider,
             model=version.model,
             ai_job_id=version.ai_job_id,
@@ -99,13 +110,20 @@ def _utc_now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _loads_storyboard_payload(payload: str) -> tuple[list[dict[str, str]], str | None]:
+def _loads_storyboard_payload(payload: str) -> tuple[list[dict[str, str]], str | None, str, dict[str, object] | None]:
     loaded = json.loads(payload)
     if isinstance(loaded, list):
-        return loaded, None
+        return loaded, None, "legacy_markdown", None
     if isinstance(loaded, dict):
         scenes = loaded.get('scenes')
         markdown = loaded.get('markdown')
+        format_value = str(loaded.get('format') or 'legacy_markdown')
+        storyboard_json = loaded.get('storyboardJson')
         if isinstance(scenes, list):
-            return scenes, str(markdown) if markdown else None
-    return [], None
+            return (
+                scenes,
+                str(markdown) if markdown else None,
+                format_value if format_value in {'json_v1', 'legacy_markdown'} else 'legacy_markdown',
+                storyboard_json if isinstance(storyboard_json, dict) else None,
+            )
+    return [], None, "legacy_markdown", None

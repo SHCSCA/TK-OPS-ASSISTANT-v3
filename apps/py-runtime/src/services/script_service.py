@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 from fastapi import HTTPException
 
@@ -17,6 +18,7 @@ from schemas.scripts import (
 )
 from services.ai_text_generation_service import AITextGenerationService
 from services.dashboard_service import DashboardService
+from services.script_document_json import build_script_display_text, parse_script_document_json
 from services.ws_manager import ws_manager
 
 
@@ -95,6 +97,8 @@ class ScriptService:
             project.id,
             source='restore',
             content=source_version.content,
+            format=source_version.format,
+            document_json=source_version.document_json,
         )
         self._dashboard_service.update_project_versions(
             project.id,
@@ -145,10 +149,13 @@ class ScriptService:
             project_id=project.id,
             request_id=request_id,
         )
+        document_json = parse_script_document_json(result.text)
         stored = self._repository.save_version(
             project.id,
             source='ai_generate',
-            content=result.text,
+            content=build_script_display_text(document_json),
+            format='json_v1',
+            document_json=document_json,
             provider=result.provider,
             model=result.model,
             ai_job_id=result.ai_job_id,
@@ -189,16 +196,19 @@ class ScriptService:
         result = ai_text_generation_service.generate_text(
             'script_rewrite',
             {
-                'script': versions[0].content,
+                'script': _script_source_for_ai(versions[0]),
                 'instructions': instructions.strip(),
             },
             project_id=project.id,
             request_id=request_id,
         )
+        document_json = parse_script_document_json(result.text)
         stored = self._repository.save_version(
             project.id,
             source='ai_rewrite',
-            content=result.text,
+            content=build_script_display_text(document_json),
+            format='json_v1',
+            document_json=document_json,
             provider=result.provider,
             model=result.model,
             ai_job_id=result.ai_job_id,
@@ -211,7 +221,7 @@ class ScriptService:
             'script.ai.stream.chunk',
             jobId=result.ai_job_id,
             sequence=1,
-            deltaText=result.text,
+            deltaText=stored.content,
             versionId=str(stored.revision),
         )
         _emit_script_stream_event(
@@ -248,7 +258,7 @@ class ScriptService:
                 raise HTTPException(status_code=404, detail='Prompt 模板不存在。')
 
         prompt_variables = {
-            'script': versions[0].content,
+            'script': _script_source_for_ai(versions[0]),
             'segment': latest_lines[segment_index - 1],
             'segmentIndex': str(segment_index),
             'instructions': payload.instructions.strip(),
@@ -264,16 +274,29 @@ class ScriptService:
             request_id=request_id,
         )
 
-        rewritten_lines = list(latest_lines)
-        rewritten_lines[segment_index - 1] = _pick_segment_rewrite(result.text, segment_index)
-        stored = self._repository.save_version(
-            project.id,
-            source='ai_segment_rewrite',
-            content='\n'.join(rewritten_lines).strip(),
-            provider=result.provider,
-            model=result.model,
-            ai_job_id=result.ai_job_id,
-        )
+        document_json = _try_parse_script_document_json(result.text)
+        if document_json is not None:
+            stored = self._repository.save_version(
+                project.id,
+                source='ai_segment_rewrite',
+                content=build_script_display_text(document_json),
+                format='json_v1',
+                document_json=document_json,
+                provider=result.provider,
+                model=result.model,
+                ai_job_id=result.ai_job_id,
+            )
+        else:
+            rewritten_lines = list(latest_lines)
+            rewritten_lines[segment_index - 1] = _pick_segment_rewrite(result.text, segment_index)
+            stored = self._repository.save_version(
+                project.id,
+                source='ai_segment_rewrite',
+                content='\n'.join(rewritten_lines).strip(),
+                provider=result.provider,
+                model=result.model,
+                ai_job_id=result.ai_job_id,
+            )
         self._dashboard_service.update_project_versions(
             project.id,
             current_script_version=stored.revision,
@@ -282,7 +305,7 @@ class ScriptService:
             'script.ai.stream.chunk',
             jobId=result.ai_job_id,
             sequence=1,
-            deltaText=result.text,
+            deltaText=stored.content,
             versionId=str(stored.revision),
         )
         _emit_script_stream_event(
@@ -298,6 +321,8 @@ class ScriptService:
             revision=stored.revision,
             source=stored.source,
             content=stored.content,
+            format=stored.format if stored.format in {'json_v1', 'legacy_markdown'} else 'legacy_markdown',
+            documentJson=stored.document_json,
             provider=stored.provider,
             model=stored.model,
             aiJobId=stored.ai_job_id,
@@ -344,6 +369,19 @@ def _parse_segment_index(segment_id: str) -> int:
     if not normalized.isdigit():
         raise HTTPException(status_code=400, detail='脚本段落编号必须是正整数。')
     return int(normalized)
+
+
+def _script_source_for_ai(version: StoredScriptVersion) -> str:
+    if version.document_json is not None:
+        return json.dumps(version.document_json, ensure_ascii=False)
+    return version.content
+
+
+def _try_parse_script_document_json(raw_text: str) -> dict[str, object] | None:
+    try:
+        return parse_script_document_json(raw_text)
+    except HTTPException:
+        return None
 
 
 def _split_lines(content: str) -> list[str]:

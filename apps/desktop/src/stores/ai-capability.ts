@@ -13,6 +13,7 @@ import {
 } from "@/app/runtime-client";
 import { useTaskBusStore } from "@/stores/task-bus";
 import type {
+  AICapabilityBindingInput,
   AICapabilityConfig,
   AICapabilitySettings,
   AICapabilitySupportMatrix,
@@ -171,8 +172,13 @@ export const useAIStore = defineStore("ai-capability", {
       this.status = "saving";
       try {
         const payload = Array.isArray(input) ? { capabilities: input } : input;
-        // Ensure payload structure matches expected AICapabilitySettings format
-        await saveAICapabilitySettings(payload.capabilities as any);
+        const bindings: AICapabilityBindingInput[] = (payload.capabilities ?? []).map((item) => ({
+          capabilityId: item.capabilityId,
+          enabled: item.enabled,
+          provider: item.provider,
+          model: item.model
+        }));
+        await saveAICapabilitySettings(bindings);
         await this.reloadSettings();
         this.status = "ready";
       } catch (error) {

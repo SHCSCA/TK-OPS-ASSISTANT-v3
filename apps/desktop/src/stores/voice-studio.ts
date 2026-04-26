@@ -8,6 +8,7 @@ import {
   fetchVoiceTracks,
   generateVoiceTrack
 } from "@/app/runtime-client";
+import { extractScriptDocumentDownstreamText } from "@/modules/scripts/script-document-view-model";
 import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 import { useTaskBusStore } from "@/stores/task-bus";
 import type {
@@ -135,7 +136,10 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         this.profiles = profiles;
         this.tracks = tracks;
         this.trackDetailsById = Object.fromEntries(tracks.map((track) => [track.id, track]));
-        this.paragraphs = this.extractParagraphs(document.currentVersion?.content ?? "");
+        this.paragraphs = this.extractParagraphs(
+          document.currentVersion?.documentJson ?? null,
+          document.currentVersion?.content ?? ""
+        );
         this.activeParagraphIndex = 0;
         this.selectedProfileId = this.resolveProfileSelection(profiles);
         this.selectedTrackId = tracks[0]?.id ?? null;
@@ -276,15 +280,8 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       }
     },
 
-    extractParagraphs(content: string): Paragraph[] {
-      return content
-        .split(/\n+/)
-        .map((paragraph) => paragraph.trim())
-        .filter(Boolean)
-        .map((text) => ({
-          text,
-          estimatedDuration: Math.round(text.length * 0.4 * 10) / 10
-        }));
+    extractParagraphs(documentJson: Record<string, any> | null, content = ""): Paragraph[] {
+      return extractScriptDocumentDownstreamText(documentJson, "voice", content);
     },
 
     selectProfile(profileId: string): void {

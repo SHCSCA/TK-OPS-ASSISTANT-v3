@@ -205,16 +205,20 @@
                 </p>
               </div>
               <div v-else class="editor-content">
-                <ScriptMarkdownPreview v-if="editorMode === 'preview'" :markdown="content" />
+                <ScriptStructuredPreview
+                  v-if="activeDocumentJson"
+                  :document-json="activeDocumentJson"
+                />
+                <ScriptMarkdownPreview v-else-if="editorMode === 'preview'" :markdown="content" />
                 <div v-else class="editor-source">
                   <Input
                     v-model="content"
                     class="editor-source__input"
                     data-script-source-input
                     :disabled="isBusy || pageState === 'empty'"
-                    label="Markdown 原文"
+                    label="原文"
                     multiline
-                    placeholder="在这里维护脚本 Markdown 原文。"
+                    placeholder="在这里维护旧版脚本文本。"
                     :rows="18"
                   />
                 </div>
@@ -311,6 +315,8 @@ import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 import Input from "@/components/ui/Input/Input.vue";
 import ScriptMarkdownPreview from "@/pages/scripts/components/ScriptMarkdownPreview.vue";
+import ScriptStructuredPreview from "@/pages/scripts/components/ScriptStructuredPreview.vue";
+import { buildScriptPlainText } from "@/modules/scripts/script-document-view-model";
 import {
   buildScriptPlanningPrompt,
   createDefaultPlanningBrief,
@@ -348,6 +354,7 @@ const displayedVersion = computed<ScriptVersion | null>(() => {
   }
   return versions.value.find((version) => version.revision === selectedRevision.value) ?? currentVersion.value;
 });
+const activeDocumentJson = computed(() => displayedVersion.value?.documentJson ?? null);
 const hasDocument = computed(() => currentVersion.value !== null || versions.value.length > 0);
 const isBusy = computed(
   () => scriptStore.status === "loading" || scriptStore.status === "saving" || scriptStore.status === "generating"
@@ -393,8 +400,18 @@ const generateDisabled = computed(() => isBusy.value || planningBrief.videoTheme
 const rewriteDisabled = computed(() => isBusy.value || planningBrief.videoTheme.trim().length === 0 || !hasDocument.value);
 const saveDisabled = computed(() => isBusy.value || content.value.trim().length === 0 || pageState.value === "empty");
 const contentLength = computed(() => content.value.trim().length);
-const outlineSegments = computed(() => parseScriptSegments(content.value));
-const titleSeed = computed(() => outlineSegments.value[0]?.title ?? "等待真实脚本标题");
+const outlineSegments = computed(() => {
+  const segments = activeDocumentJson.value?.segments;
+  if (Array.isArray(segments)) {
+    return segments.map((segment, index) => ({
+      id: String(segment.segmentId ?? `S${String(index + 1).padStart(2, "0")}`),
+      title: String(segment.segmentId ?? `S${String(index + 1).padStart(2, "0")}`),
+      excerpt: String(segment.voiceover ?? segment.subtitle ?? segment.goal ?? "")
+    }));
+  }
+  return parseScriptSegments(content.value);
+});
+const titleSeed = computed(() => activeDocumentJson.value?.title ?? outlineSegments.value[0]?.title ?? "等待真实脚本标题");
 
 const displayedVersionMeta = computed(() => {
   if (!displayedVersion.value) {
@@ -507,9 +524,10 @@ async function handleAdopt(revision: number): Promise<void> {
 }
 
 async function handleCopyContent(): Promise<void> {
-  if (!content.value) return;
+  const text = buildScriptPlainText(activeDocumentJson.value, content.value);
+  if (!text) return;
   try {
-    await navigator.clipboard.writeText(content.value);
+    await navigator.clipboard.writeText(text);
   } catch (error) {
     console.error("[script-topic-center] 复制脚本失败", error);
     window.alert("复制失败，请检查系统剪贴板权限后重试。");

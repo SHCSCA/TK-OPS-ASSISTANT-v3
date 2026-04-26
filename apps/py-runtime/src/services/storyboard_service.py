@@ -22,6 +22,10 @@ from schemas.storyboards import (
 )
 from services.ai_text_generation_service import AITextGenerationService
 from services.dashboard_service import DashboardService
+from services.script_document_json import (
+    build_storyboard_scenes_from_json,
+    parse_storyboard_document_json,
+)
 from services.script_service import ScriptService
 from services.storyboard_scene_parser import parse_storyboard_scenes
 
@@ -85,16 +89,23 @@ class StoryboardService:
         based_on_script_revision: int,
         scenes: list[dict[str, str]],
         markdown: str | None = None,
+        storyboard_json: dict[str, object] | None = None,
     ) -> StoryboardDocumentDto:
         project = self._dashboard_service.require_project(project_id)
         normalized_markdown = markdown.strip() if markdown else None
-        scenes_to_save = _manual_markdown_to_scenes(normalized_markdown, scenes)
+        scenes_to_save = (
+            build_storyboard_scenes_from_json(storyboard_json)
+            if storyboard_json is not None
+            else _manual_markdown_to_scenes(normalized_markdown, scenes)
+        )
         stored = self._repository.save_version(
             project.id,
             based_on_script_revision=based_on_script_revision,
             source='manual',
             scenes=scenes_to_save,
             markdown=normalized_markdown,
+            format='json_v1' if storyboard_json is not None else 'legacy_markdown',
+            storyboard_json=storyboard_json,
         )
         self._dashboard_service.update_project_versions(
             project.id,
@@ -162,7 +173,10 @@ class StoryboardService:
         if script_document.currentVersion is None:
             raise HTTPException(status_code=400, detail='请先创建脚本版本，再同步分镜。')
 
-        scenes = _script_to_shots(script_document.currentVersion.content)
+        scenes = _script_to_shots(
+            script_document.currentVersion.content,
+            script_document.currentVersion.documentJson,
+        )
         stored = self._repository.save_version(
             project.id,
             based_on_script_revision=script_document.currentVersion.revision,
@@ -239,17 +253,20 @@ class StoryboardService:
 
         result = ai_text_generation_service.generate_text(
             'storyboard_generation',
-            {'script': script_document.currentVersion.content},
+            {'script': _script_source_for_storyboard(script_document.currentVersion)},
             project_id=project.id,
             request_id=request_id,
         )
-        scenes = _provider_markdown_to_scenes(result.text)
+        storyboard_json = parse_storyboard_document_json(result.text)
+        scenes = build_storyboard_scenes_from_json(storyboard_json)
         stored = self._repository.save_version(
             project.id,
             based_on_script_revision=script_document.currentVersion.revision,
             source='ai_generate',
             scenes=scenes,
-            markdown=result.text,
+            markdown=None,
+            format='json_v1',
+            storyboard_json=storyboard_json,
             provider=result.provider,
             model=result.model,
             ai_job_id=result.ai_job_id,
@@ -267,6 +284,8 @@ class StoryboardService:
             source=stored.source,
             scenes=[StoryboardSceneDto.model_validate(item) for item in stored.scenes],
             markdown=stored.markdown,
+            format=stored.format if stored.format in {'json_v1', 'legacy_markdown'} else 'legacy_markdown',
+            storyboardJson=stored.storyboard_json,
             provider=stored.provider,
             model=stored.model,
             aiJobId=stored.ai_job_id,
@@ -414,7 +433,15 @@ class StoryboardService:
         return self.get_document(project_id)
 
 
-def _script_to_shots(script_content: str) -> list[dict[str, str]]:
+def _script_to_shots(
+    script_content: str,
+    document_json: dict[str, object] | None = None,
+) -> list[dict[str, str]]:
+    if document_json is not None:
+        scenes = _script_json_to_shots(document_json)
+        if scenes:
+            return scenes
+
     paragraphs = [
         line.strip()
         for line in script_content.replace('\r\n', '\n').replace('\r', '\n').split('\n')
@@ -429,6 +456,46 @@ def _script_to_shots(script_content: str) -> list[dict[str, str]]:
         }
         for index, paragraph in enumerate(paragraphs, start=1)
     ]
+
+
+def _script_json_to_shots(document_json: dict[str, object]) -> list[dict[str, str]]:
+    segments = document_json.get('segments')
+    if not isinstance(segments, list):
+        return []
+
+    scenes: list[dict[str, str]] = []
+    for index, segment in enumerate(segments, start=1):
+        if not isinstance(segment, dict):
+            continue
+        segment_id = str(segment.get('segmentId') or f'S{index:02d}').strip()
+        voiceover = str(segment.get('voiceover') or '').strip()
+        subtitle = str(segment.get('subtitle') or '').strip()
+        visual = str(segment.get('visualSuggestion') or '').strip()
+        title = f'{segment_id} · {str(segment.get("goal") or "脚本段落").strip()}'
+        summary = visual or voiceover or subtitle or title
+        scenes.append(
+            {
+                'sceneId': f'SH{index:02d}',
+                'title': title,
+                'summary': summary,
+                'visualPrompt': str(segment.get('storyboardHint') or summary).strip(),
+                'shotLabel': segment_id,
+                'time': str(segment.get('time') or '').strip(),
+                'subtitle': subtitle,
+                'voiceover': voiceover,
+                'visualContent': visual,
+            }
+        )
+    return scenes
+
+
+def _script_source_for_storyboard(version: object) -> str:
+    document_json = getattr(version, 'documentJson', None)
+    if document_json is not None:
+        import json
+
+        return json.dumps(document_json, ensure_ascii=False)
+    return str(getattr(version, 'content', ''))
 
 
 def _manual_markdown_to_scenes(

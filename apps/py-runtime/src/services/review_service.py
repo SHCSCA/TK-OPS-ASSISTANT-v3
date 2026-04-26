@@ -920,6 +920,8 @@ class ReviewService:
             revision=stored.revision,
             source=stored.source,
             content=stored.content,
+            format=stored.format if stored.format in {"json_v1", "legacy_markdown"} else "legacy_markdown",
+            documentJson=stored.document_json,
             provider=stored.provider,
             model=stored.model,
             aiJobId=stored.ai_job_id,

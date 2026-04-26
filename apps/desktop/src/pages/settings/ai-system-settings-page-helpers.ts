@@ -189,10 +189,7 @@ export function serializeCapabilities(items: AICapabilityConfig[]): string {
       capabilityId: item.capabilityId,
       enabled: item.enabled,
       provider: item.provider,
-      model: item.model,
-      agentRole: item.agentRole,
-      systemPrompt: item.systemPrompt,
-      userPromptTemplate: item.userPromptTemplate
+      model: item.model
     }))
   );
 }

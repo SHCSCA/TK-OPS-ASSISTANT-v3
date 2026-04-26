@@ -113,9 +113,9 @@ class AICapabilityService:
                 enabled=item.enabled,
                 provider=item.provider,
                 model=item.model,
-                agent_role=item.agentRole,
-                system_prompt=item.systemPrompt,
-                user_prompt_template=item.userPromptTemplate,
+                agent_role=_default_agent_role(item.capabilityId),
+                system_prompt=_default_system_prompt(item.capabilityId),
+                user_prompt_template=_default_template(item.capabilityId),
                 updated_at=_utc_now(),
             )
             for item in items
@@ -807,7 +807,7 @@ class AICapabilityService:
         if stored:
             known_stored = [item for item in stored if item.capability_id in CAPABILITY_IDS]
             configs_by_id = {
-                item.capability_id: _migrate_default_capability(item)
+                item.capability_id: _with_default_prompt_fields(item)
                 for item in known_stored
             }
             changed = len(known_stored) != len(stored)
@@ -835,6 +835,13 @@ class AICapabilityService:
             agentRole=item.agent_role,
             systemPrompt=item.system_prompt,
             userPromptTemplate=item.user_prompt_template,
+            promptPreview={
+                'agentRole': item.agent_role,
+                'systemPrompt': item.system_prompt,
+                'userPromptTemplate': item.user_prompt_template,
+                'editable': False,
+                'source': 'system_default',
+            },
         )
 
     def _to_model_dto(self, item: StoredAIProviderModel) -> AIModelCatalogItemDto:
@@ -2309,6 +2316,21 @@ def _migrate_default_capability(item: StoredAICapabilityConfig) -> StoredAICapab
         system_prompt=_default_system_prompt(item.capability_id),
         user_prompt_template=_default_template(item.capability_id),
         updated_at=_utc_now(),
+    )
+
+
+def _with_default_prompt_fields(item: StoredAICapabilityConfig) -> StoredAICapabilityConfig:
+    if item.capability_id not in CAPABILITY_IDS:
+        return item
+    return StoredAICapabilityConfig(
+        capability_id=item.capability_id,
+        enabled=item.enabled,
+        provider=item.provider,
+        model=item.model,
+        agent_role=_default_agent_role(item.capability_id),
+        system_prompt=_default_system_prompt(item.capability_id),
+        user_prompt_template=_default_template(item.capability_id),
+        updated_at=item.updated_at,
     )
 
 

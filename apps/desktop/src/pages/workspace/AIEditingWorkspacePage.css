@@ -1,10 +1,15 @@
 .page-container {
   max-width: 1440px;
+  width: 100%;
   margin: 0 auto;
   padding: var(--space-6) var(--space-8) var(--space-8);
   display: flex;
   flex-direction: column;
   min-height: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  container-name: editing-workspace;
+  container-type: inline-size;
 }
 
 .page-header {
@@ -26,11 +31,13 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
+  min-width: 0;
 }
 
 .page-header__copy {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
 .page-header__title {
@@ -52,6 +59,7 @@
   gap: var(--space-3);
   flex-wrap: wrap;
   justify-content: flex-end;
+  min-width: 0;
 }
 
 .workspace-context-bar {
@@ -149,14 +157,17 @@
   gap: var(--space-4);
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .workspace-stage {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: 280px minmax(480px, 1fr) 280px;
-  height: 400px;
+  grid-template-columns: minmax(min(100%, 240px), 280px) minmax(0, 1fr) minmax(min(100%, 240px), 280px);
+  align-items: stretch;
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .stage-panel-wrapper,
@@ -164,6 +175,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 .panel-label {
@@ -193,11 +205,15 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
 }
 
 .preview-panel {
   background: #000;
   border-color: #333;
+  min-height: 100%;
 }
 
 .workspace-timeline-area {
@@ -209,6 +225,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 .scroll-area {
@@ -237,13 +254,11 @@
   transform: translateY(12px);
 }
 
-@media (max-width: 1400px) {
+@container editing-workspace (max-width: 1180px) {
   .workspace-stage {
-    grid-template-columns: 240px minmax(400px, 1fr) 240px;
+    grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
   }
-}
 
-@media (max-width: 1280px) {
   .page-header__row {
     flex-direction: column;
   }
@@ -252,22 +267,21 @@
     justify-content: flex-start;
   }
 
-  .workspace-stage {
-    grid-template-columns: 260px minmax(0, 1fr);
-    height: auto;
-  }
-
   .workspace-stage > :last-child {
     grid-column: 1 / -1;
   }
 }
 
-@media (max-width: 960px) {
+@container editing-workspace (max-width: 860px) {
   .page-container {
     padding-inline: var(--space-4);
   }
 
   .workspace-stage {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-stage > :last-child {
+    grid-column: auto;
   }
 }

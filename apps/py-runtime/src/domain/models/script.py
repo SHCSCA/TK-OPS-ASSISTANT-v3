@@ -17,6 +17,8 @@ class ScriptVersion(Base):
     revision: Mapped[int] = mapped_column(Integer, primary_key=True)
     source: Mapped[str] = mapped_column(String, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    format: Mapped[str] = mapped_column(String, nullable=False, default="legacy_markdown")
+    document_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     provider: Mapped[str | None] = mapped_column(String, nullable=True)
     model: Mapped[str | None] = mapped_column(String, nullable=True)
     ai_job_id: Mapped[str | None] = mapped_column(

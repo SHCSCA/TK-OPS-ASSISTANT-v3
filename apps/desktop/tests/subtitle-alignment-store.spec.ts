@@ -28,6 +28,22 @@ describe("M08 字幕对齐中心 store", () => {
     expect(store.activeSegmentIndex).toBe(0);
   });
 
+  it("加载 Markdown 脚本文档时只提取可对齐字幕文案", async () => {
+    vi.stubGlobal("fetch", createSubtitleFetch({ scriptContent: markdownScriptDocument() }));
+
+    const store = useSubtitleAlignmentStore();
+    await store.load("project-1");
+
+    expect(store.paragraphs.map((item) => item.text)).toEqual([
+      "plain coffee cup",
+      "Same old cup every morning.",
+      "Link in bio."
+    ]);
+    expect(store.sourceText).not.toContain("TikTok短视频脚本");
+    expect(store.sourceText).not.toContain("| 项目 | 内容 |");
+    expect(store.sourceText).not.toContain("9:16");
+  });
+
   it("生成字幕草稿时保存 blocked 状态和中文说明", async () => {
     vi.stubGlobal("fetch", createSubtitleFetch());
 
@@ -120,11 +136,18 @@ describe("M08 字幕对齐中心 store", () => {
 });
 
 function createSubtitleFetch(
-  options: { emptyScript?: boolean; noTracks?: boolean; withTrackDetails?: boolean } = {}
+  options: {
+    emptyScript?: boolean;
+    noTracks?: boolean;
+    scriptContent?: string;
+    withTrackDetails?: boolean;
+  } = {}
 ) {
   return createRouteAwareFetch((path, method, init) => {
     if (path === "/api/scripts/projects/project-1/document" && method === "GET") {
-      return okJsonResponse(scriptDocument(options.emptyScript ? "" : "第一段脚本\n\n第二段脚本"));
+      return okJsonResponse(
+        scriptDocument(options.emptyScript ? "" : options.scriptContent ?? "第一段脚本\n\n第二段脚本")
+      );
     }
     if (path === "/api/subtitles/projects/project-1/tracks") {
       return okJsonResponse(options.noTracks ? [] : [subtitleTrack()]);
@@ -168,6 +191,34 @@ function scriptDocument(content = "第一段脚本\n\n第二段脚本") {
 
 function now() {
   return "2026-04-16T10:00:00Z";
+}
+
+function markdownScriptDocument() {
+  return `# TikTok短视频脚本
+
+## 1. 脚本元信息
+
+| 项目 | 内容 |
+|---|---|
+| 平台 | TikTok |
+| 视频比例 | 9:16 |
+| 建议时长 | 30秒 |
+
+## 5. 分段脚本
+
+| 段落ID | 时间 | 段落目标 | 口播文案 | 屏幕字幕 | 基础画面建议 |
+|---|---|---|---|---|---|
+| S01 | 0-3秒 | Hook | I thought this was just another plain coffee cup… | plain coffee cup | Hand holds a boring cup. |
+| S02 | 3-7秒 | Pain point | You know that feeling? You see the same old cup every morning. | Same old cup every morning. | Person sighs softly. |
+| S03 | 25-30秒 | CTA | Tap the link in my bio before they sell out. | Link in bio. | Cup on spring background. |
+
+## 7. 字幕完整稿
+
+\`\`\`text
+plain coffee cup
+Same old cup every morning.
+Link in bio.
+\`\`\``;
 }
 
 function subtitleTrack(id = "subtitle-1", text = "第一段脚本", fontSize = 32) {
