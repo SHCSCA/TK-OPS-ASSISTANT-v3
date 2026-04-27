@@ -1,14 +1,9 @@
-import MarkdownIt from "markdown-it";
-
-const markdownRenderer = new MarkdownIt({
-  breaks: true,
-  html: false,
-  linkify: true,
-  typographer: true
-});
-
 export function renderScriptMarkdownPreview(markdown: string): string {
-  return markdownRenderer.render(normalizeScriptMarkdown(markdown));
+  const normalized = normalizeScriptMarkdown(markdown);
+  if (normalized === "") {
+    return "";
+  }
+  return `<pre>${escapeHtml(normalized)}</pre>`;
 }
 
 export function normalizeScriptMarkdown(value: string): string {
@@ -26,4 +21,13 @@ export function normalizeScriptMarkdown(value: string): string {
 
 function isMarkdownFence(line: string): boolean {
   return /^(```|~~~)[a-z0-9_-]*$/i.test(line.trim());
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }

@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from ai.providers import has_tts_adapter
 from ai.providers.base import TTSRequest, TTSResponse
+from ai.providers.errors import ProviderHTTPException
 from common.time import utc_now_iso
 from domain.models import VoiceProfile, VoiceTrack
 from repositories.voice_profile_repository import VoiceProfileRepository
@@ -19,6 +20,7 @@ from repositories.voice_repository import VoiceRepository
 from schemas.voice import (
     VoiceProfileCreateInput,
     VoiceProfileDto,
+    VoiceProfileRefreshResultDto,
     VoiceSegmentRegenerateInput,
     VoiceTrackDto,
     VoiceTrackGenerateInput,
@@ -35,6 +37,10 @@ from schemas.voice import (
 from services.ai_capability_service import AICapabilityService, ProviderRuntimeConfig
 from services.task_manager import TaskInfo, TaskManager, task_manager as default_task_manager
 from services.voice_artifact_store import VoiceArtifactStore
+from services.voice_profile_sources import (
+    VOLCENGINE_TTS_PROVIDER,
+    fetch_provider_voice_profiles,
+)
 
 log = logging.getLogger(__name__)
 
@@ -48,6 +54,12 @@ SEGMENT_REGENERATE_FAILED_MESSAGE = "片段重生成失败。"
 SEGMENT_REGENERATE_SUCCEEDED_MESSAGE = "片段重生成完成。"
 
 TTSDispatcher = Callable[[ProviderRuntimeConfig, TTSRequest], TTSResponse]
+VoiceProfileSource = Callable[[str], list[VoiceProfileCreateInput]]
+
+_TTS_PROVIDER_ALIASES = {
+    "volcengine": VOLCENGINE_TTS_PROVIDER,
+}
+_SUPPORTED_TTS_PROVIDER_IDS = {VOLCENGINE_TTS_PROVIDER}
 
 
 @dataclass(frozen=True)
@@ -70,6 +82,7 @@ class VoiceService:
         ai_capability_service: AICapabilityService | None = None,
         tts_dispatcher: TTSDispatcher | None = None,
         voice_artifact_store: VoiceArtifactStore | None = None,
+        voice_profile_source: VoiceProfileSource | None = None,
     ) -> None:
         self._repository = repository
         self._profile_repository = profile_repository
@@ -77,18 +90,26 @@ class VoiceService:
         self._ai_capability_service = ai_capability_service
         self._tts_dispatcher = tts_dispatcher
         self._voice_artifact_store = voice_artifact_store
+        self._voice_profile_source = voice_profile_source
 
     def list_profiles(self) -> list[VoiceProfileDto]:
-        profiles = self._load_or_seed_profiles()
+        profiles = [
+            profile
+            for profile in self._load_or_seed_profiles()
+            if profile.provider in _SUPPORTED_TTS_PROVIDER_IDS
+        ]
         return [self._profile_to_dto(profile) for profile in profiles]
 
     def create_profile(self, payload: VoiceProfileCreateInput) -> VoiceProfileDto:
         if self._profile_repository is None:
             raise HTTPException(status_code=503, detail="音色仓库未初始化。")
+        normalized_provider = self._normalize_tts_provider_id(payload.provider)
+        if normalized_provider not in _SUPPORTED_TTS_PROVIDER_IDS:
+            raise HTTPException(status_code=400, detail="当前系统仅支持火山豆包语音音色。")
 
         profile = VoiceProfile(
-            id=f"{payload.provider}-{payload.voiceId}",
-            provider=payload.provider,
+            id=f"{normalized_provider}-{payload.voiceId}",
+            provider=normalized_provider,
             voice_id=payload.voiceId,
             display_name=payload.displayName.strip(),
             locale=payload.locale,
@@ -104,6 +125,34 @@ class VoiceService:
             raise HTTPException(status_code=500, detail="创建音色配置失败。") from exc
         return self._profile_to_dto(saved)
 
+    def refresh_provider_profiles(self, provider_id: str) -> VoiceProfileRefreshResultDto:
+        if self._profile_repository is None:
+            raise HTTPException(status_code=503, detail="音色仓库未初始化。")
+
+        normalized_provider = self._normalize_tts_provider_id(provider_id)
+        if normalized_provider not in _SUPPORTED_TTS_PROVIDER_IDS:
+            raise HTTPException(status_code=400, detail="当前系统仅支持同步火山豆包语音音色。")
+        try:
+            fetched = self._fetch_provider_profiles(normalized_provider)
+            saved = [
+                self._profile_repository.upsert_profile(self._profile_from_input(item))
+                for item in fetched
+                if item.provider == normalized_provider and item.voiceId.strip()
+            ]
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.exception("同步音色配置失败 provider=%s", normalized_provider)
+            raise HTTPException(status_code=500, detail="同步音色配置失败。") from exc
+
+        return VoiceProfileRefreshResultDto(
+            provider=normalized_provider,
+            status="refreshed",
+            message=f"已同步 {len(saved)} 个音色。",
+            savedCount=len(saved),
+            profiles=[self._profile_to_dto(profile) for profile in saved],
+        )
+
     def list_tracks(self, project_id: str) -> list[VoiceTrackDto]:
         try:
             tracks = self._repository.list_tracks(project_id)
@@ -118,20 +167,21 @@ class VoiceService:
         payload: VoiceTrackGenerateInput,
     ) -> VoiceTrackGenerateResultDto:
         profile = self._get_profile(payload.profileId)
+        runtime_provider = self._normalize_tts_provider_id(profile.provider)
         segments = self._split_segments(payload.sourceText)
         if not segments:
             raise HTTPException(status_code=400, detail="脚本文本为空，请先准备可用于配音的内容。")
 
-        runtime_config = self._resolve_tts_runtime(profile.provider)
+        runtime_config = self._resolve_tts_runtime(runtime_provider)
         initial_status = "processing" if runtime_config is not None else "blocked"
-        resolved_model = self._resolve_tts_model(profile.provider)
+        resolved_model = self._resolve_tts_model(runtime_provider)
         now = utc_now_iso()
         track = VoiceTrack(
             id=str(uuid4()),
             project_id=project_id,
             timeline_id=None,
             source="tts",
-            provider=profile.provider,
+            provider=runtime_provider,
             voice_name=profile.displayName,
             file_path=None,
             segments_json=json.dumps(
@@ -143,6 +193,7 @@ class VoiceService:
             config_json=json.dumps(
                 self._build_voice_config_payload(
                     profile=profile,
+                    provider=runtime_provider,
                     source_text=payload.sourceText,
                     model=resolved_model,
                     speed=payload.speed,
@@ -199,11 +250,11 @@ class VoiceService:
                     saved.id,
                     file_path=file_path,
                     status="ready",
-                    provider=tts_response.provider or profile.provider,
+                    provider=tts_response.provider or runtime_provider,
                     config_json=self._update_track_config_json(
                         saved.config_json,
                         updates={
-                            "provider": tts_response.provider or profile.provider,
+                            "provider": tts_response.provider or runtime_provider,
                             "model": resolved_model,
                         },
                         last_operation={
@@ -218,20 +269,26 @@ class VoiceService:
                 if updated is None:
                     raise HTTPException(status_code=404, detail="配音轨不存在。")
                 await progress_callback(100, "配音生成完成。")
-            except Exception:
-                log.exception("配音生成失败: track=%s provider=%s", saved.id, profile.provider)
+            except Exception as exc:
+                log.exception("配音生成失败: track=%s provider=%s", saved.id, runtime_provider)
                 self._mark_track_failed(
                     saved.id,
-                    profile.provider,
+                    runtime_provider,
                     operation_kind="generate",
                     task_id=task_info.id,
+                    error_message=self._failure_message_from_exception(exc),
                 )
                 raise
 
         try:
             task_info = self._submit_task("ai-voice", _job, project_id=project_id)
-        except Exception:
-            self._mark_track_failed(saved.id, profile.provider, operation_kind="generate")
+        except Exception as exc:
+            self._mark_track_failed(
+                saved.id,
+                runtime_provider,
+                operation_kind="generate",
+                error_message=self._failure_message_from_exception(exc),
+            )
             raise
 
         saved = self._repository.update_track(
@@ -240,7 +297,7 @@ class VoiceService:
                 saved.config_json,
                 updates={
                     "parameterSource": "profile",
-                    "provider": profile.provider,
+                    "provider": runtime_provider,
                     "voiceId": profile.voiceId,
                     "voiceName": profile.displayName,
                     "locale": profile.locale,
@@ -288,8 +345,9 @@ class VoiceService:
 
         profile_id = payload.profileId or self.list_profiles()[0].id
         profile = self._get_profile(profile_id)
-        resolved_model = self._resolve_tts_model(profile.provider)
-        runtime_config = self._resolve_tts_runtime(profile.provider)
+        runtime_provider = self._normalize_tts_provider_id(profile.provider)
+        resolved_model = self._resolve_tts_model(runtime_provider)
+        runtime_config = self._resolve_tts_runtime(runtime_provider)
         task_id = str(uuid4())
         label = f"片段重生成：{segment.segmentIndex + 1}"
         segment_text = str(segment.text).strip()
@@ -306,7 +364,7 @@ class VoiceService:
                 retryable=True,
                 message=SEGMENT_REGENERATE_BLOCKED_MESSAGE,
                 track_status="blocked",
-                provider=profile.provider,
+                provider=runtime_provider,
                 source_text=segment_text,
                 voice_id=profile.voiceId,
                 voice_name=profile.displayName,
@@ -337,7 +395,7 @@ class VoiceService:
             retryable=False,
             message=SEGMENT_REGENERATE_MESSAGE,
             track_status="processing",
-            provider=profile.provider,
+            provider=runtime_provider,
             source_text=segment_text,
             voice_id=profile.voiceId,
             voice_name=profile.displayName,
@@ -381,7 +439,7 @@ class VoiceService:
                     message=SEGMENT_REGENERATE_SUCCEEDED_MESSAGE,
                     audio_asset_id=file_path,
                     track_status="ready",
-                    provider=tts_response.provider or profile.provider,
+                    provider=tts_response.provider or runtime_provider,
                     source_text=segment_text,
                     voice_id=profile.voiceId,
                     voice_name=profile.displayName,
@@ -397,7 +455,7 @@ class VoiceService:
                     "片段重生成失败: track=%s segment=%s provider=%s",
                     track.id,
                     segment.segmentIndex,
-                    profile.provider,
+                    runtime_provider,
                 )
                 self._update_segment_regeneration_state(
                     track_id=track.id,
@@ -408,7 +466,7 @@ class VoiceService:
                     retryable=True,
                     message=SEGMENT_REGENERATE_FAILED_MESSAGE,
                     track_status="failed",
-                    provider=profile.provider,
+                    provider=runtime_provider,
                     source_text=segment_text,
                     voice_id=profile.voiceId,
                     voice_name=profile.displayName,
@@ -437,7 +495,7 @@ class VoiceService:
                 retryable=True,
                 message=SEGMENT_REGENERATE_FAILED_MESSAGE,
                 track_status="failed",
-                provider=profile.provider,
+                provider=runtime_provider,
                 source_text=segment_text,
                 voice_id=profile.voiceId,
                 voice_name=profile.displayName,
@@ -734,6 +792,9 @@ class VoiceService:
         if status == "blocked":
             return BLOCKED_PROVIDER_MESSAGE
         if status == "failed":
+            failure_message = self._track_failure_message(track)
+            if failure_message is not None:
+                return failure_message
             return "配音生成失败，请检查 Runtime 日志后重试。"
         return WAVEFORM_MISSING_AUDIO_MESSAGE
 
@@ -780,6 +841,7 @@ class VoiceService:
         self,
         *,
         profile: VoiceProfileDto,
+        provider: str | None = None,
         source_text: str,
         model: str,
         speed: float,
@@ -796,7 +858,7 @@ class VoiceService:
         return {
             "parameterSource": parameter_source,
             "profileId": profile.id,
-            "provider": profile.provider,
+            "provider": provider or profile.provider,
             "voiceId": profile.voiceId,
             "voiceName": profile.displayName,
             "locale": profile.locale,
@@ -864,7 +926,11 @@ class VoiceService:
             for builtin in self._builtin_profile_definitions():
                 if builtin.id not in existing_ids:
                     self._profile_repository.create_profile(self._builtin_profile_model(builtin))
-            return self._profile_repository.list_profiles()
+            return [
+                profile
+                for profile in self._profile_repository.list_profiles()
+                if profile.provider in _SUPPORTED_TTS_PROVIDER_IDS
+            ]
         except Exception as exc:
             log.exception("查询音色配置失败")
             raise HTTPException(status_code=500, detail="查询音色配置失败。") from exc
@@ -872,28 +938,20 @@ class VoiceService:
     def _builtin_profile_definitions(self) -> list[_BuiltinVoiceProfile]:
         return [
             _BuiltinVoiceProfile(
-                id="alloy-zh",
-                provider="openai",
-                voice_id="alloy",
-                display_name="清晰女声",
+                id="volcengine-vv-20-zh",
+                provider=VOLCENGINE_TTS_PROVIDER,
+                voice_id="zh_female_vv_uranus_bigtts",
+                display_name="豆包 Vivi 2.0",
                 locale="zh-CN",
-                tags=["清晰", "旁白"],
+                tags=["豆包", "2.0", "中文", "通用"],
             ),
             _BuiltinVoiceProfile(
-                id="nova-zh",
-                provider="openai",
-                voice_id="nova",
-                display_name="温柔讲述",
+                id="volcengine-kailangjiejie-zh",
+                provider=VOLCENGINE_TTS_PROVIDER,
+                voice_id="zh_female_kailangjiejie_moon_bigtts",
+                display_name="豆包开朗姐姐",
                 locale="zh-CN",
-                tags=["温柔", "生活感"],
-            ),
-            _BuiltinVoiceProfile(
-                id="echo-zh",
-                provider="openai",
-                voice_id="echo",
-                display_name="沉稳男声",
-                locale="zh-CN",
-                tags=["沉稳", "解说"],
+                tags=["豆包", "中文", "自然口播"],
             ),
         ]
 
@@ -911,10 +969,39 @@ class VoiceService:
             updated_at=now,
         )
 
+    def _profile_from_input(self, payload: VoiceProfileCreateInput) -> VoiceProfile:
+        now = utc_now_iso()
+        return VoiceProfile(
+            id=f"{payload.provider}-{payload.voiceId}",
+            provider=payload.provider,
+            voice_id=payload.voiceId,
+            display_name=payload.displayName.strip(),
+            locale=payload.locale,
+            tags_json=json.dumps(payload.tags, ensure_ascii=False),
+            enabled=payload.enabled,
+            created_at=now,
+            updated_at=now,
+        )
+
+    def _fetch_provider_profiles(self, provider_id: str) -> list[VoiceProfileCreateInput]:
+        if self._voice_profile_source is not None:
+            return self._voice_profile_source(provider_id)
+
+        runtime = None
+        if self._ai_capability_service is not None:
+            try:
+                runtime = self._ai_capability_service.get_provider_runtime_config(provider_id)
+            except HTTPException:
+                runtime = None
+        return fetch_provider_voice_profiles(provider_id, runtime)
+
     def _get_profile(self, profile_id: str) -> VoiceProfileDto:
         if self._profile_repository is not None:
             profile = self._profile_repository.get_profile(profile_id)
-            if profile is not None:
+            if (
+                profile is not None
+                and profile.provider in _SUPPORTED_TTS_PROVIDER_IDS
+            ):
                 return self._profile_to_dto(profile)
         for profile in self.list_profiles():
             if profile.id == profile_id:
@@ -932,6 +1019,7 @@ class VoiceService:
         return track
 
     def _resolve_tts_runtime(self, provider_id: str) -> ProviderRuntimeConfig | None:
+        normalized_provider = self._normalize_tts_provider_id(provider_id)
         if (
             self._ai_capability_service is None
             or self._tts_dispatcher is None
@@ -940,11 +1028,11 @@ class VoiceService:
             return None
 
         try:
-            runtime = self._ai_capability_service.get_provider_runtime_config(provider_id)
+            runtime = self._ai_capability_service.get_provider_runtime_config(normalized_provider)
         except HTTPException:
             return None
 
-        if not has_tts_adapter(provider_id):
+        if not has_tts_adapter(normalized_provider):
             return None
         if not runtime.supports_tts:
             return None
@@ -955,7 +1043,8 @@ class VoiceService:
         return runtime
 
     def _resolve_tts_model(self, provider_id: str) -> str:
-        default_model = "gpt-4o-mini-tts" if provider_id == "openai" else ""
+        normalized_provider = self._normalize_tts_provider_id(provider_id)
+        default_model = self._default_tts_model(normalized_provider)
         if self._ai_capability_service is None:
             return default_model
 
@@ -965,10 +1054,24 @@ class VoiceService:
             return default_model
 
         model = capability.model.strip()
-        if capability.provider != provider_id or model == "":
+        capability_provider = self._normalize_tts_provider_id(capability.provider)
+        if capability_provider != normalized_provider or model == "":
             return default_model
-        if provider_id == "openai" and "tts" not in model:
+        if normalized_provider == "openai" and "tts" not in model:
             return default_model
+        return self._normalize_tts_model(normalized_provider, model)
+
+    def _normalize_tts_provider_id(self, provider_id: str) -> str:
+        return _TTS_PROVIDER_ALIASES.get(provider_id, provider_id)
+
+    def _default_tts_model(self, provider_id: str) -> str:
+        if provider_id == VOLCENGINE_TTS_PROVIDER:
+            return "seed-tts-2.0"
+        return ""
+
+    def _normalize_tts_model(self, provider_id: str, model: str) -> str:
+        if provider_id == VOLCENGINE_TTS_PROVIDER and model == "doubao-tts":
+            return "seed-tts-1.0"
         return model
 
     def _mark_track_failed(
@@ -978,6 +1081,7 @@ class VoiceService:
         *,
         operation_kind: str,
         task_id: str | None = None,
+        error_message: str | None = None,
     ) -> None:
         try:
             track = self._repository.get_track(track_id)
@@ -991,6 +1095,7 @@ class VoiceService:
                         "status": "failed",
                         "taskId": task_id,
                         "segmentIndex": None,
+                        "errorMessage": error_message,
                         "updatedAt": utc_now_iso(),
                     },
                 )
@@ -1002,6 +1107,26 @@ class VoiceService:
             )
         except Exception:
             log.exception("更新配音轨失败状态失败: track=%s", track_id)
+
+    def _failure_message_from_exception(self, exc: Exception) -> str:
+        if isinstance(exc, ProviderHTTPException):
+            detail = str(exc.detail).strip()
+        elif isinstance(exc, HTTPException):
+            detail = str(exc.detail).strip()
+        else:
+            detail = ""
+        if detail:
+            return f"配音生成失败：{detail}"
+        return "配音生成失败，请检查 Runtime 日志后重试。"
+
+    def _track_failure_message(self, track: VoiceTrack) -> str | None:
+        operation = self._decode_track_config(track.config_json).get("lastOperation")
+        if not isinstance(operation, dict):
+            return None
+        message = operation.get("errorMessage")
+        if isinstance(message, str) and message.strip():
+            return message.strip()
+        return None
 
     def _submit_task(
         self,

@@ -6,7 +6,7 @@
       :enabled-capability-count="enabledCapabilityCount"
       :last-synced-label="lastSyncedLabel"
       :license-label="licenseLabel"
-      :provider-count="capabilityStore.providerCatalog.length"
+      :provider-count="visibleProviderCatalog.length"
       :revision-label="settings?.revision ?? '-'"
       :runtime-status-label="runtimeStatusLabel"
       :version-label="store.health?.version ?? '-'"
@@ -38,7 +38,7 @@
             :disabled="isDisabled"
             :form="form"
             :model-options="defaultProviderModels"
-            :provider-options="capabilityStore.providerCatalog"
+            :provider-options="visibleProviderCatalog"
             @update="handleSystemUpdate"
             @pick-directory="handlePickDirectory"
             @pick-file="handlePickFile"
@@ -49,7 +49,7 @@
             v-else-if="currentSection === 'provider'"
             :disabled="isDisabled"
             :health-model="selectedProviderHealthModel"
-            :provider-catalog="capabilityStore.providerCatalog"
+            :provider-catalog="visibleProviderCatalog"
             :provider-draft="selectedProviderDraft"
             :refresh-result="selectedProviderRefreshResult"
             :selected-provider-health="selectedProviderHealth"
@@ -84,7 +84,7 @@
               :capability-label="selectedCapabilityLabel"
               :disabled="isCapabilityDisabled"
               :model-catalog-by-provider="capabilityStore.modelCatalogByProvider"
-              :provider-catalog="capabilityStore.providerCatalog"
+              :provider-catalog="visibleProviderCatalog"
               :support-item="selectedSupportItem"
               @load-models="capabilityStore.loadModelsForProvider"
             />
@@ -125,6 +125,7 @@ import { type DetailContext, type DetailContextTone, useShellUiStore } from "@/s
 import type {
   AICapabilityConfig,
   AICapabilitySupportItem,
+  AIProviderCatalogItem,
   AIProviderSecretInput,
   AppSettingsUpdateInput
 } from "@/types/runtime";
@@ -163,6 +164,7 @@ const selectedProviderId = ref("openai");
 const providerDrafts = reactive<Record<string, { apiKey: string; baseUrl: string }>>({});
 const providerHealthModelDrafts = reactive<Record<string, string>>({});
 const localBanner = ref<{ message: string; tone: "blocked" | "error" | "ready" } | null>(null);
+const SUPPORTED_PROVIDER_IDS = new Set(["openai", "deepseek", "volcengine", "volcengine_tts"]);
 
 const isDisabled = computed(() => store.status === "saving" || settings.value === null);
 const isCapabilityDisabled = computed(
@@ -174,8 +176,11 @@ const isHydrating = computed(
     capabilityStore.status === "loading" ||
     licenseStore.status === "loading"
 );
+const visibleProviderCatalog = computed(() =>
+  capabilityStore.providerCatalog.filter((provider) => !isTemporarilyHiddenProvider(provider))
+);
 const configuredProviderCount = computed(
-  () => capabilityStore.providerCatalog.filter((provider) => provider.configured).length
+  () => visibleProviderCatalog.value.filter((provider) => provider.configured).length
 );
 const enabledCapabilityCount = computed(() => capabilityForms.value.filter((item) => item.enabled).length);
 const selectedCapability = computed(
@@ -191,7 +196,7 @@ const selectedSupportItem = computed<AICapabilitySupportItem | null>(
     null
 );
 const selectedProviderCatalogItem = computed(
-  () => capabilityStore.providerCatalog.find((item) => item.provider === selectedProviderId.value) ?? null
+  () => visibleProviderCatalog.value.find((item) => item.provider === selectedProviderId.value) ?? null
 );
 const selectedProviderModels = computed(
   () => capabilityStore.modelCatalogByProvider[selectedProviderId.value] ?? []
@@ -532,7 +537,7 @@ async function hydrateCapabilityContext(): Promise<void> {
   tasks.push(capabilityStore.loadSupportMatrix());
   await Promise.all(tasks);
 
-  const firstProvider = capabilityStore.providerCatalog[0]?.provider ?? selectedProviderId.value;
+  const firstProvider = visibleProviderCatalog.value[0]?.provider ?? selectedProviderId.value;
   selectedProviderId.value = firstProvider;
 
   const providerIds = new Set<string>();
@@ -594,7 +599,7 @@ function buildSettingsShellDetailContext(): DetailContext {
         createDetailField(
           "capability",
           "Provider / 能力",
-          `${configuredProviderCount.value}/${capabilityStore.providerCatalog.length} · ${enabledCapabilityCount.value}`
+          `${configuredProviderCount.value}/${visibleProviderCatalog.value.length} · ${enabledCapabilityCount.value}`
         )
       ]
     },
@@ -646,7 +651,7 @@ function buildSettingsShellDetailContext(): DetailContext {
       {
         id: "providers",
         label: "Provider",
-        value: `${configuredProviderCount.value}/${capabilityStore.providerCatalog.length}`
+        value: `${configuredProviderCount.value}/${visibleProviderCatalog.value.length}`
       },
       {
         id: "capabilities",
@@ -700,6 +705,18 @@ function ensureProviderDraft(providerId: string, fallbackBaseUrl = ""): {
   }
 
   return providerDrafts[providerId];
+}
+
+function isTemporarilyHiddenProvider(provider: AIProviderCatalogItem): boolean {
+  return (
+    !SUPPORTED_PROVIDER_IDS.has(provider.provider) ||
+    provider.kind === "custom" ||
+    provider.region === "custom" ||
+    provider.category === "custom" ||
+    provider.provider === "openai_compatible" ||
+    provider.provider.startsWith("custom_") ||
+    provider.provider.endsWith("_provider")
+  );
 }
 </script>
 

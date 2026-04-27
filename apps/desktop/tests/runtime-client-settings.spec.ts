@@ -56,7 +56,7 @@ describe("AI 与系统设置 Runtime client", () => {
 
     expect(catalog.map((item) => item.provider)).toContain("deepseek");
     expect(models[0].modelId).toBe("gpt-5.4");
-    expect(matrix.capabilities[0].providers).toContain("ollama");
+    expect(matrix.capabilities[0].providers).toEqual(["openai", "deepseek", "volcengine"]);
     expect(refreshResult.status).toBe("static_catalog");
     expect(calls).toEqual([
       { path: "/api/settings/ai-providers/catalog", method: "GET" },

@@ -62,6 +62,7 @@ import type {
   SubtitleTrackUpdateInput,
   VoiceProfileDto,
   VoiceProfileInput,
+  VoiceProfileRefreshResultDto,
   VoiceSegmentRegenerateInput,
   VoiceTrackDto,
   VoiceTrackGenerateInput,
@@ -650,6 +651,17 @@ export async function createVoiceProfile(
     body: JSON.stringify(input),
     method: "POST"
   });
+}
+
+export async function refreshVoiceProfiles(
+  providerId: string
+): Promise<VoiceProfileRefreshResultDto> {
+  return requestRuntime<VoiceProfileRefreshResultDto>(
+    `/api/voice/providers/${encodeURIComponent(providerId)}/profiles/refresh`,
+    {
+      method: "POST"
+    }
+  );
 }
 
 export async function fetchVoiceTracks(projectId: string): Promise<VoiceTrackDto[]> {

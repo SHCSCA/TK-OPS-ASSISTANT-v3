@@ -5,17 +5,17 @@
         <p class="detail-panel__label">Provider Hub</p>
         <h2>供应商、模型目录与连接凭据</h2>
         <p class="workspace-page__summary">
-          已接入 Provider 保持在左侧，模板库用于新增接入，模型目录只展示当前 Provider 的真实能力。
+          Provider 按模型平台和媒体专项分组；能力绑定只显示当前能力可用的 Provider。
         </p>
       </div>
       <div class="settings-workspace-panel__meta">
-        <span class="settings-workspace-panel__pill">Provider {{ providerCatalog.length }}</span>
+        <span class="settings-workspace-panel__pill">Provider {{ visibleProviderCatalog.length }}</span>
         <span class="settings-workspace-panel__pill settings-workspace-panel__pill--muted">已配置 {{ configuredProviderCount }}</span>
         <span class="settings-workspace-panel__pill settings-workspace-panel__pill--muted">可同步 {{ remoteSyncProviderCount }}</span>
       </div>
     </div>
 
-    <div v-if="providerCatalog.length === 0" class="settings-workspace-panel__empty" data-testid="provider-empty-state">
+    <div v-if="visibleProviderCatalog.length === 0" class="settings-workspace-panel__empty" data-testid="provider-empty-state">
       Provider 注册表尚未加载。
     </div>
 
@@ -30,9 +30,15 @@
             :disabled="disabled"
             @change="$emit('select-provider', String(($event.target as HTMLSelectElement).value))"
           >
-            <option v-for="provider in providerCatalog" :key="provider.provider" :value="provider.provider">
-              {{ provider.label }}
-            </option>
+            <optgroup
+              v-for="group in providerPickerGroups"
+              :key="group.group"
+              :label="providerGroupLabel(group.group)"
+            >
+              <option v-for="provider in group.providers" :key="provider.provider" :value="provider.provider">
+                {{ provider.label }}
+              </option>
+            </optgroup>
           </select>
         </label>
 
@@ -67,29 +73,21 @@
           <div class="settings-card__header">
             <div>
               <p class="detail-panel__label">模板库</p>
-              <h3>厂商模板库</h3>
+              <h3>分组厂商模板</h3>
             </div>
-            <button
-              class="settings-workspace-panel__button"
-              type="button"
-              :disabled="disabled || !customOpenAIProvider"
-              @click="selectCustomProvider"
-            >
-              新增自定义
-            </button>
           </div>
 
           <div class="provider-template-library__tabs" role="tablist" aria-label="Provider 模板分组">
             <button
-              v-for="region in templateRegions"
-              :key="region"
+              v-for="group in providerTemplateGroups"
+              :key="group"
               class="provider-template-library__tab"
-              :class="{ 'provider-template-library__tab--active': region === activeTemplateRegion }"
+              :class="{ 'provider-template-library__tab--active': group === activeTemplateGroup }"
               type="button"
               :disabled="disabled"
-              @click="activeTemplateRegion = region"
+              @click="activeTemplateGroup = group"
             >
-              {{ regionLabel(region) }}
+              {{ providerGroupLabel(group) }}
             </button>
           </div>
 
@@ -338,6 +336,10 @@ import type {
   AIProviderSecretStatus
 } from "@/types/runtime";
 
+type ProviderTemplateGroup = "model" | "media";
+
+const SUPPORTED_PROVIDER_IDS = new Set(["openai", "deepseek", "volcengine", "volcengine_tts"]);
+
 const props = defineProps<{
   disabled: boolean;
   healthModel: string;
@@ -350,7 +352,7 @@ const props = defineProps<{
   secretStatus: AIProviderSecretStatus | null;
 }>();
 
-const emit = defineEmits<{
+defineEmits<{
   (e: "check-provider"): void;
   (e: "refresh-models"): void;
   (e: "save-provider-secret"): void;
@@ -358,20 +360,27 @@ const emit = defineEmits<{
   (e: "update:health-model", modelId: string): void;
 }>();
 
-const activeTemplateRegion = ref("domestic");
+const activeTemplateGroup = ref<ProviderTemplateGroup>("model");
 const MODEL_PAGE_SIZE = 10;
+const PROVIDER_GROUP_ORDER: ProviderTemplateGroup[] = ["model", "media"];
+const MEDIA_PROVIDER_CATEGORIES = new Set(["asset_analysis", "asr", "media", "speech_to_text", "tts", "video"]);
+const MEDIA_PROVIDER_CAPABILITIES = new Set(["asset_analysis", "asr", "speech_to_text", "tts", "tts_generation", "video_generation"]);
+const MODEL_PROVIDER_CATEGORIES = new Set(["aggregator", "local", "model_hub", "text"]);
 const modelCapabilityFilter = ref("");
 const modelPage = ref(1);
 const modelSearchQuery = ref("");
 
+const visibleProviderCatalog = computed(() =>
+  props.providerCatalog.filter((provider) => !isTemporarilyHiddenProvider(provider))
+);
 const configuredProviderCount = computed(
-  () => props.providerCatalog.filter((provider) => provider.configured).length
+  () => visibleProviderCatalog.value.filter((provider) => provider.configured).length
 );
 const remoteSyncProviderCount = computed(
-  () => props.providerCatalog.filter((provider) => provider.supportsModelDiscovery).length
+  () => visibleProviderCatalog.value.filter((provider) => provider.supportsModelDiscovery).length
 );
 const selectedProvider = computed(
-  () => props.providerCatalog.find((item) => item.provider === props.selectedProviderId) ?? null
+  () => visibleProviderCatalog.value.find((item) => item.provider === props.selectedProviderId) ?? null
 );
 const selectedProviderLabel = computed(() =>
   selectedProvider.value ? `${selectedProvider.value.label} 模型目录` : "模型目录"
@@ -382,22 +391,24 @@ const selectedProviderTitle = computed(() =>
 const selectedProviderBaseUrl = computed(() => selectedProvider.value?.baseUrl ?? "");
 const selectedProviderProtocol = computed(() => selectedProvider.value?.protocol ?? "manual_catalog");
 const connectedProviders = computed(() => {
-  const connected = props.providerCatalog.filter((provider) => provider.configured);
+  const connected = visibleProviderCatalog.value.filter((provider) => provider.configured);
   const current = selectedProvider.value;
   if (current && !connected.some((provider) => provider.provider === current.provider)) {
     return [current, ...connected];
   }
   return connected;
 });
-const customOpenAIProvider = computed(
-  () => props.providerCatalog.find((provider) => provider.provider === "custom_openai_compatible") ?? null
+const providerPickerGroups = computed(() =>
+  PROVIDER_GROUP_ORDER.map((group) => ({
+    group,
+    providers: sortProviders(visibleProviderCatalog.value.filter((provider) => providerGroup(provider) === group))
+  })).filter((group) => group.providers.length > 0)
 );
-const templateRegions = computed(() => {
-  const available = new Set(props.providerCatalog.map((provider) => provider.region));
-  return ["domestic", "custom", "local", "global"].filter((region) => available.has(region));
-});
+const providerTemplateGroups = computed(() =>
+  providerPickerGroups.value.map((group) => group.group)
+);
 const visibleTemplateProviders = computed(() =>
-  props.providerCatalog.filter((provider) => provider.region === activeTemplateRegion.value)
+  providerPickerGroups.value.find((group) => group.group === activeTemplateGroup.value)?.providers ?? []
 );
 const modelCapabilityOptions = computed(() =>
   Array.from(new Set(props.selectedProviderModels.flatMap((model) => model.capabilityTypes))).sort((a, b) =>
@@ -485,10 +496,10 @@ const providerHealthTone = computed(() => {
 });
 
 watch(
-  templateRegions,
-  (regions) => {
-    if (regions.length > 0 && !regions.includes(activeTemplateRegion.value)) {
-      activeTemplateRegion.value = regions[0];
+  providerTemplateGroups,
+  (groups) => {
+    if (groups.length > 0 && !groups.includes(activeTemplateGroup.value)) {
+      activeTemplateGroup.value = groups[0];
     }
   },
   { immediate: true }
@@ -516,11 +527,46 @@ function changeModelPage(offset: number): void {
   modelPage.value = Math.min(modelTotalPages.value, Math.max(1, modelPage.value + offset));
 }
 
-function selectCustomProvider(): void {
-  if (customOpenAIProvider.value) {
-    emit("select-provider", customOpenAIProvider.value.provider);
-    activeTemplateRegion.value = "custom";
+function sortProviders(providers: AIProviderCatalogItem[]): AIProviderCatalogItem[] {
+  return [...providers].sort((a, b) => {
+    const aReady = a.configured ? 0 : 1;
+    const bReady = b.configured ? 0 : 1;
+    if (aReady !== bReady) return aReady - bReady;
+    return a.label.localeCompare(b.label, "zh-Hans-CN");
+  });
+}
+
+function providerGroup(provider: AIProviderCatalogItem): ProviderTemplateGroup {
+  if (provider.kind === "media" || MEDIA_PROVIDER_CATEGORIES.has(provider.category)) {
+    return "media";
   }
+  if (!MODEL_PROVIDER_CATEGORIES.has(provider.category)) {
+    const isMediaOnly = provider.capabilities.some((capability) => MEDIA_PROVIDER_CAPABILITIES.has(capability));
+    if (isMediaOnly) {
+      return "media";
+    }
+  }
+  return "model";
+}
+
+function providerGroupLabel(group: ProviderTemplateGroup): string {
+  const labels: Record<ProviderTemplateGroup, string> = {
+    model: "模型平台",
+    media: "媒体专项"
+  };
+  return labels[group];
+}
+
+function isTemporarilyHiddenProvider(provider: AIProviderCatalogItem): boolean {
+  return (
+    !SUPPORTED_PROVIDER_IDS.has(provider.provider) ||
+    provider.kind === "custom" ||
+    provider.region === "custom" ||
+    provider.category === "custom" ||
+    provider.provider === "openai_compatible" ||
+    provider.provider.startsWith("custom_") ||
+    provider.provider.endsWith("_provider")
+  );
 }
 
 function providerStatusLabel(status: string): string {

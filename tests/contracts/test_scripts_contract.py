@@ -15,11 +15,86 @@ class FakeGenerationResult:
     ai_job_id: str
 
 
+SCRIPT_JSON_TEXT = '''{
+  "schemaVersion": "script_document_v1",
+  "title": "Generated launch script",
+  "metadata": {"platform": "TikTok", "videoRatio": "9:16", "duration": "30秒"},
+  "segments": [
+    {
+      "segmentId": "S01",
+      "time": "0-3秒",
+      "goal": "Hook",
+      "voiceover": "Generated script line 1",
+      "subtitle": "Generated script line 1",
+      "visualSuggestion": "桌面特写",
+      "retentionPoint": "强钩子",
+      "storyboardHint": "用近景开场"
+    },
+    {
+      "segmentId": "S02",
+      "time": "3-30秒",
+      "goal": "Body",
+      "voiceover": "Generated script line 2",
+      "subtitle": "Generated script line 2",
+      "visualSuggestion": "产品进入画面",
+      "retentionPoint": "结果展示",
+      "storyboardHint": "保持竖屏构图"
+    }
+  ],
+  "voiceoverFull": "Generated script line 1\\nGenerated script line 2",
+  "subtitles": ["Generated script line 1", "Generated script line 2"]
+}'''
+
+REWRITTEN_SCRIPT_JSON_TEXT = '''{
+  "schemaVersion": "script_document_v1",
+  "title": "Rewritten launch script",
+  "metadata": {"platform": "TikTok", "videoRatio": "9:16", "duration": "30秒"},
+  "segments": [
+    {
+      "segmentId": "S01",
+      "time": "0-3秒",
+      "goal": "Hook",
+      "voiceover": "Rewritten script line 1",
+      "subtitle": "Rewritten script line 1",
+      "visualSuggestion": "旧方案和新方案对比",
+      "retentionPoint": "反差",
+      "storyboardHint": "用对比镜头"
+    },
+    {
+      "segmentId": "S02",
+      "time": "3-30秒",
+      "goal": "Body",
+      "voiceover": "Rewritten script line 2",
+      "subtitle": "Rewritten script line 2",
+      "visualSuggestion": "展示操作结果",
+      "retentionPoint": "收益证明",
+      "storyboardHint": "补充细节特写"
+    }
+  ],
+  "voiceoverFull": "Rewritten script line 1\\nRewritten script line 2",
+  "subtitles": ["Rewritten script line 1", "Rewritten script line 2"]
+}'''
+
+
+def assert_script_version_shape(version: dict[str, object]) -> None:
+    assert set(version) == {
+        'revision',
+        'source',
+        'content',
+        'format',
+        'documentJson',
+        'provider',
+        'model',
+        'aiJobId',
+        'createdAt',
+    }
+
+
 class FakeAITextGenerationService:
     def __init__(self, jobs: AIJobRepository) -> None:
         self._jobs = jobs
 
-    def generate_text(self, capability_id: str, _: dict[str, str], **kwargs: object) -> FakeGenerationResult:
+    def generate_text(self, capability_id: str, prompt: dict[str, str], **kwargs: object) -> FakeGenerationResult:
         job = self._jobs.create_running(
             project_id=str(kwargs.get('project_id')) if kwargs.get('project_id') else None,
             capability_id=capability_id,
@@ -27,10 +102,18 @@ class FakeAITextGenerationService:
             model='gpt-5' if capability_id == 'script_generation' else 'gpt-5-mini',
         )
         self._jobs.mark_succeeded(job.id, duration_ms=21)
+        if 'count' in prompt:
+            count = int(prompt['count'])
+            topic = prompt.get('topic', '标题')
+            text = '\n'.join(f'{topic} 标题 {index}' for index in range(1, count + 1))
+        elif 'segment' in prompt:
+            text = 'Rewrite hook\nRewrite body\nRewrite cta'
+        elif capability_id == 'script_generation':
+            text = SCRIPT_JSON_TEXT
+        else:
+            text = REWRITTEN_SCRIPT_JSON_TEXT
         return FakeGenerationResult(
-            text='Generated script line 1\nGenerated script line 2'
-            if capability_id == 'script_generation'
-            else 'Rewritten script line 1\nRewritten script line 2',
+            text=text,
             provider='openai',
             model='gpt-5' if capability_id == 'script_generation' else 'gpt-5-mini',
             ai_job_id=job.id,
@@ -92,15 +175,7 @@ def test_script_document_contracts_use_scripts_prefix_and_expected_shape(runtime
         'latestAiJob',
         'lastOperation',
     }
-    assert set(save_payload['data']['currentVersion']) == {
-        'revision',
-        'source',
-        'content',
-        'provider',
-        'model',
-        'aiJobId',
-        'createdAt',
-    }
+    assert_script_version_shape(save_payload['data']['currentVersion'])
     assert save_payload['data']['isSaved'] is True
     assert save_payload['data']['latestRevision'] == 1
     assert save_payload['data']['saveSource'] == 'manual'
@@ -216,15 +291,7 @@ def test_script_versions_title_variants_and_segment_rewrite_contract(runtime_app
     versions_payload = versions_response.json()
     assert set(versions_payload) == {'ok', 'data'}
     assert isinstance(versions_payload['data'], list)
-    assert set(versions_payload['data'][0]) == {
-        'revision',
-        'source',
-        'content',
-        'provider',
-        'model',
-        'aiJobId',
-        'createdAt',
-    }
+    assert_script_version_shape(versions_payload['data'][0])
 
     title_response = client.post(
         f'/api/scripts/projects/{project_id}/title-variants',

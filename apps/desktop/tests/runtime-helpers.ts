@@ -64,6 +64,33 @@ export const runtimeFixtures = {
         latencyMs: null,
         errorCode: null,
         errorMessage: null
+      },
+      {
+        provider: "deepseek",
+        label: "DeepSeek",
+        readiness: "not_configured",
+        lastCheckedAt: null,
+        latencyMs: null,
+        errorCode: null,
+        errorMessage: null
+      },
+      {
+        provider: "volcengine",
+        label: "火山方舟",
+        readiness: "not_configured",
+        lastCheckedAt: null,
+        latencyMs: null,
+        errorCode: null,
+        errorMessage: null
+      },
+      {
+        provider: "volcengine_tts",
+        label: "火山豆包语音",
+        readiness: "not_configured",
+        lastCheckedAt: null,
+        latencyMs: null,
+        errorCode: null,
+        errorMessage: null
       }
     ],
     refreshedAt: "2026-04-11T10:00:00Z"
@@ -85,7 +112,7 @@ export const runtimeFixtures = {
     ai: {
       provider: "openai",
       model: "gpt-5.4",
-      voice: "alloy",
+      voice: "zh_female_vv_uranus_bigtts",
       subtitleMode: "balanced"
     },
     media: {
@@ -116,7 +143,7 @@ export const runtimeFixtures = {
     ai: {
       provider: "openai",
       model: "gpt-5.4",
-      voice: "alloy",
+      voice: "zh_female_vv_uranus_bigtts",
       subtitleMode: "balanced"
     },
     media: {
@@ -193,8 +220,8 @@ export const runtimeFixtures = {
       {
         capabilityId: "tts_generation",
         enabled: false,
-        provider: "openai",
-        model: "gpt-5-mini",
+        provider: "volcengine_tts",
+        model: "seed-tts-2.0",
         agentRole: "配音导演",
         systemPrompt: "为脚本生成适合配音的语气和节奏说明。",
         userPromptTemplate: "脚本内容：\\n{{script}}"
@@ -209,10 +236,19 @@ export const runtimeFixtures = {
         userPromptTemplate: "脚本内容：\\n{{script}}"
       },
       {
-        capabilityId: "video_generation",
+        capabilityId: "video_transcription",
         enabled: false,
         provider: "openai",
-        model: "gpt-5-mini",
+        model: "whisper-1",
+        agentRole: "视频拆解分析师",
+        systemPrompt: "从视频素材中提取语音、字幕和内容结构。",
+        userPromptTemplate: "媒体文件：\\n{{media_file}}"
+      },
+      {
+        capabilityId: "video_generation",
+        enabled: false,
+        provider: "volcengine",
+        model: "seedance-2.0",
         agentRole: "视频生成导演",
         systemPrompt: "把分镜转成可执行的视频生成提示。",
         userPromptTemplate: "分镜内容：\\n{{storyboard}}"
@@ -220,8 +256,8 @@ export const runtimeFixtures = {
       {
         capabilityId: "asset_analysis",
         enabled: false,
-        provider: "openai",
-        model: "gpt-5-mini",
+        provider: "volcengine",
+        model: "doubao-seed-2.0-pro",
         agentRole: "素材分析师",
         systemPrompt: "总结素材内容、价值点和可复用结构。",
         userPromptTemplate: "素材内容：\\n{{assets}}"
@@ -247,38 +283,20 @@ export const runtimeFixtures = {
         supportsTextGeneration: true
       },
       {
-        provider: "ollama",
-        label: "Ollama",
-        configured: true,
+        provider: "volcengine",
+        label: "火山方舟",
+        configured: false,
         maskedSecret: "",
-        baseUrl: "http://127.0.0.1:11434/v1",
+        baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
         secretSource: "none",
         supportsTextGeneration: true
       },
       {
-        provider: "openai_compatible",
-        label: "OpenAI-compatible",
+        provider: "volcengine_tts",
+        label: "火山豆包语音",
         configured: false,
         maskedSecret: "",
-        baseUrl: "",
-        secretSource: "none",
-        supportsTextGeneration: true
-      },
-      {
-        provider: "anthropic",
-        label: "Anthropic",
-        configured: false,
-        maskedSecret: "",
-        baseUrl: "https://api.anthropic.com/v1/messages",
-        secretSource: "none",
-        supportsTextGeneration: false
-      },
-      {
-        provider: "gemini",
-        label: "Gemini",
-        configured: false,
-        maskedSecret: "",
-        baseUrl: "https://generativelanguage.googleapis.com/v1beta/models",
+        baseUrl: "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
         secretSource: "none",
         supportsTextGeneration: false
       }
@@ -293,11 +311,11 @@ export const runtimeFixtures = {
       category: "model_hub",
       protocol: "openai_responses",
       modelSyncMode: "static",
-      tags: ["文本", "视觉", "TTS"],
+      tags: ["文本", "视觉"],
       configured: true,
       baseUrl: "https://api.openai.com/v1/responses",
       secretSource: "secure_store",
-      capabilities: ["text_generation", "vision", "tts"],
+      capabilities: ["text_generation", "vision", "speech_to_text"],
       requiresBaseUrl: false,
       supportsModelDiscovery: false,
       status: "ready"
@@ -320,23 +338,6 @@ export const runtimeFixtures = {
       status: "missing_secret"
     },
     {
-      provider: "qwen",
-      label: "通义千问",
-      kind: "commercial",
-      region: "domestic",
-      category: "model_hub",
-      protocol: "openai_chat",
-      modelSyncMode: "remote",
-      tags: ["国内", "文本", "视觉"],
-      configured: false,
-      baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      secretSource: "none",
-      capabilities: ["text_generation", "vision"],
-      requiresBaseUrl: false,
-      supportsModelDiscovery: true,
-      status: "missing_secret"
-    },
-    {
       provider: "volcengine",
       label: "火山方舟",
       kind: "commercial",
@@ -344,48 +345,31 @@ export const runtimeFixtures = {
       category: "model_hub",
       protocol: "openai_chat",
       modelSyncMode: "remote",
-      tags: ["国内", "文本", "视频", "TTS"],
+      tags: ["国内", "文本", "视觉", "视频"],
       configured: false,
       baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
       secretSource: "none",
-      capabilities: ["text_generation", "vision", "video_generation", "tts"],
+      capabilities: ["text_generation", "vision", "asset_analysis", "video_generation"],
       requiresBaseUrl: false,
       supportsModelDiscovery: true,
       status: "missing_secret"
     },
     {
-      provider: "ollama",
-      label: "Ollama",
-      kind: "local",
-      region: "local",
-      category: "local",
-      protocol: "openai_chat",
-      modelSyncMode: "remote",
-      tags: ["本地", "文本", "视觉"],
-      configured: true,
-      baseUrl: "http://127.0.0.1:11434/v1",
-      secretSource: "none",
-      capabilities: ["text_generation", "vision"],
-      requiresBaseUrl: false,
-      supportsModelDiscovery: true,
-      status: "ready"
-    },
-    {
-      provider: "custom_openai_compatible",
-      label: "自定义 OpenAI 兼容",
-      kind: "custom",
-      region: "custom",
-      category: "custom",
-      protocol: "openai_chat",
-      modelSyncMode: "remote",
-      tags: ["自定义", "文本", "视觉"],
+      provider: "volcengine_tts",
+      label: "火山豆包语音",
+      kind: "media",
+      region: "domestic",
+      category: "tts",
+      protocol: "volcengine_tts",
+      modelSyncMode: "manual",
+      tags: ["国内", "豆包语音", "TTS"],
       configured: false,
-      baseUrl: "",
+      baseUrl: "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
       secretSource: "none",
-      capabilities: ["text_generation", "vision"],
-      requiresBaseUrl: true,
-      supportsModelDiscovery: true,
-      status: "misconfigured"
+      capabilities: ["tts"],
+      requiresBaseUrl: false,
+      supportsModelDiscovery: false,
+      status: "missing_secret"
     }
   ],
   openAIModelCatalog: [
@@ -427,7 +411,7 @@ export const runtimeFixtures = {
     capabilities: [
       {
         capabilityId: "script_generation",
-        providers: ["openai", "deepseek", "ollama"],
+        providers: ["openai", "deepseek", "volcengine"],
         models: [
           {
             provider: "openai",

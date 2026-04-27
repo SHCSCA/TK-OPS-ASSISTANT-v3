@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import urllib.error
 from dataclasses import asdict
@@ -453,9 +454,7 @@ def test_dispatch_text_generation_rejects_unknown_protocol_family() -> None:
     assert exc_info.value.error_code == 'ai_provider_unsupported'
 
 
-def test_dispatch_tts_routes_openai_provider_adapter(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_dispatch_tts_rejects_openai_provider_adapter() -> None:
     runtime = ProviderRuntimeConfig(
         provider='openai',
         label='OpenAI',
@@ -467,35 +466,163 @@ def test_dispatch_tts_routes_openai_provider_adapter(
         supports_tts=True,
         protocol_family='openai_responses',
     )
-    captured: dict[str, object] = {}
 
-    def fake_synthesize(self, request):
-        captured['adapter'] = self.__class__.__name__
-        captured['voice_id'] = request.voice_id
-        captured['model'] = request.model
-        return TTSResponse(
-            audio_bytes=b'voice-bytes',
-            content_type='audio/mpeg',
-            provider='openai',
-            model=request.model,
+    with pytest.raises(ProviderHTTPException) as exc_info:
+        dispatch_tts(
+            runtime,
+            TTSRequest(text='你好', voice_id='alloy', model='gpt-4o-mini-tts'),
         )
 
-    monkeypatch.setattr(OpenAITTSAdapter, 'synthesize', fake_synthesize)
+    assert exc_info.value.error_code == 'tts_provider_not_available'
+
+
+def test_dispatch_tts_routes_volcengine_doubao_speech_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='volcengine_tts',
+        label='火山豆包语音',
+        api_key='sk-test-volcengine',
+        base_url='https://openspeech.bytedance.com/api/v1/tts?appid=test-app&cluster=volcano_tts',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=True,
+        supports_tts=True,
+        protocol_family='volcengine_tts',
+    )
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request, timeout=None):
+        captured['url'] = request.full_url
+        captured['method'] = request.get_method()
+        captured['headers'] = {key.lower(): value for key, value in request.header_items()}
+        captured['body'] = request.data
+        captured['timeout'] = timeout
+        response = {
+            'reqid': 'req-volc-tts',
+            'code': 3000,
+            'message': 'Success',
+            'operation': 'query',
+            'sequence': -1,
+            'data': base64.b64encode(b'volcengine-tts-audio').decode('ascii'),
+        }
+        return _FakeBinaryResponse(json.dumps(response).encode('utf-8'))
+
+    monkeypatch.setattr('urllib.request.urlopen', fake_urlopen)
 
     result = dispatch_tts(
         runtime,
-        TTSRequest(text='你好', voice_id='alloy', model='gpt-4o-mini-tts'),
+        TTSRequest(
+            text='你好，生成一段豆包配音。',
+            voice_id='zh_female_kailangjiejie_moon_bigtts',
+            model='doubao-tts',
+            speed=1.1,
+            request_id='req-volc-tts',
+        ),
     )
 
-    assert result.audio_bytes == b'voice-bytes'
-    assert result.provider == 'openai'
-    assert captured['adapter'] == 'OpenAITTSAdapter'
-    assert captured['voice_id'] == 'alloy'
-    assert captured['model'] == 'gpt-4o-mini-tts'
+    assert result.audio_bytes == b'volcengine-tts-audio'
+    assert result.content_type == 'audio/mpeg'
+    assert result.provider == 'volcengine_tts'
+    assert result.model == 'doubao-tts'
+    assert captured['url'] == 'https://openspeech.bytedance.com/api/v1/tts'
+    assert captured['method'] == 'POST'
+    assert captured['headers']['authorization'] == 'Bearer;sk-test-volcengine'
+    assert captured['headers']['x-request-id'] == 'req-volc-tts'
+    payload = json.loads(captured['body'].decode('utf-8'))
+    assert payload['app'] == {
+        'appid': 'test-app',
+        'token': 'sk-test-volcengine',
+        'cluster': 'volcano_tts',
+    }
+    assert payload['user'] == {'uid': 'tk-ops-runtime'}
+    assert payload['audio'] == {
+        'voice_type': 'zh_female_kailangjiejie_moon_bigtts',
+        'encoding': 'mp3',
+        'speed_ratio': 1.1,
+        'volume_ratio': 1.0,
+        'pitch_ratio': 1.0,
+    }
+    assert payload['request'] == {
+        'reqid': 'req-volc-tts',
+        'text': '你好，生成一段豆包配音。',
+        'text_type': 'plain',
+        'operation': 'query',
+        'with_frontend': 1,
+        'frontend_type': 'unitTson',
+    }
+
+
+def test_dispatch_tts_routes_volcengine_api_key_sse_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='volcengine_tts',
+        label='火山豆包语音',
+        api_key='api-key-test-volcengine',
+        base_url='https://ark.cn-beijing.volces.com/api/v3',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=True,
+        supports_tts=True,
+        protocol_family='volcengine_tts',
+    )
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request, timeout=None):
+        captured['url'] = request.full_url
+        captured['method'] = request.get_method()
+        captured['headers'] = {key.lower(): value for key, value in request.header_items()}
+        captured['body'] = request.data
+        audio_1 = base64.b64encode(b'volcengine-').decode('ascii')
+        audio_2 = base64.b64encode(b'tts-audio').decode('ascii')
+        body = (
+            f'data: {{"code":3000,"message":"Success","sequence":1,"data":"{audio_1}"}}\n\n'
+            f'data: {{"code":3000,"message":"Success","sequence":-1,"data":"{audio_2}"}}\n\n'
+        )
+        return _FakeBinaryResponse(body.encode('utf-8'))
+
+    monkeypatch.setattr('urllib.request.urlopen', fake_urlopen)
+
+    result = dispatch_tts(
+        runtime,
+        TTSRequest(
+            text='你好，生成一段豆包配音。',
+            voice_id='zh_female_kailangjiejie_moon_bigtts',
+            model='doubao-tts',
+            speed=1.1,
+            request_id='req-volc-tts',
+        ),
+    )
+
+    assert result.audio_bytes == b'volcengine-tts-audio'
+    assert result.provider == 'volcengine_tts'
+    assert result.model == 'doubao-tts'
+    assert captured['url'] == 'https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse'
+    assert captured['method'] == 'POST'
+    assert captured['headers']['x-api-key'] == 'api-key-test-volcengine'
+    assert captured['headers']['x-api-resource-id'] == 'seed-tts-1.0'
+    assert captured['headers']['x-api-request-id'] == 'req-volc-tts'
+    assert captured['headers']['x-api-sequence'] == '-1'
+    payload = json.loads(captured['body'].decode('utf-8'))
+    assert payload == {
+        'user': {'uid': 'tk-ops-runtime'},
+        'req_params': {
+            'text': '你好，生成一段豆包配音。',
+            'speaker': 'zh_female_kailangjiejie_moon_bigtts',
+            'audio_params': {
+                'format': 'mp3',
+                'sample_rate': 24000,
+                'speech_rate': 10,
+            },
+        },
+    }
 
 
 def test_has_tts_adapter_reflects_registered_provider_support() -> None:
-    assert has_tts_adapter('openai') is True
+    assert has_tts_adapter('openai') is False
+    assert has_tts_adapter('volcengine_tts') is True
+    assert has_tts_adapter('volcengine') is False
     assert has_tts_adapter('localai') is False
 
 

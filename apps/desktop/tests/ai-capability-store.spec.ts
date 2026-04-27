@@ -63,7 +63,12 @@ describe("AI 能力 store 多 Provider 行为", () => {
     });
     await store.checkProvider("openai");
 
-    expect(store.providerCatalog.map((item) => item.provider)).toContain("ollama");
+    expect(store.providerCatalog.map((item) => item.provider)).toEqual([
+      "openai",
+      "deepseek",
+      "volcengine",
+      "volcengine_tts"
+    ]);
     expect(store.modelCatalogByProvider.openai[0].modelId).toBe("gpt-5.4");
     expect(store.supportMatrix?.capabilities[0].providers).toContain("deepseek");
     expect(store.providerHealth.openai?.status).toBe("ready");

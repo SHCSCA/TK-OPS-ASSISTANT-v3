@@ -19,7 +19,7 @@ def test_ai_capability_mutations_broadcast_changed_events(
     settings_response = runtime_client.get("/api/settings/ai-capabilities")
     assert settings_response.status_code == 200
     capabilities = settings_response.json()["data"]["capabilities"]
-    capabilities[0]["model"] = "gpt-5.4-contract"
+    capabilities[0]["model"] = "gpt-5.4"
 
     update_response = runtime_client.put(
         "/api/settings/ai-capabilities",
@@ -99,7 +99,7 @@ def test_ai_capability_settings_contract_uses_settings_prefix_and_expected_shape
         'diagnosticSummary',
     }
     assert len(payload['data']['capabilities']) == 8
-    assert len(payload['data']['providers']) >= 10
+    assert len(payload['data']['providers']) == 4
     assert set(payload['data']['capabilities'][0]) == {
         'capabilityId',
         'enabled',
@@ -108,6 +108,7 @@ def test_ai_capability_settings_contract_uses_settings_prefix_and_expected_shape
         'agentRole',
         'systemPrompt',
         'userPromptTemplate',
+        'promptPreview',
     }
     assert set(payload['data']['providers'][0]) == {
         'provider',
@@ -182,48 +183,10 @@ def test_ai_provider_catalog_contract_exposes_multi_provider_registry(
     payload = response.json()
     assert set(payload) == {'ok', 'data'}
     assert payload['ok'] is True
-    assert len(payload['data']) >= 31
+    assert len(payload['data']) == 4
 
     providers = {item['provider']: item for item in payload['data']}
-    assert {
-        'openai',
-        'openai_compatible',
-        'anthropic',
-        'gemini',
-        'deepseek',
-        'qwen',
-        'kimi',
-        'zhipu',
-        'volcengine',
-        'baidu_qianfan',
-        'tencent_hunyuan',
-        'xunfei_spark',
-        'minimax',
-        'baichuan',
-        'lingyi',
-        'stepfun',
-        'sensecore',
-        'kling',
-        'jimeng',
-        'wanxiang',
-        'vidu',
-        'hailuo',
-        'aliyun_tts',
-        'tencent_tts',
-        'baidu_tts',
-        'xunfei_tts',
-        'volcengine_asr',
-        'aliyun_asr',
-        'tencent_asr',
-        'baidu_asr',
-        'xunfei_asr',
-        'custom_openai_compatible',
-        'custom_video_provider',
-        'custom_tts_provider',
-        'custom_transcription_provider',
-        'openrouter',
-        'ollama',
-    } <= set(providers)
+    assert set(providers) == {'openai', 'deepseek', 'volcengine', 'volcengine_tts'}
     assert set(providers['openai']) == {
         'provider',
         'label',
@@ -243,14 +206,15 @@ def test_ai_provider_catalog_contract_exposes_multi_provider_registry(
     }
     assert 'apiKey' not in providers['openai']
     assert 'text_generation' in providers['openai']['capabilities']
+    assert 'tts' not in providers['openai']['capabilities']
     assert providers['volcengine']['region'] == 'domestic'
     assert providers['volcengine']['modelSyncMode'] == 'remote'
     assert 'asset_analysis' in providers['volcengine']['capabilities']
     assert 'video_generation' in providers['volcengine']['capabilities']
-    assert providers['custom_openai_compatible']['region'] == 'custom'
-    assert providers['custom_openai_compatible']['requiresBaseUrl'] is True
-    assert providers['custom_openai_compatible']['supportsModelDiscovery'] is True
-    assert providers['custom_video_provider']['modelSyncMode'] == 'manual'
+    assert 'tts' not in providers['volcengine']['capabilities']
+    assert providers['volcengine_tts']['category'] == 'tts'
+    assert providers['volcengine_tts']['protocol'] == 'volcengine_tts'
+    assert providers['volcengine_tts']['capabilities'] == ['tts']
 
 
 def test_ai_provider_model_catalog_contract_returns_models_for_provider(
@@ -300,46 +264,28 @@ def test_domestic_provider_model_catalog_marks_media_capabilities(
         and 'video' in item['outputModalities']
         for item in models
     )
+
+    tts_response = runtime_client.get('/api/settings/ai-providers/volcengine_tts/models')
+    assert tts_response.status_code == 200
+    tts_models = tts_response.json()['data']
     assert any(
-        item['provider'] == 'volcengine'
+        item['provider'] == 'volcengine_tts'
         and 'tts' in item['capabilityTypes']
         and 'audio' in item['outputModalities']
-        for item in models
+        for item in tts_models
     )
 
 
-def test_ai_provider_model_refresh_contract_returns_refresh_receipt(
+def test_hidden_ai_provider_model_refresh_contract_returns_error_envelope(
     runtime_app,
-    monkeypatch,
 ) -> None:
     client = TestClient(runtime_app)
-
-    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
-        assert url == 'http://127.0.0.1:11434/api/tags'
-        return {
-            'models': [
-                {
-                    'name': 'llava:latest',
-                    'model': 'llava:latest',
-                    'details': {
-                        'family': 'llava',
-                        'families': ['llava'],
-                    },
-                }
-            ]
-        }
-
-    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
     response = client.post('/api/settings/ai-providers/ollama/models/refresh')
 
-    assert response.status_code == 200
+    assert response.status_code == 404
     payload = response.json()
-    assert set(payload) == {'ok', 'data'}
-    assert payload['ok'] is True
-    assert set(payload['data']) == {'provider', 'status', 'message'}
-    assert payload['data']['provider'] == 'ollama'
-    assert payload['data']['status'] == 'refreshed'
-    assert payload['data']['message'] == '已从远端刷新 1 个模型。'
+    assert payload['ok'] is False
+    assert payload['error'] == '当前版本暂未接入该 AI Provider。'
 
 
 def test_ai_capability_support_matrix_contract_maps_capabilities_to_models(
@@ -375,7 +321,7 @@ def test_unknown_ai_provider_uses_chinese_error_envelope(
     assert response.status_code == 404
     payload = response.json()
     assert payload['ok'] is False
-    assert payload['error'] == '未找到 AI Provider。'
+    assert payload['error'] == '当前版本暂未接入该 AI Provider。'
     assert payload['requestId']
 
 def test_ai_provider_health_aggregate_contract_returns_expected_shape(
@@ -389,7 +335,7 @@ def test_ai_provider_health_aggregate_contract_returns_expected_shape(
     assert payload['ok'] is True
     assert set(payload['data']) == {'providers', 'refreshedAt'}
     assert payload['data']['refreshedAt'] is None
-    assert len(payload['data']['providers']) >= 10
+    assert len(payload['data']['providers']) == 4
     assert set(payload['data']['providers'][0]) == {
         'provider',
         'label',

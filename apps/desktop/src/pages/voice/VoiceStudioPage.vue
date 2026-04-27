@@ -95,9 +95,11 @@
         <VoiceProfileRail
           :error-message="store.error?.message ?? null"
           :profiles="store.profiles"
+          :refreshing="store.profileSyncing"
           :selected-profile-id="store.selectedProfileId"
           :state-message="panelStateMessage"
           :status="presentationStatus"
+          @refresh="store.refreshProfiles()"
           @select="store.selectProfile"
         />
         <VoiceParamsPanel

@@ -90,6 +90,16 @@ describe("AI settings layout contract", () => {
     expect(providerPanel).toContain("provider-template-library");
     expect(providerPanel).toContain("provider-model-directory");
     expect(providerPanel).toContain("provider-credential-inspector");
+    expect(providerPanel).toContain("providerPickerGroups");
+    expect(providerPanel).toContain("providerTemplateGroups");
+    expect(providerPanel).toContain("providerGroupLabel");
+    expect(providerPanel).toContain("function providerGroup");
+    expect(providerPanel).toContain('PROVIDER_GROUP_ORDER: ProviderTemplateGroup[] = ["model", "media"]');
+    expect(providerPanel).toContain("visibleProviderCatalog");
+    expect(providerPanel).toContain("function isTemporarilyHiddenProvider");
+    expect(providerPanel).not.toContain("新增自定义");
+    expect(providerPanel).not.toContain("selectCustomProvider");
+    expect(providerPanel).not.toContain("customOpenAIProvider");
     expect(providerPanel).toContain("MODEL_PAGE_SIZE = 10");
     expect(providerPanel).toContain('data-field="provider.model.search"');
     expect(providerPanel).toContain('data-field="provider.model.capability"');
@@ -100,6 +110,8 @@ describe("AI settings layout contract", () => {
     expect(capabilityMatrix).toContain("capability-matrix__row");
     expect(capabilityInspector).toContain("capability-strategy-inspector");
     expect(capabilityInspector).toContain("capability-binding-preview");
+    expect(capabilityInspector).toContain("supportedProviderIds");
+    expect(capabilityInspector).toContain("supportItem.providers.includes");
   });
 
   it("stacks capability rows by card width instead of viewport width", () => {

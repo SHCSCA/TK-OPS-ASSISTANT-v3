@@ -22,6 +22,7 @@ from domain.models import Base, Project, VoiceTrack
 from persistence.engine import create_runtime_engine, create_session_factory
 from repositories.voice_profile_repository import VoiceProfileRepository
 from repositories.voice_repository import VoiceRepository
+from schemas.voice import VoiceProfileCreateInput
 from schemas.envelope import error_response
 from services.ai_capability_service import ProviderRuntimeConfig
 from services.task_manager import TaskManager
@@ -33,7 +34,7 @@ from voice import router as voice_router
 class _FakeAICapabilityService:
     def __init__(self, runtime: ProviderRuntimeConfig) -> None:
         self._runtime = runtime
-        self._capability = SimpleNamespace(provider="openai", model="gpt-4o-mini-tts")
+        self._capability = SimpleNamespace(provider="volcengine_tts", model="seed-tts-2.0")
 
     def get_provider_runtime_config(self, provider_id: str) -> ProviderRuntimeConfig:
         assert provider_id == self._runtime.provider
@@ -102,6 +103,7 @@ def _build_app(
     ai_capability_service=None,
     tts_dispatcher=None,
     artifact_store=None,
+    voice_profile_source=None,
 ) -> FastAPI:
     engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
@@ -127,7 +129,7 @@ def _build_app(
                 project_id="project-voice",
                 timeline_id=None,
                 source="tts",
-                provider="openai",
+                provider="volcengine_tts",
                 voice_name="标准女声",
                 file_path=None,
                 segments_json="""
@@ -152,6 +154,7 @@ def _build_app(
         ai_capability_service=ai_capability_service,
         tts_dispatcher=tts_dispatcher,
         voice_artifact_store=artifact_store,
+        voice_profile_source=voice_profile_source,
     )
     app.include_router(voice_router)
 
@@ -172,8 +175,8 @@ def test_voice_profiles_contract_persists_custom_profile(tmp_path: Path) -> None
     create_response = client.post(
         "/api/voice/profiles",
         json={
-            "provider": "openai",
-            "voiceId": "shimmer",
+            "provider": "volcengine_tts",
+            "voiceId": "zh_female_test_bigtts",
             "displayName": "清亮女声",
             "locale": "zh-CN",
             "tags": ["清亮", "通用"],
@@ -182,13 +185,45 @@ def test_voice_profiles_contract_persists_custom_profile(tmp_path: Path) -> None
     )
     assert create_response.status_code == 201
     created = _assert_ok(create_response.json())
-    assert created["voiceId"] == "shimmer"
+    assert created["voiceId"] == "zh_female_test_bigtts"
     assert created["displayName"] == "清亮女声"
 
     list_response = client.get("/api/voice/profiles")
     assert list_response.status_code == 200
     profiles = _assert_ok(list_response.json())
-    assert any(profile["voiceId"] == "shimmer" for profile in profiles)
+    assert any(profile["voiceId"] == "zh_female_test_bigtts" for profile in profiles)
+
+
+def test_voice_profiles_refresh_contract_syncs_provider_voices(tmp_path: Path) -> None:
+    client = TestClient(
+        _build_app(
+            tmp_path,
+            voice_profile_source=lambda provider_id: [
+                VoiceProfileCreateInput(
+                    provider="volcengine_tts",
+                    voiceId="zh_female_tianmei_moon_bigtts",
+                    displayName="豆包甜美女声",
+                    locale="zh-CN",
+                    tags=["豆包", "女声"],
+                    enabled=True,
+                )
+            ]
+            if provider_id == "volcengine_tts"
+            else [],
+        )
+    )
+
+    response = client.post("/api/voice/providers/volcengine_tts/profiles/refresh")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    data = payload["data"]
+    assert set(data) == {"provider", "status", "message", "savedCount", "profiles"}
+    assert data["provider"] == "volcengine_tts"
+    assert data["status"] == "refreshed"
+    assert data["savedCount"] == 1
+    assert data["profiles"][0]["voiceId"] == "zh_female_tianmei_moon_bigtts"
 
 
 def test_voice_generate_track_contract_returns_blocked_when_tts_is_unavailable(
@@ -199,7 +234,7 @@ def test_voice_generate_track_contract_returns_blocked_when_tts_is_unavailable(
     response = client.post(
         "/api/voice/projects/project-voice/tracks/generate",
         json={
-            "profileId": "alloy-zh",
+            "profileId": "volcengine-vv-20-zh",
             "sourceText": "第一句\n第二句",
             "speed": 1.0,
             "pitch": 0,
@@ -215,7 +250,7 @@ def test_voice_generate_track_contract_returns_blocked_when_tts_is_unavailable(
         expected_status="blocked",
         preview_statuses={"blocked", "missing_audio"},
     )
-    assert track["provider"] == "openai"
+    assert track["provider"] == "volcengine_tts"
     assert data["task"] is None
     assert track["activeTask"] is None
     assert "TTS Provider" in data["message"]
@@ -225,15 +260,15 @@ def test_voice_generate_track_contract_returns_processing_task_when_tts_is_avail
     tmp_path: Path,
 ) -> None:
     runtime = ProviderRuntimeConfig(
-        provider="openai",
-        label="OpenAI",
-        api_key="sk-test-openai",
-        base_url="https://api.openai.com/v1/responses",
+        provider="volcengine_tts",
+        label="火山豆包语音",
+        api_key="api-key-test-volcengine-tts",
+        base_url="https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
         secret_source="test",
         requires_secret=True,
-        supports_text_generation=True,
+        supports_text_generation=False,
         supports_tts=True,
-        protocol_family="openai_responses",
+        protocol_family="volcengine_tts",
     )
     client = TestClient(
         _build_app(
@@ -242,7 +277,7 @@ def test_voice_generate_track_contract_returns_processing_task_when_tts_is_avail
             tts_dispatcher=lambda runtime_config, request: TTSResponse(
                 audio_bytes=b"voice-bytes",
                 content_type="audio/mpeg",
-                provider="openai",
+                provider="volcengine_tts",
                 model=request.model,
             ),
             artifact_store=VoiceArtifactStore(
@@ -254,7 +289,7 @@ def test_voice_generate_track_contract_returns_processing_task_when_tts_is_avail
     response = client.post(
         "/api/voice/projects/project-voice/tracks/generate",
         json={
-            "profileId": "alloy-zh",
+            "profileId": "volcengine-vv-20-zh",
             "sourceText": "第一句\n第二句",
             "speed": 1.0,
             "pitch": 0,
@@ -272,7 +307,7 @@ def test_voice_generate_track_contract_returns_processing_task_when_tts_is_avail
         preview_statuses={"processing"},
         active_task_statuses={"queued", "running"},
     )
-    assert track["provider"] == "openai"
+    assert track["provider"] == "volcengine_tts"
     assert _field(track["activeTask"], "id") == task["id"]
     assert _field(track["activeTask"], "status") == task["status"]
     assert _field(track["activeTask"], "progress") == task["progress"]
@@ -287,15 +322,15 @@ def test_voice_segment_regenerate_contract_returns_taskbus_task(
     tmp_path: Path,
 ) -> None:
     runtime = ProviderRuntimeConfig(
-        provider="openai",
-        label="OpenAI",
-        api_key="sk-test-openai",
-        base_url="https://api.openai.com/v1/responses",
+        provider="volcengine_tts",
+        label="火山豆包语音",
+        api_key="api-key-test-volcengine-tts",
+        base_url="https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
         secret_source="test",
         requires_secret=True,
-        supports_text_generation=True,
+        supports_text_generation=False,
         supports_tts=True,
-        protocol_family="openai_responses",
+        protocol_family="volcengine_tts",
     )
     client = TestClient(
         _build_app(
@@ -304,7 +339,7 @@ def test_voice_segment_regenerate_contract_returns_taskbus_task(
             tts_dispatcher=lambda runtime_config, request: TTSResponse(
                 audio_bytes=b"segment-bytes",
                 content_type="audio/mpeg",
-                provider="openai",
+                provider="volcengine_tts",
                 model=request.model,
             ),
             artifact_store=VoiceArtifactStore(
@@ -316,7 +351,7 @@ def test_voice_segment_regenerate_contract_returns_taskbus_task(
     response = client.post(
         "/api/voice/tracks/voice-track-1/segments/1/regenerate",
         json={
-            "profileId": "alloy-zh",
+            "profileId": "volcengine-vv-20-zh",
             "speed": 1.0,
             "pitch": 0,
             "emotion": "calm",
@@ -336,7 +371,7 @@ def test_voice_segment_regenerate_contract_returns_taskbus_task(
     assert task["kind"] == "ai-voice"
     assert task["ownerRef"] == {"kind": "voice-track", "id": "voice-track-1"}
     assert task["status"] in {"queued", "running", "succeeded"}
-    assert track["segments"][1]["regeneration"]["profileId"] == "alloy-zh"
+    assert track["segments"][1]["regeneration"]["profileId"] == "volcengine-vv-20-zh"
     assert track["segments"][1]["regeneration"]["status"] in {
         "queued",
         "running",
@@ -352,7 +387,7 @@ def test_voice_segment_regenerate_contract_returns_blocked_when_tts_is_unavailab
     response = client.post(
         "/api/voice/tracks/voice-track-1/segments/1/regenerate",
         json={
-            "profileId": "alloy-zh",
+            "profileId": "volcengine-vv-20-zh",
             "speed": 1.0,
             "pitch": 0,
             "emotion": "calm",
@@ -389,7 +424,7 @@ def test_voice_track_contract_returns_ready_snapshot_with_version_and_preview(
         expected_status="ready",
         preview_statuses={"ready", "missing_audio"},
     )
-    assert track["provider"] == "openai"
+    assert track["provider"] == "volcengine_tts"
     assert track["activeTask"] is None
 
 

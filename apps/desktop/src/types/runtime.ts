@@ -694,6 +694,14 @@ export type VoiceProfileDto = {
 
 export type VoiceProfileInput = Omit<VoiceProfileDto, "id">;
 
+export type VoiceProfileRefreshResultDto = {
+  provider: string;
+  status: string;
+  message: string;
+  savedCount: number;
+  profiles: VoiceProfileDto[];
+};
+
 export type VoiceTrackSegmentDto = {
   segmentIndex: number;
   text: string;

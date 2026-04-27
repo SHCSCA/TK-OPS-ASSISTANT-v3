@@ -6,7 +6,8 @@ import {
   fetchVoiceProfiles,
   fetchVoiceTrack,
   fetchVoiceTracks,
-  generateVoiceTrack
+  generateVoiceTrack,
+  refreshVoiceProfiles
 } from "@/app/runtime-client";
 import { extractScriptDocumentDownstreamText } from "@/modules/scripts/script-document-view-model";
 import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
@@ -15,6 +16,7 @@ import type {
   RuntimeRequestErrorShape,
   ScriptDocument,
   VoiceProfileDto,
+  VoiceProfileRefreshResultDto,
   VoiceTrackDto,
   VoiceTrackGenerateResultDto
 } from "@/types/runtime";
@@ -57,6 +59,7 @@ type VoiceStudioState = {
   generationResult: VoiceTrackGenerateResultDto | null;
   paragraphs: Paragraph[];
   profiles: VoiceProfileDto[];
+  profileSyncing: boolean;
   projectId: string;
   selectedProfileId: string | null;
   selectedTrackId: string | null;
@@ -80,6 +83,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
     generationResult: null,
     paragraphs: [],
     profiles: [],
+    profileSyncing: false,
     projectId: "",
     selectedProfileId: null,
     selectedTrackId: null,
@@ -124,6 +128,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       this.projectId = projectId;
       this.generationResult = null;
       this.activeTask = null;
+      this.profileSyncing = false;
 
       try {
         const [document, profiles, tracks] = await Promise.all([
@@ -133,7 +138,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         ]);
 
         this.document = document;
-        this.profiles = profiles;
+        this.profiles = this.filterSupportedProfiles(profiles);
         this.tracks = tracks;
         this.trackDetailsById = Object.fromEntries(tracks.map((track) => [track.id, track]));
         this.paragraphs = this.extractParagraphs(
@@ -141,7 +146,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           document.currentVersion?.content ?? ""
         );
         this.activeParagraphIndex = 0;
-        this.selectedProfileId = this.resolveProfileSelection(profiles);
+        this.selectedProfileId = this.resolveProfileSelection(this.profiles);
         this.selectedTrackId = tracks[0]?.id ?? null;
 
         if (this.selectedTrackId) {
@@ -229,6 +234,24 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         }
       } catch (error) {
         this.applyRuntimeError(error);
+      }
+    },
+
+    async refreshProfiles(providerId = "volcengine_tts"): Promise<VoiceProfileRefreshResultDto | null> {
+      this.profileSyncing = true;
+      this.error = null;
+
+      try {
+        const result = await refreshVoiceProfiles(providerId);
+        this.profiles = this.filterSupportedProfiles(await fetchVoiceProfiles());
+        this.selectedProfileId = this.resolveProfileSelection(this.profiles);
+        this.status = this.resolveStatus();
+        return result;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      } finally {
+        this.profileSyncing = false;
       }
     },
 
@@ -330,6 +353,10 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       }
 
       return profiles.find((profile) => profile.enabled)?.id ?? null;
+    },
+
+    filterSupportedProfiles(profiles: VoiceProfileDto[]): VoiceProfileDto[] {
+      return profiles.filter((profile) => profile.provider === "volcengine_tts");
     },
 
     upsertTrack(track: VoiceTrackDto): void {

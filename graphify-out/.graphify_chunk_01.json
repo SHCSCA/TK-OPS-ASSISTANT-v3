@@ -1,1 +1,1168 @@
-{"nodes":[{"id":"tkops_project","label":"TK-OPS-ASSISTANT","type":"system","summary":"AI视频创作中枢，面向TikTok内容创作者的本地优先Windows桌面工作台，采用一机一码离线授权模式"},{"id":"tauri_process","label":"Tauri进程","type":"component","summary":"加载Vue SPA、提供桌面窗口壳的前端进程，基于Tauri 2 + Vue 3 + TypeScript + Vite"},{"id":"python_runtime","label":"Python Runtime进程","type":"component","summary":"FastAPI服务，承载所有业务逻辑、数据持久化与AI调用，运行在:8000端口"},{"id":"vue_frontend","label":"Vue前端应用","type":"component","summary":"Vue 3 + TypeScript SPA，通过runtime-client.ts与Runtime HTTP API通信"},{"id":"fastapi_app","label":"FastAPI应用工厂","type":"component","summary":"apps/py-runtime/src/app/factory.py，Runtime应用核心入口"},{"id":"sqlite_db","label":"SQLite数据库","type":"component","summary":"本地持久化数据库，存储所有业务数据，位于%APPDATA%/TK-OPS-ASSISTANT/"},{"id":"pinia_store","label":"Pinia状态管理","type":"component","summary":"前端状态管理，包含config-bus/license/project/bootstrap等store"},{"id":"vue_router","label":"Vue Router路由","type":"component","summary":"前端路由，真源为route-manifest.ts和route-ids.ts"},{"id":"websocket","label":"WebSocket通信","type":"component","summary":"用于长任务进度订阅，所有消息必须带schema_version字段"},{"id":"http_json_envelope","label":"HTTP JSON信封","type":"contract","summary":"统一通信格式：成功{ok:true,data:...}，失败{ok:false,error:...,error_code:...}"},{"id":"runtime_client","label":"Runtime适配层","type":"component","summary":"apps/desktop/src/app/runtime-client.ts，前端统一通过此层发起数据请求"},{"id":"config_bus","label":"配置总线ConfigBus","type":"component","summary":"全局配置广播系统，配置不得散落在页面/脚本/服务内部"},{"id":"task_bus","label":"任务总线TaskBus","type":"component","summary":"统一长任务队列，超过2s的操作走task机制，前端通过WebSocket订阅进度"},{"id":"app_shell","label":"AppShell壳层布局","type":"component","summary":"apps/desktop/src/layouts/AppShell.vue，Title Bar + Sidebar + Content Host + Detail Panel + Status Bar"},{"id":"bootstrap_gate","label":"BootstrapGate首启流程","type":"component","summary":"apps/desktop/src/bootstrap/BootstrapGate.vue，加载→授权→初始化三阶段"},{"id":"offline_license","label":"离线授权系统","type":"component","summary":"一机一码，RSA密钥对，机器指纹绑定，授权码签名校验，授权状态持久化"},{"id":"license_service","label":"许可证服务","type":"component","summary":"apps/py-runtime/src/services/license_service.py + license_activation.py"},{"id":"license_issuer_tool","label":"授权码签发工具","type":"component","summary":"apps/py-runtime/tools/license-issuer/，私钥签发，Runtime持有公钥验证"},{"id":"ai_gateway","label":"AI调用网关","type":"component","summary":"services/ai_gateway，统一AI调用，强制重试(指数退避+最多3次)、强制超时、强制结构化错误码"},{"id":"route_manifest","label":"路由清单","type":"artifact","summary":"apps/desktop/src/app/router/route-manifest.ts，16个正式页面路由真源"},{"id":"route_ids","label":"路由ID集合","type":"artifact","summary":"apps/desktop/src/app/router/route-ids.ts，路由ID常量定义"},{"id":"project_model","label":"Project模型","type":"model","summary":"主项目模型，位于apps/py-runtime/src/domain/models/"},{"id":"script_model","label":"Script模型","type":"model","summary":"脚本模型，属于Project"},{"id":"storyboard_model","label":"Storyboard模型","type":"model","summary":"分镜模型，属于Script"},{"id":"timeline_model","label":"Timeline模型","type":"model","summary":"时间线模型，属于Storyboard"},{"id":"voice_track_model","label":"VoiceTrack模型","type":"model","summary":"配音轨道模型，属于Timeline"},{"id":"subtitle_track_model","label":"SubtitleTrack模型","type":"model","summary":"字幕轨道模型，属于Timeline"},{"id":"render_task_model","label":"RenderTask模型","type":"model","summary":"渲染任务模型，属于Timeline"},{"id":"account_model","label":"Account模型","type":"model","summary":"账号模型，账号管理页使用"},{"id":"device_workspace_model","label":"DeviceWorkspace模型","type":"model","summary":"设备工作区模型，属于Account"},{"id":"execution_binding_model","label":"ExecutionBinding模型","type":"model","summary":"执行绑定模型，属于DeviceWorkspace"},{"id":"task_state_machine","label":"任务状态机","type":"concept","summary":"draft→queued→running→blocked→succeeded→failed→cancelled"},{"id":"script_provider","label":"ScriptProvider接口","type":"interface","summary":"AI脚本生成Provider接口"},{"id":"video_gen_provider","label":"VideoGenerationProvider接口","type":"interface","summary":"AI视频生成Provider接口"},{"id":"tts_provider","label":"TTSProvider接口","type":"interface","summary":"文字转语音Provider接口"},{"id":"subtitle_alignment_provider","label":"SubtitleAlignmentProvider接口","type":"interface","summary":"字幕对齐Provider接口"},{"id":"asset_analysis_provider","label":"AssetAnalysisProvider接口","type":"interface","summary":"资产分析Provider接口"},{"id":"page_setup_license","label":"首启与许可证向导页","type":"page","summary":"Route ID: setup_license_wizard，离线授权、向导动效与粒子反馈"},{"id":"page_dashboard","label":"创作总览页","type":"page","summary":"Route ID: creator_dashboard，极光Hero、项目列表弹性删除、原生确认弹窗"},{"id":"page_script","label":"脚本与选题中心页","type":"page","summary":"Route ID: script_topic_center，编辑器AI流光、版本轨迹弹性流转、一键复制"},{"id":"page_storyboard","label":"分镜规划中心页","type":"page","summary":"Route ID: storyboard_planning_center，镜头卡片瀑布流、弹性排队动效"},{"id":"page_ai_editing","label":"AI剪辑工作台页","type":"page","summary":"Route ID: ai_editing_workspace，多轨时间线弹性重排、AI魔法剪流光"},{"id":"page_video_deconstruction","label":"视频拆解中心页","type":"page","summary":"Route ID: video_deconstruction_center，真实预览组件、TaskBus丝滑进度条"},{"id":"page_voice_studio","label":"配音中心页","type":"page","summary":"Route ID: voice_studio，音色列表弹性重排、播放波形动画"},{"id":"page_subtitle","label":"字幕对齐中心页","type":"page","summary":"Route ID: subtitle_alignment_center，预览台扫描脉冲、字幕段列表水平流转"},{"id":"page_asset_library","label":"资产中心页","type":"page","summary":"Route ID: asset_library，预览引擎修复、资产墙无缝平移、动态路径解析"},{"id":"page_account","label":"账号管理页","type":"page","summary":"Route ID: account_management，账号卡片物理反馈、抽屉弹性滑入"},{"id":"page_device_workspace","label":"设备与工作区管理页","type":"page","summary":"Route ID: device_workspace_management，工作区列表弹性补位、健康检查状态保真"},{"id":"page_automation","label":"自动化执行中心页","type":"page","summary":"Route ID: automation_console，任务列表弹性流转、Terminal滚动条优化"},{"id":"page_publishing","label":"发布中心页","type":"page","summary":"Route ID: publishing_center，预检清单弹性清单、提交流光反馈"},{"id":"page_render_export","label":"渲染与导出中心页","type":"page","summary":"Route ID: render_export_center，导出队列传送带动效、实时进度位移补强"},{"id":"page_review","label":"复盘与优化中心页","type":"page","summary":"Route ID: review_optimization_center，建议列表动效补齐"},{"id":"page_ai_settings","label":"AI与系统设置页","type":"page","summary":"Route ID: ai_system_settings，侧边栏分段淡入、音色保存闭环"},{"id":"doc_prd","label":"PRD.md","type":"document","summary":"唯一产品真源，定义16页完整规格、V1范围、核心工作流、任务状态机"},{"id":"doc_ui_design_prd","label":"UI-DESIGN-PRD.md","type":"document","summary":"UI视觉语言、壳层结构、布局规则真源，五组导航口径"},{"id":"doc_architecture","label":"ARCHITECTURE-BOOTSTRAP.md","type":"document","summary":"目录、路由、模块、模型落点真源，16路由清单、Runtime API前缀组、15核心持久化模型"},{"id":"doc_agents","label":"AGENTS.md","type":"document","summary":"AI协作规范与硬约束，产品北极星、16页树、核心模型链、Runtime契约"},{"id":"doc_claude","label":"CLAUDE.md","type":"document","summary":"Claude Code行为准则，技术栈、命令、双进程架构、进程生命周期、前端/Runtime关键路径"},{"id":"doc_runtime_api","label":"RUNTIME-API-CALLS.md","type":"document","summary":"Runtime接口与前端调用真源，基础URL:8000，169条HTTP路由"},{"id":"doc_project_status","label":"PROJECT-STATUS.md","type":"document","summary":"当前实现状态，16页均已落地，记录待收口问题"},{"id":"doc_changelog","label":"CHANGELOG.md","type":"document","summary":"版本历史，v0.4.0全站UI精修，v0.3.4 Runtime契约收口"},{"id":"doc_backend_requirements","label":"BACKEND-REQUIREMENTS-2026-04-17.md","type":"document","summary":"后端差口分析，D1-D4级别，96条真实路由中仅34条(35%)完整实现"},{"id":"doc_ui_blueprint","label":"UI-BLUEPRINT-2026-04-17.md","type":"document","summary":"UI工程蓝图，A区(生产力基准)vs B区(情绪张力)，设计令牌，品牌色#00BCD4"},{"id":"version_source","label":"版本唯一真源","type":"concept","summary":"根package.json#version，镜像到Cargo.toml/tauri.conf.json/pyproject.toml"},{"id":"stitch_cli","label":"Stitch CLI","type":"tool","summary":"UI设计参考工具，通过Stitch CLI生成设计参考，禁止界面掺入大量英文占位"},{"id":"ai_flow_bar","label":"ai-flow-bar组件","type":"component","summary":"全站AI任务反馈系统，v0.4.0引入，全站AI任务处理状态可视化"},{"id":"superpowers_workflow","label":"Superpowers工作流","type":"process","summary":"分级触发：S档(plan+spec)、M档(plan)、L档(直接开工)"},{"id":"routes_layer","label":"路由层","type":"layer","summary":"apps/py-runtime/src/api/routes/，只做入参校验与出参包装"},{"id":"services_layer","label":"服务层","type":"layer","summary":"apps/py-runtime/src/services/，业务编排与跨模型协同"},{"id":"repositories_layer","label":"仓储层","type":"layer","summary":"apps/py-runtime/src/repositories/，SQLite读写封装"},{"id":"tasks_layer","label":"tasks/media/ai层","type":"layer","summary":"长任务、媒体处理、AI调用实现层"},{"id":"data_root","label":"本地数据根目录","type":"concept","summary":"%APPDATA%/TK-OPS-ASSISTANT/，所有本地数据存储根路径"},{"id":"graphify_out","label":"graphify-out知识图谱","type":"artifact","summary":"项目知识图谱输出目录，包含GRAPH_REPORT.md和wiki/index.md"},{"id":"version_040","label":"v0.4.0版本","type":"artifact","summary":"2026-04-19，全站16页像素级UI精修，引入ai-flow-bar，修复视频预览黑屏"},{"id":"version_034","label":"v0.3.4版本","type":"artifact","summary":"2026-04-19，Runtime契约与设置收口，补齐多个模块后端契约差口"},{"id":"version_020","label":"v0.2.0版本","type":"artifact","summary":"2026-04-12，新增离线授权链路、BootstrapGate、开发态一键启动入口"}],"edges":[{"source":"tkops_project","target":"tauri_process","relation":"contains","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"tkops_project","target":"python_runtime","relation":"contains","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"tauri_process","target":"vue_frontend","relation":"hosts","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"python_runtime","target":"fastapi_app","relation":"implements","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"python_runtime","target":"sqlite_db","relation":"uses","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"vue_frontend","target":"pinia_store","relation":"uses","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"vue_frontend","target":"vue_router","relation":"uses","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"vue_frontend","target":"runtime_client","relation":"uses","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"runtime_client","target":"python_runtime","relation":"communicates_with","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"runtime_client","target":"http_json_envelope","relation":"uses","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"python_runtime","target":"websocket","relation":"provides","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"task_bus","target":"websocket","relation":"uses","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"config_bus","target":"pinia_store","relation":"implements_via","confidence":0.8,"confidence_label":"INFERRED"},{"source":"bootstrap_gate","target":"offline_license","relation":"depends_on","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"bootstrap_gate","target":"python_runtime","relation":"health_checks","confidence":0.9,"confidence_label":"INFERRED"},{"source":"offline_license","target":"license_service","relation":"implemented_by","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"offline_license","target":"license_issuer_tool","relation":"tooled_by","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"ai_gateway","target":"script_provider","relation":"dispatches_to","confidence":0.8,"confidence_label":"INFERRED"},{"source":"ai_gateway","target":"tts_provider","relation":"dispatches_to","confidence":0.8,"confidence_label":"INFERRED"},{"source":"ai_gateway","target":"video_gen_provider","relation":"dispatches_to","confidence":0.8,"confidence_label":"INFERRED"},{"source":"ai_gateway","target":"subtitle_alignment_provider","relation":"dispatches_to","confidence":0.8,"confidence_label":"INFERRED"},{"source":"ai_gateway","target":"asset_analysis_provider","relation":"dispatches_to","confidence":0.8,"confidence_label":"INFERRED"},{"source":"project_model","target":"script_model","relation":"contains","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"script_model","target":"storyboard_model","relation":"contains","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"storyboard_model","target":"timeline_model","relation":"contains","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"timeline_model","target":"voice_track_model","relation":"contains","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"timeline_model","target":"subtitle_track_model","relation":"contains","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"timeline_model","target":"render_task_model","relation":"contains","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"account_model","target":"device_workspace_model","relation":"contains","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"device_workspace_model","target":"execution_binding_model","relation":"contains","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"routes_layer","target":"services_layer","relation":"delegates_to","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"services_layer","target":"repositories_layer","relation":"delegates_to","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"repositories_layer","target":"tasks_layer","relation":"delegates_to","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"page_setup_license","target":"offline_license","relation":"implements","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"page_dashboard","target":"project_model","relation":"displays","confidence":0.9,"confidence_label":"INFERRED"},{"source":"page_script","target":"script_model","relation":"manages","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"page_storyboard","target":"storyboard_model","relation":"manages","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"page_ai_editing","target":"timeline_model","relation":"manages","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"page_ai_editing","target":"task_bus","relation":"uses","confidence":0.9,"confidence_label":"INFERRED"},{"source":"page_video_deconstruction","target":"task_bus","relation":"uses","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"page_voice_studio","target":"voice_track_model","relation":"manages","confidence":0.9,"confidence_label":"INFERRED"},{"source":"page_voice_studio","target":"tts_provider","relation":"uses","confidence":0.9,"confidence_label":"INFERRED"},{"source":"page_subtitle","target":"subtitle_track_model","relation":"manages","confidence":0.9,"confidence_label":"INFERRED"},{"source":"page_subtitle","target":"subtitle_alignment_provider","relation":"uses","confidence":0.9,"confidence_label":"INFERRED"},{"source":"page_asset_library","target":"asset_analysis_provider","relation":"uses","confidence":0.8,"confidence_label":"INFERRED"},{"source":"page_account","target":"account_model","relation":"manages","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"page_device_workspace","target":"device_workspace_model","relation":"manages","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"page_render_export","target":"render_task_model","relation":"manages","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"page_render_export","target":"task_bus","relation":"uses","confidence":0.9,"confidence_label":"INFERRED"},{"source":"route_manifest","target":"page_setup_license","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_dashboard","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_script","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_storyboard","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_ai_editing","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_video_deconstruction","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_voice_studio","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_subtitle","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_asset_library","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_account","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_device_workspace","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_automation","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_publishing","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_render_export","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_review","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"route_manifest","target":"page_ai_settings","relation":"declares","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"doc_prd","target":"tkops_project","relation":"defines_scope_of","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"doc_ui_design_prd","target":"app_shell","relation":"specifies","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"doc_architecture","target":"route_manifest","relation":"specifies","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"doc_architecture","target":"project_model","relation":"specifies","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"doc_claude","target":"tkops_project","relation":"governs","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"doc_agents","target":"tkops_project","relation":"governs","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"doc_runtime_api","target":"python_runtime","relation":"documents","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"doc_project_status","target":"tkops_project","relation":"tracks_state_of","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"version_040","target":"ai_flow_bar","relation":"introduced","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"version_source","target":"tkops_project","relation":"governs_versioning_of","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"superpowers_workflow","target":"doc_claude","relation":"defined_in","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"app_shell","target":"bootstrap_gate","relation":"contains","confidence":0.8,"confidence_label":"INFERRED"},{"source":"task_bus","target":"task_state_machine","relation":"implements","confidence":0.8,"confidence_label":"INFERRED"},{"source":"stitch_cli","target":"doc_ui_design_prd","relation":"generates_references_for","confidence":0.8,"confidence_label":"INFERRED"},{"source":"graphify_out","target":"tkops_project","relation":"documents_knowledge_of","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"doc_backend_requirements","target":"python_runtime","relation":"analyzes_gaps_in","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"doc_ui_blueprint","target":"app_shell","relation":"blueprints","confidence":1.0,"confidence_label":"EXTRACTED"},{"source":"data_root","target":"sqlite_db","relation":"hosts","confidence":0.9,"confidence_label":"INFERRED"},{"source":"data_root","target":"offline_license","relation":"stores_state_for","confidence":0.9,"confidence_label":"INFERRED"},{"source":"page_script","target":"script_provider","relation":"uses","confidence":0.8,"confidence_label":"INFERRED"},{"source":"ai_flow_bar","target":"task_bus","relation":"visualizes","confidence":0.9,"confidence_label":"INFERRED"}],"hyperedges":[{"id":"he_project_model_chain","nodes":["project_model","script_model","storyboard_model","timeline_model","voice_track_model","subtitle_track_model","render_task_model"],"relation":"forms_project_model_chain","summary":"主项目模型链，从零创作与导入拆解最终必须回到同一Project，不允许为不同入口建两套数据模型","confidence":1.0},{"id":"he_account_model_chain","nodes":["account_model","device_workspace_model","execution_binding_model"],"relation":"forms_account_model_chain","summary":"账号模型链，账号→设备工作区→执行绑定","confidence":1.0},{"id":"he_runtime_layering","nodes":["routes_layer","services_layer","repositories_layer","tasks_layer"],"relation":"forms_runtime_layer_stack","summary":"Runtime分层架构，单向依赖，routes→services→repositories→tasks/media/ai，不得反向","confidence":1.0},{"id":"he_doc_priority","nodes":["doc_prd","doc_ui_design_prd","doc_architecture","doc_agents"],"relation":"forms_document_truth_hierarchy","summary":"文档真源优先级：PRD.md > UI-DESIGN-PRD.md > ARCHITECTURE-BOOTSTRAP.md > AGENTS.md","confidence":1.0},{"id":"he_ai_providers","nodes":["script_provider","video_gen_provider","tts_provider","subtitle_alignment_provider","asset_analysis_provider"],"relation":"forms_ai_provider_interface_set","summary":"AI Provider接口集合，统一走ai_gateway调用，强制重试、超时、结构化错误码","confidence":1.0},{"id":"he_dual_process","nodes":["tauri_process","python_runtime","runtime_client","websocket","http_json_envelope"],"relation":"forms_dual_process_architecture","summary":"双进程架构：Tauri进程(前端壳)与Python Runtime(业务逻辑)，通过HTTP+WebSocket通信","confidence":1.0},{"id":"he_16_pages","nodes":["page_setup_license","page_dashboard","page_script","page_storyboard","page_ai_editing","page_video_deconstruction","page_voice_studio","page_subtitle","page_asset_library","page_account","page_device_workspace","page_automation","page_publishing","page_render_export","page_review","page_ai_settings"],"relation":"forms_complete_page_set","summary":"TK-OPS全站16个正式页面，均已在v0.4.0完成像素级UI精修并标记为已落地","confidence":1.0}],"input_tokens":0,"output_tokens":0}
+{
+    "nodes": [
+        {
+            "id": "tkops_project",
+            "label": "TK-OPS-ASSISTANT",
+            "type": "system",
+            "summary": "AI视频创作中枢，面向TikTok内容创作者的本地优先Windows桌面工作台，采用一机一码离线授权模式"
+        },
+        {
+            "id": "tauri_process",
+            "label": "Tauri进程",
+            "type": "component",
+            "summary": "加载Vue SPA、提供桌面窗口壳的前端进程，基于Tauri 2 + Vue 3 + TypeScript + Vite"
+        },
+        {
+            "id": "python_runtime",
+            "label": "Python Runtime进程",
+            "type": "component",
+            "summary": "FastAPI服务，承载所有业务逻辑、数据持久化与AI调用，运行在:8000端口"
+        },
+        {
+            "id": "vue_frontend",
+            "label": "Vue前端应用",
+            "type": "component",
+            "summary": "Vue 3 + TypeScript SPA，通过runtime-client.ts与Runtime HTTP API通信"
+        },
+        {
+            "id": "fastapi_app",
+            "label": "FastAPI应用工厂",
+            "type": "component",
+            "summary": "apps/py-runtime/src/app/factory.py，Runtime应用核心入口"
+        },
+        {
+            "id": "sqlite_db",
+            "label": "SQLite数据库",
+            "type": "component",
+            "summary": "本地持久化数据库，存储所有业务数据，位于%APPDATA%/TK-OPS-ASSISTANT/"
+        },
+        {
+            "id": "pinia_store",
+            "label": "Pinia状态管理",
+            "type": "component",
+            "summary": "前端状态管理，包含config-bus/license/project/bootstrap等store"
+        },
+        {
+            "id": "vue_router",
+            "label": "Vue Router路由",
+            "type": "component",
+            "summary": "前端路由，真源为route-manifest.ts和route-ids.ts"
+        },
+        {
+            "id": "websocket",
+            "label": "WebSocket通信",
+            "type": "component",
+            "summary": "用于长任务进度订阅，所有消息必须带schema_version字段"
+        },
+        {
+            "id": "http_json_envelope",
+            "label": "HTTP JSON信封",
+            "type": "contract",
+            "summary": "统一通信格式：成功{ok:true,data:...}，失败{ok:false,error:...,error_code:...}"
+        },
+        {
+            "id": "runtime_client",
+            "label": "Runtime适配层",
+            "type": "component",
+            "summary": "apps/desktop/src/app/runtime-client.ts，前端统一通过此层发起数据请求"
+        },
+        {
+            "id": "config_bus",
+            "label": "配置总线ConfigBus",
+            "type": "component",
+            "summary": "全局配置广播系统，配置不得散落在页面/脚本/服务内部"
+        },
+        {
+            "id": "task_bus",
+            "label": "任务总线TaskBus",
+            "type": "component",
+            "summary": "统一长任务队列，超过2s的操作走task机制，前端通过WebSocket订阅进度"
+        },
+        {
+            "id": "app_shell",
+            "label": "AppShell壳层布局",
+            "type": "component",
+            "summary": "apps/desktop/src/layouts/AppShell.vue，Title Bar + Sidebar + Content Host + Detail Panel + Status Bar"
+        },
+        {
+            "id": "bootstrap_gate",
+            "label": "BootstrapGate首启流程",
+            "type": "component",
+            "summary": "apps/desktop/src/bootstrap/BootstrapGate.vue，加载→授权→初始化三阶段"
+        },
+        {
+            "id": "offline_license",
+            "label": "离线授权系统",
+            "type": "component",
+            "summary": "一机一码，RSA密钥对，机器指纹绑定，授权码签名校验，授权状态持久化"
+        },
+        {
+            "id": "license_service",
+            "label": "许可证服务",
+            "type": "component",
+            "summary": "apps/py-runtime/src/services/license_service.py + license_activation.py"
+        },
+        {
+            "id": "license_issuer_tool",
+            "label": "授权码签发工具",
+            "type": "component",
+            "summary": "apps/py-runtime/tools/license-issuer/，私钥签发，Runtime持有公钥验证"
+        },
+        {
+            "id": "ai_gateway",
+            "label": "AI调用网关",
+            "type": "component",
+            "summary": "services/ai_gateway，统一AI调用，强制重试(指数退避+最多3次)、强制超时、强制结构化错误码"
+        },
+        {
+            "id": "route_manifest",
+            "label": "路由清单",
+            "type": "artifact",
+            "summary": "apps/desktop/src/app/router/route-manifest.ts，16个正式页面路由真源"
+        },
+        {
+            "id": "route_ids",
+            "label": "路由ID集合",
+            "type": "artifact",
+            "summary": "apps/desktop/src/app/router/route-ids.ts，路由ID常量定义"
+        },
+        {
+            "id": "project_model",
+            "label": "Project模型",
+            "type": "model",
+            "summary": "主项目模型，位于apps/py-runtime/src/domain/models/"
+        },
+        {
+            "id": "script_model",
+            "label": "Script模型",
+            "type": "model",
+            "summary": "脚本模型，属于Project"
+        },
+        {
+            "id": "storyboard_model",
+            "label": "Storyboard模型",
+            "type": "model",
+            "summary": "分镜模型，属于Script"
+        },
+        {
+            "id": "timeline_model",
+            "label": "Timeline模型",
+            "type": "model",
+            "summary": "时间线模型，属于Storyboard"
+        },
+        {
+            "id": "voice_track_model",
+            "label": "VoiceTrack模型",
+            "type": "model",
+            "summary": "配音轨道模型，属于Timeline"
+        },
+        {
+            "id": "subtitle_track_model",
+            "label": "SubtitleTrack模型",
+            "type": "model",
+            "summary": "字幕轨道模型，属于Timeline"
+        },
+        {
+            "id": "render_task_model",
+            "label": "RenderTask模型",
+            "type": "model",
+            "summary": "渲染任务模型，属于Timeline"
+        },
+        {
+            "id": "account_model",
+            "label": "Account模型",
+            "type": "model",
+            "summary": "账号模型，账号管理页使用"
+        },
+        {
+            "id": "device_workspace_model",
+            "label": "DeviceWorkspace模型",
+            "type": "model",
+            "summary": "设备工作区模型，属于Account"
+        },
+        {
+            "id": "execution_binding_model",
+            "label": "ExecutionBinding模型",
+            "type": "model",
+            "summary": "执行绑定模型，属于DeviceWorkspace"
+        },
+        {
+            "id": "task_state_machine",
+            "label": "任务状态机",
+            "type": "concept",
+            "summary": "draft→queued→running→blocked→succeeded→failed→cancelled"
+        },
+        {
+            "id": "script_provider",
+            "label": "ScriptProvider接口",
+            "type": "interface",
+            "summary": "AI脚本生成Provider接口"
+        },
+        {
+            "id": "video_gen_provider",
+            "label": "VideoGenerationProvider接口",
+            "type": "interface",
+            "summary": "AI视频生成Provider接口"
+        },
+        {
+            "id": "tts_provider",
+            "label": "TTSProvider接口",
+            "type": "interface",
+            "summary": "文字转语音Provider接口"
+        },
+        {
+            "id": "subtitle_alignment_provider",
+            "label": "SubtitleAlignmentProvider接口",
+            "type": "interface",
+            "summary": "字幕对齐Provider接口"
+        },
+        {
+            "id": "asset_analysis_provider",
+            "label": "AssetAnalysisProvider接口",
+            "type": "interface",
+            "summary": "资产分析Provider接口"
+        },
+        {
+            "id": "page_setup_license",
+            "label": "首启与许可证向导页",
+            "type": "page",
+            "summary": "Route ID: setup_license_wizard，离线授权、向导动效与粒子反馈"
+        },
+        {
+            "id": "page_dashboard",
+            "label": "创作总览页",
+            "type": "page",
+            "summary": "Route ID: creator_dashboard，极光Hero、项目列表弹性删除、原生确认弹窗"
+        },
+        {
+            "id": "page_script",
+            "label": "脚本与选题中心页",
+            "type": "page",
+            "summary": "Route ID: script_topic_center，编辑器AI流光、版本轨迹弹性流转、一键复制"
+        },
+        {
+            "id": "page_storyboard",
+            "label": "分镜规划中心页",
+            "type": "page",
+            "summary": "Route ID: storyboard_planning_center，镜头卡片瀑布流、弹性排队动效"
+        },
+        {
+            "id": "page_ai_editing",
+            "label": "AI剪辑工作台页",
+            "type": "page",
+            "summary": "Route ID: ai_editing_workspace，多轨时间线弹性重排、AI魔法剪流光"
+        },
+        {
+            "id": "page_video_deconstruction",
+            "label": "视频拆解中心页",
+            "type": "page",
+            "summary": "Route ID: video_deconstruction_center，真实预览组件、TaskBus丝滑进度条"
+        },
+        {
+            "id": "page_voice_studio",
+            "label": "配音中心页",
+            "type": "page",
+            "summary": "Route ID: voice_studio，音色列表弹性重排、播放波形动画"
+        },
+        {
+            "id": "page_subtitle",
+            "label": "字幕对齐中心页",
+            "type": "page",
+            "summary": "Route ID: subtitle_alignment_center，预览台扫描脉冲、字幕段列表水平流转"
+        },
+        {
+            "id": "page_asset_library",
+            "label": "资产中心页",
+            "type": "page",
+            "summary": "Route ID: asset_library，预览引擎修复、资产墙无缝平移、动态路径解析"
+        },
+        {
+            "id": "page_account",
+            "label": "账号管理页",
+            "type": "page",
+            "summary": "Route ID: account_management，账号卡片物理反馈、抽屉弹性滑入"
+        },
+        {
+            "id": "page_device_workspace",
+            "label": "设备与工作区管理页",
+            "type": "page",
+            "summary": "Route ID: device_workspace_management，工作区列表弹性补位、健康检查状态保真"
+        },
+        {
+            "id": "page_automation",
+            "label": "自动化执行中心页",
+            "type": "page",
+            "summary": "Route ID: automation_console，任务列表弹性流转、Terminal滚动条优化"
+        },
+        {
+            "id": "page_publishing",
+            "label": "发布中心页",
+            "type": "page",
+            "summary": "Route ID: publishing_center，预检清单弹性清单、提交流光反馈"
+        },
+        {
+            "id": "page_render_export",
+            "label": "渲染与导出中心页",
+            "type": "page",
+            "summary": "Route ID: render_export_center，导出队列传送带动效、实时进度位移补强"
+        },
+        {
+            "id": "page_review",
+            "label": "复盘与优化中心页",
+            "type": "page",
+            "summary": "Route ID: review_optimization_center，建议列表动效补齐"
+        },
+        {
+            "id": "page_ai_settings",
+            "label": "AI与系统设置页",
+            "type": "page",
+            "summary": "Route ID: ai_system_settings，侧边栏分段淡入、音色保存闭环"
+        },
+        {
+            "id": "doc_prd",
+            "label": "PRD.md",
+            "type": "document",
+            "summary": "唯一产品真源，定义16页完整规格、V1范围、核心工作流、任务状态机"
+        },
+        {
+            "id": "doc_ui_design_prd",
+            "label": "UI-DESIGN-PRD.md",
+            "type": "document",
+            "summary": "UI视觉语言、壳层结构、布局规则真源，五组导航口径"
+        },
+        {
+            "id": "doc_architecture",
+            "label": "ARCHITECTURE-BOOTSTRAP.md",
+            "type": "document",
+            "summary": "目录、路由、模块、模型落点真源，16路由清单、Runtime API前缀组、15核心持久化模型"
+        },
+        {
+            "id": "doc_agents",
+            "label": "AGENTS.md",
+            "type": "document",
+            "summary": "AI协作规范与硬约束，产品北极星、16页树、核心模型链、Runtime契约"
+        },
+        {
+            "id": "doc_claude",
+            "label": "CLAUDE.md",
+            "type": "document",
+            "summary": "Claude Code行为准则，技术栈、命令、双进程架构、进程生命周期、前端/Runtime关键路径"
+        },
+        {
+            "id": "doc_runtime_api",
+            "label": "RUNTIME-API-CALLS.md",
+            "type": "document",
+            "summary": "Runtime接口与前端调用真源，基础URL:8000，169条HTTP路由"
+        },
+        {
+            "id": "doc_project_status",
+            "label": "PROJECT-STATUS.md",
+            "type": "document",
+            "summary": "当前实现状态，16页均已落地，记录待收口问题"
+        },
+        {
+            "id": "doc_changelog",
+            "label": "CHANGELOG.md",
+            "type": "document",
+            "summary": "版本历史，v0.4.0全站UI精修，v0.3.4 Runtime契约收口"
+        },
+        {
+            "id": "doc_backend_requirements",
+            "label": "BACKEND-REQUIREMENTS-2026-04-17.md",
+            "type": "document",
+            "summary": "后端差口分析，D1-D4级别，96条真实路由中仅34条(35%)完整实现"
+        },
+        {
+            "id": "doc_ui_blueprint",
+            "label": "UI-BLUEPRINT-2026-04-17.md",
+            "type": "document",
+            "summary": "UI工程蓝图，A区(生产力基准)vs B区(情绪张力)，设计令牌，品牌色#00BCD4"
+        },
+        {
+            "id": "version_source",
+            "label": "版本唯一真源",
+            "type": "concept",
+            "summary": "根package.json#version，镜像到Cargo.toml/tauri.conf.json/pyproject.toml"
+        },
+        {
+            "id": "stitch_cli",
+            "label": "Stitch CLI",
+            "type": "tool",
+            "summary": "UI设计参考工具，通过Stitch CLI生成设计参考，禁止界面掺入大量英文占位"
+        },
+        {
+            "id": "ai_flow_bar",
+            "label": "ai-flow-bar组件",
+            "type": "component",
+            "summary": "全站AI任务反馈系统，v0.4.0引入，全站AI任务处理状态可视化"
+        },
+        {
+            "id": "superpowers_workflow",
+            "label": "Superpowers工作流",
+            "type": "process",
+            "summary": "分级触发：S档(plan+spec)、M档(plan)、L档(直接开工)"
+        },
+        {
+            "id": "routes_layer",
+            "label": "路由层",
+            "type": "layer",
+            "summary": "apps/py-runtime/src/api/routes/，只做入参校验与出参包装"
+        },
+        {
+            "id": "services_layer",
+            "label": "服务层",
+            "type": "layer",
+            "summary": "apps/py-runtime/src/services/，业务编排与跨模型协同"
+        },
+        {
+            "id": "repositories_layer",
+            "label": "仓储层",
+            "type": "layer",
+            "summary": "apps/py-runtime/src/repositories/，SQLite读写封装"
+        },
+        {
+            "id": "tasks_layer",
+            "label": "tasks/media/ai层",
+            "type": "layer",
+            "summary": "长任务、媒体处理、AI调用实现层"
+        },
+        {
+            "id": "data_root",
+            "label": "本地数据根目录",
+            "type": "concept",
+            "summary": "%APPDATA%/TK-OPS-ASSISTANT/，所有本地数据存储根路径"
+        },
+        {
+            "id": "graphify_out",
+            "label": "graphify-out知识图谱",
+            "type": "artifact",
+            "summary": "项目知识图谱输出目录，包含GRAPH_REPORT.md和wiki/index.md"
+        },
+        {
+            "id": "version_040",
+            "label": "v0.4.0版本",
+            "type": "artifact",
+            "summary": "2026-04-19，全站16页像素级UI精修，引入ai-flow-bar，修复视频预览黑屏"
+        },
+        {
+            "id": "version_034",
+            "label": "v0.3.4版本",
+            "type": "artifact",
+            "summary": "2026-04-19，Runtime契约与设置收口，补齐多个模块后端契约差口"
+        },
+        {
+            "id": "version_020",
+            "label": "v0.2.0版本",
+            "type": "artifact",
+            "summary": "2026-04-12，新增离线授权链路、BootstrapGate、开发态一键启动入口"
+        }
+    ],
+    "edges": [
+        {
+            "source": "tkops_project",
+            "target": "tauri_process",
+            "relation": "contains",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "tkops_project",
+            "target": "python_runtime",
+            "relation": "contains",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "tauri_process",
+            "target": "vue_frontend",
+            "relation": "hosts",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "python_runtime",
+            "target": "fastapi_app",
+            "relation": "implements",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "python_runtime",
+            "target": "sqlite_db",
+            "relation": "uses",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "vue_frontend",
+            "target": "pinia_store",
+            "relation": "uses",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "vue_frontend",
+            "target": "vue_router",
+            "relation": "uses",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "vue_frontend",
+            "target": "runtime_client",
+            "relation": "uses",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "runtime_client",
+            "target": "python_runtime",
+            "relation": "communicates_with",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "runtime_client",
+            "target": "http_json_envelope",
+            "relation": "uses",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "python_runtime",
+            "target": "websocket",
+            "relation": "provides",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "task_bus",
+            "target": "websocket",
+            "relation": "uses",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "config_bus",
+            "target": "pinia_store",
+            "relation": "implements_via",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "bootstrap_gate",
+            "target": "offline_license",
+            "relation": "depends_on",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "bootstrap_gate",
+            "target": "python_runtime",
+            "relation": "health_checks",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "offline_license",
+            "target": "license_service",
+            "relation": "implemented_by",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "offline_license",
+            "target": "license_issuer_tool",
+            "relation": "tooled_by",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "ai_gateway",
+            "target": "script_provider",
+            "relation": "dispatches_to",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "ai_gateway",
+            "target": "tts_provider",
+            "relation": "dispatches_to",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "ai_gateway",
+            "target": "video_gen_provider",
+            "relation": "dispatches_to",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "ai_gateway",
+            "target": "subtitle_alignment_provider",
+            "relation": "dispatches_to",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "ai_gateway",
+            "target": "asset_analysis_provider",
+            "relation": "dispatches_to",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "project_model",
+            "target": "script_model",
+            "relation": "contains",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "script_model",
+            "target": "storyboard_model",
+            "relation": "contains",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "storyboard_model",
+            "target": "timeline_model",
+            "relation": "contains",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "timeline_model",
+            "target": "voice_track_model",
+            "relation": "contains",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "timeline_model",
+            "target": "subtitle_track_model",
+            "relation": "contains",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "timeline_model",
+            "target": "render_task_model",
+            "relation": "contains",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "account_model",
+            "target": "device_workspace_model",
+            "relation": "contains",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "device_workspace_model",
+            "target": "execution_binding_model",
+            "relation": "contains",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "routes_layer",
+            "target": "services_layer",
+            "relation": "delegates_to",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "services_layer",
+            "target": "repositories_layer",
+            "relation": "delegates_to",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "repositories_layer",
+            "target": "tasks_layer",
+            "relation": "delegates_to",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "page_setup_license",
+            "target": "offline_license",
+            "relation": "implements",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "page_dashboard",
+            "target": "project_model",
+            "relation": "displays",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "page_script",
+            "target": "script_model",
+            "relation": "manages",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "page_storyboard",
+            "target": "storyboard_model",
+            "relation": "manages",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "page_ai_editing",
+            "target": "timeline_model",
+            "relation": "manages",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "page_ai_editing",
+            "target": "task_bus",
+            "relation": "uses",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "page_video_deconstruction",
+            "target": "task_bus",
+            "relation": "uses",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "page_voice_studio",
+            "target": "voice_track_model",
+            "relation": "manages",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "page_voice_studio",
+            "target": "tts_provider",
+            "relation": "uses",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "page_subtitle",
+            "target": "subtitle_track_model",
+            "relation": "manages",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "page_subtitle",
+            "target": "subtitle_alignment_provider",
+            "relation": "uses",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "page_asset_library",
+            "target": "asset_analysis_provider",
+            "relation": "uses",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "page_account",
+            "target": "account_model",
+            "relation": "manages",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "page_device_workspace",
+            "target": "device_workspace_model",
+            "relation": "manages",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "page_render_export",
+            "target": "render_task_model",
+            "relation": "manages",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "page_render_export",
+            "target": "task_bus",
+            "relation": "uses",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_setup_license",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_dashboard",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_script",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_storyboard",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_ai_editing",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_video_deconstruction",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_voice_studio",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_subtitle",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_asset_library",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_account",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_device_workspace",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_automation",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_publishing",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_render_export",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_review",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "route_manifest",
+            "target": "page_ai_settings",
+            "relation": "declares",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "doc_prd",
+            "target": "tkops_project",
+            "relation": "defines_scope_of",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "doc_ui_design_prd",
+            "target": "app_shell",
+            "relation": "specifies",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "doc_architecture",
+            "target": "route_manifest",
+            "relation": "specifies",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "doc_architecture",
+            "target": "project_model",
+            "relation": "specifies",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "doc_claude",
+            "target": "tkops_project",
+            "relation": "governs",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "doc_agents",
+            "target": "tkops_project",
+            "relation": "governs",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "doc_runtime_api",
+            "target": "python_runtime",
+            "relation": "documents",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "doc_project_status",
+            "target": "tkops_project",
+            "relation": "tracks_state_of",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "version_040",
+            "target": "ai_flow_bar",
+            "relation": "introduced",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "version_source",
+            "target": "tkops_project",
+            "relation": "governs_versioning_of",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "superpowers_workflow",
+            "target": "doc_claude",
+            "relation": "defined_in",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "app_shell",
+            "target": "bootstrap_gate",
+            "relation": "contains",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "task_bus",
+            "target": "task_state_machine",
+            "relation": "implements",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "stitch_cli",
+            "target": "doc_ui_design_prd",
+            "relation": "generates_references_for",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "graphify_out",
+            "target": "tkops_project",
+            "relation": "documents_knowledge_of",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "doc_backend_requirements",
+            "target": "python_runtime",
+            "relation": "analyzes_gaps_in",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "doc_ui_blueprint",
+            "target": "app_shell",
+            "relation": "blueprints",
+            "confidence": 1.0,
+            "confidence_label": "EXTRACTED"
+        },
+        {
+            "source": "data_root",
+            "target": "sqlite_db",
+            "relation": "hosts",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "data_root",
+            "target": "offline_license",
+            "relation": "stores_state_for",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "page_script",
+            "target": "script_provider",
+            "relation": "uses",
+            "confidence": 0.8,
+            "confidence_label": "INFERRED"
+        },
+        {
+            "source": "ai_flow_bar",
+            "target": "task_bus",
+            "relation": "visualizes",
+            "confidence": 0.9,
+            "confidence_label": "INFERRED"
+        }
+    ],
+    "hyperedges": [
+        {
+            "id": "he_project_model_chain",
+            "nodes": [
+                "project_model",
+                "script_model",
+                "storyboard_model",
+                "timeline_model",
+                "voice_track_model",
+                "subtitle_track_model",
+                "render_task_model"
+            ],
+            "relation": "forms_project_model_chain",
+            "summary": "主项目模型链，从零创作与导入拆解最终必须回到同一Project，不允许为不同入口建两套数据模型",
+            "confidence": 1.0
+        },
+        {
+            "id": "he_account_model_chain",
+            "nodes": [
+                "account_model",
+                "device_workspace_model",
+                "execution_binding_model"
+            ],
+            "relation": "forms_account_model_chain",
+            "summary": "账号模型链，账号→设备工作区→执行绑定",
+            "confidence": 1.0
+        },
+        {
+            "id": "he_runtime_layering",
+            "nodes": [
+                "routes_layer",
+                "services_layer",
+                "repositories_layer",
+                "tasks_layer"
+            ],
+            "relation": "forms_runtime_layer_stack",
+            "summary": "Runtime分层架构，单向依赖，routes→services→repositories→tasks/media/ai，不得反向",
+            "confidence": 1.0
+        },
+        {
+            "id": "he_doc_priority",
+            "nodes": [
+                "doc_prd",
+                "doc_ui_design_prd",
+                "doc_architecture",
+                "doc_agents"
+            ],
+            "relation": "forms_document_truth_hierarchy",
+            "summary": "文档真源优先级：PRD.md > UI-DESIGN-PRD.md > ARCHITECTURE-BOOTSTRAP.md > AGENTS.md",
+            "confidence": 1.0
+        },
+        {
+            "id": "he_ai_providers",
+            "nodes": [
+                "script_provider",
+                "video_gen_provider",
+                "tts_provider",
+                "subtitle_alignment_provider",
+                "asset_analysis_provider"
+            ],
+            "relation": "forms_ai_provider_interface_set",
+            "summary": "AI Provider接口集合，统一走ai_gateway调用，强制重试、超时、结构化错误码",
+            "confidence": 1.0
+        },
+        {
+            "id": "he_dual_process",
+            "nodes": [
+                "tauri_process",
+                "python_runtime",
+                "runtime_client",
+                "websocket",
+                "http_json_envelope"
+            ],
+            "relation": "forms_dual_process_architecture",
+            "summary": "双进程架构：Tauri进程(前端壳)与Python Runtime(业务逻辑)，通过HTTP+WebSocket通信",
+            "confidence": 1.0
+        },
+        {
+            "id": "he_16_pages",
+            "nodes": [
+                "page_setup_license",
+                "page_dashboard",
+                "page_script",
+                "page_storyboard",
+                "page_ai_editing",
+                "page_video_deconstruction",
+                "page_voice_studio",
+                "page_subtitle",
+                "page_asset_library",
+                "page_account",
+                "page_device_workspace",
+                "page_automation",
+                "page_publishing",
+                "page_render_export",
+                "page_review",
+                "page_ai_settings"
+            ],
+            "relation": "forms_complete_page_set",
+            "summary": "TK-OPS全站16个正式页面，均已在v0.4.0完成像素级UI精修并标记为已落地",
+            "confidence": 1.0
+        }
+    ],
+    "input_tokens": 0,
+    "output_tokens": 0
+}

@@ -1,46 +1,55 @@
 <template>
-  <section class="panel-shell">
+  <section class="panel-shell flex flex-col h-full">
     <header class="panel-heading">
-      <div>
+      <div class="panel-heading__title">
         <span class="panel-heading__kicker">脚本段落</span>
         <strong>{{ paragraphs.length }} 段</strong>
       </div>
       <span class="panel-heading__chip" :data-state="status">{{ statusLabel }}</span>
     </header>
 
-    <div v-if="status === 'loading'" class="state-surface">
-      <strong>正在读取脚本文本和配音版本。</strong>
-      <p>{{ stateMessage }}</p>
-    </div>
-    <div v-else-if="status === 'error'" class="state-surface state-surface--error">
-      <strong>脚本读取失败。</strong>
-      <p>{{ errorMessage || stateMessage }}</p>
-    </div>
-    <div v-else-if="paragraphs.length === 0" class="state-surface state-surface--empty">
-      <strong>脚本文本为空。</strong>
-      <p>{{ stateMessage }}</p>
-    </div>
-    <div v-if="status === 'blocked' && paragraphs.length > 0" class="state-surface state-surface--blocked">
-      <strong>脚本已读到，但生成入口被阻断。</strong>
-      <p>{{ stateMessage }}</p>
-    </div>
+    <div class="list-viewport custom-scrollbar">
+      <div v-if="status === 'loading'" class="state-surface">
+        <div class="loading-spinner"></div>
+        <strong>正在读取脚本文本</strong>
+        <p>{{ stateMessage }}</p>
+      </div>
+      <div v-else-if="status === 'error'" class="state-surface state-surface--error">
+        <span class="material-symbols-outlined text-danger">error</span>
+        <strong>读取失败</strong>
+        <p>{{ errorMessage || stateMessage }}</p>
+      </div>
+      <div v-else-if="paragraphs.length === 0" class="state-surface state-surface--empty">
+        <span class="material-symbols-outlined text-tertiary">article</span>
+        <strong>脚本文本为空</strong>
+        <p>{{ stateMessage }}</p>
+      </div>
+      <div v-if="status === 'blocked' && paragraphs.length > 0" class="state-surface state-surface--blocked">
+        <span class="material-symbols-outlined text-warning">block</span>
+        <strong>生成入口被阻断</strong>
+        <p>{{ stateMessage }}</p>
+      </div>
 
-    <TransitionGroup v-if="paragraphs.length > 0" name="voice-list" tag="div" class="paragraph-list">
-      <button
-        v-for="(paragraph, index) in paragraphs"
-        :key="`${index}-${paragraph.text}`"
-        class="paragraph-item"
-        :class="{ 'paragraph-item--active': activeIndex === index }"
-        type="button"
-        @click="$emit('select', index)"
-      >
-        <div class="paragraph-item__top">
-          <span class="paragraph-index">{{ String(index + 1).padStart(2, "0") }}</span>
-          <span class="paragraph-time">约 {{ paragraph.estimatedDuration }} 秒</span>
-        </div>
-        <span class="paragraph-text">{{ paragraph.text }}</span>
-      </button>
-    </TransitionGroup>
+      <TransitionGroup v-if="paragraphs.length > 0" name="voice-list" tag="div" class="paragraph-list">
+        <button
+          v-for="(paragraph, index) in paragraphs"
+          :key="`${index}-${paragraph.text}`"
+          class="paragraph-item"
+          :class="{ 'paragraph-item--active': activeIndex === index }"
+          type="button"
+          @click="$emit('select', index)"
+        >
+          <div class="paragraph-item__top">
+            <span class="paragraph-index">{{ String(index + 1).padStart(2, "0") }}</span>
+            <span class="paragraph-time">
+              <span class="material-symbols-outlined">schedule</span>
+              约 {{ paragraph.estimatedDuration }} 秒
+            </span>
+          </div>
+          <p class="paragraph-text">{{ paragraph.text }}</p>
+        </button>
+      </TransitionGroup>
+    </div>
   </section>
 </template>
 
@@ -62,105 +71,115 @@ defineEmits<{
 }>();
 
 const statusLabel = computed(() => {
-  if (props.status === "loading") return "读取中";
-  if (props.status === "error") return "错误";
+  if (props.status === "loading") return "同步中";
+  if (props.status === "error") return "故障";
   if (props.status === "blocked") return "阻断";
-  if (props.paragraphs.length === 0) return "空态";
-  return "可用";
+  if (props.paragraphs.length === 0) return "无数据";
+  return "就绪";
 });
 </script>
 
 <style scoped>
 .panel-shell {
-  min-height: 0;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: var(--bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .panel-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-muted);
 }
 
-.panel-heading > div {
+.panel-heading__title {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .panel-heading__kicker {
-  color: var(--text-tertiary);
-  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font: var(--font-caption);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-caption);
 }
 
 .panel-heading strong {
-  color: var(--brand-primary);
-  font-size: 14px;
+  color: var(--color-brand-primary);
+  font: var(--font-title-sm);
 }
 
 .panel-heading__chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-size: 12px;
-  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font: var(--font-caption);
+  background: var(--color-bg-canvas);
+  border: 1px solid var(--color-border-default);
 }
 
 .panel-heading__chip[data-state="loading"] {
-  border-color: color-mix(in srgb, var(--info) 28%, transparent);
-  color: var(--info);
-}
-
-.panel-heading__chip[data-state="error"] {
-  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
-  color: var(--danger);
+  color: var(--color-brand-primary);
+  border-color: var(--color-brand-secondary);
 }
 
 .panel-heading__chip[data-state="blocked"] {
-  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
-  color: var(--warning);
+  color: var(--color-warning);
+  border-color: rgba(245, 183, 64, 0.4);
+}
+
+.list-viewport {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 3px;
 }
 
 .paragraph-list {
+  padding: var(--space-3);
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--space-2);
 }
 
 .paragraph-item {
-  display: grid;
-  gap: 8px;
   width: 100%;
-  padding: 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--bg-card);
-  color: var(--text-primary);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-canvas);
   text-align: left;
   cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    transform 160ms ease,
-    background-color 160ms ease;
-}
-
-.paragraph-item:hover,
-.paragraph-item--active {
-  border-color: color-mix(in srgb, var(--brand-primary) 36%, transparent);
-  background: color-mix(in srgb, var(--brand-primary) 8%, var(--bg-card));
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: grid;
+  gap: 8px;
 }
 
 .paragraph-item:hover {
-  transform: translateY(-1px);
+  border-color: var(--color-brand-secondary);
+  background: var(--color-bg-muted);
+}
+
+.paragraph-item--active {
+  border-color: var(--color-brand-primary);
+  background: rgba(0, 188, 212, 0.04);
+  box-shadow: 0 0 0 1px var(--color-brand-primary);
 }
 
 .paragraph-item__top {
@@ -171,58 +190,80 @@ const statusLabel = computed(() => {
 }
 
 .paragraph-index {
-  color: var(--brand-primary);
-  font-size: 12px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font: var(--font-caption);
+  font-weight: 800;
+  color: var(--color-brand-primary);
+  background: rgba(0, 188, 212, 0.1);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
 }
 
 .paragraph-time {
-  color: var(--text-tertiary);
-  font-size: 12px;
+  font: var(--font-caption);
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.paragraph-time .material-symbols-outlined {
+  font-size: 14px;
 }
 
 .paragraph-text {
+  margin: 0;
+  font: var(--font-body-sm);
+  color: var(--color-text-primary);
+  line-height: 1.6;
   display: -webkit-box;
   overflow: hidden;
-  color: var(--text-primary);
-  font-size: 14px;
-  line-height: 1.65;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
   word-break: break-word;
 }
 
+.paragraph-item--active .paragraph-text {
+  color: var(--color-text-primary);
+}
+
 .state-surface {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
   display: grid;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--bg-card);
-  margin: 12px;
+  gap: var(--space-2);
 }
 
 .state-surface strong {
-  font-size: 14px;
+  font: var(--font-title-sm);
+  color: var(--color-text-primary);
 }
 
 .state-surface p {
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.65;
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
 }
 
-.state-surface--error {
-  border-color: color-mix(in srgb, var(--danger) 24%, transparent);
+.state-surface .material-symbols-outlined {
+  font-size: 32px;
+  margin-bottom: var(--space-2);
 }
 
-.state-surface--empty {
-  border-color: color-mix(in srgb, var(--warning) 24%, transparent);
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-border-default);
+  border-top-color: var(--color-brand-primary);
+  border-radius: 50%;
+  margin: 0 auto var(--space-2);
+  animation: spin 0.8s linear infinite;
 }
 
-.state-surface--blocked {
-  border-color: color-mix(in srgb, var(--warning) 30%, transparent);
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .voice-list-enter-active,
@@ -235,6 +276,4 @@ const statusLabel = computed(() => {
   opacity: 0;
   transform: translateY(6px);
 }
-
-/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

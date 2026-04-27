@@ -15,7 +15,7 @@ from ai.providers.errors import ProviderHTTPException
 from ai.providers.gemini_generate import GeminiGenerateTextGenerationAdapter
 from ai.providers.openai_chat import OpenAIChatTextGenerationAdapter
 from ai.providers.openai_responses import OpenAIResponsesTextGenerationAdapter
-from ai.providers.tts_openai import OpenAITTSAdapter
+from ai.providers.tts_volcengine import VolcengineTTSAdapter
 from services.ai_capability_service import ProviderRuntimeConfig
 
 _TEXT_ADAPTERS: dict[str, type[TextGenerationAdapter]] = {
@@ -27,7 +27,7 @@ _TEXT_ADAPTERS: dict[str, type[TextGenerationAdapter]] = {
 }
 
 _TTS_ADAPTERS: dict[str, type[TTSAdapter]] = {
-    'openai': OpenAITTSAdapter,
+    'volcengine_tts': VolcengineTTSAdapter,
 }
 
 

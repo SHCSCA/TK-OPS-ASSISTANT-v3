@@ -1,56 +1,69 @@
 <template>
-  <section class="panel-shell">
+  <section class="panel-shell flex flex-col h-full">
     <header class="panel-heading">
-      <div>
+      <div class="panel-heading__title">
         <span class="panel-heading__kicker">配音版本</span>
         <strong>{{ tracks.length }} 条记录</strong>
       </div>
       <span class="panel-heading__chip" :data-state="status">{{ statusLabel }}</span>
     </header>
 
-    <div v-if="status === 'loading'" class="state-surface">
-      <strong>正在读取配音版本。</strong>
-      <p>{{ stateMessage }}</p>
-    </div>
-    <div v-else-if="status === 'error'" class="state-surface state-surface--error">
-      <strong>配音版本读取失败。</strong>
-      <p>{{ errorMessage || stateMessage }}</p>
-    </div>
-    <div v-else-if="tracks.length === 0" class="state-surface state-surface--empty">
-      <strong>暂无配音版本。</strong>
-      <p>{{ stateMessage }}</p>
-    </div>
+    <div class="list-viewport custom-scrollbar">
+      <div v-if="status === 'loading'" class="state-surface">
+        <div class="loading-spinner"></div>
+        <strong>正在读取配音版本</strong>
+        <p>{{ stateMessage }}</p>
+      </div>
+      <div v-else-if="status === 'error'" class="state-surface state-surface--error">
+        <span class="material-symbols-outlined text-danger">error</span>
+        <strong>读取失败</strong>
+        <p>{{ errorMessage || stateMessage }}</p>
+      </div>
+      <div v-else-if="tracks.length === 0" class="state-surface state-surface--empty">
+        <span class="material-symbols-outlined text-tertiary">history</span>
+        <strong>暂无历史版本</strong>
+        <p>{{ stateMessage }}</p>
+      </div>
 
-    <TransitionGroup v-else name="voice-version" tag="div" class="version-list">
-      <article
-        v-for="track in tracks"
-        :key="track.id"
-        class="version-item"
-        :class="{ 'version-item--active': selectedTrackId === track.id }"
-        @click="$emit('select', track.id)"
-      >
-        <div class="version-head">
-          <div>
-            <strong>{{ track.voiceName }}</strong>
-            <p>{{ track.source }} · {{ track.provider || "pending_provider" }}</p>
+      <TransitionGroup v-else name="voice-version" tag="div" class="version-list">
+        <article
+          v-for="track in tracks"
+          :key="track.id"
+          class="version-item"
+          :class="{ 'version-item--active': selectedTrackId === track.id }"
+          @click="$emit('select', track.id)"
+        >
+          <div class="version-item__head">
+            <div class="version-info">
+              <span class="version-voice">{{ track.voiceName }}</span>
+              <span class="version-tag">{{ track.provider || "volcengine" }}</span>
+            </div>
+            <div class="version-badge" :data-state="track.status">
+              {{ statusText(track.status) }}
+            </div>
           </div>
-          <span class="version-state" :data-state="track.status">{{ statusText(track.status) }}</span>
-        </div>
-        <dl class="version-meta">
-          <div>
-            <dt>段落数</dt>
-            <dd>{{ track.segments.length }}</dd>
+
+          <div class="version-item__body">
+            <div class="version-metric">
+              <span class="metric-label">段落</span>
+              <span class="metric-value">{{ track.segments.length }}</span>
+            </div>
+            <div class="version-metric">
+              <span class="metric-label">修订</span>
+              <span class="metric-value">v{{ track.version?.revision ?? 1 }}</span>
+            </div>
           </div>
-          <div>
-            <dt>文件</dt>
-            <dd>{{ track.filePath ?? "未生成真实音频" }}</dd>
+
+          <div class="version-item__footer">
+            <span class="version-date">{{ formatDate(track.createdAt) }}</span>
+            <button class="delete-link" type="button" @click.stop="confirmDelete(track.id)">
+              <span class="material-symbols-outlined">delete</span>
+              删除
+            </button>
           </div>
-        </dl>
-        <button class="delete-button" type="button" @click.stop="confirmDelete(track.id)">
-          删除
-        </button>
-      </article>
-    </TransitionGroup>
+        </article>
+      </TransitionGroup>
+    </div>
   </section>
 </template>
 
@@ -74,22 +87,28 @@ const emit = defineEmits<{
 }>();
 
 const statusLabel = computed(() => {
-  if (props.status === "loading") return "读取中";
-  if (props.status === "error") return "错误";
+  if (props.status === "loading") return "同步中";
+  if (props.status === "error") return "故障";
   if (props.status === "blocked") return "阻断";
-  if (props.tracks.length === 0) return "空态";
-  return "可用";
+  if (props.tracks.length === 0) return "无数据";
+  return "就绪";
 });
 
 function statusText(status: VoiceTrackStatus): string {
-  if (status === "blocked") return "版本：阻断草稿";
-  if (status === "ready") return "可用";
+  if (status === "blocked") return "草稿";
+  if (status === "ready") return "就绪";
   if (status === "generating") return "生成中";
-  return "错误";
+  return "异常";
+}
+
+function formatDate(value: string): string {
+  if (!value) return "未知时间";
+  const date = new Date(value);
+  return date.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function confirmDelete(trackId: string): void {
-  if (window.confirm("确认删除这个配音版本吗？")) {
+  if (window.confirm("确认删除这个配音版本吗？该操作不可撤销。")) {
     emit("delete", trackId);
   }
 }
@@ -97,194 +116,241 @@ function confirmDelete(trackId: string): void {
 
 <style scoped>
 .panel-shell {
-  min-height: 0;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: var(--bg-elevated);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-elevated);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .panel-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border-subtle);
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-muted);
 }
 
-.panel-heading > div {
+.panel-heading__title {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .panel-heading__kicker {
-  color: var(--text-tertiary);
-  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font: var(--font-caption);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-caption);
 }
 
 .panel-heading strong {
-  color: var(--text-primary);
-  font-size: 14px;
+  color: var(--color-text-primary);
+  font: var(--font-title-sm);
 }
 
-.panel-heading__chip,
-.version-state {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-size: 12px;
-  white-space: nowrap;
+.panel-heading__chip {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font: var(--font-caption);
+  background: var(--color-bg-canvas);
+  border: 1px solid var(--color-border-default);
 }
 
 .panel-heading__chip[data-state="loading"] {
-  border-color: color-mix(in srgb, var(--info) 28%, transparent);
-  color: var(--info);
-}
-
-.panel-heading__chip[data-state="error"] {
-  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
-  color: var(--danger);
+  color: var(--color-brand-primary);
+  border-color: var(--color-brand-secondary);
 }
 
 .panel-heading__chip[data-state="blocked"] {
-  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
-  color: var(--warning);
+  color: var(--color-warning);
+  border-color: rgba(245, 183, 64, 0.4);
 }
 
-.version-state[data-state="ready"] {
-  border-color: color-mix(in srgb, var(--brand-primary) 28%, transparent);
-  color: var(--brand-primary);
+.list-viewport {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
-.version-state[data-state="blocked"] {
-  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
-  color: var(--warning);
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
 }
 
-.version-state[data-state="error"] {
-  border-color: color-mix(in srgb, var(--danger) 28%, transparent);
-  color: var(--danger);
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+  border-radius: 3px;
 }
 
 .version-list {
+  padding: var(--space-3);
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: var(--space-2);
 }
 
 .version-item {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--bg-card);
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-canvas);
+  text-align: left;
   cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    transform 160ms ease,
-    background-color 160ms ease;
-}
-
-.version-item:hover,
-.version-item--active {
-  border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
-  background: color-mix(in srgb, var(--brand-primary) 8%, var(--bg-card));
-}
-
-.version-item:hover {
-  transform: translateY(-1px);
-}
-
-.version-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: grid;
   gap: 12px;
 }
 
-.version-head div {
+.version-item:hover {
+  border-color: var(--color-brand-secondary);
+  background: var(--color-bg-muted);
+}
+
+.version-item--active {
+  border-color: var(--color-brand-primary);
+  background: rgba(0, 188, 212, 0.04);
+  box-shadow: 0 0 0 1px var(--color-brand-primary);
+}
+
+.version-item__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.version-info {
   display: grid;
+  gap: 2px;
+}
+
+.version-voice {
+  font: var(--font-body-sm);
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.version-tag {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-code);
+  text-transform: uppercase;
+}
+
+.version-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-muted);
+}
+
+.version-badge[data-state="ready"] {
+  border-color: var(--color-brand-secondary);
+  color: var(--color-brand-primary);
+  background: rgba(0, 188, 212, 0.05);
+}
+
+.version-badge[data-state="blocked"] {
+  border-color: rgba(245, 183, 64, 0.4);
+  color: var(--color-warning);
+}
+
+.version-item__body {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.version-metric {
+  display: grid;
+  gap: 2px;
+}
+
+.metric-label {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+}
+
+.metric-value {
+  font: var(--font-caption);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.version-item__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.version-date {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+
+.delete-link {
+  display: flex;
+  align-items: center;
   gap: 4px;
-  min-width: 0;
-}
-
-.version-head strong {
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.version-head p,
-.version-meta dd {
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.6;
-  word-break: break-word;
-}
-
-.version-meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.version-meta div {
-  display: grid;
-  gap: 4px;
-}
-
-.version-meta dt {
-  color: var(--text-tertiary);
-  font-size: 11px;
-}
-
-.delete-button {
-  justify-self: start;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--color-text-tertiary);
+  font-size: 11px;
   cursor: pointer;
-  font-size: 12px;
-  padding: 4px 9px;
+  transition: color 0.2s;
+  padding: 2px 4px;
+  border-radius: 4px;
 }
 
-.delete-button:hover {
-  border-color: var(--danger);
-  color: var(--danger);
+.delete-link:hover {
+  color: var(--color-danger);
+  background: rgba(255, 90, 99, 0.05);
+}
+
+.delete-link .material-symbols-outlined {
+  font-size: 14px;
 }
 
 .state-surface {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
   display: grid;
-  gap: 6px;
-  padding: 16px;
-  margin: 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--bg-card);
-}
-
-.state-surface--error {
-  border-color: color-mix(in srgb, var(--danger) 24%, transparent);
-}
-
-.state-surface--empty {
-  border-color: color-mix(in srgb, var(--warning) 24%, transparent);
+  gap: var(--space-2);
 }
 
 .state-surface strong {
-  font-size: 14px;
+  font: var(--font-title-sm);
 }
 
 .state-surface p {
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.65;
+  font: var(--font-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.state-surface .material-symbols-outlined {
+  font-size: 32px;
+  margin-bottom: var(--space-2);
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-border-default);
+  border-top-color: var(--color-brand-primary);
+  border-radius: 50%;
+  margin: 0 auto var(--space-2);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .voice-version-enter-active,
@@ -297,6 +363,4 @@ function confirmDelete(trackId: string): void {
   opacity: 0;
   transform: translateY(6px);
 }
-
-/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

@@ -50,6 +50,9 @@ from services.ws_manager import ws_manager
 
 log = logging.getLogger(__name__)
 
+SUPPORTED_PROVIDER_IDS = ("openai", "deepseek", "volcengine", "volcengine_tts")
+SUPPORTED_TTS_PROVIDER_IDS = {"volcengine_tts"}
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderRuntimeConfig:
@@ -106,6 +109,12 @@ class AICapabilityService:
         provided_ids = {item.capabilityId for item in items}
         if provided_ids != set(CAPABILITY_IDS):
             raise HTTPException(status_code=400, detail="AI 能力配置不完整。")
+        for item in items:
+            self._validate_supported_capability_binding(
+                item.capabilityId,
+                provider_id=item.provider,
+                model_id=item.model,
+            )
 
         stored = [
             StoredAICapabilityConfig(
@@ -137,7 +146,7 @@ class AICapabilityService:
         api_key: str,
         base_url: str | None = None,
     ) -> AIProviderSecretStatusDto:
-        metadata = _get_provider_catalog_metadata(provider_id)
+        metadata = _get_supported_provider_catalog_metadata(provider_id)
         self._secret_store.set(f"provider:{provider_id}:api_key", api_key.strip())
         if base_url is not None:
             self._repository.save_provider_setting(provider_id, base_url.strip())
@@ -160,7 +169,7 @@ class AICapabilityService:
         }
         return [
             self.get_provider_status(provider_id, snapshots=snapshots)
-            for provider_id in _provider_catalog_metadata()
+            for provider_id in SUPPORTED_PROVIDER_IDS
         ]
 
     def get_provider_status(
@@ -169,7 +178,7 @@ class AICapabilityService:
         *,
         snapshots: dict[str, StoredAIProviderHealth] | None = None,
     ) -> AIProviderSecretStatusDto:
-        metadata = _get_provider_catalog_metadata(provider_id)
+        metadata = _get_supported_provider_catalog_metadata(provider_id)
         runtime = self.get_provider_runtime_config(provider_id)
         configured = _is_catalog_provider_configured(metadata, runtime)
         snapshot = None if snapshots is None else snapshots.get(provider_id)
@@ -190,10 +199,10 @@ class AICapabilityService:
         )
 
     def get_provider_catalog(self) -> list[AIProviderCatalogItemDto]:
-        return [self.get_provider_catalog_item(provider_id) for provider_id in _provider_catalog_metadata()]
+        return [self.get_provider_catalog_item(provider_id) for provider_id in SUPPORTED_PROVIDER_IDS]
 
     def get_provider_catalog_item(self, provider_id: str) -> AIProviderCatalogItemDto:
-        metadata = _get_provider_catalog_metadata(provider_id)
+        metadata = _get_supported_provider_catalog_metadata(provider_id)
         runtime = self._get_catalog_runtime_config(provider_id)
         configured = _is_catalog_provider_configured(metadata, runtime)
         return AIProviderCatalogItemDto(
@@ -229,7 +238,7 @@ class AICapabilityService:
                 errorCode=snapshots[provider_id].error_code if provider_id in snapshots else None,
                 errorMessage=snapshots[provider_id].error_message if provider_id in snapshots else None,
             )
-            for provider_id, metadata in _provider_catalog_metadata().items()
+            for provider_id, metadata in _supported_provider_catalog_metadata().items()
         ]
         refreshed_at = max((item.updated_at for item in snapshots.values()), default=None)
         return AIProviderHealthOverviewDto(providers=providers, refreshedAt=refreshed_at)
@@ -237,7 +246,7 @@ class AICapabilityService:
     def refresh_provider_health(self) -> AIProviderHealthOverviewDto:
         refreshed_at = _utc_now()
         snapshots: list[StoredAIProviderHealth] = []
-        for provider_id, metadata in _provider_catalog_metadata().items():
+        for provider_id, metadata in _supported_provider_catalog_metadata().items():
             try:
                 health = self.check_provider_health(provider_id)
                 snapshots.append(
@@ -271,7 +280,7 @@ class AICapabilityService:
         self._broadcast_ai_capability_changed(
             settings=settings,
             reason="provider_health_refreshed",
-            provider_ids=sorted(_provider_catalog_metadata()),
+            provider_ids=sorted(SUPPORTED_PROVIDER_IDS),
             capability_ids=list(CAPABILITY_IDS),
         )
         return self.get_provider_health_overview()
@@ -352,7 +361,7 @@ class AICapabilityService:
         )
 
     def get_provider_models(self, provider_id: str) -> list[AIModelCatalogItemDto]:
-        _get_provider_catalog_metadata(provider_id)
+        _get_supported_provider_catalog_metadata(provider_id)
         return [item for item in self._model_catalog() if item.provider == provider_id and item.enabled]
 
     def upsert_provider_model(
@@ -361,7 +370,7 @@ class AICapabilityService:
         model_id: str,
         payload: AIProviderModelUpsertInput,
     ) -> AIProviderModelWriteReceiptDto:
-        _get_provider_catalog_metadata(provider_id)
+        _get_supported_provider_catalog_metadata(provider_id)
         capability_kinds = [item.strip() for item in payload.capabilityKinds if item.strip()]
         if not capability_kinds:
             raise RuntimeHTTPException(
@@ -409,7 +418,7 @@ class AICapabilityService:
         return receipt
 
     def refresh_provider_models(self, provider_id: str) -> AIModelCatalogRefreshResultDto:
-        metadata = _get_provider_catalog_metadata(provider_id)
+        metadata = _get_supported_provider_catalog_metadata(provider_id)
         if not bool(metadata["supports_model_discovery"]):
             return AIModelCatalogRefreshResultDto(
                 provider=provider_id,
@@ -485,7 +494,7 @@ class AICapabilityService:
             return _fetch_openrouter_models(runtime)
         if provider_id == "ollama":
             return _fetch_ollama_models(runtime)
-        metadata = _get_provider_catalog_metadata(provider_id)
+        metadata = _get_supported_provider_catalog_metadata(provider_id)
         if metadata.get("protocol") == "openai_chat":
             return _fetch_openai_compatible_models(runtime)
         raise RuntimeHTTPException(
@@ -526,19 +535,10 @@ class AICapabilityService:
         *,
         model: str | None = None,
     ) -> AIProviderHealthDto:
-        metadata = _get_provider_catalog_metadata(provider_id)
+        metadata = _get_supported_provider_catalog_metadata(provider_id)
         runtime = self.get_provider_runtime_config(provider_id)
         checked_at = _utc_now()
-
-        if "text_generation" not in metadata["capabilities"]:
-            return AIProviderHealthDto(
-                provider=provider_id,
-                status="unsupported",
-                message="当前 Provider 已注册，但当前阶段尚未接入文本模型连通性检测。",
-                model=None,
-                checkedAt=checked_at,
-                latencyMs=None,
-            )
+        capabilities = {str(item) for item in metadata["capabilities"]}
 
         if bool(metadata["requires_base_url"]) and runtime.base_url.strip() == "":
             return AIProviderHealthDto(
@@ -558,6 +558,14 @@ class AICapabilityService:
                 model=model,
                 checkedAt=checked_at,
                 latencyMs=None,
+            )
+
+        if "text_generation" not in capabilities:
+            return self._check_specialized_provider_health(
+                provider_id,
+                capabilities=capabilities,
+                model=model,
+                checked_at=checked_at,
             )
 
         requested_model = (model or self._default_probe_model(provider_id)).strip()
@@ -605,6 +613,69 @@ class AICapabilityService:
             model=resolved_model,
             checkedAt=checked_at,
             latencyMs=int(probe["latency_ms"]) if probe["latency_ms"] is not None else None,
+        )
+
+    def _check_specialized_provider_health(
+        self,
+        provider_id: str,
+        *,
+        capabilities: set[str],
+        model: str | None,
+        checked_at: str,
+    ) -> AIProviderHealthDto:
+        if "tts" not in capabilities:
+            return AIProviderHealthDto(
+                provider=provider_id,
+                status="unsupported",
+                message="当前 Provider 已注册，但该专项能力尚未接入通用连接检查。",
+                model=None,
+                checkedAt=checked_at,
+                latencyMs=None,
+            )
+
+        requested_model = (model or self._default_probe_model(provider_id, "tts")).strip()
+        resolved_model = self.resolve_provider_model_id(
+            provider_id,
+            requested_model,
+            required_capability_type="tts",
+        )
+        if resolved_model == "":
+            return AIProviderHealthDto(
+                provider=provider_id,
+                status="misconfigured",
+                message="当前 TTS Provider 暂无可用于配音生成的语音模型。",
+                model=None,
+                checkedAt=checked_at,
+                latencyMs=None,
+            )
+
+        model_info = self._find_model(provider_id, resolved_model)
+        if model_info is None:
+            return AIProviderHealthDto(
+                provider=provider_id,
+                status="misconfigured",
+                message="当前语音模型不在模型目录中，请先同步目录或选择已登记的语音模型。",
+                model=resolved_model,
+                checkedAt=checked_at,
+                latencyMs=None,
+            )
+        if "tts" not in model_info.capabilityTypes:
+            return AIProviderHealthDto(
+                provider=provider_id,
+                status="unsupported",
+                message="当前模型不是语音合成模型，不能用于配音生成检查。",
+                model=resolved_model,
+                checkedAt=checked_at,
+                latencyMs=None,
+            )
+
+        return AIProviderHealthDto(
+            provider=provider_id,
+            status="ready",
+            message="语音合成 Provider 已配置，模型目录可用于配音生成；真实音色、额度和返回音频请在配音中心执行一次生成确认。",
+            model=resolved_model,
+            checkedAt=checked_at,
+            latencyMs=None,
         )
 
     def get_capability(self, capability_id: str) -> AICapabilityConfigDto:
@@ -655,7 +726,7 @@ class AICapabilityService:
         return requested_model
 
     def _get_catalog_runtime_config(self, provider_id: str) -> ProviderRuntimeConfig:
-        metadata = _get_provider_catalog_metadata(provider_id)
+        metadata = _get_supported_provider_catalog_metadata(provider_id)
         base_urls = {item.provider_id: item.base_url for item in self._repository.load_provider_settings()}
         secret_key = self._secret_store.get(f"provider:{provider_id}:api_key")
         secret_source = "secure_store"
@@ -760,11 +831,14 @@ class AICapabilityService:
                 continue
             if _is_static_model_superseded(item, remote_models):
                 models.pop(key, None)
-        return sorted(models.values(), key=lambda item: (item.provider, item.modelId))
+        return sorted(
+            (item for item in models.values() if item.provider in SUPPORTED_PROVIDER_IDS),
+            key=lambda item: (item.provider, item.modelId),
+        )
 
-    def _default_probe_model(self, provider_id: str) -> str:
+    def _default_probe_model(self, provider_id: str, required_capability_type: str = "text_generation") -> str:
         for item in self._model_catalog():
-            if item.provider == provider_id and "text_generation" in item.capabilityTypes and item.enabled:
+            if item.provider == provider_id and required_capability_type in item.capabilityTypes and item.enabled:
                 return item.modelId
         return ""
 
@@ -805,7 +879,11 @@ class AICapabilityService:
     def _load_or_create_capabilities(self) -> list[StoredAICapabilityConfig]:
         stored = self._repository.load_capabilities()
         if stored:
-            known_stored = [item for item in stored if item.capability_id in CAPABILITY_IDS]
+            known_stored = [
+                self._supported_capability_config(item)
+                for item in stored
+                if item.capability_id in CAPABILITY_IDS
+            ]
             configs_by_id = {
                 item.capability_id: _with_default_prompt_fields(item)
                 for item in known_stored
@@ -825,6 +903,54 @@ class AICapabilityService:
             for capability_id in CAPABILITY_IDS
         ]
         return self._repository.save_capabilities(defaults)
+
+    def _supported_capability_config(
+        self,
+        item: StoredAICapabilityConfig,
+    ) -> StoredAICapabilityConfig:
+        if not self._capability_binding_supported(
+            item.capability_id,
+            provider_id=item.provider,
+            model_id=item.model,
+        ):
+            return _default_capability_config(item.capability_id)
+        return item
+
+    def _validate_supported_capability_binding(
+        self,
+        capability_id: str,
+        *,
+        provider_id: str,
+        model_id: str,
+    ) -> None:
+        if not self._capability_binding_supported(
+            capability_id,
+            provider_id=provider_id,
+            model_id=model_id,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="当前能力只能绑定已接入且匹配能力类型的 Provider 与模型。",
+            )
+
+    def _capability_binding_supported(
+        self,
+        capability_id: str,
+        *,
+        provider_id: str,
+        model_id: str,
+    ) -> bool:
+        if capability_id not in CAPABILITY_IDS or provider_id not in SUPPORTED_PROVIDER_IDS:
+            return False
+        if capability_id == "tts_generation" and provider_id not in SUPPORTED_TTS_PROVIDER_IDS:
+            return False
+        return any(
+            item.provider == provider_id
+            and item.modelId == model_id
+            and item.enabled
+            and _model_supports_capability(item, capability_id)
+            for item in self._model_catalog()
+        )
 
     def _to_capability_dto(self, item: StoredAICapabilityConfig) -> AICapabilityConfigDto:
         return AICapabilityConfigDto(
@@ -874,6 +1000,10 @@ def _default_capability_config(capability_id: str) -> StoredAICapabilityConfig:
 def _default_provider_for_capability(capability_id: str) -> str:
     if capability_id == "asset_analysis":
         return "volcengine"
+    if capability_id == "tts_generation":
+        return "volcengine_tts"
+    if capability_id == "video_generation":
+        return "volcengine"
     if capability_id == "video_transcription":
         return "openai"
     return "openai"
@@ -884,6 +1014,10 @@ def _default_model_for_capability(capability_id: str) -> str:
         return "gpt-5"
     if capability_id == "asset_analysis":
         return "doubao-seed-2.0-pro"
+    if capability_id == "tts_generation":
+        return "seed-tts-2.0"
+    if capability_id == "video_generation":
+        return "seedance-2.0"
     if capability_id == "video_transcription":
         return "whisper-1"
     return "gpt-5-mini"
@@ -897,10 +1031,10 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             "TK_OPS_OPENAI_API_KEY",
             "TK_OPS_OPENAI_BASE_URL",
             "https://api.openai.com/v1/responses",
-            ["text_generation", "vision", "tts", "speech_to_text"],
+            ["text_generation", "vision", "speech_to_text"],
             category="model_hub",
             protocol="openai_responses",
-            tags=["国际", "文本", "视觉", "TTS"],
+            tags=["国际", "文本", "视觉"],
         ),
         "openai_compatible": _catalog_item(
             "OpenAI-compatible",
@@ -996,12 +1130,12 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             "TK_OPS_VOLCENGINE_API_KEY",
             "TK_OPS_VOLCENGINE_BASE_URL",
             "https://ark.cn-beijing.volces.com/api/v3",
-            ["text_generation", "vision", "asset_analysis", "video_generation", "tts"],
+            ["text_generation", "vision", "asset_analysis", "video_generation"],
             region="domestic",
             category="model_hub",
             protocol="openai_chat",
             supports_model_discovery=True,
-            tags=["国内", "文本", "视觉", "视频理解", "视频", "TTS"],
+            tags=["国内", "文本", "视觉", "视频理解", "视频"],
         ),
         "baidu_qianfan": _catalog_item(
             "百度千帆",
@@ -1159,6 +1293,19 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             protocol="tts_openai",
             model_sync_mode="manual",
             tags=["国际", "TTS"],
+        ),
+        "volcengine_tts": _catalog_item(
+            "火山豆包语音",
+            "media",
+            "TK_OPS_VOLCENGINE_TTS_API_KEY",
+            "TK_OPS_VOLCENGINE_TTS_BASE_URL",
+            "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
+            ["tts"],
+            region="domestic",
+            category="tts",
+            protocol="volcengine_tts",
+            model_sync_mode="manual",
+            tags=["国内", "豆包语音", "TTS"],
         ),
         "elevenlabs": _catalog_item(
             "ElevenLabs",
@@ -1369,7 +1516,7 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             tags=["国内", "视频"],
         ),
         "video_generation_provider": _catalog_item(
-            "视频生成 Provider",
+            "自定义视频生成网关",
             "media",
             "TK_OPS_VIDEO_GENERATION_PROVIDER_API_KEY",
             "TK_OPS_VIDEO_GENERATION_PROVIDER_BASE_URL",
@@ -1383,7 +1530,7 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             tags=["自定义", "视频", "远端同步"],
         ),
         "asset_analysis_provider": _catalog_item(
-            "资产分析 Provider",
+            "自定义资产分析网关",
             "media",
             "TK_OPS_ASSET_ANALYSIS_PROVIDER_API_KEY",
             "TK_OPS_ASSET_ANALYSIS_PROVIDER_BASE_URL",
@@ -1411,7 +1558,7 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             tags=["自定义", "OpenAI 兼容", "文本", "视觉"],
         ),
         "custom_video_provider": _catalog_item(
-            "自定义视频 Provider",
+            "自定义视频生成（手动目录）",
             "custom",
             "TK_OPS_CUSTOM_VIDEO_PROVIDER_API_KEY",
             "TK_OPS_CUSTOM_VIDEO_PROVIDER_BASE_URL",
@@ -1425,7 +1572,7 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             tags=["自定义", "视频"],
         ),
         "custom_tts_provider": _catalog_item(
-            "自定义 TTS Provider",
+            "自定义语音合成（手动目录）",
             "custom",
             "TK_OPS_CUSTOM_TTS_PROVIDER_API_KEY",
             "TK_OPS_CUSTOM_TTS_PROVIDER_BASE_URL",
@@ -1439,7 +1586,7 @@ def _provider_catalog_metadata() -> dict[str, dict[str, object]]:
             tags=["自定义", "TTS"],
         ),
         "custom_transcription_provider": _catalog_item(
-            "自定义转录 Provider",
+            "自定义语音转写",
             "custom",
             "TK_OPS_CUSTOM_TRANSCRIPTION_PROVIDER_API_KEY",
             "TK_OPS_CUSTOM_TRANSCRIPTION_PROVIDER_BASE_URL",
@@ -1495,6 +1642,17 @@ def _get_provider_catalog_metadata(provider_id: str) -> dict[str, object]:
     if metadata is None:
         raise HTTPException(status_code=404, detail="未找到 AI Provider。")
     return metadata
+
+
+def _supported_provider_catalog_metadata() -> dict[str, dict[str, object]]:
+    catalog = _provider_catalog_metadata()
+    return {provider_id: catalog[provider_id] for provider_id in SUPPORTED_PROVIDER_IDS if provider_id in catalog}
+
+
+def _get_supported_provider_catalog_metadata(provider_id: str) -> dict[str, object]:
+    if provider_id not in SUPPORTED_PROVIDER_IDS:
+        raise HTTPException(status_code=404, detail="当前版本暂未接入该 AI Provider。")
+    return _get_provider_catalog_metadata(provider_id)
 
 
 def _is_catalog_provider_configured(
@@ -2173,7 +2331,6 @@ def _static_model_catalog() -> list[AIModelCatalogItemDto]:
         _model("openai", "gpt-5", "GPT-5", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation"]),
         _model("openai", "gpt-5.4", "GPT-5.4", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation", "script_rewrite", "storyboard_generation"]),
         _model("openai", "gpt-5-mini", "GPT-5 Mini", ["text_generation"], ["text"], ["text"], ["script_rewrite"]),
-        _model("openai", "gpt-4o-mini-tts", "GPT-4o Mini TTS", ["tts"], ["text"], ["audio"], ["tts_generation"]),
         _model("openai", "whisper-1", "Whisper 1", ["speech_to_text"], ["audio", "video"], ["text"], ["video_transcription"]),
         _model("anthropic", "claude-sonnet", "Claude Sonnet", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation", "script_rewrite"]),
         _model("gemini", "gemini-pro", "Gemini Pro", ["text_generation", "vision", "asset_analysis"], ["text", "image", "video"], ["text"], ["storyboard_generation", "asset_analysis"]),
@@ -2185,7 +2342,8 @@ def _static_model_catalog() -> list[AIModelCatalogItemDto]:
         _model("volcengine", "doubao-seed-2.0-pro", "Doubao-Seed-2.0-pro", ["text_generation", "vision", "asset_analysis"], ["text", "image", "video"], ["text"], ["asset_analysis"]),
         _model("volcengine", "doubao-seed-2.0-lite", "Doubao-Seed-2.0-lite", ["text_generation", "vision", "asset_analysis"], ["text", "image", "video"], ["text"], ["asset_analysis"]),
         _model("volcengine", "seedance-2.0", "Seedance 2.0", ["video_generation"], ["text", "image"], ["video"], ["video_generation"]),
-        _model("volcengine", "doubao-tts", "豆包 TTS", ["tts"], ["text"], ["audio"], ["tts_generation"]),
+        _model("volcengine_tts", "seed-tts-1.0", "豆包语音合成 1.0", ["tts"], ["text"], ["audio"], ["tts_generation"]),
+        _model("volcengine_tts", "seed-tts-2.0", "豆包语音合成 2.0", ["tts"], ["text"], ["audio"], ["tts_generation"]),
         _model("baidu_qianfan", "ernie-4.5", "ERNIE 4.5", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation", "asset_analysis"]),
         _model("tencent_hunyuan", "hunyuan-turbos", "混元 TurboS", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation"]),
         _model("xunfei_spark", "spark-max", "讯飞星火 Max", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation"]),

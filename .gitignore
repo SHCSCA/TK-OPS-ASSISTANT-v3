@@ -41,6 +41,7 @@ apps/desktop/src-tauri/gen/
 apps/desktop/src-tauri/resources/bin/ffprobe/windows-x64/ffprobe.exe
 apps/desktop/.media-tools-tmp/
 apps/desktop/tool/ffmpeg/
+apps/desktop/tool/ffmpeg-*/
 
 # Playwright local artifacts
 .playwright-cli/

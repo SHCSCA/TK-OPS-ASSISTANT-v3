@@ -22,6 +22,14 @@ class VoiceProfileCreateInput(BaseModel):
     enabled: bool = True
 
 
+class VoiceProfileRefreshResultDto(BaseModel):
+    provider: str
+    status: str
+    message: str
+    savedCount: int
+    profiles: list[VoiceProfileDto]
+
+
 class VoiceSegmentRegenerateInput(BaseModel):
     profileId: str | None = None
     speed: float = Field(default=1.0, ge=0.5, le=2.0)

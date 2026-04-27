@@ -273,10 +273,13 @@ describe("AI 与系统设置页", () => {
     const providerSelect = wrapper.get('select[data-field="capability.script_generation.provider"]')
       .element as HTMLSelectElement;
     const providerOptions = Array.from(providerSelect.options);
-    expect(providerOptions.map((option) => option.value)).toEqual(
-      expect.arrayContaining(["openai", "deepseek", "qwen", "volcengine", "ollama", "custom_openai_compatible"])
-    );
-    expect(providerOptions.find((option) => option.value === "qwen")?.disabled).toBe(false);
+    const providerValues = providerOptions.map((option) => option.value);
+    expect(providerValues).toEqual(expect.arrayContaining(["openai", "deepseek", "volcengine"]));
+    expect(providerValues.filter(Boolean)).toHaveLength(3);
+    expect(providerValues).not.toContain("volcengine_tts");
+    expect(providerValues).not.toContain("ollama");
+    expect(providerValues).not.toContain("custom_tts_provider");
+    expect(providerValues).not.toContain("custom_openai_compatible");
     expect(
       (wrapper.get('select[data-field="capability.script_generation.model"]').element as HTMLSelectElement)
         .value
@@ -301,7 +304,7 @@ describe("AI 与系统设置页", () => {
         userPromptTemplate?: string;
       }>;
     };
-    expect(payload.capabilities).toHaveLength(7);
+    expect(payload.capabilities).toHaveLength(8);
     expect(payload.capabilities.find((item) => item.capabilityId === "script_generation")?.model).toBe(
       "gpt-5.4"
     );
@@ -367,8 +370,9 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.find(".provider-model-directory").exists()).toBe(true);
     expect(wrapper.find(".provider-credential-inspector").exists()).toBe(true);
     expect(wrapper.text()).toContain("连接凭据");
-    expect(wrapper.text()).toContain("厂商模板库");
-    expect(wrapper.text()).toContain("新增自定义");
+    expect(wrapper.text()).toContain("分组厂商模板");
+    expect(wrapper.text()).not.toContain("新增自定义");
+    expect(wrapper.text()).not.toContain("自定义接入");
     expect(wrapper.find('[data-testid="provider-picker"]').exists()).toBe(true);
     expect(wrapper.findAll(".provider-catalog-card")).toHaveLength(0);
     expect(wrapper.findAll(".provider-connected-list__item").length).toBeLessThan(
@@ -380,7 +384,22 @@ describe("AI 与系统设置页", () => {
       .findAll("option")
       .map((item) => item.text());
     expect(providerOptions).toContain("DeepSeek");
-    expect(providerOptions).toContain("Ollama");
+    expect(providerOptions).toContain("火山方舟");
+    expect(providerOptions).not.toContain("Ollama");
+    expect(providerOptions).toContain("火山豆包语音");
+    expect(providerOptions).not.toContain("自定义 OpenAI 兼容");
+    expect(providerOptions).not.toContain("自定义语音合成（手动目录）");
+    const providerPicker = wrapper.get('select[data-field="provider.selected"]').element as HTMLSelectElement;
+    const providerOptionValues = Array.from(providerPicker.options).map((option) => option.value);
+    expect(providerOptionValues).not.toContain("custom_openai_compatible");
+    expect(providerOptionValues).not.toContain("custom_tts_provider");
+    expect(providerOptionValues).not.toContain("openai_compatible");
+    const providerGroups = Array.from(providerPicker.querySelectorAll("optgroup"));
+    expect(providerGroups.map((group) => group.label)).toEqual(
+      expect.arrayContaining(["模型平台", "媒体专项"])
+    );
+    expect(providerGroups.find((group) => group.label === "媒体专项")?.textContent).toContain("火山豆包语音");
+    expect(providerGroups.find((group) => group.label === "自定义接入")).toBeUndefined();
     expect(wrapper.text()).toContain("文本");
     expect(wrapper.text()).toContain("视觉");
 

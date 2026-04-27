@@ -86,7 +86,7 @@ def test_settings_diagnostics_marks_ffprobe_warning_when_tool_is_missing(
     assert ffprobe_item["actionLabel"] == "准备媒体工具"
 
 
-def test_settings_diagnostics_warns_when_transcription_protocol_is_not_implemented(
+def test_settings_diagnostics_rejects_unconnected_transcription_provider(
     runtime_client: TestClient,
 ) -> None:
     settings_response = runtime_client.get("/api/settings/ai-capabilities")
@@ -105,22 +105,8 @@ def test_settings_diagnostics_warns_when_transcription_protocol_is_not_implement
         "/api/settings/ai-capabilities",
         json={"capabilities": capabilities},
     )
-    assert update_response.status_code == 200
-    secret_response = runtime_client.put(
-        "/api/settings/ai-capabilities/providers/volcengine_asr/secret",
-        json={"apiKey": "sk-test", "baseUrl": "https://example.test/asr"},
-    )
-    assert secret_response.status_code == 200
-
-    response = runtime_client.get("/api/settings/diagnostics")
-
-    assert response.status_code == 200
-    transcription_item = next(
-        item for item in response.json()["data"]["items"]
-        if item["id"] == "ai.video_transcription"
-    )
-    assert transcription_item["status"] == "warning"
-    assert transcription_item["summary"] == "视频解析模型尚未配置为多模态文本模型。"
+    assert update_response.status_code == 400
+    assert update_response.json()["ok"] is False
 
 
 def test_settings_diagnostics_accepts_multimodal_video_transcription_model(

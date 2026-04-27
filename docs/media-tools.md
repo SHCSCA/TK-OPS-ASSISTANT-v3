@@ -16,6 +16,15 @@ apps/desktop/src-tauri/resources/bin/ffprobe/windows-x64/ffprobe.exe
 
 如果文件存在且 SHA256 匹配，会直接跳过下载；如果不存在或校验失败，会下载固定版本的 LGPL Windows x64 构建包，解压 `ffprobe.exe` 并再次校验。
 
+如果本机已经有本地工具目录，准备脚本会优先从以下路径复制 `ffprobe.exe` 到 Tauri 资源目录：
+
+```text
+apps/desktop/tool/ffmpeg-8.1-essentials_build/bin/ffprobe.exe
+apps/desktop/tool/ffmpeg/bin/ffprobe.exe
+```
+
+这些本地工具目录不进入 Git，只作为开发机缓存。
+
 ## 默认来源
 
 - 来源：BtbN FFmpeg-Builds GitHub Releases

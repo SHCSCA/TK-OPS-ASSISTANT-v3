@@ -32,6 +32,12 @@ def create_profile(
     return ok_response(profile.model_dump(mode="json"))
 
 
+@router.post("/providers/{provider_id}/profiles/refresh")
+def refresh_provider_profiles(provider_id: str, request: Request) -> dict[str, object]:
+    result = _svc(request).refresh_provider_profiles(provider_id)
+    return ok_response(result.model_dump(mode="json"))
+
+
 @router.get("/projects/{project_id}/tracks")
 def list_project_tracks(project_id: str, request: Request) -> dict[str, object]:
     tracks = _svc(request).list_tracks(project_id)

@@ -11,6 +11,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(__dirname, "..");
 const resourcesRoot = join(desktopRoot, "src-tauri", "resources");
 const ffprobeTarget = join(resourcesRoot, "bin", "ffprobe", "windows-x64", "ffprobe.exe");
+const localFfprobeCandidates = [
+  join(desktopRoot, "tool", "ffmpeg-8.1-essentials_build", "bin", "ffprobe.exe"),
+  join(desktopRoot, "tool", "ffmpeg", "bin", "ffprobe.exe")
+];
 const tempRoot = join(desktopRoot, ".media-tools-tmp");
 const archivePath = join(tempRoot, "ffmpeg-win64-lgpl-shared.zip");
 const extractDir = join(tempRoot, "extract");
@@ -32,6 +36,13 @@ async function main() {
     return;
   }
 
+  const localFfprobe = await findLocalFfprobe();
+  if (localFfprobe) {
+    await copyPreparedFfprobe(localFfprobe);
+    log(`已使用本地 FFprobe：${localFfprobe}`);
+    return;
+  }
+
   await rm(tempRoot, { force: true, recursive: true });
   await mkdir(tempRoot, { recursive: true });
   await mkdir(dirname(ffprobeTarget), { recursive: true });
@@ -43,14 +54,30 @@ async function main() {
     await expandArchive(archivePath, extractDir);
     const extracted = await findExtractedFfprobe(extractDir);
     await assertHash(extracted, tool.binarySha256, "FFprobe 可执行文件校验失败");
-    await rm(ffprobeTarget, { force: true });
-    await mkdir(dirname(ffprobeTarget), { recursive: true });
-    await copyFileWithPowerShell(extracted, ffprobeTarget);
+    await copyPreparedFfprobe(extracted);
     await assertHash(ffprobeTarget, tool.binarySha256, "FFprobe 写入后校验失败");
     log(`FFprobe 已准备完成：${ffprobeTarget}`);
   } finally {
     await rm(tempRoot, { force: true, recursive: true });
   }
+}
+
+async function findLocalFfprobe() {
+  for (const candidate of localFfprobeCandidates) {
+    try {
+      await stat(candidate);
+      return candidate;
+    } catch {
+      // 继续检查下一个本地候选路径
+    }
+  }
+  return null;
+}
+
+async function copyPreparedFfprobe(source) {
+  await rm(ffprobeTarget, { force: true });
+  await mkdir(dirname(ffprobeTarget), { recursive: true });
+  await copyFileWithPowerShell(source, ffprobeTarget);
 }
 
 async function hasValidBinary() {

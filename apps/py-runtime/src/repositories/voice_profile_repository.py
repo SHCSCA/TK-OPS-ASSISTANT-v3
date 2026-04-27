@@ -32,3 +32,25 @@ class VoiceProfileRepository:
             session.refresh(profile)
             session.expunge(profile)
             return profile
+
+    def upsert_profile(self, profile: VoiceProfile) -> VoiceProfile:
+        with self._session_factory() as session:
+            existing = session.get(VoiceProfile, profile.id)
+            if existing is None:
+                session.add(profile)
+                session.commit()
+                session.refresh(profile)
+                session.expunge(profile)
+                return profile
+
+            existing.provider = profile.provider
+            existing.voice_id = profile.voice_id
+            existing.display_name = profile.display_name
+            existing.locale = profile.locale
+            existing.tags_json = profile.tags_json
+            existing.enabled = profile.enabled
+            existing.updated_at = profile.updated_at
+            session.commit()
+            session.refresh(existing)
+            session.expunge(existing)
+            return existing

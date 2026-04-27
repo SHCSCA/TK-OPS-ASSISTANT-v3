@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from services.ai_default_prompts import DEFAULT_AGENT_PROMPT_CONFIG
@@ -38,14 +40,18 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
         'asset_analysis',
     }
     providers = {item['provider']: item for item in payload['data']['providers']}
-    assert {'openai', 'openai_compatible', 'anthropic', 'gemini', 'deepseek', 'openrouter', 'ollama'} <= set(
-        providers
-    )
+    assert set(providers) == {'openai', 'deepseek', 'volcengine', 'volcengine_tts'}
     assert providers['openai']['configured'] is False
     assert providers['openai']['maskedSecret'] == ''
     assert providers['openai']['readiness'] == 'not_configured'
     assert providers['openai']['scope'] == 'runtime_local'
     assert 'apiKey' not in providers['openai']
+    tts_generation = next(
+        item for item in payload['data']['capabilities']
+        if item['capabilityId'] == 'tts_generation'
+    )
+    assert tts_generation['provider'] == 'volcengine_tts'
+    assert tts_generation['model'] == 'seed-tts-2.0'
     asset_analysis = next(
         item for item in payload['data']['capabilities']
         if item['capabilityId'] == 'asset_analysis'
@@ -77,6 +83,30 @@ def test_ai_capabilities_use_agent_prompt_config_defaults(
     assert '{{voice_id}}' in capabilities['tts_generation']['userPromptTemplate']
     assert '{{audio_url}}' in capabilities['subtitle_alignment']['userPromptTemplate']
     assert '{{media_file}}' in capabilities['video_transcription']['userPromptTemplate']
+    script_prompt = (
+        capabilities['script_generation']['systemPrompt']
+        + capabilities['script_generation']['userPromptTemplate']
+    )
+    assert '前 3 秒强钩子' in script_prompt
+    assert '每 5-8 秒' in script_prompt
+    assert '手机竖屏' in script_prompt
+    assert '字段值允许为空字符串或空数组' in script_prompt
+    assert '严格 JSON' in script_prompt
+    rewrite_prompt = (
+        capabilities['script_rewrite']['systemPrompt']
+        + capabilities['script_rewrite']['userPromptTemplate']
+    )
+    assert 'changedSegments' in rewrite_prompt
+    assert '下游分镜、配音和字幕' in rewrite_prompt
+    assert '完整新版脚本 JSON' in rewrite_prompt
+    storyboard_prompt = (
+        capabilities['storyboard_generation']['systemPrompt']
+        + capabilities['storyboard_generation']['userPromptTemplate']
+    )
+    assert 'shotId' in storyboard_prompt
+    assert '真实实拍' in storyboard_prompt
+    assert 'AI 视频' in storyboard_prompt
+    assert '严格 JSON' in storyboard_prompt
     video_prompt = (
         capabilities['video_transcription']['systemPrompt']
         + capabilities['video_transcription']['userPromptTemplate']
@@ -172,7 +202,7 @@ def test_ai_capability_mutations_emit_broadcast_events(runtime_app) -> None:
         settings_response = client.get('/api/settings/ai-capabilities')
         assert settings_response.status_code == 200
         capabilities = settings_response.json()['data']['capabilities']
-        capabilities[0]['model'] = 'gpt-5.4-runtime-test'
+        capabilities[0]['model'] = 'gpt-5.4'
 
         update_response = client.put(
             '/api/settings/ai-capabilities',
@@ -237,28 +267,24 @@ def test_provider_runtime_config_exposes_protocol_family_and_media_flags(runtime
     service = runtime_app.state.ai_capability_service
 
     openai_runtime = service.get_provider_runtime_config('openai')
-    openai_compatible_runtime = service.get_provider_runtime_config('openai_compatible')
-    volcengine_asr_runtime = service.get_provider_runtime_config('volcengine_asr')
-    anthropic_runtime = service.get_provider_runtime_config('anthropic')
-    gemini_runtime = service.get_provider_runtime_config('gemini')
-    cohere_runtime = service.get_provider_runtime_config('cohere')
-    ollama_runtime = service.get_provider_runtime_config('ollama')
+    deepseek_runtime = service.get_provider_runtime_config('deepseek')
+    volcengine_runtime = service.get_provider_runtime_config('volcengine')
+    volcengine_tts_runtime = service.get_provider_runtime_config('volcengine_tts')
 
     assert openai_runtime.protocol_family == 'openai_responses'
-    assert openai_runtime.supports_tts is True
+    assert openai_runtime.supports_tts is False
     assert openai_runtime.supports_speech_to_text is True
     assert openai_runtime.requires_secret is True
-    assert openai_compatible_runtime.protocol_family == 'openai_chat'
-    assert openai_compatible_runtime.supports_tts is False
-    assert openai_compatible_runtime.supports_speech_to_text is True
-    assert openai_compatible_runtime.requires_secret is True
-    assert volcengine_asr_runtime.protocol_family == 'domestic_asr'
-    assert volcengine_asr_runtime.supports_speech_to_text is True
-    assert anthropic_runtime.protocol_family == 'anthropic_messages'
-    assert gemini_runtime.protocol_family == 'gemini_generate'
-    assert cohere_runtime.protocol_family == 'cohere_chat'
-    assert ollama_runtime.protocol_family == 'openai_chat'
-    assert ollama_runtime.requires_secret is False
+    assert deepseek_runtime.protocol_family == 'openai_chat'
+    assert deepseek_runtime.supports_tts is False
+    assert volcengine_runtime.protocol_family == 'openai_chat'
+    assert volcengine_runtime.supports_tts is False
+    assert volcengine_runtime.supports_text_generation is True
+    assert volcengine_tts_runtime.protocol_family == 'volcengine_tts'
+    assert volcengine_tts_runtime.supports_tts is True
+    assert volcengine_tts_runtime.supports_text_generation is False
+    with pytest.raises(HTTPException):
+        service.get_provider_runtime_config('ollama')
 
 
 def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
@@ -298,8 +324,8 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                 {
                     'capabilityId': 'tts_generation',
                     'enabled': False,
-                    'provider': 'openai',
-                    'model': 'gpt-5-mini',
+                    'provider': 'volcengine_tts',
+                    'model': 'seed-tts-2.0',
                     'agentRole': 'Voice designer',
                     'systemPrompt': 'Prepare TTS settings.',
                     'userPromptTemplate': 'Voice: {{script}}',
@@ -325,8 +351,8 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                 {
                     'capabilityId': 'video_generation',
                     'enabled': False,
-                    'provider': 'openai_compatible',
-                    'model': 'custom-video',
+                    'provider': 'volcengine',
+                    'model': 'seedance-2.0',
                     'agentRole': 'Video generator',
                     'systemPrompt': 'Prepare shots.',
                     'userPromptTemplate': 'Video: {{storyboard}}',
@@ -334,8 +360,8 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                 {
                     'capabilityId': 'asset_analysis',
                     'enabled': False,
-                    'provider': 'gemini',
-                    'model': 'gemini-2.5-pro',
+                    'provider': 'volcengine',
+                    'model': 'doubao-seed-2.0-pro',
                     'agentRole': 'Asset analyst',
                     'systemPrompt': 'Analyze assets.',
                     'userPromptTemplate': 'Assets: {{assets}}',
@@ -378,7 +404,7 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
         updated['script_generation']['promptPreview']['systemPrompt']
         == DEFAULT_AGENT_PROMPT_CONFIG['script_generation']['system_prompt']
     )
-    assert updated['video_generation']['provider'] == 'openai_compatible'
+    assert updated['video_generation']['provider'] == 'volcengine'
     assert providers['openai']['configured'] is True
     assert providers['openai']['maskedSecret']
 
@@ -423,106 +449,36 @@ def test_ai_provider_catalog_model_catalog_and_refresh_are_runtime_backed(
     assert catalog_response.status_code == 200
     catalog_payload = catalog_response.json()['data']
     providers = {item['provider']: item for item in catalog_payload}
+    assert set(providers) == {'openai', 'deepseek', 'volcengine', 'volcengine_tts'}
     assert providers['openai']['kind'] == 'commercial'
-    assert providers['openai_compatible']['requiresBaseUrl'] is True
-    assert providers['ollama']['kind'] == 'local'
+    assert 'tts' not in providers['openai']['capabilities']
     assert providers['deepseek']['region'] == 'domestic'
     assert providers['deepseek']['supportsModelDiscovery'] is True
     assert providers['volcengine']['category'] == 'model_hub'
-    assert providers['custom_openai_compatible']['region'] == 'custom'
+    assert 'tts' not in providers['volcengine']['capabilities']
+    assert providers['volcengine_tts']['category'] == 'tts'
+    assert providers['volcengine_tts']['protocol'] == 'volcengine_tts'
+    assert providers['volcengine_tts']['capabilities'] == ['tts']
     assert 'apiKey' not in providers['openai']
 
-    models_response = client.get('/api/settings/ai-providers/ollama/models')
+    models_response = client.get('/api/settings/ai-providers/volcengine/models')
 
     assert models_response.status_code == 200
     models = models_response.json()['data']
     assert models
-    assert all(item['provider'] == 'ollama' for item in models)
-    assert any('text_generation' in item['capabilityTypes'] for item in models)
+    assert all(item['provider'] == 'volcengine' for item in models)
+    assert any('video_generation' in item['capabilityTypes'] for item in models)
 
-    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
-        assert url == 'http://127.0.0.1:11434/api/tags'
-        return {
-            'models': [
-                {
-                    'name': 'qwen2.5-vl:7b',
-                    'model': 'qwen2.5-vl:7b',
-                    'details': {
-                        'family': 'qwen2.5-vl',
-                        'families': ['qwen2.5-vl'],
-                    },
-                }
-            ]
-        }
-
-    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
-    refresh_response = client.post('/api/settings/ai-providers/ollama/models/refresh')
-
-    assert refresh_response.status_code == 200
-    refresh_payload = refresh_response.json()['data']
-    assert refresh_payload == {
-        'provider': 'ollama',
-        'status': 'refreshed',
-        'message': '已从远端刷新 1 个模型。',
-    }
-
-    refreshed_models = client.get('/api/settings/ai-providers/ollama/models').json()['data']
-    refreshed = next(item for item in refreshed_models if item['modelId'] == 'qwen2.5-vl:7b')
-    assert refreshed['displayName'] == 'qwen2.5-vl:7b'
-    assert refreshed['capabilityTypes'] == ['text_generation', 'vision']
-    assert refreshed['inputModalities'] == ['text', 'image']
+    hidden_response = client.get('/api/settings/ai-providers/ollama/models')
+    assert hidden_response.status_code == 404
 
 
-def test_openai_compatible_provider_model_refresh_reads_remote_model_catalog(
-    runtime_app,
-    monkeypatch,
-) -> None:
+def test_unconnected_provider_model_refresh_is_rejected(runtime_app) -> None:
     client = TestClient(runtime_app)
-    client.put(
-        '/api/settings/ai-capabilities/providers/custom_openai_compatible/secret',
-        json={
-            'apiKey': 'sk-custom-compatible',
-            'baseUrl': 'https://custom.example.test/v1',
-        },
-    )
-
-    captured: dict[str, object] = {}
-
-    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
-        captured['url'] = url
-        captured['headers'] = headers
-        return {
-            'data': [
-                {
-                    'id': 'custom-text-vision',
-                    'name': 'Custom Text Vision',
-                    'capabilities': ['text_generation', 'vision'],
-                    'input_modalities': ['text', 'image'],
-                    'output_modalities': ['text'],
-                    'context_length': 128000,
-                }
-            ]
-        }
-
-    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
     refresh_response = client.post('/api/settings/ai-providers/custom_openai_compatible/models/refresh')
 
-    assert refresh_response.status_code == 200
-    assert refresh_response.json()['data'] == {
-        'provider': 'custom_openai_compatible',
-        'status': 'refreshed',
-        'message': '已从远端刷新 1 个模型。',
-    }
-    assert captured['url'] == 'https://custom.example.test/v1/models'
-    assert captured['headers']['authorization'] == 'Bearer sk-custom-compatible'
-
-    models_response = client.get('/api/settings/ai-providers/custom_openai_compatible/models')
-    assert models_response.status_code == 200
-    models = {item['modelId']: item for item in models_response.json()['data']}
-    assert models['custom-text-vision']['displayName'] == 'Custom Text Vision'
-    assert models['custom-text-vision']['capabilityTypes'] == ['text_generation', 'vision']
-    assert models['custom-text-vision']['inputModalities'] == ['text', 'image']
-    assert models['custom-text-vision']['outputModalities'] == ['text']
+    assert refresh_response.status_code == 404
+    assert refresh_response.json()['ok'] is False
 
 
 def test_openai_compatible_refresh_infers_doubao_seedance_as_video_model(
@@ -688,37 +644,27 @@ def test_volcengine_legacy_alias_is_hidden_and_resolved_to_latest_remote_model(
     assert payload['model'] == 'doubao-seed-1-6-251015'
 
 
-def test_generic_media_providers_are_configurable_and_refreshable(
+def test_unconnected_media_and_custom_providers_are_hidden(
     runtime_client: TestClient,
 ) -> None:
     response = runtime_client.get('/api/settings/ai-providers/catalog')
 
     assert response.status_code == 200
     providers = {item['provider']: item for item in response.json()['data']}
-    for provider_id in {'video_generation_provider', 'asset_analysis_provider', 'custom_transcription_provider'}:
-        provider = providers[provider_id]
-        assert provider['requiresBaseUrl'] is True
-        assert provider['supportsModelDiscovery'] is True
-        assert provider['modelSyncMode'] == 'remote'
-        assert provider['status'] in {'missing_secret', 'misconfigured'}
-
-    for provider_id in {'volcengine_asr', 'aliyun_asr', 'tencent_asr', 'baidu_asr', 'xunfei_asr'}:
-        provider = providers[provider_id]
-        assert provider['requiresBaseUrl'] is True
-        assert provider['supportsModelDiscovery'] is False
-        assert provider['modelSyncMode'] == 'manual'
-        assert provider['category'] == 'speech_to_text'
+    assert set(providers) == {'openai', 'deepseek', 'volcengine', 'volcengine_tts'}
+    assert 'custom_tts_provider' not in providers
+    assert 'video_generation_provider' not in providers
+    assert 'volcengine_asr' not in providers
 
 
-def test_openrouter_model_refresh_requires_secret_and_returns_structured_error(runtime_app) -> None:
+def test_hidden_provider_model_refresh_returns_not_found(runtime_app) -> None:
     client = TestClient(runtime_app)
 
     response = client.post('/api/settings/ai-providers/openrouter/models/refresh')
 
-    assert response.status_code == 400
+    assert response.status_code == 404
     payload = response.json()
     assert payload['ok'] is False
-    assert payload['error_code'] == 'provider.model.refresh_missing_secret'
 
 
 def test_ai_provider_health_check_uses_selected_model_and_real_probe(
@@ -818,33 +764,15 @@ def test_service_layer_400_errors_keep_structured_error_codes_in_envelope(
     payload = response.json()
     assert payload['error_code'] == 'ai_provider_not_configured'
 
-    client.put(
-        '/api/settings/ai-capabilities/providers/openai_compatible/secret',
-        json={'apiKey': 'sk-test-openai-compatible'},
-    )
     capabilities = _load_capabilities()
     for item in capabilities:
         if item['capabilityId'] == 'script_generation':
             item['enabled'] = True
-            item['provider'] = 'openai_compatible'
-            item['model'] = 'custom-compatible-model'
-    _save_capabilities(capabilities)
-    response = _generate(_create_project())
-    assert response.status_code == 400
-    payload = response.json()
-    assert payload['error_code'] == 'ai_provider_base_url_missing'
-
-    capabilities = _load_capabilities()
-    for item in capabilities:
-        if item['capabilityId'] == 'script_generation':
-            item['enabled'] = True
-            item['provider'] = 'video_generation_provider'
-            item['model'] = 'video-default'
-    _save_capabilities(capabilities)
-    response = _generate(_create_project())
-    assert response.status_code == 400
-    payload = response.json()
-    assert payload['error_code'] == 'ai_provider_unsupported'
+            item['provider'] = 'ollama'
+            item['model'] = 'llama3.1'
+    rejected = client.put('/api/settings/ai-capabilities', json={'capabilities': capabilities})
+    assert rejected.status_code == 400
+    assert rejected.json()['ok'] is False
 
 
 def test_ai_capability_support_matrix_limits_models_by_capability(
@@ -867,12 +795,15 @@ def test_ai_capability_support_matrix_limits_models_by_capability(
         'asset_analysis',
     }
     assert 'openai' in capabilities['script_generation']['providers']
+    assert 'volcengine_tts' in capabilities['tts_generation']['providers']
+    assert 'volcengine' not in capabilities['tts_generation']['providers']
     assert all(
         'tts' in item['capabilityTypes'] or item['provider'].endswith('_speech')
         for item in capabilities['tts_generation']['models']
     )
     assert any(
-        item['provider'] == 'video_generation_provider'
+        item['provider'] == 'volcengine'
+        and item['modelId'] == 'seedance-2.0'
         for item in capabilities['video_generation']['models']
     )
     assert 'openai' in capabilities['subtitle_alignment']['providers']
@@ -887,17 +818,7 @@ def test_ai_capability_support_matrix_limits_models_by_capability(
         and item['modelId'] == 'whisper-1'
         for item in capabilities['video_transcription']['models']
     )
-    assert 'custom_transcription_provider' in capabilities['video_transcription']['providers']
-    assert {
-        'volcengine_asr',
-        'aliyun_asr',
-        'tencent_asr',
-        'baidu_asr',
-        'xunfei_asr',
-    } <= set(capabilities['video_transcription']['providers'])
-    assert 'gemini' in capabilities['video_transcription']['providers']
-    assert 'asset_analysis_provider' in capabilities['video_transcription']['providers']
-    assert 'video_generation_provider' not in capabilities['video_transcription']['providers']
+    assert set(capabilities['video_transcription']['providers']) <= {'openai', 'volcengine'}
     assert any(
         item['provider'] == 'volcengine'
         and item['modelId'] == 'doubao-seed-2.0-pro'
@@ -915,6 +836,29 @@ def test_ai_capability_support_matrix_limits_models_by_capability(
         and item['modelId'] == 'doubao-seed-2.0-pro'
         for item in capabilities['asset_analysis']['models']
     )
+
+
+def test_tts_provider_health_check_uses_voice_capability_path(
+    runtime_client: TestClient,
+) -> None:
+    secret_response = runtime_client.put(
+        '/api/settings/ai-capabilities/providers/volcengine_tts/secret',
+        json={'apiKey': 'sk-test-volcengine-tts'},
+    )
+    assert secret_response.status_code == 200
+
+    response = runtime_client.post(
+        '/api/settings/ai-capabilities/providers/volcengine_tts/health-check',
+        json={'model': 'seed-tts-2.0'},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()['data']
+    assert payload['provider'] == 'volcengine_tts'
+    assert payload['status'] == 'ready'
+    assert payload['model'] == 'seed-tts-2.0'
+    assert '语音合成' in payload['message']
+    assert '文本模型连通性检测' not in payload['message']
 
 
 def test_no_access_model_is_hidden_from_provider_catalog_and_support_matrix(
@@ -979,7 +923,7 @@ def test_ai_provider_health_refresh_persists_aggregate_snapshots(
 
     def fake_probe(runtime, model: str):
         return {
-            'status': 'ready' if runtime.provider in {'openai', 'ollama'} else 'offline',
+            'status': 'ready' if runtime.provider == 'openai' else 'offline',
             'message': f'{runtime.provider}:{model}',
             'latency_ms': 123,
         }

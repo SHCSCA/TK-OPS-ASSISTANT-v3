@@ -138,15 +138,32 @@ const supportSummary = computed(() => {
   }
 
   return [
-    `推荐 Provider ${props.supportItem.providers.length}`,
-    `推荐模型 ${props.supportItem.models.length}`
+    `当前能力可用 Provider ${props.supportItem.providers.length}`,
+    `可选模型 ${props.supportItem.models.length}`
   ];
 });
+const supportedProviderIds = computed(() => new Set(props.supportItem?.providers ?? []));
 const providerOptions = computed(() => {
-  return [...props.providerCatalog].sort((a, b) => {
+  const currentProvider = props.capability?.provider ?? "";
+  const supportItem = props.supportItem;
+  const hasSupportRule = (supportItem?.providers.length ?? 0) > 0;
+  const candidates = props.providerCatalog.filter((provider) => {
+    if (!hasSupportRule) {
+      return true;
+    }
+    if (supportItem && supportItem.providers.includes(provider.provider)) {
+      return true;
+    }
+    return currentProvider !== "" && provider.provider === currentProvider;
+  });
+
+  return [...candidates].sort((a, b) => {
     const aReady = a.configured ? 0 : 1;
     const bReady = b.configured ? 0 : 1;
     if (aReady !== bReady) return aReady - bReady;
+    const aSupported = supportedProviderIds.value.has(a.provider) ? 0 : 1;
+    const bSupported = supportedProviderIds.value.has(b.provider) ? 0 : 1;
+    if (aSupported !== bSupported) return aSupported - bSupported;
     return a.label.localeCompare(b.label, "zh-Hans-CN");
   });
 });

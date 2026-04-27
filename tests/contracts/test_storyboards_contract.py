@@ -15,6 +15,26 @@ class FakeGenerationResult:
     ai_job_id: str
 
 
+STORYBOARD_SCENE_KEYS = {
+    'sceneId',
+    'title',
+    'summary',
+    'visualPrompt',
+    'action',
+    'audio',
+    'cameraAngle',
+    'cameraMovement',
+    'shootingNote',
+    'shotLabel',
+    'shotSize',
+    'subtitle',
+    'time',
+    'transition',
+    'visualContent',
+    'voiceover',
+}
+
+
 class FakeAITextGenerationService:
     def __init__(self, jobs: AIJobRepository) -> None:
         self._jobs = jobs
@@ -40,7 +60,7 @@ class FakeAITextGenerationService:
 
 
 def assert_storyboard_scene_shape(scene: dict[str, object]) -> None:
-    assert set(scene) == {'sceneId', 'title', 'summary', 'visualPrompt'}
+    assert set(scene) == STORYBOARD_SCENE_KEYS
 
 
 def assert_storyboard_version_shape(version: dict[str, object]) -> None:
@@ -49,6 +69,9 @@ def assert_storyboard_version_shape(version: dict[str, object]) -> None:
         'basedOnScriptRevision',
         'source',
         'scenes',
+        'markdown',
+        'format',
+        'storyboardJson',
         'provider',
         'model',
         'aiJobId',
