@@ -1,7 +1,7 @@
 # Graph Report - C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3  (2026-04-27)
 
 ## Corpus Check
-- 451 files · ~2,170,189 words
+- 451 files · ~2,205,585 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -237,12 +237,12 @@
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\tests\voice-studio-store.spec.ts → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\services\video_deconstruction_service.py
 - `utc_now()` --calls--> `test_utc_now_returns_timezone_aware_utc_datetime()`  [INFERRED]
   C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\common\time.py → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\tests\runtime\test_runtime_time_helpers.py
-- `_post_gemini_probe()` --calls--> `quote()`  [INFERRED]
-  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\services\ai_capability_service.py → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\scripts\prepare-media-tools.mjs
-- `log_event()` --calls--> `log()`  [INFERRED]
-  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\app\logging.py → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\scripts\prepare-media-tools.mjs
-- `info()` --calls--> `log()`  [INFERRED]
-  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\scripts\run-desktop-app.mjs → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\scripts\prepare-media-tools.mjs
+- `quote()` --calls--> `_post_gemini_probe()`  [INFERRED]
+  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\scripts\prepare-media-tools.mjs → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\services\ai_capability_service.py
+- `log()` --calls--> `log_event()`  [INFERRED]
+  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\scripts\prepare-media-tools.mjs → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\py-runtime\src\app\logging.py
+- `log()` --calls--> `info()`  [INFERRED]
+  C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\apps\desktop\scripts\prepare-media-tools.mjs → C:\Users\wz\Desktop\py\TK-OPS-ASSISTANT-v3\scripts\run-desktop-app.mjs
 
 ## Communities
 
@@ -1358,11 +1358,11 @@ Nodes (0):
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `ok_response()` connect `Community 4` to `Community 1`, `Community 7`, `Community 8`, `Community 22`, `Community 23`?**
-  _High betweenness centrality (0.076) - this node is a cross-community bridge._
+  _High betweenness centrality (0.075) - this node is a cross-community bridge._
 - **Why does `create_app()` connect `Community 8` to `Community 0`, `Community 1`, `Community 2`, `Community 3`, `Community 5`, `Community 7`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 13`, `Community 14`, `Community 15`, `Community 16`, `Community 20`, `Community 22`, `Community 23`, `Community 24`?**
-  _High betweenness centrality (0.059) - this node is a cross-community bridge._
-- **Why does `now()` connect `Community 10` to `Community 0`, `Community 1`, `Community 2`, `Community 3`, `Community 5`, `Community 7`, `Community 8`, `Community 9`, `Community 11`, `Community 14`, `Community 15`, `Community 16`, `Community 18`, `Community 20`, `Community 23`?**
   _High betweenness centrality (0.051) - this node is a cross-community bridge._
+- **Why does `now()` connect `Community 10` to `Community 0`, `Community 1`, `Community 2`, `Community 3`, `Community 5`, `Community 7`, `Community 8`, `Community 9`, `Community 11`, `Community 14`, `Community 15`, `Community 16`, `Community 18`, `Community 20`, `Community 23`?**
+  _High betweenness centrality (0.049) - this node is a cross-community bridge._
 - **Are the 197 inferred relationships involving `HTTPException` (e.g. with `get_license_service()` and `get_task()`) actually correct?**
   _`HTTPException` has 197 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 179 inferred relationships involving `Exception` (e.g. with `.generate()` and `.generate()`) actually correct?**
