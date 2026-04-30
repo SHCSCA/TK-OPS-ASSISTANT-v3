@@ -1,5 +1,5 @@
 .page-container {
-  max-width: 1440px;
+  max-width: var(--density-page-max-width);
   width: 100%;
   margin: 0 auto;
   padding: var(--space-6) var(--space-8) var(--space-8);
@@ -545,11 +545,7 @@
   color: var(--color-text-tertiary);
 }
 
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin { 100% { transform: rotate(360deg); } }
+/* .spinning 及 @keyframes spin 由全局 base.css 统一定义，此处不重复声明 */
 
 @media (max-width: 1200px) {
   .script-workspace {

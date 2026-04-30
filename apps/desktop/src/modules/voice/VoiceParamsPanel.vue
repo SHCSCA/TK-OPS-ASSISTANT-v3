@@ -256,8 +256,10 @@ function updateConfig(patch: Partial<VoiceConfig>): void {
 
 .emotion-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  /* 窄面板自动降为单列，宽面板保持双列 */
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .emotion-card {
@@ -271,7 +273,7 @@ function updateConfig(patch: Partial<VoiceConfig>): void {
   background: var(--color-bg-canvas);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--motion-fast) var(--ease-standard);
 }
 
 .emotion-card:hover {
@@ -299,7 +301,4 @@ function updateConfig(patch: Partial<VoiceConfig>): void {
   opacity: 0.6;
   pointer-events: none;
 }
-</style>
-
-/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

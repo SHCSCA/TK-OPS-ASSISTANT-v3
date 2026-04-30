@@ -321,7 +321,7 @@ function normalizeBlockedProviderMessage(message: string | null): string | null 
 
 <style scoped>
 .page-container {
-  max-width: 1440px;
+  max-width: var(--density-page-max-width);
   margin: 0 auto;
   padding: var(--space-6) var(--space-8) var(--space-8);
   display: flex;

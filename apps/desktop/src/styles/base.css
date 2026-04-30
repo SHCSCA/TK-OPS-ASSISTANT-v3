@@ -11,7 +11,7 @@
 .text-warning { color: var(--color-warning) !important; }
 .text-danger { color: var(--color-danger) !important; }
 .text-mono { font-family: var(--font-mono) !important; }
-.spinning { animation: spin 2s linear infinite; }
+.spinning { animation: spin var(--motion-spin) linear infinite; }
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
 /* --- Global Feedback Components (V2 Standard) --- */
@@ -117,7 +117,7 @@
   line-height: 1;
   min-height: 42px;
   padding: 12px 18px;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  transition: transform var(--motion-fast) ease, box-shadow var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 
 .settings-page__button {
@@ -215,7 +215,7 @@
   font: inherit;
   outline: none;
   padding: 12px 14px;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 
 .settings-field input:focus,

@@ -319,7 +319,7 @@ function formatDate(value: string): string {
   background: linear-gradient(to top, var(--color-brand-primary), #4dd0e1);
   border-radius: var(--radius-full);
   opacity: 0.6;
-  transition: height 0.3s ease;
+  transition: height var(--motion-default) ease;
 }
 
 .wave-container--busy .wave-bar {

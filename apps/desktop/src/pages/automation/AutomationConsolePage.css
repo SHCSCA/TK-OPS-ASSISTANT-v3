@@ -1,5 +1,5 @@
 .page-container {
-  max-width: 1440px;
+  max-width: var(--density-page-max-width);
   margin: 0 auto;
   padding: var(--space-6) var(--space-8) var(--space-8);
   display: flex;
@@ -453,5 +453,5 @@
   margin-top: var(--space-4);
 }
 
-.drawer-enter-active, .drawer-leave-active { transition: opacity 160ms ease; }
+.drawer-enter-active, .drawer-leave-active { transition: opacity var(--motion-fast) ease; }
 .drawer-enter-from, .drawer-leave-to { opacity: 0; }

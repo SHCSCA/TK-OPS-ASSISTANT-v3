@@ -39,6 +39,8 @@
   --motion-rotate-med: 20s;
   --motion-breathe: 3s;
   --motion-pulse: 1.2s;
+  /* 加载旋转器专用时长（独立变量确保 reduced-motion 降级生效） */
+  --motion-spin: 1s;
 
   --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
   --ease-decelerate: cubic-bezier(0.0, 0.0, 0.2, 1);
@@ -135,4 +137,16 @@
   --motion-rotate-med: 1ms;
   --motion-breathe: 1ms;
   --motion-pulse: 1ms;
+  --motion-spin: 1ms;
+}
+
+/* 960px 以下：收紧密度令牌，适配紧凑窗口 */
+@media (max-width: 960px) {
+  :root {
+    --density-page-padding-x: var(--space-3);
+    --density-page-padding-y: var(--space-3);
+    --density-page-padding-bottom: var(--space-4);
+    --density-panel-gap: var(--space-2);
+    --density-control-height: 32px;
+  }
 }

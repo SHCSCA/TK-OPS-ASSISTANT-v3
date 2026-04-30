@@ -222,7 +222,7 @@ function formatLocale(locale: string) {
   font: var(--font-caption);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--motion-fast);
 }
 
 .sync-button:hover:not(:disabled) {
@@ -289,7 +289,7 @@ function formatLocale(locale: string) {
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--motion-fast);
 }
 
 .tab-item--active {
@@ -331,7 +331,7 @@ function formatLocale(locale: string) {
   background: var(--color-bg-canvas);
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--motion-fast) var(--ease-standard);
   display: grid;
   gap: 8px;
 }
@@ -388,7 +388,7 @@ function formatLocale(locale: string) {
 .profile-indicator {
   color: var(--color-brand-primary);
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity var(--motion-fast);
 }
 
 .profile-item--active .profile-indicator {

@@ -201,7 +201,7 @@ function confirmDelete(trackId: string): void {
   background: var(--color-bg-canvas);
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--motion-fast) var(--ease-standard);
   display: grid;
   gap: 12px;
 }
@@ -304,7 +304,7 @@ function confirmDelete(trackId: string): void {
   color: var(--color-text-tertiary);
   font-size: 11px;
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color var(--motion-fast);
   padding: 2px 4px;
   border-radius: 4px;
 }
