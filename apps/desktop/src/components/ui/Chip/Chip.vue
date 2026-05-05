@@ -122,7 +122,7 @@ defineEmits<{
   line-height: 1;
 }
 
-/* 移除按钮 */
+/* 移除按钮 — 视觉 16px 图标，点击区域扩大到 24px */
 .ui-chip__remove {
   align-items: center;
   appearance: none;
@@ -132,16 +132,16 @@ defineEmits<{
   color: currentColor;
   cursor: pointer;
   display: flex;
-  height: 16px;
+  height: 24px;
   justify-content: center;
-  margin-left: -4px; /* 补偿内边距，使视觉上更紧凑 */
+  margin: -4px -4px -4px -4px;
   opacity: 0.6;
   outline: none;
   padding: 0;
   transition:
     background-color var(--motion-fast) var(--ease-standard),
     opacity var(--motion-fast) var(--ease-standard);
-  width: 16px;
+  width: 24px;
 }
 
 .ui-chip__remove:hover {

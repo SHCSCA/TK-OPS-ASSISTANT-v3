@@ -3,18 +3,21 @@ import { defineStore } from "pinia";
 import {
   deleteVoiceTrack,
   fetchScriptDocument,
+  fetchStoryboardDocument,
   fetchVoiceProfiles,
   fetchVoiceTrack,
   fetchVoiceTracks,
   generateVoiceTrack,
   refreshVoiceProfiles
 } from "@/app/runtime-client";
+import { useToast } from "@/composables/useToast";
 import { extractScriptDocumentDownstreamText } from "@/modules/scripts/script-document-view-model";
 import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 import { useTaskBusStore } from "@/stores/task-bus";
 import type {
   RuntimeRequestErrorShape,
   ScriptDocument,
+  StoryboardDocument,
   VoiceProfileDto,
   VoiceProfileRefreshResultDto,
   VoiceTrackDto,
@@ -29,7 +32,10 @@ export interface VoiceConfig {
 }
 
 export interface Paragraph {
+  /** 显示文本（含时间前缀，用于界面展示） */
   text: string;
+  /** 纯语音文本（不含时间前缀，用于 TTS 合成） */
+  speechText: string;
   estimatedDuration: number;
 }
 
@@ -101,7 +107,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       (state.selectedTrackId ? state.trackDetailsById[state.selectedTrackId] : null) ??
       state.tracks.find((track) => track.id === state.selectedTrackId) ??
       null,
-    sourceText: (state): string => state.paragraphs.map((paragraph) => paragraph.text).join("\n"),
+    sourceText: (state): string => state.paragraphs.map((paragraph) => paragraph.speechText).join("\n"),
     viewState(): VoiceStudioViewState {
       if (this.status === "loading" || this.status === "generating") {
         return "loading";
@@ -131,8 +137,10 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       this.profileSyncing = false;
 
       try {
-        const [document, profiles, tracks] = await Promise.all([
+        // 并行获取脚本、分镜、音色、音轨数据；分镜请求失败不阻断主流程
+        const [document, storyboard, profiles, tracks] = await Promise.all([
           fetchScriptDocument(projectId),
+          fetchStoryboardDocument(projectId).catch(() => null as StoryboardDocument | null),
           fetchVoiceProfiles(),
           fetchVoiceTracks(projectId)
         ]);
@@ -141,10 +149,16 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         this.profiles = this.filterSupportedProfiles(profiles);
         this.tracks = tracks;
         this.trackDetailsById = Object.fromEntries(tracks.map((track) => [track.id, track]));
-        this.paragraphs = this.extractParagraphs(
-          document.currentVersion?.documentJson ?? null,
-          document.currentVersion?.content ?? ""
-        );
+
+        // 优先使用分镜数据作为段落来源，回退到脚本文稿
+        const storyboardParagraphs = this.extractStoryboardParagraphs(storyboard);
+        this.paragraphs = storyboardParagraphs.length > 0
+          ? storyboardParagraphs
+          : this.extractParagraphs(
+              document.currentVersion?.documentJson ?? null,
+              document.currentVersion?.content ?? ""
+            );
+
         this.activeParagraphIndex = 0;
         this.selectedProfileId = this.resolveProfileSelection(this.profiles);
         this.selectedTrackId = tracks[0]?.id ?? null;
@@ -206,12 +220,16 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         this.activeTask = null;
         this.status = "ready";
         void this.refreshTracks();
+        const toast = useToast();
+        toast.success("配音生成完成", "音轨已就绪，可在左侧预览试听。");
         return;
       }
 
       if (event.type === "task.failed") {
         this.activeTask = null;
         this.applyInputError(event.errorMessage ?? "配音生成失败，请稍后重试。");
+        const toast = useToast();
+        toast.danger("配音生成失败", event.errorMessage ?? "请稍后重试。");
       }
     },
 
@@ -274,6 +292,8 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
 
       this.status = "generating";
       this.error = null;
+      const toast = useToast();
+      toast.info("配音任务已提交", "正在生成整段音轨，请稍候…");
 
       try {
         const result = await generateVoiceTrack(this.projectId, {
@@ -295,16 +315,67 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           this.selectedTrackId = result.track.id;
         }
 
-        this.status = result.track?.status === "blocked" ? "blocked" : "ready";
+        if (result.track?.status === "blocked") {
+          this.status = "blocked";
+          toast.warning("配音已保存为草稿", result.message || "缺少 TTS Provider，无法生成真实音频。");
+        } else {
+          this.status = "ready";
+        }
         return result;
-      } catch (error) {
-        this.applyRuntimeError(error);
+      } catch (err) {
+        this.applyRuntimeError(err);
+        const errMsg = (this as VoiceStudioState).error?.message ?? "请稍后重试。";
+        toast.danger("配音生成失败", errMsg);
         return null;
       }
     },
 
     extractParagraphs(documentJson: Record<string, any> | null, content = ""): Paragraph[] {
-      return extractScriptDocumentDownstreamText(documentJson, "voice", content);
+      const lines = extractScriptDocumentDownstreamText(documentJson, "voice", content);
+      return lines.map((line) => ({ ...line, speechText: line.text }));
+    },
+
+    /**
+     * 从分镜数据提取配音段落，优先使用 voiceover 字段，回退到 subtitle。
+     * 每段以时间标记为前缀（如 "0-2s: Watch closely..."）。
+     */
+    extractStoryboardParagraphs(storyboard: StoryboardDocument | null): Paragraph[] {
+      if (!storyboard?.currentVersion?.scenes?.length) {
+        return [];
+      }
+
+      const scenes = storyboard.currentVersion.scenes;
+      const paragraphs: Paragraph[] = [];
+
+      for (const scene of scenes) {
+        const speechText = (scene.voiceover || scene.subtitle || "").trim();
+        if (!speechText) {
+          continue;
+        }
+
+        // 拼接时间前缀（如果有），仅用于界面展示
+        const timePrefix = scene.time ? `${scene.time}: ` : "";
+        const displayText = `${timePrefix}${speechText}`;
+
+        // 估算时长：按中文 4 字/秒、英文 3 词/秒混合估算
+        const estimatedDuration = this.estimateSegmentDuration(speechText);
+
+        paragraphs.push({ text: displayText, speechText, estimatedDuration });
+      }
+
+      return paragraphs;
+    },
+
+    /** 估算文本朗读时长（秒），中文按 4 字/秒，英文按 3 词/秒 */
+    estimateSegmentDuration(text: string): number {
+      // 中文字符数
+      const chineseChars = (text.match(/[一-鿿]/g) || []).length;
+      // 英文单词数（去除中文后按空格分词）
+      const nonChinese = text.replace(/[一-鿿]/g, " ").trim();
+      const englishWords = nonChinese ? nonChinese.split(/\s+/).filter(Boolean).length : 0;
+
+      const duration = chineseChars / 4 + englishWords / 3;
+      return Math.max(1, Math.round(duration));
     },
 
     selectProfile(profileId: string): void {

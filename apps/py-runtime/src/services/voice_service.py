@@ -139,6 +139,13 @@ class VoiceService:
                 for item in fetched
                 if item.provider == normalized_provider and item.voiceId.strip()
             ]
+            # 删除不在本次同步结果中的旧音色
+            keep_ids = {p.id for p in saved}
+            removed = self._profile_repository.delete_profiles_not_in(
+                normalized_provider, keep_ids
+            )
+            if removed:
+                log.info("已清理 %d 个不兼容的旧音色 provider=%s", removed, normalized_provider)
         except HTTPException:
             raise
         except Exception as exc:
@@ -223,10 +230,11 @@ class VoiceService:
                 message=BLOCKED_PROVIDER_MESSAGE,
             )
 
+        effective_model = self._model_for_voice_id(profile.voiceId, resolved_model)
         tts_request = TTSRequest(
             text=payload.sourceText,
             voice_id=profile.voiceId,
-            model=resolved_model,
+            model=effective_model,
             speed=payload.speed,
             output_format="mp3",
         )
@@ -406,10 +414,11 @@ class VoiceService:
             emotion=payload.emotion,
         )
 
+        effective_model = self._model_for_voice_id(profile.voiceId, resolved_model)
         tts_request = TTSRequest(
             text=segment_text,
             voice_id=profile.voiceId,
-            model=resolved_model,
+            model=effective_model,
             speed=payload.speed,
             output_format="mp3",
         )
@@ -916,6 +925,12 @@ class VoiceService:
             "updatedAt": now,
         }
 
+    # 已废弃的旧 builtin ID，启动时自动清理
+    _DEPRECATED_BUILTIN_IDS = frozenset({
+        "volcengine-vv-20-zh",
+        "volcengine-kailangjiejie-zh",
+    })
+
     def _load_or_seed_profiles(self) -> list[VoiceProfile]:
         if self._profile_repository is None:
             return [self._builtin_profile_model(item) for item in self._builtin_profile_definitions()]
@@ -923,6 +938,15 @@ class VoiceService:
         try:
             existing = self._profile_repository.list_profiles()
             existing_ids = {profile.id for profile in existing}
+            # 清理已废弃的旧 builtin 音色
+            deprecated_present = self._DEPRECATED_BUILTIN_IDS & existing_ids
+            if deprecated_present:
+                self._profile_repository.delete_profiles_not_in(
+                    VOLCENGINE_TTS_PROVIDER,
+                    existing_ids - deprecated_present,
+                )
+                existing = self._profile_repository.list_profiles()
+                existing_ids = {profile.id for profile in existing}
             for builtin in self._builtin_profile_definitions():
                 if builtin.id not in existing_ids:
                     self._profile_repository.create_profile(self._builtin_profile_model(builtin))
@@ -936,22 +960,15 @@ class VoiceService:
             raise HTTPException(status_code=500, detail="查询音色配置失败。") from exc
 
     def _builtin_profile_definitions(self) -> list[_BuiltinVoiceProfile]:
+        """内置种子音色，仅保留 seed-tts-2.0 兼容的 uranus 系列。"""
         return [
             _BuiltinVoiceProfile(
-                id="volcengine-vv-20-zh",
+                id="volcengine_tts-zh_female_vv_uranus_bigtts",
                 provider=VOLCENGINE_TTS_PROVIDER,
                 voice_id="zh_female_vv_uranus_bigtts",
-                display_name="豆包 Vivi 2.0",
+                display_name="Vivi 2.0",
                 locale="zh-CN",
-                tags=["豆包", "2.0", "中文", "通用"],
-            ),
-            _BuiltinVoiceProfile(
-                id="volcengine-kailangjiejie-zh",
-                provider=VOLCENGINE_TTS_PROVIDER,
-                voice_id="zh_female_kailangjiejie_moon_bigtts",
-                display_name="豆包开朗姐姐",
-                locale="zh-CN",
-                tags=["豆包", "中文", "自然口播"],
+                tags=["豆包", "2.0", "中文", "英语"],
             ),
         ]
 
@@ -1073,6 +1090,16 @@ class VoiceService:
         if provider_id == VOLCENGINE_TTS_PROVIDER and model == "doubao-tts":
             return "seed-tts-1.0"
         return model
+
+    @staticmethod
+    def _model_for_voice_id(voice_id: str, fallback_model: str) -> str:
+        """根据 voice_id 推导正确的 model 版本，防止 resource / model 不匹配。
+        与 tts_volcengine._resolve_resource_id 保持同一判定逻辑。
+        """
+        vid = voice_id.strip().lower()
+        if 'uranus' in vid:
+            return 'seed-tts-2.0'
+        return 'seed-tts-1.0'
 
     def _mark_track_failed(
         self,

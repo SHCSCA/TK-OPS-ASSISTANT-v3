@@ -42,7 +42,7 @@ const modeLabel = computed(() => {
 
 .task-progress-status__label {
   color: var(--color-text-secondary);
-  font-size: var(--font-caption);
+  font: var(--font-caption);
   white-space: nowrap;
 }
 </style>

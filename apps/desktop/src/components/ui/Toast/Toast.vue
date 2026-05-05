@@ -61,13 +61,12 @@ const icon = computed(() => {
 }
 
 .ui-toast__body strong {
-  font-size: var(--font-body-sm);
+  font: var(--font-body-sm);
 }
 
 .ui-toast__body span {
   color: var(--color-text-secondary);
-  font-size: var(--font-caption);
-  line-height: 1.6;
+  font: var(--font-caption);
 }
 
 .ui-toast--info {

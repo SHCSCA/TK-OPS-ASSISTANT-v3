@@ -41,33 +41,6 @@
         </div>
       </header>
 
-      <section class="summary-grid">
-        <Card class="summary-card">
-          <span class="sc-label">资产总数</span>
-          <strong class="sc-val">{{ store.assets.length }}</strong>
-          <p class="sc-hint">来自 Runtime 的真实资产记录</p>
-        </Card>
-        <Card class="summary-card">
-          <span class="sc-label">当前结果</span>
-          <strong class="sc-val">{{ visibleAssets.length }}</strong>
-          <p class="sc-hint">按筛选和排序后的结果</p>
-        </Card>
-        <Card class="summary-card">
-          <span class="sc-label">当前选中</span>
-          <strong class="sc-val" :title="selectedAsset ? selectedAsset.name : '未选中'">
-            {{ selectedAsset ? selectedAsset.name : "未选中" }}
-          </strong>
-          <p class="sc-hint" :title="selectedAsset ? selectedAsset.source : '请选择一个资产继续查看'">
-            {{ selectedAsset ? selectedAsset.source : "请选择一个资产继续查看" }}
-          </p>
-        </Card>
-        <Card class="summary-card">
-          <span class="sc-label">导入状态</span>
-          <strong class="sc-val">{{ importStatusLabel }}</strong>
-          <p class="sc-hint" :title="importStatusHint">{{ importStatusHint }}</p>
-        </Card>
-      </section>
-
       <AssetToolbar
         :filter-type="store.filter.type"
         :is-importing="isBusy"

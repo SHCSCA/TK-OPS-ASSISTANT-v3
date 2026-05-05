@@ -1,12 +1,7 @@
 <template>
-  <article class="storyboard-structured-preview" data-storyboard-structured-preview>
-    <h1>{{ view.title }}</h1>
-
-    <section class="structured-section">
-      <h2>详细分镜表</h2>
-      <StructuredTable :headers="view.shotTable.headers" :rows="view.shotTable.rows" />
-    </section>
-  </article>
+  <div class="storyboard-structured-preview" data-storyboard-structured-preview>
+    <StructuredTable :headers="view.shotTable.headers" :rows="view.shotTable.rows" />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -24,28 +19,7 @@ const view = computed(() => buildStoryboardViewModel(props.storyboardJson));
 
 <style scoped>
 .storyboard-structured-preview {
-  color: var(--text-primary);
-  font-size: 0.95rem;
-  line-height: 1.7;
-}
-
-.storyboard-structured-preview h1,
-.storyboard-structured-preview h2 {
-  margin: 0 0 14px;
-  color: var(--text-strong);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.storyboard-structured-preview h1 {
-  font-size: clamp(1.6rem, 2.2vw, 2.15rem);
-}
-
-.storyboard-structured-preview h2 {
-  font-size: 1.2rem;
-}
-
-.structured-section {
-  margin: 0 0 24px;
+  width: 100%;
+  min-width: 0;
 }
 </style>

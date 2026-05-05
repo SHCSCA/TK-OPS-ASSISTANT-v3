@@ -45,27 +45,6 @@
       <span>{{ store.activeTask.message }}（{{ store.activeTask.progress }}%）</span>
     </div>
 
-    <div class="summary-grid">
-      <Card class="summary-card">
-        <span class="sc-label">当前项目</span>
-        <strong class="sc-val">{{ currentProjectName }}</strong>
-      </Card>
-      <Card class="summary-card">
-        <span class="sc-label">文稿段落</span>
-        <strong class="sc-val">{{ store.paragraphs.length }} 段</strong>
-        <p class="sc-hint">{{ scriptStateLabel }}</p>
-      </Card>
-      <Card class="summary-card">
-        <span class="sc-label">配音角色</span>
-        <strong class="sc-val">{{ profileStateLabel }}</strong>
-      </Card>
-      <Card class="summary-card">
-        <span class="sc-label">配音版本</span>
-        <strong class="sc-val">{{ store.tracks.length }} 条</strong>
-        <p class="sc-hint">{{ versionStateLabel }}</p>
-      </Card>
-    </div>
-
     <div v-if="!currentProject" class="empty-state">
       <span class="material-symbols-outlined">mic_off</span>
       <strong>请先选择一个项目</strong>
@@ -375,36 +354,7 @@ function normalizeBlockedProviderMessage(message: string | null): string | null 
   flex-wrap: wrap;
 }
 
-.dashboard-alert {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-default);
-  background: var(--color-bg-muted);
-  line-height: 1.6;
-  margin-bottom: var(--space-4);
-  font: var(--font-body-sm);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dashboard-alert[data-tone="danger"] {
-  border-color: rgba(255, 90, 99, 0.2);
-  background: rgba(255, 90, 99, 0.08);
-  color: var(--color-danger);
-}
-
-.dashboard-alert[data-tone="warning"] {
-  border-color: rgba(245, 183, 64, 0.2);
-  background: rgba(245, 183, 64, 0.08);
-  color: var(--color-warning);
-}
-
-.dashboard-alert[data-tone="brand"] {
-  border-color: rgba(0, 188, 212, 0.2);
-  background: rgba(0, 188, 212, 0.08);
-  color: var(--color-brand-primary);
-}
+/* .dashboard-alert 样式由全局 base.css 统一定义 */
 
 .summary-grid {
   display: grid;
@@ -473,19 +423,11 @@ function normalizeBlockedProviderMessage(message: string | null): string | null 
   font: var(--font-body-md);
 }
 
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
-}
+/* .spinning 及 @keyframes spin 由全局 base.css 统一定义 */
 
 .voice-workspace {
   display: grid;
-  grid-template-columns: minmax(260px, 0.9fr) minmax(420px, 1.35fr) minmax(280px, 0.8fr);
+  grid-template-columns: minmax(240px, 1fr) minmax(320px, 1.2fr) minmax(280px, 1fr);
   gap: var(--space-4);
   flex: 1;
   min-height: 0;

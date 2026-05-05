@@ -67,7 +67,7 @@
               <div v-if="!hasScriptContent" class="empty-text">
                 当前项目尚未采用脚本文案，请先到脚本与选题中心完成脚本确认。
               </div>
-              <ScriptStructuredPreview
+              <ScriptSegmentTable
                 v-else-if="scriptDocumentJson"
                 :document-json="scriptDocumentJson"
               />
@@ -158,7 +158,7 @@ import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 import ScriptMarkdownPreview from "@/pages/scripts/components/ScriptMarkdownPreview.vue";
-import ScriptStructuredPreview from "@/pages/scripts/components/ScriptStructuredPreview.vue";
+import ScriptSegmentTable from "@/pages/scripts/components/ScriptSegmentTable.vue";
 import StoryboardStructuredPreview from "@/pages/storyboards/components/StoryboardStructuredPreview.vue";
 import { buildStoryboardMarkdown } from "@/pages/storyboards/storyboard-markdown";
 import { useProjectStore } from "@/stores/project";

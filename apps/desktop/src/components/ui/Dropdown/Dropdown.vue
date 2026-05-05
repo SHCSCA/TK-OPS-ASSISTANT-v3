@@ -41,8 +41,7 @@ function emitValue(event: Event) {
 
 .ui-dropdown__label {
   color: var(--color-text-secondary);
-  font-size: var(--font-caption);
-  font-weight: 600;
+  font: var(--font-caption);
 }
 
 .ui-dropdown__control {

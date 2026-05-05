@@ -55,16 +55,7 @@
   gap: var(--space-3);
 }
 
-.dashboard-alert {
-  padding: var(--space-4) var(--space-5);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-default);
-  background: var(--color-bg-muted);
-  line-height: 1.6;
-  margin-bottom: var(--space-6);
-}
-
-/* danger / warning tone 样式继承 base.css 全局定义，此处不重复覆盖 */
+/* .dashboard-alert 样式由全局 base.css 统一定义 */
 
 .ffprobe-alert {
   display: flex;
@@ -160,11 +151,7 @@
   font: var(--font-body-md);
 }
 
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin { 100% { transform: rotate(360deg); } }
+/* .spinning 及 @keyframes spin 由全局 base.css 统一定义 */
 
 .video-grid {
   display: grid;

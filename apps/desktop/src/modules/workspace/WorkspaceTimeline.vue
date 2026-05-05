@@ -282,9 +282,14 @@ function formatMs(value: number): string {
   background: transparent;
   border: 0;
   color: inherit;
-  min-width: 180px;
+  min-width: 120px;
+  max-width: 180px;
+  flex-shrink: 0;
   padding: 0;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-track__lane {

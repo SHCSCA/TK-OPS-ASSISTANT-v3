@@ -1,15 +1,17 @@
 /* base.css - Central styles with V2 Standard Feedback Components */
-
-:root {
-  --color-success: #0ecc83;
-  --color-warning: #f5b740;
-  --color-danger: #ff5a63;
-  --color-info: #00bcd4;
-}
+/* 状态色由 tokens/colors.css 统一管理，此处不再重复定义 */
 
 .text-success { color: var(--color-success) !important; }
 .text-warning { color: var(--color-warning) !important; }
 .text-danger { color: var(--color-danger) !important; }
+
+/* 全局文本溢出保护 */
+.page-header__subtitle,
+.page-header__title {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
+}
 .text-mono { font-family: var(--font-mono) !important; }
 .spinning { animation: spin var(--motion-spin) linear infinite; }
 @keyframes spin { 100% { transform: rotate(360deg); } }
@@ -153,7 +155,7 @@
 .chain-rail {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
 
 .chain-step {

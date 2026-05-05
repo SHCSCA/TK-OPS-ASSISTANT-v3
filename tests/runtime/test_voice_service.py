@@ -151,7 +151,7 @@ def test_list_profiles_seeds_builtin_profiles_and_supports_create(
     assert all(profile.provider == "volcengine_tts" for profile in profiles)
     assert any(
         profile.provider == "volcengine_tts"
-        and profile.voiceId == "zh_female_kailangjiejie_moon_bigtts"
+        and profile.voiceId == "zh_female_vv_uranus_bigtts"
         for profile in profiles
     )
 
@@ -248,13 +248,8 @@ def test_refresh_provider_profiles_syncs_builtin_volcengine_tts_catalog_without_
 
     assert result.provider == "volcengine_tts"
     assert result.status == "refreshed"
-    assert result.savedCount >= 8
+    assert result.savedCount >= 4
     assert "音色" in result.message
-    assert any(
-        profile.provider == "volcengine_tts"
-        and profile.voiceId == "zh_female_kailangjiejie_moon_bigtts"
-        for profile in result.profiles
-    )
     assert any(
         profile.provider == "volcengine_tts"
         and profile.voiceId == "zh_female_vv_uranus_bigtts"
@@ -292,7 +287,7 @@ def test_generate_track_returns_blocked_when_tts_is_not_available(
     result = service.generate_track(
         "project-voice",
         VoiceTrackGenerateInput(
-            profileId="volcengine-vv-20-zh",
+            profileId="volcengine_tts-zh_female_vv_uranus_bigtts",
             sourceText="第一句\n第二句",
         ),
     )
@@ -369,7 +364,7 @@ def test_generate_track_submits_task_and_writes_audio_file_when_volcengine_tts_i
         result = service.generate_track(
             "project-voice",
             VoiceTrackGenerateInput(
-                profileId="volcengine-vv-20-zh",
+                profileId="volcengine_tts-zh_female_vv_uranus_bigtts",
                 sourceText="第一句\n第二句",
                 speed=1.1,
             ),
@@ -452,7 +447,7 @@ def test_generate_track_uses_volcengine_tts_runtime_for_builtin_doubao_voice(
         result = service.generate_track(
             "project-voice",
             VoiceTrackGenerateInput(
-                profileId="volcengine-kailangjiejie-zh",
+                profileId="volcengine_tts-zh_female_vv_uranus_bigtts",
                 sourceText="第一句豆包配音\n第二句豆包配音",
             ),
         )
@@ -468,8 +463,8 @@ def test_generate_track_uses_volcengine_tts_runtime_for_builtin_doubao_voice(
         assert stored.provider == "volcengine_tts"
         assert captured == {
             "provider": "volcengine_tts",
-            "model": "seed-tts-1.0",
-            "voice_id": "zh_female_kailangjiejie_moon_bigtts",
+            "model": "seed-tts-2.0",
+            "voice_id": "zh_female_vv_uranus_bigtts",
         }
 
     asyncio.run(_run())
@@ -508,7 +503,7 @@ def test_generate_track_marks_failed_when_tts_dispatcher_raises(
         result = service.generate_track(
             "project-voice",
             VoiceTrackGenerateInput(
-                profileId="volcengine-vv-20-zh",
+                profileId="volcengine_tts-zh_female_vv_uranus_bigtts",
                 sourceText="失败文本",
             ),
         )
@@ -594,7 +589,7 @@ def test_generate_track_offloads_tts_dispatch_and_file_write_from_event_loop_thr
         result = service.generate_track(
             "project-voice",
             VoiceTrackGenerateInput(
-                profileId="volcengine-vv-20-zh",
+                profileId="volcengine_tts-zh_female_vv_uranus_bigtts",
                 sourceText="line-1\nline-2",
             ),
         )
@@ -649,7 +644,7 @@ def test_generate_track_marks_failed_when_audio_write_fails(
         result = service.generate_track(
             "project-voice",
             VoiceTrackGenerateInput(
-                profileId="volcengine-vv-20-zh",
+                profileId="volcengine_tts-zh_female_vv_uranus_bigtts",
                 sourceText="line-1",
             ),
         )
@@ -711,7 +706,7 @@ def test_regenerate_segment_returns_taskbus_task(tmp_path: Path) -> None:
             "voice-track-1",
             "1",
             VoiceSegmentRegenerateInput(
-                profileId="volcengine-vv-20-zh",
+                profileId="volcengine_tts-zh_female_vv_uranus_bigtts",
                 speed=1.0,
                 pitch=0,
                 emotion="calm",
@@ -742,7 +737,7 @@ def test_regenerate_segment_returns_taskbus_task(tmp_path: Path) -> None:
         assert stored is not None
         segments = json.loads(stored.segments_json)
         assert segments[1]["regeneration"]["status"] == "succeeded"
-        assert segments[1]["regeneration"]["profileId"] == "volcengine-vv-20-zh"
+        assert segments[1]["regeneration"]["profileId"] == "volcengine_tts-zh_female_vv_uranus_bigtts"
         assert segments[1]["regeneration"]["taskId"] == result.task["id"]
 
     asyncio.run(_run())
@@ -758,7 +753,7 @@ def test_regenerate_segment_returns_blocked_result_when_tts_provider_is_missing(
             "voice-track-1",
             "1",
             VoiceSegmentRegenerateInput(
-                profileId="volcengine-vv-20-zh",
+                profileId="volcengine_tts-zh_female_vv_uranus_bigtts",
                 speed=1.0,
                 pitch=0,
                 emotion="calm",
@@ -813,7 +808,7 @@ def test_regenerate_missing_segment_rejects_unknown_segment(
             service.regenerate_segment(
                 "voice-track-1",
                 "999",
-                VoiceSegmentRegenerateInput(profileId="volcengine-vv-20-zh"),
+                VoiceSegmentRegenerateInput(profileId="volcengine_tts-zh_female_vv_uranus_bigtts"),
             )
         )
 

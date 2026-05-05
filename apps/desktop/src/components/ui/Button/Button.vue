@@ -86,13 +86,14 @@ withDefaults(
 
 /* 尺寸规范 */
 .ui-button--sm {
-  height: 28px;
+  height: 32px;
+  min-height: 32px;
   padding: 0 12px;
   font: var(--font-title-sm);
   letter-spacing: var(--ls-title-sm);
 }
 .ui-button--sm.is-icon-only {
-  width: 28px;
+  width: 32px;
   padding: 0;
 }
 

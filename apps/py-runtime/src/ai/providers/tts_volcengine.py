@@ -154,10 +154,11 @@ class VolcengineTTSAdapter(TTSAdapter):
         else:
             headers['X-Api-Key'] = credentials.token
 
+        resolved_resource = _resolve_resource_id(request, options)
         headers.update(
             {
                 'Accept': 'text/event-stream',
-                'X-Api-Resource-Id': _resolve_resource_id(request, options),
+                'X-Api-Resource-Id': resolved_resource,
                 'X-Api-Request-Id': request_id,
                 'X-Api-Sequence': '-1',
             }
@@ -221,16 +222,13 @@ def _resolve_resource_id(request: TTSRequest, options: dict[str, str]) -> str:
     if configured:
         return configured
 
-    model = request.model.strip()
-    if model.startswith('seed-tts-'):
-        return model
-
+    # 已知 1.0 独占模式：mars_bigtts、iv_bigtts 等旧版音色
     voice_id = request.voice_id.strip().lower()
-    if 'uranus' in voice_id:
-        return 'seed-tts-2.0'
-    if 'moon_bigtts' in voice_id or voice_id.startswith('bv'):
+    _V1_ONLY_PATTERNS = ('mars_bigtts', 'iv_bigtts', 'mars_speech')
+    if any(p in voice_id for p in _V1_ONLY_PATTERNS):
         return 'seed-tts-1.0'
-    return _DEFAULT_RESOURCE_ID
+    # 其余均默认走 seed-tts-2.0（含 uranus、moon 等 API 同步的 2.0 音色）
+    return 'seed-tts-2.0'
 
 
 def _speech_rate_from_speed(speed: float) -> int:
@@ -247,16 +245,21 @@ def _decode_streaming_audio_response(body: bytes) -> bytes:
     audio_chunks: list[bytes] = []
     for event in _streaming_response_events(body):
         code = event.get('code')
-        if code != 3000:
-            remote_message = _remote_message(event)
-            raise ProviderHTTPException(
-                status_code=502,
-                detail=f'火山豆包语音合成失败：{remote_message}',
-                error_code='volcengine_tts_remote_error',
-            )
         data = event.get('data')
-        if isinstance(data, str) and data.strip():
+        # 有 base64 音频数据的事件（V3 SSE 用 code=0，旧协议用 code=3000）
+        if isinstance(data, str) and data.strip() and isinstance(code, int) and code >= 0:
             audio_chunks.append(_decode_base64_audio(data))
+            continue
+        # 无音频的正常事件（如结束信号），跳过
+        if isinstance(code, int) and code >= 0:
+            continue
+        # 其余视为远端错误
+        remote_message = _remote_message(event)
+        raise ProviderHTTPException(
+            status_code=502,
+            detail=f'火山豆包语音合成失败：{remote_message}',
+            error_code='volcengine_tts_remote_error',
+        )
     audio_bytes = b''.join(audio_chunks)
     if not audio_bytes:
         raise ProviderHTTPException(

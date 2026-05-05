@@ -53,36 +53,7 @@
   min-width: 0;
 }
 
-.dashboard-alert {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border-default);
-  background: var(--color-bg-muted);
-  line-height: 1.6;
-  margin-bottom: var(--space-4);
-  font: var(--font-body-sm);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dashboard-alert[data-tone="danger"] {
-  border-color: rgba(255, 90, 99, 0.20);
-  background: rgba(255, 90, 99, 0.08);
-  color: var(--color-danger);
-}
-
-.dashboard-alert[data-tone="warning"] {
-  border-color: rgba(245, 183, 64, 0.20);
-  background: rgba(245, 183, 64, 0.08);
-  color: var(--color-warning);
-}
-
-.dashboard-alert[data-tone="brand"] {
-  border-color: rgba(0, 188, 212, 0.20);
-  background: rgba(0, 188, 212, 0.08);
-  color: var(--color-brand-primary);
-}
+/* .dashboard-alert 样式由全局 base.css 统一定义 */
 
 .workspace-grid {
   display: grid;
@@ -198,15 +169,7 @@
   line-height: 1.6;
 }
 
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
-}
+/* .spinning 及 @keyframes spin 由全局 base.css 统一定义 */
 
 .summary-content {
   padding: var(--space-6);

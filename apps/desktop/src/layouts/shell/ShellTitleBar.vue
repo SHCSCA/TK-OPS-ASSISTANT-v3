@@ -316,8 +316,8 @@ async function handleClose() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
@@ -351,17 +351,15 @@ async function handleClose() {
     display: none;
   }
 }
-@media (max-width: 900px) {
+@media (max-width: 960px) {
+  .shell-title-bar__sidebar-toggle {
+    display: flex;
+  }
   .shell-title-bar__left {
     width: auto;
   }
   .shell-divider, .shell-project {
     display: none;
-  }
-}
-@media (max-width: 960px) {
-  .shell-title-bar__sidebar-toggle {
-    display: flex;
   }
 }
 @media (max-width: 760px) {

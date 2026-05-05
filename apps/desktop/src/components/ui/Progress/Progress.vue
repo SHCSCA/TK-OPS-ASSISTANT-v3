@@ -64,6 +64,6 @@ const fillWidth = computed(() => (props.max <= 0 ? 0 : (clampedValue.value / pro
 
 .ui-progress__label {
   color: var(--color-text-secondary);
-  font-size: var(--font-caption);
+  font: var(--font-caption);
 }
 </style>

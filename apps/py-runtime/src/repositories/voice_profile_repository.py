@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from domain.models import VoiceProfile
+
+log = logging.getLogger(__name__)
 
 
 class VoiceProfileRepository:
@@ -54,3 +58,16 @@ class VoiceProfileRepository:
             session.refresh(existing)
             session.expunge(existing)
             return existing
+
+    def delete_profiles_not_in(self, provider: str, keep_ids: set[str]) -> int:
+        """删除指定 provider 下不在 keep_ids 中的旧音色，返回删除数量。"""
+        with self._session_factory() as session:
+            all_for_provider = session.scalars(
+                select(VoiceProfile).where(VoiceProfile.provider == provider)
+            ).all()
+            stale = [p for p in all_for_provider if p.id not in keep_ids]
+            for profile in stale:
+                session.delete(profile)
+            if stale:
+                session.commit()
+            return len(stale)

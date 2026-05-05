@@ -374,15 +374,7 @@
   font-size: 12px;
 }
 
-.spinning {
-  animation: spin 2s linear infinite;
-}
-
-@keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
-}
+/* .spinning 及 @keyframes spin 由全局 base.css 统一定义 */
 
 .wizard-footer {
   margin-top: var(--space-6);

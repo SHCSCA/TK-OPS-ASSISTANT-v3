@@ -11,6 +11,11 @@
             </div>
           </div>
           <div class="page-header__actions">
+            <Button variant="secondary" @click="showVersionDrawer = true">
+              <template #leading><span class="material-symbols-outlined">history</span></template>
+              版本轨迹
+              <Chip v-if="versions.length" size="sm">{{ versions.length }}</Chip>
+            </Button>
             <Button variant="secondary" disabled>风格预设 ▾</Button>
             <Button
               variant="ai"
@@ -232,74 +237,92 @@
           </Card>
         </main>
 
-        <aside class="script-panel script-panel--versions" data-script-section="versions">
-          <Card class="script-card rail-card" style="flex: 1; min-height: 0;">
-            <div class="script-card__header">
-              <h3>版本轨迹</h3>
-              <Chip size="sm">{{ versions.length }}</Chip>
-            </div>
-            <div class="script-card__body no-padding scroll-area">
-              <div v-if="versions.length === 0" class="empty-text">当前项目还没有脚本版本。</div>
-              <div v-else class="version-list">
-                <transition-group name="list-fade">
-                  <div
-                    v-for="version in versions"
-                    :key="version.revision"
-                    class="version-item"
-                    data-script-version-item
-                    :class="{ 'is-active': selectedRevision === version.revision }"
-                    @click="selectedRevision = version.revision"
-                  >
-                    <div class="v-main">
-                      <strong>修订 {{ version.revision }}</strong>
-                      <div class="v-actions">
-                        <Button
-                          v-if="currentVersion?.revision !== version.revision"
-                          variant="secondary"
-                          size="xs"
-                          :disabled="isBusy"
-                          @click.stop="handleAdopt(version.revision)"
-                        >
-                          采用
-                        </Button>
-                        <Chip v-else variant="success" size="sm">当前采用</Chip>
+        <!-- 版本轨迹 + AI 作业抽屉 -->
+        <Teleport to="body">
+          <Transition name="drawer">
+            <div v-if="showVersionDrawer" class="drawer-overlay" @click.self="showVersionDrawer = false">
+              <aside class="drawer-panel drawer-panel--versions" data-script-section="versions">
+                <div class="drawer-panel__header">
+                  <div>
+                    <div class="drawer-panel__eyebrow">脚本与选题中心</div>
+                    <h2>版本轨迹与 AI 作业</h2>
+                  </div>
+                  <button class="drawer-panel__close" @click="showVersionDrawer = false">
+                    <span class="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+                <div class="drawer-panel__body">
+                  <Card class="script-card rail-card">
+                    <div class="script-card__header">
+                      <h3>版本轨迹</h3>
+                      <Chip size="sm">{{ versions.length }}</Chip>
+                    </div>
+                    <div class="script-card__body no-padding scroll-area">
+                      <div v-if="versions.length === 0" class="empty-text">当前项目还没有脚本版本。</div>
+                      <div v-else class="version-list">
+                        <transition-group name="list-fade">
+                          <div
+                            v-for="version in versions"
+                            :key="version.revision"
+                            class="version-item"
+                            data-script-version-item
+                            :class="{ 'is-active': selectedRevision === version.revision }"
+                            @click="selectedRevision = version.revision"
+                          >
+                            <div class="v-main">
+                              <strong>修订 {{ version.revision }}</strong>
+                              <div class="v-actions">
+                                <Button
+                                  v-if="currentVersion?.revision !== version.revision"
+                                  variant="secondary"
+                                  size="xs"
+                                  :disabled="isBusy"
+                                  @click.stop="handleAdopt(version.revision)"
+                                >
+                                  采用
+                                </Button>
+                                <Chip v-else variant="success" size="sm">当前采用</Chip>
+                              </div>
+                            </div>
+                            <div class="v-meta">
+                              <span class="v-time">{{ formatDateTime(version.createdAt) }}</span>
+                              <span class="v-source">{{ version.source }} · {{ version.provider ?? "手动" }}</span>
+                            </div>
+                          </div>
+                        </transition-group>
                       </div>
                     </div>
-                    <div class="v-meta">
-                      <span class="v-time">{{ formatDateTime(version.createdAt) }}</span>
-                      <span class="v-source">{{ version.source }} · {{ version.provider ?? "手动" }}</span>
-                    </div>
-                  </div>
-                </transition-group>
-              </div>
-            </div>
-          </Card>
+                  </Card>
 
-          <Card class="script-card rail-card" data-script-section="title-variants">
-            <div class="script-card__header">
-              <h3>AI 作业与变体</h3>
-            </div>
-            <div class="script-card__body no-padding">
-              <div class="title-seed">
-                <small>当前主标题</small>
-                <strong>{{ titleSeed }}</strong>
-              </div>
-
-              <div v-if="recentJobs.length === 0" class="empty-text">当前还没有真实 AI 作业记录。</div>
-              <div v-else class="job-list">
-                <transition-group name="list-fade">
-                  <div v-for="job in recentJobs.slice(0, 3)" :key="job.id" class="job-item">
-                    <div class="job-main">
-                      <strong>{{ capabilityLabel(job.capabilityId) }}</strong>
-                      <span>{{ job.provider }} · {{ job.model }}</span>
+                  <Card class="script-card rail-card" data-script-section="title-variants">
+                    <div class="script-card__header">
+                      <h3>AI 作业与变体</h3>
                     </div>
-                    <Chip :variant="jobTone(job.status)" size="sm">{{ jobStatusLabel(job.status) }}</Chip>
-                  </div>
-                </transition-group>
-              </div>
+                    <div class="script-card__body no-padding">
+                      <div class="title-seed">
+                        <small>当前主标题</small>
+                        <strong>{{ titleSeed }}</strong>
+                      </div>
+
+                      <div v-if="recentJobs.length === 0" class="empty-text">当前还没有真实 AI 作业记录。</div>
+                      <div v-else class="job-list">
+                        <transition-group name="list-fade">
+                          <div v-for="job in recentJobs.slice(0, 3)" :key="job.id" class="job-item">
+                            <div class="job-main">
+                              <strong>{{ capabilityLabel(job.capabilityId) }}</strong>
+                              <span>{{ job.provider }} · {{ job.model }}</span>
+                            </div>
+                            <Chip :variant="jobTone(job.status)" size="sm">{{ jobStatusLabel(job.status) }}</Chip>
+                          </div>
+                        </transition-group>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </aside>
             </div>
-          </Card>
-        </aside>
+          </Transition>
+        </Teleport>
       </div>
     </div>
   </ProjectContextGuard>
@@ -339,6 +362,7 @@ const { document } = storeToRefs(scriptStore);
 
 const content = ref("");
 const editorMode = ref<EditorMode>("preview");
+const showVersionDrawer = ref(false);
 const planningBrief = reactive(createDefaultPlanningBrief());
 const selectedRevision = ref<number | null>(null);
 

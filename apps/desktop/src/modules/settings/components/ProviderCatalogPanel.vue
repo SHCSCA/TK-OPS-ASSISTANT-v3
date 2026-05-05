@@ -710,7 +710,7 @@ function modalityLabel(modality: string): string {
 
 .provider-hub-layout {
   display: grid;
-  grid-template-columns: minmax(190px, 0.28fr) minmax(420px, 1fr) minmax(280px, 0.42fr);
+  grid-template-columns: minmax(160px, 0.28fr) minmax(280px, 1fr) minmax(220px, 0.42fr);
   gap: var(--density-panel-gap);
   align-items: start;
   min-width: 0;

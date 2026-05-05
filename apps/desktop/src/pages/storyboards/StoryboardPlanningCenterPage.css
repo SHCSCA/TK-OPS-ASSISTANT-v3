@@ -324,7 +324,7 @@
 }
 
 .storyboard-preview-pane :deep(.script-markdown-preview table) {
-  min-width: 980px;
+  min-width: 560px;
 }
 
 .storyboard-source {
@@ -403,15 +403,7 @@
   line-height: 1.5;
 }
 
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
-}
+/* .spinning 及 @keyframes spin 由全局 base.css 统一定义 */
 
 .scroll-area {
   overflow-y: auto;

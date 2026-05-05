@@ -7,8 +7,10 @@
         :data-theme="theme"
         aria-hidden="true"
         @click="handleBackdropClick"
+        @keydown.esc="handleEscKey"
       >
         <div
+          ref="modalRef"
           class="ui-modal"
           :class="`ui-modal--${size}`"
           role="dialog"
@@ -43,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useShellUiStore } from "@/stores/shell-ui";
 
 const props = defineProps<{
@@ -60,9 +62,38 @@ const emit = defineEmits<{
 
 const shellUiStore = useShellUiStore();
 const theme = computed(() => shellUiStore.theme);
+const modalRef = ref<HTMLElement | null>(null);
+
+/* 记录打开前的焦点元素，关闭时恢复 */
+let previousActiveElement: HTMLElement | null = null;
+
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) {
+      previousActiveElement = document.activeElement as HTMLElement | null;
+      nextTick(() => {
+        /* 聚焦到 Modal 内第一个可聚焦元素，或 Modal 本身 */
+        const firstFocusable = modalRef.value?.querySelector<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        (firstFocusable || modalRef.value)?.focus();
+      });
+    } else {
+      previousActiveElement?.focus();
+      previousActiveElement = null;
+    }
+  }
+);
 
 function handleBackdropClick() {
   if (props.closeOnBackdrop && props.closable) {
+    emit("close");
+  }
+}
+
+function handleEscKey() {
+  if (props.closable) {
     emit("close");
   }
 }

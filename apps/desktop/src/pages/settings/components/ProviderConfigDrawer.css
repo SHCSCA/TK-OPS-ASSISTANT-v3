@@ -320,8 +320,7 @@
   flex-shrink: 0;
 }
 
-.spinning { animation: spin 1.5s linear infinite; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+/* .spinning 及 @keyframes spin 由全局 base.css 统一定义 */
 
 /* 抽屉过渡动画 */
 .drawer-enter-active, .drawer-leave-active { transition: opacity var(--motion-default) var(--ease-standard); }

@@ -31,9 +31,8 @@ defineProps<{
   color: var(--color-brand-primary);
   display: inline-flex;
   gap: 6px;
+  font: var(--font-caption);
   font-family: var(--font-family-mono);
-  font-size: var(--font-caption);
-  font-weight: 600;
 }
 
 .editing-status__meta {

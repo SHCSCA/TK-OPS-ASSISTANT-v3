@@ -96,9 +96,9 @@
                   </div>
                   
                   <div class="video-card__metrics">
-                    <span class="metric-item"><span class="material-symbols-outlined">schedule</span>{{ formatDuration(video.durationSeconds) }}</span>
-                    <span class="metric-item"><span class="material-symbols-outlined">straighten</span>{{ formatResolution(video.width, video.height) }}</span>
-                    <span class="metric-item"><span class="material-symbols-outlined">hard_drive</span>{{ formatFileSize(video.fileSizeBytes) }}</span>
+                    <span class="metric-item"><strong>时长</strong>{{ formatDuration(video.durationSeconds) }}</span>
+                    <span class="metric-item"><strong>分辨率</strong>{{ formatResolution(video.width, video.height) }}</span>
+                    <span class="metric-item"><strong>大小</strong>{{ formatFileSize(video.fileSizeBytes) }}</span>
                   </div>
 
                   <!-- 拆解状态摘要 -->
@@ -167,31 +167,6 @@
                 </Button>
               </div>
               <div class="rail-card__body">
-                <AssetPreview :asset="mapToAsset(selectedVideo)" variant="card" />
-
-                <div class="result-actions">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    :running="isDeconstructing(selectedVideo.id)"
-                    :disabled="videoImportStore.status === 'deconstructing' || selectedVideo.status !== 'ready'"
-                    @click="handleDeconstructVideo(selectedVideo.id)"
-                  >
-                    <template #leading><span class="material-symbols-outlined">auto_awesome</span></template>
-                    {{ hasResult(selectedVideo.id) ? "重新拆解" : "开始拆解" }}
-                  </Button>
-                  <Button
-                    variant="brand"
-                    size="sm"
-                    :running="isApplying(selectedVideo.id)"
-                    :disabled="videoImportStore.status === 'applying' || !hasStructureResult(selectedVideo.id)"
-                    @click="handleApplyExtraction(selectedVideo.id)"
-                  >
-                    <template #leading><span class="material-symbols-outlined">ios_share</span></template>
-                    应用至项目
-                  </Button>
-                </div>
-
                 <VideoResultView
                   v-model:active-tab="activeResultTab"
                   :tabs="resultTabs"

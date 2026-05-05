@@ -170,6 +170,7 @@ function formatDate(value: string): string {
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
+  align-self: start;
 }
 
 .stage-overlay {
@@ -185,11 +186,10 @@ function formatDate(value: string): string {
 .stage-content {
   position: relative;
   z-index: 1;
-  padding: var(--space-6);
+  padding: var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  height: 100%;
+  gap: var(--space-4);
 }
 
 .stage-header {
@@ -216,9 +216,9 @@ function formatDate(value: string): string {
 
 .stage-title {
   margin: 0;
-  font: var(--font-display-sm);
+  font: var(--font-title-lg);
   color: var(--color-text-primary);
-  letter-spacing: var(--ls-display-sm);
+  letter-spacing: var(--ls-title-lg);
 }
 
 .stage-badges {
@@ -254,11 +254,9 @@ function formatDate(value: string): string {
 }
 
 .stage-body {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  min-height: 0;
+  gap: var(--space-4);
 }
 
 .context-card {
@@ -292,16 +290,16 @@ function formatDate(value: string): string {
 }
 
 .wave-container {
-  flex: 1;
-  min-height: 140px;
-  background: #0a0c10;
+  height: 120px;
+  flex-shrink: 0;
+  background: var(--color-bg-inset, var(--color-bg-muted));
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0 var(--space-6);
   position: relative;
-  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
 }
 
 .wave-viz {
@@ -316,7 +314,7 @@ function formatDate(value: string): string {
 .wave-bar {
   flex: 1;
   max-width: 6px;
-  background: linear-gradient(to top, var(--color-brand-primary), #4dd0e1);
+  background: linear-gradient(to top, var(--color-brand-primary), var(--color-brand-secondary, #5E17EB));
   border-radius: var(--radius-full);
   opacity: 0.6;
   transition: height var(--motion-default) ease;
@@ -401,7 +399,5 @@ function formatDate(value: string): string {
   50% { height: 90%; opacity: 0.9; }
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+/* @keyframes spin 由全局 base.css 统一定义 */
 </style>

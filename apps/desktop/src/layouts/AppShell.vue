@@ -47,6 +47,15 @@
         />
       </aside>
 
+      <!-- 窄屏下 Sidebar 展开时的背景遮罩 -->
+      <transition name="backdrop-fade">
+        <div
+          v-if="showWorkspaceChrome && !effectiveSidebarCollapsed"
+          class="app-shell__sidebar-backdrop"
+          @click="handleToggleSidebar"
+        />
+      </transition>
+
       <main class="app-shell__content content-host command-content-host">
         <RouterView v-slot="{ Component }">
           <transition name="page-fade" mode="out-in">
@@ -92,6 +101,8 @@
         :sync-label="lastSyncLabel"
       />
     </footer>
+
+    <ToastContainer />
   </div>
 </template>
 
@@ -103,6 +114,7 @@ import { RouterView, useRoute } from "vue-router";
 
 import { routeManifest } from "@/app/router";
 import type { AssetDto, AssetReferenceDto } from "@/types/runtime";
+import ToastContainer from "@/components/ui/Toast/ToastContainer.vue";
 import ShellDetailPanel from "@/layouts/shell/ShellDetailPanel.vue";
 import ShellSidebar from "@/layouts/shell/ShellSidebar.vue";
 import ShellStatusBar from "@/layouts/shell/ShellStatusBar.vue";
@@ -1038,5 +1050,32 @@ function formatShanghaiDateTime(value: string) {
     transform: translateX(0);
     width: 100%;
   }
+}
+
+/* 侧边栏背景遮罩 — 仅在窄屏下可见 */
+.app-shell__sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 960px) {
+  .app-shell__sidebar-backdrop {
+    background: rgba(0, 0, 0, 0.38);
+    bottom: 0;
+    display: block;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: var(--z-sidebar);
+  }
+}
+
+.backdrop-fade-enter-active,
+.backdrop-fade-leave-active {
+  transition: opacity var(--motion-default) var(--ease-standard);
+}
+.backdrop-fade-enter-from,
+.backdrop-fade-leave-to {
+  opacity: 0;
 }
 </style>

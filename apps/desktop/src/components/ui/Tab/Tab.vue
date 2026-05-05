@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 export type TabItem = {
   label: string;
@@ -114,8 +114,25 @@ watch(
   { immediate: true }
 );
 
-// Optional: you could add a ResizeObserver here in a real production environment
-// to re-calculate the indicator if the container width changes.
+// 监听容器尺寸变化，重新计算 indicator 位置
+let resizeObserver: ResizeObserver | null = null;
+
+onMounted(() => {
+  if (tabListRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      const index = props.tabs.findIndex((t) => t.value === props.modelValue);
+      if (index !== -1) {
+        updateIndicator(index);
+      }
+    });
+    resizeObserver.observe(tabListRef.value);
+  }
+});
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+});
 </script>
 
 <style scoped>
