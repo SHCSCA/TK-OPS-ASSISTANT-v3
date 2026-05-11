@@ -601,7 +601,7 @@ def test_dispatch_tts_routes_volcengine_api_key_sse_adapter(
     assert captured['url'] == 'https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse'
     assert captured['method'] == 'POST'
     assert captured['headers']['x-api-key'] == 'api-key-test-volcengine'
-    assert captured['headers']['x-api-resource-id'] == 'seed-tts-1.0'
+    assert captured['headers']['x-api-resource-id'] == 'seed-tts-2.0'
     assert captured['headers']['x-api-request-id'] == 'req-volc-tts'
     assert captured['headers']['x-api-sequence'] == '-1'
     payload = json.loads(captured['body'].decode('utf-8'))
@@ -617,6 +617,159 @@ def test_dispatch_tts_routes_volcengine_api_key_sse_adapter(
             },
         },
     }
+
+
+def test_dispatch_tts_routes_volcengine_api_key_sse_v3_success_codes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='volcengine_tts',
+        label='火山豆包语音',
+        api_key='api-key-test-volcengine',
+        base_url='https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=False,
+        supports_tts=True,
+        protocol_family='volcengine_tts',
+    )
+
+    def fake_urlopen(request, timeout=None):
+        audio = base64.b64encode(b'volcengine-v3-tts-audio').decode('ascii')
+        body = (
+            f'data: {{"code":0,"message":"Success","sequence":1,"data":"{audio}"}}\n\n'
+            'data: {"code":20000000,"message":"OK","sequence":-1}\n\n'
+        )
+        return _FakeBinaryResponse(body.encode('utf-8'))
+
+    monkeypatch.setattr('urllib.request.urlopen', fake_urlopen)
+
+    result = dispatch_tts(
+        runtime,
+        TTSRequest(
+            text='新版 SSE 成功码必须正常解析。',
+            voice_id='zh_female_kailangjiejie_moon_bigtts',
+            model='seed-tts-2.0',
+            request_id='req-volc-tts-v3-code',
+        ),
+    )
+
+    assert result.audio_bytes == b'volcengine-v3-tts-audio'
+
+
+def test_dispatch_tts_surfaces_volcengine_sse_error_event_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='volcengine_tts',
+        label='火山豆包语音',
+        api_key='api-key-test-volcengine',
+        base_url='https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=False,
+        supports_tts=True,
+        protocol_family='volcengine_tts',
+    )
+
+    def fake_urlopen(request, timeout=None):
+        body = 'data: {"code":45000000,"message":"speaker no permission","sequence":-1}\n\n'
+        return _FakeBinaryResponse(body.encode('utf-8'))
+
+    monkeypatch.setattr('urllib.request.urlopen', fake_urlopen)
+
+    with pytest.raises(ProviderHTTPException) as exc_info:
+        dispatch_tts(
+            runtime,
+            TTSRequest(
+                text='错误事件必须透传真实原因。',
+                voice_id='zh_female_kailangjiejie_moon_bigtts',
+                model='seed-tts-2.0',
+                request_id='req-volc-tts-error-event',
+            ),
+        )
+
+    assert exc_info.value.error_code == 'volcengine_tts_remote_error'
+    assert 'speaker no permission' in str(exc_info.value.detail)
+    assert '空音频' not in str(exc_info.value.detail)
+
+
+def test_dispatch_tts_reports_empty_volcengine_sse_audio_with_actionable_hint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='volcengine_tts',
+        label='火山豆包语音',
+        api_key='api-key-test-volcengine',
+        base_url='https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=False,
+        supports_tts=True,
+        protocol_family='volcengine_tts',
+    )
+
+    def fake_urlopen(request, timeout=None):
+        body = (
+            'data: {"code":0,"message":"","payload_msg":{},"data":""}\n\n'
+            'data: {"code":20000000,"message":"OK","payload_msg":{}}\n\n'
+        )
+        return _FakeBinaryResponse(body.encode('utf-8'))
+
+    monkeypatch.setattr('urllib.request.urlopen', fake_urlopen)
+
+    with pytest.raises(ProviderHTTPException) as exc_info:
+        dispatch_tts(
+            runtime,
+            TTSRequest(
+                text='中文文本',
+                voice_id='en_female_stokie_uranus_bigtts',
+                model='seed-tts-2.0',
+                request_id='req-volc-tts-empty-success',
+            ),
+        )
+
+    assert exc_info.value.error_code == 'ai_provider_empty_response'
+    assert '文本语言' in str(exc_info.value.detail)
+    assert '音色' in str(exc_info.value.detail)
+
+
+def test_dispatch_tts_keeps_legacy_marked_voice_on_seed_tts_2(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider='volcengine_tts',
+        label='火山豆包语音',
+        api_key='api-key-test-volcengine',
+        base_url='https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse',
+        secret_source='test',
+        requires_secret=True,
+        supports_text_generation=False,
+        supports_tts=True,
+        protocol_family='volcengine_tts',
+    )
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request, timeout=None):
+        captured['headers'] = {key.lower(): value for key, value in request.header_items()}
+        audio = base64.b64encode(b'volcengine-tts-audio').decode('ascii')
+        return _FakeBinaryResponse(
+            f'data: {{"code":3000,"message":"Success","sequence":-1,"data":"{audio}"}}\n\n'.encode('utf-8')
+        )
+
+    monkeypatch.setattr('urllib.request.urlopen', fake_urlopen)
+
+    dispatch_tts(
+        runtime,
+        TTSRequest(
+            text='旧标记音色也必须走 2.0。',
+            voice_id='zh_male_mars_bigtts',
+            model='seed-tts-2.0',
+            request_id='req-volc-tts-legacy-marker',
+        ),
+    )
+
+    assert captured['headers']['x-api-resource-id'] == 'seed-tts-2.0'
 
 
 def test_has_tts_adapter_reflects_registered_provider_support() -> None:

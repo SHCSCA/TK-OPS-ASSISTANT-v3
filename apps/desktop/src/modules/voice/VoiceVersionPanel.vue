@@ -88,6 +88,7 @@ const emit = defineEmits<{
 
 const statusLabel = computed(() => {
   if (props.status === "loading") return "同步中";
+  if (props.status === "generating") return "生成中";
   if (props.status === "error") return "故障";
   if (props.status === "blocked") return "阻断";
   if (props.tracks.length === 0) return "无数据";
@@ -97,7 +98,10 @@ const statusLabel = computed(() => {
 function statusText(status: VoiceTrackStatus): string {
   if (status === "blocked") return "草稿";
   if (status === "ready") return "就绪";
-  if (status === "generating") return "生成中";
+  if (status === "generating" || status === "processing" || status === "queued" || status === "running") {
+    return "生成中";
+  }
+  if (status === "failed") return "失败";
   return "异常";
 }
 
@@ -159,6 +163,11 @@ function confirmDelete(trackId: string): void {
 }
 
 .panel-heading__chip[data-state="loading"] {
+  color: var(--color-brand-primary);
+  border-color: var(--color-brand-secondary);
+}
+
+.panel-heading__chip[data-state="generating"] {
   color: var(--color-brand-primary);
   border-color: var(--color-brand-secondary);
 }
@@ -250,6 +259,15 @@ function confirmDelete(trackId: string): void {
 }
 
 .version-badge[data-state="ready"] {
+  border-color: var(--color-brand-secondary);
+  color: var(--color-brand-primary);
+  background: rgba(0, 188, 212, 0.05);
+}
+
+.version-badge[data-state="generating"],
+.version-badge[data-state="processing"],
+.version-badge[data-state="queued"],
+.version-badge[data-state="running"] {
   border-color: var(--color-brand-secondary);
   color: var(--color-brand-primary);
   background: rgba(0, 188, 212, 0.05);

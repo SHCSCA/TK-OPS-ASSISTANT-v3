@@ -64,12 +64,43 @@
       </div>
 
       <footer class="stage-footer">
-        <div v-if="selectedTrack?.filePath" class="player-wrapper">
+        <div v-if="audioSrc" class="player-wrapper">
+          <div class="preview-mode-row">
+            <div class="preview-mode-group" role="group" aria-label="预览范围">
+              <button
+                class="preview-mode-button"
+                :class="{ 'preview-mode-button--active': previewMode === 'full' }"
+                data-testid="voice-preview-mode-full"
+                type="button"
+                @click="selectPreviewMode('full')"
+              >
+                整段
+              </button>
+              <button
+                class="preview-mode-button"
+                :class="{ 'preview-mode-button--active': previewMode === 'segment' }"
+                data-testid="voice-preview-mode-segment"
+                :disabled="segmentPreviewDisabled"
+                type="button"
+                @click="selectPreviewMode('segment')"
+              >
+                当前段落
+              </button>
+            </div>
+            <span class="preview-range-label">{{ previewRangeLabel }}</span>
+          </div>
           <audio
+            ref="audioRef"
             class="audio-player"
             controls
-            :src="selectedTrack.filePath"
+            preload="metadata"
+            :src="audioSrc"
+            @error="handleAudioError"
+            @loadedmetadata="handleLoadedMetadata"
+            @play="handleAudioPlay"
+            @timeupdate="handleAudioTimeUpdate"
           />
+          <p v-if="audioLoadError" class="audio-error">{{ audioLoadError }}</p>
         </div>
         <div v-else class="status-tip">
           <span class="material-symbols-outlined">{{ statusIcon }}</span>
@@ -81,24 +112,95 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 
+import { buildVoiceTrackAudioUrl } from "@/app/runtime-client";
 import type { Paragraph, VoiceStudioStatus } from "@/stores/voice-studio";
 import type { VoiceProfileDto, VoiceTrackDto } from "@/types/runtime";
+import {
+  buildVoicePreviewRanges,
+  formatPreviewTime,
+  type VoicePreviewRange
+} from "./voice-preview-ranges";
 
-const props = defineProps<{
+type PreviewMode = "full" | "segment";
+
+const props = withDefaults(defineProps<{
   activeParagraph: Paragraph | null;
+  activeParagraphIndex?: number;
   generationMessage: string | null;
+  paragraphs?: Paragraph[];
   selectedProfile: VoiceProfileDto | null;
   selectedTrack: VoiceTrackDto | null;
   stateMessage: string;
   status: VoiceStudioStatus;
-}>();
+}>(), {
+  activeParagraphIndex: 0,
+  paragraphs: () => []
+});
 
 const bars = Array.from({ length: 48 }, (_, index) => ({
   height: 15 + Math.random() * 70,
   index
 }));
+const audioLoadError = ref<string | null>(null);
+const audioDurationSec = ref<number | null>(null);
+const audioRef = ref<HTMLAudioElement | null>(null);
+const previewMode = ref<PreviewMode>("full");
+
+const audioSrc = computed(() => {
+  if (!props.selectedTrack?.filePath) {
+    return "";
+  }
+  return buildVoiceTrackAudioUrl(
+    props.selectedTrack.id,
+    props.selectedTrack.updatedAt ?? props.selectedTrack.createdAt
+  );
+});
+
+watch(audioSrc, () => {
+  audioLoadError.value = null;
+  audioDurationSec.value = null;
+});
+
+const safeParagraphs = computed(() => (Array.isArray(props.paragraphs) ? props.paragraphs : []));
+const safeActiveParagraphIndex = computed(() => {
+  const rawIndex = Number(props.activeParagraphIndex);
+  if (!Number.isFinite(rawIndex) || rawIndex < 0) {
+    return 0;
+  }
+
+  const maxIndex = Math.max(0, safeParagraphs.value.length - 1);
+  return Math.min(Math.floor(rawIndex), maxIndex);
+});
+
+watch(
+  safeActiveParagraphIndex,
+  () => {
+    if (previewMode.value === "segment") {
+      seekToSegmentStart();
+    }
+  }
+);
+
+const previewRanges = computed(() =>
+  buildVoicePreviewRanges(safeParagraphs.value, audioDurationSec.value)
+);
+const activeSegmentRange = computed<VoicePreviewRange | null>(() =>
+  previewRanges.value.find((range) => range.index === safeActiveParagraphIndex.value) ?? null
+);
+const segmentPreviewDisabled = computed(() => !audioSrc.value || activeSegmentRange.value === null);
+const previewRangeLabel = computed(() => {
+  if (previewMode.value === "segment" && activeSegmentRange.value) {
+    return [
+      `当前段落预览：第 ${safeActiveParagraphIndex.value + 1} 段`,
+      `${formatPreviewTime(activeSegmentRange.value.startSec)} - ${formatPreviewTime(activeSegmentRange.value.endSec)}`
+    ].join(" ");
+  }
+
+  const endSec = audioDurationSec.value ?? previewRanges.value.at(-1)?.endSec ?? 0;
+  return `整段预览：${formatPreviewTime(0)} - ${formatPreviewTime(endSec)}`;
+});
 
 const title = computed(() => {
   if (props.status === "generating") return "正在生成配音版本...";
@@ -157,6 +259,68 @@ function formatDate(value: string): string {
     hour: "2-digit",
     minute: "2-digit"
   }).format(date);
+}
+
+function handleAudioError(): void {
+  audioLoadError.value = "音频文件加载失败，请重新生成或检查 Runtime。";
+}
+
+function selectPreviewMode(mode: PreviewMode): void {
+  if (mode === "segment" && segmentPreviewDisabled.value) {
+    return;
+  }
+  previewMode.value = mode;
+  if (mode === "segment") {
+    seekToSegmentStart();
+  }
+}
+
+function handleLoadedMetadata(event: Event): void {
+  const audio = event.currentTarget as HTMLAudioElement;
+  audioDurationSec.value = Number.isFinite(audio.duration) && audio.duration > 0
+    ? audio.duration
+    : null;
+  audioLoadError.value = null;
+  if (previewMode.value === "segment") {
+    seekToSegmentStart();
+  }
+}
+
+function handleAudioPlay(event: Event): void {
+  if (previewMode.value !== "segment" || !activeSegmentRange.value) {
+    return;
+  }
+
+  const audio = event.currentTarget as HTMLAudioElement;
+  if (
+    audio.currentTime < activeSegmentRange.value.startSec ||
+    audio.currentTime >= activeSegmentRange.value.endSec
+  ) {
+    audio.currentTime = activeSegmentRange.value.startSec;
+  }
+}
+
+function handleAudioTimeUpdate(event: Event): void {
+  if (previewMode.value !== "segment" || !activeSegmentRange.value) {
+    return;
+  }
+
+  const audio = event.currentTarget as HTMLAudioElement;
+  if (audio.currentTime < activeSegmentRange.value.startSec - 0.1) {
+    audio.currentTime = activeSegmentRange.value.startSec;
+    return;
+  }
+  if (audio.currentTime >= activeSegmentRange.value.endSec) {
+    audio.pause();
+    audio.currentTime = activeSegmentRange.value.endSec;
+  }
+}
+
+function seekToSegmentStart(): void {
+  if (!audioRef.value || !activeSegmentRange.value) {
+    return;
+  }
+  audioRef.value.currentTime = activeSegmentRange.value.startSec;
 }
 </script>
 
@@ -376,9 +540,58 @@ function formatDate(value: string): string {
   border-radius: var(--radius-md);
 }
 
+.preview-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: 8px;
+}
+
+.preview-mode-group {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-canvas);
+}
+
+.preview-mode-button {
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: var(--font-caption);
+}
+
+.preview-mode-button--active {
+  background: rgba(0, 188, 212, 0.1);
+  color: var(--color-brand-primary);
+  font-weight: 700;
+}
+
+.preview-mode-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.preview-range-label {
+  color: var(--color-text-tertiary);
+  font: var(--font-caption);
+  text-align: right;
+}
+
 .audio-player {
   width: 100%;
   height: 40px;
+}
+
+.audio-error {
+  margin: 6px 0 0;
+  color: var(--color-danger);
+  font: var(--font-caption);
 }
 
 .status-tip {

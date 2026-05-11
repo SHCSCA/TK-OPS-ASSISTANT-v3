@@ -72,6 +72,7 @@ defineEmits<{
 
 const statusLabel = computed(() => {
   if (props.status === "loading") return "同步中";
+  if (props.status === "generating") return "生成中";
   if (props.status === "error") return "故障";
   if (props.status === "blocked") return "阻断";
   if (props.paragraphs.length === 0) return "无数据";
@@ -124,6 +125,11 @@ const statusLabel = computed(() => {
 }
 
 .panel-heading__chip[data-state="loading"] {
+  color: var(--color-brand-primary);
+  border-color: var(--color-brand-secondary);
+}
+
+.panel-heading__chip[data-state="generating"] {
   color: var(--color-brand-primary);
   border-color: var(--color-brand-secondary);
 }

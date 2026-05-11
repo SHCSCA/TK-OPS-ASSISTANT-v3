@@ -58,6 +58,55 @@ describe("M07 配音中心 store", () => {
     expect(store.selectedTrackId).toBe("voice-2");
   });
 
+  it("生成任务提交后保持生成态并接收 ai-voice 进度事件", async () => {
+    vi.stubGlobal("fetch", createVoiceFetch({ generatingTask: true }));
+
+    const store = useVoiceStudioStore();
+    await store.load("project-1");
+    const result = await store.generate();
+
+    expect(result?.task?.id).toBe("task-voice-1");
+    expect(store.status).toBe("generating");
+    expect(store.viewState).toBe("loading");
+    expect(store.activeTask?.id).toBe("task-voice-1");
+    expect(store.activeTask?.task_type).toBe("ai-voice");
+    expect(store.activeTask?.message).toContain("配音生成任务已提交");
+    expect(store.selectedTrack?.status).toBe("processing");
+
+    store.handleTaskEvent({
+      schema_version: 1,
+      type: "task.progress",
+      taskId: "task-voice-1",
+      taskType: "ai-voice",
+      projectId: "project-1",
+      status: "running",
+      progress: 75,
+      message: "正在写入配音文件。"
+    });
+
+    expect(store.status).toBe("generating");
+    expect(store.activeTask?.progress).toBe(75);
+    expect(store.activeTask?.message).toBe("正在写入配音文件。");
+  });
+
+  it("忽略缺少任务标识的非配音任务事件", async () => {
+    vi.stubGlobal("fetch", createVoiceFetch());
+
+    const store = useVoiceStudioStore();
+    await store.load("project-1");
+    store.handleTaskEvent({
+      schema_version: 1,
+      type: "task.progress",
+      projectId: "project-1",
+      status: "running",
+      progress: 50,
+      message: "其他任务处理中。"
+    });
+
+    expect(store.status).toBe("ready");
+    expect(store.activeTask).toBeNull();
+  });
+
   it("空脚本时不请求生成并进入中文错误态", async () => {
     vi.stubGlobal("fetch", createVoiceFetch({ emptyScript: true }));
 
@@ -186,6 +235,7 @@ function createVoiceFetch(
   options: {
     disabledProfiles?: boolean;
     emptyScript?: boolean;
+    generatingTask?: boolean;
     scriptContent?: string;
     withTrackDetails?: boolean;
   } = {}
@@ -208,6 +258,17 @@ function createVoiceFetch(
       );
     }
     if (path === "/api/voice/projects/project-1/tracks/generate") {
+      if (options.generatingTask) {
+        return okJsonResponse({
+          track: voiceTrack("voice-2", { status: "processing" }),
+          task: taskInfo("task-voice-1", {
+            message: "配音生成任务已提交。",
+            status: "queued",
+            task_type: "ai-voice"
+          }),
+          message: "配音生成任务已提交。"
+        });
+      }
       return okJsonResponse({
         track: voiceTrack("voice-2"),
         task: null,
@@ -265,11 +326,36 @@ I thought this was just another plain coffee cup…
 \`\`\``;
 }
 
+function taskInfo(
+  id = "task-voice-1",
+  overrides: Partial<{
+    message: string;
+    progress: number;
+    status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+    task_type: string;
+  }> = {}
+) {
+  return {
+    id,
+    task_type: overrides.task_type ?? "ai-voice",
+    project_id: "project-1",
+    projectId: "project-1",
+    status: overrides.status ?? "queued",
+    progress: overrides.progress ?? 0,
+    message: overrides.message ?? "任务已排队",
+    created_at: now(),
+    updated_at: now(),
+    kind: overrides.task_type ?? "ai-voice",
+    ownerRef: { kind: "voice-track", id: "voice-2" },
+    label: "配音生成：清晰叙述"
+  };
+}
+
 function voiceProfile(overrides: Partial<{ enabled: boolean }> = {}) {
   return {
     id: "alloy-zh",
-    provider: "pending_provider",
-    voiceId: "alloy",
+    provider: "volcengine_tts",
+    voiceId: "zh_female_vv_uranus_bigtts",
     displayName: "清晰叙述",
     locale: "zh-CN",
     tags: ["清晰", "旁白"],
@@ -277,13 +363,13 @@ function voiceProfile(overrides: Partial<{ enabled: boolean }> = {}) {
   };
 }
 
-function voiceTrack(id = "voice-1") {
+function voiceTrack(id = "voice-1", overrides: Partial<{ status: string }> = {}) {
   return {
     id,
     projectId: "project-1",
     timelineId: null,
     source: "tts",
-    provider: "pending_provider",
+    provider: "volcengine_tts",
     voiceName: "清晰叙述",
     filePath: null,
     segments: [
@@ -295,7 +381,7 @@ function voiceTrack(id = "voice-1") {
         audioAssetId: null
       }
     ],
-    status: "blocked",
+    status: overrides.status ?? "blocked",
     createdAt: now()
   };
 }

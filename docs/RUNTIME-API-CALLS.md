@@ -1,8 +1,8 @@
-> 更新日期：2026-04-24；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。V2 前端已接通 `deleteDashboardProject`、浏览器实例 CRUD、FFprobe 诊断消费链路。
+> 更新日期：2026-05-11；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。配音中心已补齐火山豆包 TTS2、音频流预览、段落预览和音色同步配置链路。
 
 # Runtime API 与前端调用真源
 
-**当前状态（2026-04-24）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致（181 / 181）；`bootstrap.readiness / dashboard.delete / settings.diagnostics.media / devices.browser-instances / ai-providers runtime / dashboard summary` 已回流到本文。§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
+**当前状态（2026-05-11）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致（185 / 185）；`voice.audio / voice.profiles.refresh / volcengine_tts2 / ai-capability secret` 已回流到本文。§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
 **接口版本**: V1（统一 JSON 信封，无独立版本号前缀）
 **唯一真源约束**: 后端路由、服务、前端 `runtime-client.ts`、Pinia store、契约测试发生变化时，必须在同一次改动中更新本文件。
 **编码约束**: 本文档必须使用 UTF-8 无 BOM 保存，所有读取、生成、校验脚本都按 UTF-8 处理，避免中文出现乱码。
@@ -95,17 +95,17 @@
 
 ## 1.5 文档-代码差异矩阵（V1）
 
-- HTTP 文档路由数（提取）：181
-- HTTP 代码路由数（去重）：181
-- HTTP 文档与代码一致：181
+- HTTP 文档路由数（提取）：185
+- HTTP 代码路由数（去重）：185
+- HTTP 文档与代码一致：185
 - HTTP 代码未写入文档（需补充）：0
 - HTTP 文档有但代码未见（需补齐）：0
 
-### 接口状态表（2026-04-24）
+### 接口状态表（2026-05-11）
 
 | 状态 | 数量 | 说明 |
 | --- | --- | --- |
-| 已实现并已文档化 | 181 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
+| 已实现并已文档化 | 185 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
 | 已实现但未文档化 | 0 | 本轮已补齐 `bootstrap / dashboard / settings / devices / ai-providers` 新增运行时接口登记 |
 | 文档已写但未实现 | 0 | 本轮已补齐 `/api/video-deconstruction` 文档要求的 7 个接口，并完成剩余接口登记 |
 | 字段仍可继续细化 | 若干 | 主要是高级接口的错误码、更多响应示例和边界说明 |
@@ -118,9 +118,12 @@
 - 已按文档补齐 `/api/video-deconstruction/videos/{video_id}/segments`
 - 已按文档补齐 `/api/video-deconstruction/videos/{video_id}/extract-structure`
 - 已按文档补齐 `/api/video-deconstruction/videos/{video_id}/structure`
+- 已补登记 `/api/video-deconstruction/videos/{video_id}/deconstruct`
+- 已补登记 `/api/video-deconstruction/videos/{video_id}/result`
 - 已按文档补齐 `/api/video-deconstruction/extractions/{extraction_id}/apply-to-project`
 - 已补登记 `/api/video-deconstruction/videos/{video_id}/stages`
 - 已补登记 `/api/video-deconstruction/videos/{video_id}/stages/{stage_id}/rerun`
+- 已补登记 `/api/voice/providers/{provider_id}/profiles/refresh`
 - 已补登记 `GET /api/bootstrap/readiness`
 - 已补登记 `DELETE /api/dashboard/projects/{project_id}`
 - 已补登记 `GET /api/settings/diagnostics/media`
@@ -657,6 +660,8 @@
 | `DELETE /api/video-deconstruction/videos/{video_id}` | 路径参数：`video_id` | `null` | `404` | `deleteImportedVideo` |
 | `POST /api/video-deconstruction/videos/{video_id}/transcribe` | 无 | `VideoTranscriptDto`；未接入 Provider 时返回 `status=provider_required` 且 `text=null` | `404`、`500` | `startVideoTranscription` |
 | `GET /api/video-deconstruction/videos/{video_id}/transcript` | 路径参数：`video_id` | `VideoTranscriptDto` | `404`、`500` | `fetchVideoTranscript` |
+| `POST /api/video-deconstruction/videos/{video_id}/deconstruct` | 无 | `VideoDeconstructionResultDto`：`videoId`、`transcript`、`segments`、`structure`、`stages`、`script`、`keyframes`、`contentStructure`、`source` | `404`、`409 task.conflict`、`500` | `deconstructVideo` |
+| `GET /api/video-deconstruction/videos/{video_id}/result` | 路径参数：`video_id` | `VideoDeconstructionResultDto` | `404`、`500` | `fetchVideoResult` |
 | `POST /api/video-deconstruction/videos/{video_id}/segment` | 无 | `VideoSegmentDto[]` | `404`、`409 task.conflict`、`500` | `runVideoSegmentation` |
 | `GET /api/video-deconstruction/videos/{video_id}/segments` | 路径参数：`video_id` | `VideoSegmentDto[]` | `404` | `fetchVideoSegments` |
 | `POST /api/video-deconstruction/videos/{video_id}/extract-structure` | 无 | `VideoStructureExtractionDto`；要求分段阶段已成功 | `404`、`409 task.conflict`、`500` | `extractVideoStructure` |
@@ -763,10 +768,12 @@
 | --- | --- | --- | --- | --- |
 | `GET /api/voice/profiles` | 无 | `VoiceProfileDto[]` | `500` | `fetchVoiceProfiles` |
 | `POST /api/voice/profiles` | `VoiceProfileCreateInput`：`provider`、`voiceId`、`displayName`、`locale`、`tags[]`、`enabled` | `VoiceProfileDto` | `422`、`500`、`503` | `createVoiceProfile` |
+| `POST /api/voice/providers/{provider_id}/profiles/refresh` | 路径参数：`provider_id`，当前用于 `volcengine_tts` 从官方 OpenAPI 同步 TTS2 音色 | `VoiceProfileRefreshResultDto`：`provider`、`status`、`message`、`savedCount`、`profiles[]` | `400`、`503`、`500` | `refreshVoiceProfiles` |
 | `GET /api/voice/projects/{project_id}/tracks` | 路径参数 `project_id` | `VoiceTrackDto[]` | `404` | `fetchVoiceTracks` |
 | `POST /api/voice/projects/{project_id}/tracks/generate` | `VoiceTrackGenerateInput`：`profileId`、`sourceText`、`speed`、`pitch`、`emotion` | `VoiceTrackGenerateResultDto` | `404`、`422`、`500` | `generateVoiceTrack` |
 | `POST /api/voice/tracks/{track_id}/segments/{segment_id}/regenerate` | 路径参数 `track_id`、`segment_id`；`VoiceSegmentRegenerateInput`：可选 `profileId`、`speed`、`pitch`、`emotion` | `VoiceTrackRegenerateResultDto` | `404`、`422`、`500` | `regenerateVoiceSegment` |
 | `GET /api/voice/tracks/{track_id}/waveform` | 路径参数 `track_id` | `VoiceWaveformDto` | `404`、`500` | `fetchVoiceWaveform` |
+| `GET /api/voice/tracks/{track_id}/audio` | 路径参数 `track_id`；按轨道真实音频文件返回二进制流 | `FileResponse`，媒体类型按后缀映射为 `audio/mpeg`、`audio/wav`、`audio/ogg`、`audio/mp4` 或 `application/octet-stream` | `404`、`500` | `buildVoiceTrackAudioUrl` |
 | `GET /api/voice/tracks/{track_id}` | 路径参数 `track_id` | `VoiceTrackDto` | `404` | `fetchVoiceTrack` |
 | `DELETE /api/voice/tracks/{track_id}` | 路径参数 `track_id` | `null` | `404` | `deleteVoiceTrack` |
 
@@ -776,6 +783,8 @@
 - 存在可用 TTS Runtime 时，返回 `track.status="processing"`，创建 `kind="ai-voice"` 任务，任务成功后写入真实音频文件并切换到 `ready`，失败时切到 `failed`。
 - `POST /api/voice/tracks/{track_id}/segments/{segment_id}/regenerate` 会更新真实 `segments[].regeneration`。无 Provider 时返回 `blocked` 且 `retryable=true`；有 Provider 时返回真实任务状态，成功后更新片段音频资源和配音版本。
 - `GET /api/voice/tracks/{track_id}/waveform` 只基于本地真实音频文件生成波形摘要，缺少音频文件时明确返回 `missing_audio`。
+- `GET /api/voice/tracks/{track_id}/audio` 只读取服务层确认存在的本地真实音频文件；前端播放器必须使用 Runtime 资源 URL，不直接暴露本机文件路径。
+- `volcengine_tts` 新生成任务固定走 `seed-tts-2.0`。若中文文本选择了非中文火山音色，Runtime 会返回中文可见的 400 提示，避免远端生成空音频。
 - `config.parameterSource` 当前可能为 `seed`、`profile`、`manual`、`runtime`，分别表示旧数据种子、按音色生成、手动片段重生和运行时回填。
 
 **示例**
@@ -1718,7 +1727,7 @@ waveform 缺少音频：
 | `GET /api/settings/ai-capabilities` | 无 | `AICapabilitySettingsDto`：`capabilities[]`、`providers[]` | `500` | `fetchAICapabilitySettings` |
 | `PUT /api/settings/ai-capabilities` | `AICapabilityConfigListInput`：`capabilities[]`；成功后广播 `ai-capability.changed` | `AICapabilitySettingsDto` | `422`、`500` | `updateAICapabilitySettings` |
 | `GET /api/settings/ai-capabilities/support-matrix` | 无 | `AICapabilitySupportMatrixDto` | `500` | `fetchAICapabilitySupportMatrix` |
-| `PUT /api/settings/ai-capabilities/providers/{provider_id}/secret` | `AIProviderSecretInput`：`apiKey`、`baseUrl?` | `AIProviderSecretStatusDto` | `404`、`422` | `updateAIProviderSecret` |
+| `PUT /api/settings/ai-capabilities/providers/{provider_id}/secret` | `AIProviderSecretInput`：通用 Provider 使用 `apiKey`、`baseUrl?`；`volcengine_tts` 额外支持 `accessToken`、`appId`、`openApiAccessKey`、`openApiSecretKey`、`openApiRegion` | `AIProviderSecretStatusDto` | `404`、`422` | `updateAIProviderSecret` |
 | `POST /api/settings/ai-capabilities/providers/{provider_id}/health-check` | `AIProviderHealthCheckInput`：`model?` | `AIProviderHealthDto` | `404`、`422` | `checkAIProviderHealth` |
 
 `support-matrix` 只返回启用模型，并按能力语义匹配：
@@ -2062,7 +2071,7 @@ waveform 缺少音频：
 | M14 渲染导出 | 已修复：前端 `RenderResourceUsageDto`、templates/profile 类型与后端 schema 对齐，renders store 增加 profiles/templates/resource-usage/retry 消费 | 已有 `runtime-client-b-s5.spec.ts` 与 `runtime-stores-m09-m15.spec.ts` 覆盖 |
 | TaskBus | 已修复：前端兼容缺少 `schema_version` 的历史事件并补齐为 `1`；`video_status_changed` 仍作为 legacy event type 保留 | 已有 `task-bus.spec.ts` 覆盖 |
 
-当前文档与代码对齐批次：**2026-04-24 Runtime HTTP 路由库存复核 + V2 类型漂移收尾，181 条 HTTP 接口明细已与当前后端代码全量对齐；后续主要补更多异常样例与端到端联调说明**
+当前文档与代码对齐批次：**2026-05-11 火山豆包 TTS2 与配音中心音频预览收口，185 条 HTTP 接口明细已与当前后端代码全量对齐；后续主要补更多异常样例与端到端联调说明**
 
 ---
 
@@ -2077,8 +2086,8 @@ waveform 缺少音频：
 | Provider 目录层 | `_provider_catalog_metadata()` 已定义 30+ Provider，包含国内厂商模板和自定义 Provider 模板 | **已完成** |
 | 健康探针层 | `openai` / `openai_compatible` / `anthropic` / `gemini` / `cohere` 均有 `_post_*_probe` | **已完成** |
 | 文本生成 dispatch | `generate_text()` 已使用 `dispatch_text_generation(runtime_config, request)`，按 `ProviderRuntimeConfig.protocol_family` 走统一 registry | **已完成** |
-| TTS 生成 dispatch | `voice_service.py` 的 `generate_track()` 已支持 `blocked / processing` 双路径；当前仅 OpenAI TTS 可真实执行 | **已完成最小真实接入** |
-| Provider 适配器目录 | `apps/py-runtime/src/ai/providers/` 已落地文本 adapter 与 `tts_openai.py`；其他 TTS adapter 仍为预留规格 | **已部分完成** |
+| TTS 生成 dispatch | `voice_service.py` 的 `generate_track()` 已支持 `blocked / processing` 双路径；OpenAI TTS 与火山豆包 TTS2 可真实执行 | **已完成最小真实接入** |
+| Provider 适配器目录 | `apps/py-runtime/src/ai/providers/` 已落地文本 adapter、`tts_openai.py` 与 `tts_volcengine.py`；其他 TTS adapter 仍为预留规格 | **已部分完成** |
 
 ### 21.2 Provider 协议族分类
 
@@ -2109,10 +2118,11 @@ apps/py-runtime/src/ai/providers/
 ├── anthropic_messages.py    # Anthropic Messages API 适配
 ├── gemini_generate.py       # Google Gemini GenerateContent 适配
 ├── cohere_chat.py           # Cohere Chat 适配
-└── tts_openai.py            # OpenAI TTS 适配
+├── tts_openai.py            # OpenAI TTS 适配
+└── tts_volcengine.py        # 火山豆包 TTS2 适配
 ```
 
-> 当前状态（2026-04-18）：其他 TTS adapter 仍属预留规格，尚未在 `apps/py-runtime/src/ai/providers/` 目录落地。
+> 当前状态（2026-05-11）：`tts_openai.py` 与 `tts_volcengine.py` 已落地。Azure Speech、ElevenLabs、MiniMax Speech 等其他 TTS adapter 仍属预留规格。
 
 #### 21.3.2 TextGenerationAdapter 基类
 
@@ -2414,34 +2424,37 @@ class TTSAdapter(ABC):
 | Provider | Endpoint | Auth | 请求体核心字段 | 响应 |
 | --- | --- | --- | --- | --- |
 | `openai`（当前已落地） | `POST {base_url}/audio/speech` | Bearer | `{model, input, voice, speed, response_format}` | 二进制音频流 |
+| `volcengine_tts`（当前已落地） | 火山豆包 V3 SSE 端点 | `Access Token` + `App ID`，音色同步使用 OpenAPI AK/SK | `ResourceID=seed-tts-2.0`、`voice_type`、`text`、`speed_ratio`、`encoding` | SSE 内嵌 base64 音频块 |
 
-> 当前状态（2026-04-18）：仅 `tts_openai.py` 已落地。Azure Speech、ElevenLabs、火山语音、MiniMax Speech 等其他 TTS adapter 仍属预留规格，尚未接入 runtime。
+> 当前状态（2026-05-11）：`tts_openai.py` 与 `tts_volcengine.py` 已落地。火山豆包语音仅接入 `seed-tts-2.0`，不再提供 1.0 入口。
 
 #### 21.5.3 voice_service.py 改造要点
 
-**当前状态（2026-04-18）**：
+**当前状态（2026-05-11）**：
 
 1. `VoiceService.generate_track()` 已支持双路径：
-   - 有可用 OpenAI TTS 配置且 provider 已注册 TTS adapter → 创建 `status="processing"` 的轨道并返回 `kind="ai-voice"` 任务对象。
+   - 有可用 TTS 配置且 provider 已注册 TTS adapter → 创建 `status="processing"` 的轨道并返回 `kind="ai-voice"` 任务对象。
    - 无可用 TTS adapter、无配置、缺少必需 secret 或 base_url → 保持兼容 `status="blocked"` + `task=null`。
 2. `ai-voice` 后台任务会调用 `dispatch_tts()`，并将音频落盘到 `{workspace}/voice/{track_id}.{format}`。
 3. 后台任务成功后更新 `file_path`、`provider` 和 `status="ready"`；失败时更新 `status="failed"`。
-4. `regenerate_segment()` 仍走 TaskBus 兼容任务对象，不做真实分段音频拼接或音频回写。
+4. `volcengine_tts` 固定使用 `seed-tts-2.0`，并在服务层阻断中文文本与非中文音色的误配。
+5. `regenerate_segment()` 仍走 TaskBus 兼容任务对象，不做真实分段音频拼接或音频回写。
 
 #### 21.5.4 TTS Provider 到 voice_id 映射
 
-`VoiceProfile.provider` 已使用真实 provider ID；当前内建音色均为 `openai`。
+`VoiceProfile.provider` 已使用真实 provider ID；火山豆包音色由官方 OpenAPI 按 `ResourceIDs=["seed-tts-2.0"]` 同步。
 
 | VoiceProfile.provider | voice_id 含义 | 示例 |
 | --- | --- | --- |
 | `openai` | OpenAI voice name | `alloy`、`nova`、`echo`、`shimmer` |
+| `volcengine_tts` | 火山豆包 `voice_type` | `zh_female_xiaohe_uranus_bigtts`、`zh_male_m191_uranus_bigtts` |
 | 其他 provider | 各家 TTS voice 标识 | 仍属预留规格，待对应 TTS adapter 落地后启用 |
 
 ### 21.6 Provider 能力适配矩阵
 
 > Codex 实现时以此表为 dispatch 依据。前端以此表控制 Provider 下拉选项。
 
-> 当前状态（2026-04-18）：`dispatch_tts` 当前仅注册 `openai`。其余虽然在能力元数据中声明了 `tts` capability，但运行时若无已注册 TTS adapter，会在 `VoiceService.generate_track()` 侧回退为 `blocked`。
+> 当前状态（2026-05-11）：`dispatch_tts` 当前注册 `openai` 与 `volcengine_tts`。其余虽然在能力元数据中声明了 `tts` capability，但运行时若无已注册 TTS adapter，会在 `VoiceService.generate_track()` 侧回退为 `blocked`。
 
 | Provider ID | text_generation | vision | tts | video_generation | asset_analysis | 协议族 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -2467,7 +2480,7 @@ class TTSAdapter(ABC):
 | `localai` | ✅ | — | ✅ | — | — | `openai_chat` |
 | `azure_speech` | — | — | ✅ | — | — | 专用 TTS |
 | `elevenlabs` | — | — | ✅ | — | — | 专用 TTS |
-| `volcengine_speech` | — | — | ✅ | — | — | 专用 TTS |
+| `volcengine_tts` | — | — | ✅ | — | — | 专用 TTS |
 | `minimax_speech` | — | — | ✅ | — | — | 专用 TTS |
 
 ### 21.7 统一错误码扩展
@@ -2563,16 +2576,17 @@ AI 调用层新增以下 `error_code`，Codex 在服务层抛出，Gemini 在前
 
 ### Phase 2：TTS 调用层（Codex）
 
-- [x] 实现 `TTSAdapter` 基类 + `tts_openai.py`（当前只落地 OpenAI TTS）
+- [x] 实现 `TTSAdapter` 基类 + `tts_openai.py`
+- [x] 实现 `tts_volcengine.py`，接入火山豆包语音合成模型 2.0 与官方音色同步
 - [x] 改造 `voice_service.py`（按 21.5.3 要点）
 - [x] `VoiceProfile.provider` 从占位 provider 改为真实 provider ID
-- [ ] 后续逐个接入 Azure Speech / ElevenLabs / 火山 / MiniMax
+- [ ] 后续逐个接入 Azure Speech / ElevenLabs / MiniMax
 
 ### Phase 3：前端对齐（Gemini）
 
 - [ ] 修复 22.1-22.5 所有接口漂移项
 - [ ] AI 设置页面 Provider 选择器联动（按 22.6）
-- [ ] TTS 页面接入真实音频播放（依赖 Phase 2 完成）
+- [x] TTS 页面接入真实音频播放、整段预览与当前段落预览
 
 ---
 

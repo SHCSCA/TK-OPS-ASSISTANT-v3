@@ -95,17 +95,17 @@ def _is_2_0_compatible(voice_type: str, speaker: dict[str, Any]) -> bool:
 def _resolve_open_api_credentials(raw_secret: str) -> _VolcengineOpenApiCredentials | None:
     options = _parse_secret_options(raw_secret)
     access_key = (
-        _option_value(options, "access_key", "accessKey", "ak")
+        _option_value(options, "access_key", "accessKey", "openApiAccessKey", "open_api_access_key", "ak")
         or os.getenv("TK_OPS_VOLCENGINE_TTS_ACCESS_KEY", "").strip()
         or os.getenv("TK_OPS_VOLCENGINE_ACCESS_KEY", "").strip()
     )
     secret_key = (
-        _option_value(options, "secret_key", "secretKey", "sk")
+        _option_value(options, "secret_key", "secretKey", "openApiSecretKey", "open_api_secret_key", "sk")
         or os.getenv("TK_OPS_VOLCENGINE_TTS_SECRET_KEY", "").strip()
         or os.getenv("TK_OPS_VOLCENGINE_SECRET_KEY", "").strip()
     )
     region = (
-        _option_value(options, "region")
+        _option_value(options, "region", "openApiRegion", "open_api_region")
         or os.getenv("TK_OPS_VOLCENGINE_TTS_REGION", "").strip()
         or _DEFAULT_REGION
     )

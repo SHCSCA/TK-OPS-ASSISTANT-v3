@@ -366,8 +366,13 @@ export type AICapabilitySettings = {
 };
 
 export type AIProviderSecretInput = {
-  apiKey: string;
+  apiKey?: string;
   baseUrl?: string;
+  accessToken?: string;
+  appId?: string;
+  openApiAccessKey?: string;
+  openApiSecretKey?: string;
+  openApiRegion?: string;
 };
 
 export type AIProviderHealthInput = {
@@ -680,7 +685,15 @@ export type WorkspaceAICommandResultDto = {
   message: string;
 };
 
-export type VoiceTrackStatus = "blocked" | "ready" | "error" | "generating";
+export type VoiceTrackStatus =
+  | "blocked"
+  | "ready"
+  | "error"
+  | "failed"
+  | "generating"
+  | "processing"
+  | "queued"
+  | "running";
 
 export type VoiceProfileDto = {
   id: string;
@@ -708,6 +721,49 @@ export type VoiceTrackSegmentDto = {
   startMs: number | null;
   endMs: number | null;
   audioAssetId: string | null;
+  regeneration?: Record<string, unknown> | null;
+};
+
+export type VoiceTrackVoiceConfigDto = {
+  parameterSource: string;
+  profileId?: string | null;
+  provider?: string | null;
+  voiceId?: string | null;
+  voiceName?: string | null;
+  locale?: string | null;
+  model?: string | null;
+  speed?: number | null;
+  pitch?: number | null;
+  emotion?: string | null;
+  sourceText?: string | null;
+  sourceLineCount?: number | null;
+  lastOperation?: Record<string, unknown> | null;
+};
+
+export type VoiceTrackTaskDto = Partial<TaskInfo> & {
+  id: string;
+  kind?: string;
+  taskType?: string;
+  projectId?: string | null;
+  ownerRef?: Record<string, unknown> | null;
+  label?: string | null;
+  message: string;
+  status: string;
+  progress: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type VoiceTrackVersionDto = {
+  revision: number;
+  updatedAt: string;
+};
+
+export type VoiceTrackPreviewDto = {
+  status: string;
+  resourceId?: string | null;
+  filePath?: string | null;
+  message: string;
 };
 
 export type VoiceTrackDto = {
@@ -720,7 +776,12 @@ export type VoiceTrackDto = {
   filePath: string | null;
   segments: VoiceTrackSegmentDto[];
   status: VoiceTrackStatus;
+  version?: VoiceTrackVersionDto;
+  config?: VoiceTrackVoiceConfigDto;
+  preview?: VoiceTrackPreviewDto;
+  activeTask?: VoiceTrackTaskDto | null;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type VoiceTrackGenerateInput = {
@@ -738,12 +799,24 @@ export type VoiceTrackGenerateResultDto = {
 };
 
 export type VoiceSegmentRegenerateInput = {
-  instructions: string;
+  profileId?: string | null;
+  speed: number;
+  pitch: number;
+  emotion: string;
+};
+
+export type VoiceWaveformPointDto = {
+  timeMs: number;
+  amplitude: number;
 };
 
 export type VoiceWaveformDto = {
-  trackId: string;
-  samples: number[];
+  status: string;
+  message: string;
+  durationMs?: number | null;
+  sampleRate?: number | null;
+  channels?: number | null;
+  points: VoiceWaveformPointDto[];
 };
 
 export type SubtitleTrackStatus =

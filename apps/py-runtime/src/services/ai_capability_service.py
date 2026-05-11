@@ -46,6 +46,7 @@ from services.ai_default_prompts import (
     default_system_prompt as _default_system_prompt_from_config,
     default_user_prompt_template as _default_user_prompt_template_from_config,
 )
+from services.provider_secret_normalizer import normalize_provider_secret_for_storage
 from services.ws_manager import ws_manager
 
 log = logging.getLogger(__name__)
@@ -143,11 +144,27 @@ class AICapabilityService:
         self,
         provider_id: str,
         *,
-        api_key: str,
+        api_key: str | None = None,
         base_url: str | None = None,
+        access_token: str | None = None,
+        app_id: str | None = None,
+        open_api_access_key: str | None = None,
+        open_api_secret_key: str | None = None,
+        open_api_region: str | None = None,
     ) -> AIProviderSecretStatusDto:
         metadata = _get_supported_provider_catalog_metadata(provider_id)
-        self._secret_store.set(f"provider:{provider_id}:api_key", api_key.strip())
+        existing_secret = self._secret_store.get(f"provider:{provider_id}:api_key")
+        secret_value = normalize_provider_secret_for_storage(
+            provider_id,
+            existing_secret=existing_secret,
+            api_key=api_key,
+            access_token=access_token,
+            app_id=app_id,
+            open_api_access_key=open_api_access_key,
+            open_api_secret_key=open_api_secret_key,
+            open_api_region=open_api_region,
+        )
+        self._secret_store.set(f"provider:{provider_id}:api_key", secret_value)
         if base_url is not None:
             self._repository.save_provider_setting(provider_id, base_url.strip())
         elif bool(metadata["requires_base_url"]):
@@ -2342,7 +2359,6 @@ def _static_model_catalog() -> list[AIModelCatalogItemDto]:
         _model("volcengine", "doubao-seed-2.0-pro", "Doubao-Seed-2.0-pro", ["text_generation", "vision", "asset_analysis"], ["text", "image", "video"], ["text"], ["asset_analysis"]),
         _model("volcengine", "doubao-seed-2.0-lite", "Doubao-Seed-2.0-lite", ["text_generation", "vision", "asset_analysis"], ["text", "image", "video"], ["text"], ["asset_analysis"]),
         _model("volcengine", "seedance-2.0", "Seedance 2.0", ["video_generation"], ["text", "image"], ["video"], ["video_generation"]),
-        _model("volcengine_tts", "seed-tts-1.0", "豆包语音合成 1.0", ["tts"], ["text"], ["audio"], ["tts_generation"]),
         _model("volcengine_tts", "seed-tts-2.0", "豆包语音合成 2.0", ["tts"], ["text"], ["audio"], ["tts_generation"]),
         _model("baidu_qianfan", "ernie-4.5", "ERNIE 4.5", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation", "asset_analysis"]),
         _model("tencent_hunyuan", "hunyuan-turbos", "混元 TurboS", ["text_generation", "vision"], ["text", "image"], ["text"], ["script_generation"]),

@@ -160,8 +160,11 @@ function formatLocale(locale: string) {
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
   background: var(--color-bg-elevated);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  height: 520px; /* Give it a fixed height or max-height */
+  height: 520px;
+  min-height: 0;
   box-shadow: var(--shadow-sm);
 }
 
@@ -173,6 +176,7 @@ function formatLocale(locale: string) {
   padding: var(--space-4);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-bg-muted);
+  flex-shrink: 0;
 }
 
 .panel-heading__title {
@@ -241,6 +245,7 @@ function formatLocale(locale: string) {
   border-bottom: 1px solid var(--color-border-subtle);
   display: grid;
   gap: var(--space-3);
+  flex-shrink: 0;
 }
 
 .search-box {
@@ -300,8 +305,12 @@ function formatLocale(locale: string) {
 
 .list-viewport {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

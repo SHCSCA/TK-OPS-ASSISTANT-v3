@@ -470,6 +470,76 @@ def test_generate_track_uses_volcengine_tts_runtime_for_builtin_doubao_voice(
     asyncio.run(_run())
 
 
+def test_generate_track_keeps_synced_moon_voice_on_seed_tts_2(
+    tmp_path: Path,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider="volcengine_tts",
+        label="火山豆包语音",
+        api_key="api-key-test-volcengine-tts",
+        base_url="https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
+        secret_source="test",
+        requires_secret=True,
+        supports_text_generation=False,
+        supports_tts=True,
+        protocol_family="volcengine_tts",
+    )
+    captured: dict[str, object] = {}
+    settings_service = _FakeSettingsService(tmp_path / "workspace")
+
+    def _fake_dispatcher(runtime_config, request):
+        captured["provider"] = runtime_config.provider
+        captured["model"] = request.model
+        captured["voice_id"] = request.voice_id
+        return TTSResponse(
+            audio_bytes=b"volcengine-tts-bytes",
+            content_type="audio/mpeg",
+            provider="volcengine_tts",
+            model=request.model,
+        )
+
+    service, _, task_manager = _make_voice_service(
+        tmp_path,
+        ai_capability_service=_FakeAICapabilityService(
+            runtime=runtime,
+            capability_provider="volcengine_tts",
+            capability_model="seed-tts-1.0",
+        ),
+        tts_dispatcher=_fake_dispatcher,
+        artifact_store=VoiceArtifactStore(settings_service=settings_service),
+    )
+    profile = service.create_profile(
+        VoiceProfileCreateInput(
+            provider="volcengine_tts",
+            voiceId="zh_female_tianmei_moon_bigtts",
+            displayName="豆包甜美女声",
+            locale="zh-CN",
+            tags=["豆包", "视频配音"],
+            enabled=True,
+        )
+    )
+
+    async def _run() -> None:
+        result = service.generate_track(
+            "project-voice",
+            VoiceTrackGenerateInput(
+                profileId=profile.id,
+                sourceText="第一句豆包配音\n第二句豆包配音",
+            ),
+        )
+
+        assert result.task is not None
+        final_status = await _wait_for_task(task_manager, result.task["id"])
+        assert final_status == "succeeded"
+        assert captured == {
+            "provider": "volcengine_tts",
+            "model": "seed-tts-2.0",
+            "voice_id": "zh_female_tianmei_moon_bigtts",
+        }
+
+    asyncio.run(_run())
+
+
 def test_generate_track_marks_failed_when_tts_dispatcher_raises(
     tmp_path: Path,
 ) -> None:
@@ -531,6 +601,61 @@ def test_generate_track_marks_failed_when_tts_dispatcher_raises(
         active_task = _field(snapshot, "activeTask")
         if active_task is not None:
             assert _field(active_task, "status") == "failed"
+
+    asyncio.run(_run())
+
+
+def test_generate_track_rejects_chinese_text_for_non_chinese_volcengine_voice(
+    tmp_path: Path,
+) -> None:
+    runtime = ProviderRuntimeConfig(
+        provider="volcengine_tts",
+        label="火山豆包语音",
+        api_key="api-key-test-volcengine-tts",
+        base_url="https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
+        secret_source="test",
+        requires_secret=True,
+        supports_text_generation=False,
+        supports_tts=True,
+        protocol_family="volcengine_tts",
+    )
+
+    def _unexpected_dispatcher(runtime_config, request):
+        raise AssertionError("语言不匹配时不应调用火山 TTS")
+
+    service, repository, _ = _make_voice_service(
+        tmp_path,
+        ai_capability_service=_FakeAICapabilityService(runtime=runtime),
+        tts_dispatcher=_unexpected_dispatcher,
+        artifact_store=VoiceArtifactStore(
+            settings_service=_FakeSettingsService(tmp_path / "workspace")
+        ),
+    )
+    profile = service.create_profile(
+        VoiceProfileCreateInput(
+            provider="volcengine_tts",
+            voiceId="en_female_stokie_uranus_bigtts",
+            displayName="Stokie",
+            locale="en",
+            tags=["豆包", "美式英语"],
+            enabled=True,
+        )
+    )
+
+    async def _run() -> None:
+        with pytest.raises(HTTPException) as exc_info:
+            service.generate_track(
+                "project-voice",
+                VoiceTrackGenerateInput(
+                    profileId=profile.id,
+                    sourceText="看好了，一杯冰可乐，丢进五块冰。",
+                ),
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "中文文本" in str(exc_info.value.detail)
+        assert "中文音色" in str(exc_info.value.detail)
+        assert len(repository.list_tracks("project-voice")) == 1
 
     asyncio.run(_run())
 
@@ -796,6 +921,30 @@ def test_fetch_waveform_returns_missing_audio_status_without_audio_file(
     assert waveform.status == "missing_audio"
     assert waveform.points == []
     assert "音频文件" in waveform.message
+
+
+def test_get_audio_file_path_returns_existing_local_audio_file(
+    tmp_path: Path,
+) -> None:
+    service, repository, _ = _make_voice_service(tmp_path)
+    audio_path = tmp_path / "workspace" / "voice" / "voice-track-1.mp3"
+    audio_path.parent.mkdir(parents=True, exist_ok=True)
+    audio_path.write_bytes(b"voice-audio-test-bytes")
+    repository.update_track("voice-track-1", file_path=str(audio_path))
+
+    assert service.get_audio_file_path("voice-track-1") == audio_path
+
+
+def test_get_audio_file_path_rejects_missing_audio_file(
+    tmp_path: Path,
+) -> None:
+    service, _, _ = _make_voice_service(tmp_path)
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.get_audio_file_path("voice-track-1")
+
+    assert exc_info.value.status_code == 404
+    assert "音频文件" in str(exc_info.value.detail)
 
 
 def test_regenerate_missing_segment_rejects_unknown_segment(

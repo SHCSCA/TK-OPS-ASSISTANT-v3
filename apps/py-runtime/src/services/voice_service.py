@@ -178,6 +178,7 @@ class VoiceService:
         segments = self._split_segments(payload.sourceText)
         if not segments:
             raise HTTPException(status_code=400, detail="脚本文本为空，请先准备可用于配音的内容。")
+        self._validate_tts_text_matches_profile(profile=profile, text=payload.sourceText)
 
         runtime_config = self._resolve_tts_runtime(runtime_provider)
         initial_status = "processing" if runtime_config is not None else "blocked"
@@ -361,6 +362,7 @@ class VoiceService:
         segment_text = str(segment.text).strip()
         if segment_text == "":
             raise HTTPException(status_code=400, detail="片段文本为空，无法重生成。")
+        self._validate_tts_text_matches_profile(profile=profile, text=segment_text)
 
         if runtime_config is None:
             updated = self._update_segment_regeneration_state(
@@ -558,6 +560,23 @@ class VoiceService:
                 points=[],
             )
         return self._build_waveform_summary(audio_bytes)
+
+    def get_audio_file_path(self, track_id: str) -> Path:
+        track = self._get_track(track_id)
+        if track.file_path is None or track.file_path.strip() == "":
+            raise HTTPException(status_code=404, detail="未找到配音音频文件。")
+
+        audio_path = Path(track.file_path)
+        try:
+            if not audio_path.is_file():
+                raise HTTPException(status_code=404, detail="未找到配音音频文件。")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.exception("检查配音音频文件失败: track=%s path=%s", track_id, audio_path)
+            raise HTTPException(status_code=500, detail="检查配音音频文件失败。") from exc
+
+        return audio_path
 
     def get_track(self, track_id: str) -> VoiceTrackDto:
         return self._to_dto(self._get_track(track_id))
@@ -1035,6 +1054,24 @@ class VoiceService:
             raise HTTPException(status_code=404, detail="配音轨不存在。")
         return track
 
+    def _validate_tts_text_matches_profile(self, *, profile: VoiceProfileDto, text: str) -> None:
+        if profile.provider != VOLCENGINE_TTS_PROVIDER:
+            return
+        if not _contains_cjk(text):
+            return
+        if _profile_supports_cjk(profile):
+            return
+        log.warning(
+            "配音文本与音色语种不匹配: provider=%s voice_id=%s locale=%s",
+            profile.provider,
+            profile.voiceId,
+            profile.locale,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"当前输入为中文文本，但音色“{profile.displayName}”不是中文音色。请选择中文音色后重试。",
+        )
+
     def _resolve_tts_runtime(self, provider_id: str) -> ProviderRuntimeConfig | None:
         normalized_provider = self._normalize_tts_provider_id(provider_id)
         if (
@@ -1087,19 +1124,16 @@ class VoiceService:
         return ""
 
     def _normalize_tts_model(self, provider_id: str, model: str) -> str:
-        if provider_id == VOLCENGINE_TTS_PROVIDER and model == "doubao-tts":
-            return "seed-tts-1.0"
+        if provider_id == VOLCENGINE_TTS_PROVIDER:
+            return "seed-tts-2.0"
         return model
 
     @staticmethod
     def _model_for_voice_id(voice_id: str, fallback_model: str) -> str:
-        """根据 voice_id 推导正确的 model 版本，防止 resource / model 不匹配。
-        与 tts_volcengine._resolve_resource_id 保持同一判定逻辑。
-        """
-        vid = voice_id.strip().lower()
-        if 'uranus' in vid:
-            return 'seed-tts-2.0'
-        return 'seed-tts-1.0'
+        """火山豆包语音新生成任务固定走 seed-tts-2.0。"""
+        if fallback_model.strip().startswith("seed-tts") or "_bigtts" in voice_id:
+            return "seed-tts-2.0"
+        return fallback_model
 
     def _mark_track_failed(
         self,
@@ -1254,3 +1288,18 @@ class VoiceService:
             log.exception("解析配音片段失败")
             raise HTTPException(status_code=500, detail="解析配音片段失败。") from exc
         return [VoiceTrackSegmentDto.model_validate(item) for item in raw_segments]
+
+
+def _contains_cjk(text: str) -> bool:
+    return any("\u4e00" <= character <= "\u9fff" for character in text)
+
+
+def _profile_supports_cjk(profile: VoiceProfileDto) -> bool:
+    locale = profile.locale.strip().lower()
+    voice_id = profile.voiceId.strip().lower()
+    tags = [tag.strip() for tag in profile.tags]
+    if locale.startswith("zh"):
+        return True
+    if voice_id.startswith("zh_") or "_zh_" in voice_id:
+        return True
+    return any("中文" in tag or "普通话" in tag or "汉语" in tag or "粤语" in tag for tag in tags)

@@ -83,6 +83,61 @@ describe("AI 能力 store 多 Provider 行为", () => {
     });
   });
 
+  it("保存火山 TTS OpenAPI 凭据时不要求重复输入合成 token", async () => {
+    const calls: Array<{ body?: unknown; method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method, init) => {
+        calls.push({
+          path,
+          method,
+          body: init?.body ? JSON.parse(String(init.body)) : undefined
+        });
+        if (path === "/api/settings/ai-capabilities/providers/volcengine_tts/secret") {
+          return okJsonResponse({
+            provider: "volcengine_tts",
+            label: "火山豆包语音",
+            configured: true,
+            maskedSecret: "{\"ap**********ng\"}",
+            baseUrl: "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse",
+            secretSource: "local_secret_store",
+            supportsTextGeneration: false,
+            readiness: "not_checked",
+            lastCheckedAt: null,
+            errorCode: null,
+            errorMessage: null,
+            scope: "runtime_local"
+          });
+        }
+        if (path === "/api/settings/ai-capabilities") {
+          return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+        }
+        if (path === "/api/settings/ai-providers/catalog") {
+          return okJsonResponse(runtimeFixtures.aiProviderCatalog);
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const store = useAICapabilityStore();
+    await store.saveProviderSecret("volcengine_tts", {
+      openApiAccessKey: "openapi-ak-test",
+      openApiSecretKey: "openapi-sk-test",
+      openApiRegion: "cn-beijing"
+    });
+
+    expect(store.status).toBe("ready");
+    expect(calls).toContainEqual({
+      path: "/api/settings/ai-capabilities/providers/volcengine_tts/secret",
+      method: "PUT",
+      body: {
+        openApiAccessKey: "openapi-ak-test",
+        openApiSecretKey: "openapi-sk-test",
+        openApiRegion: "cn-beijing"
+      }
+    });
+  });
+
   it("健康检查屏蔽无权限模型后刷新模型目录和能力矩阵", async () => {
     const calls: Array<{ method: string; path: string }> = [];
     vi.stubGlobal(

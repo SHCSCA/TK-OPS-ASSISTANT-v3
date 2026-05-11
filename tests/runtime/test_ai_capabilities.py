@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -285,6 +287,49 @@ def test_provider_runtime_config_exposes_protocol_family_and_media_flags(runtime
     assert volcengine_tts_runtime.supports_text_generation is False
     with pytest.raises(HTTPException):
         service.get_provider_runtime_config('ollama')
+
+
+def test_volcengine_tts_secret_merges_openapi_keys_without_overwriting_token(runtime_app) -> None:
+    client = TestClient(runtime_app)
+
+    first_response = client.put(
+        '/api/settings/ai-capabilities/providers/volcengine_tts/secret',
+        json={
+            'apiKey': 'tts-token-before',
+            'baseUrl': 'https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse',
+        },
+    )
+    assert first_response.status_code == 200
+
+    second_response = client.put(
+        '/api/settings/ai-capabilities/providers/volcengine_tts/secret',
+        json={
+            'openApiAccessKey': 'openapi-ak-test',
+            'openApiSecretKey': 'openapi-sk-test',
+            'openApiRegion': 'cn-beijing',
+        },
+    )
+
+    assert second_response.status_code == 200
+    runtime = runtime_app.state.ai_capability_service.get_provider_runtime_config('volcengine_tts')
+    secret = json.loads(runtime.api_key or '{}')
+    assert secret == {
+        'api_key': 'tts-token-before',
+        'access_key': 'openapi-ak-test',
+        'secret_key': 'openapi-sk-test',
+        'region': 'cn-beijing',
+    }
+    assert 'openapi-ak-test' not in second_response.text
+    assert 'openapi-sk-test' not in second_response.text
+
+
+def test_volcengine_tts_model_catalog_only_exposes_seed_tts_2(runtime_client: TestClient) -> None:
+    response = runtime_client.get('/api/settings/ai-providers/volcengine_tts/models')
+
+    assert response.status_code == 200
+    model_ids = {item['modelId'] for item in response.json()['data']}
+    assert 'seed-tts-2.0' in model_ids
+    assert 'seed-tts-1.0' not in model_ids
 
 
 def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:

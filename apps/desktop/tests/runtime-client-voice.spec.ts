@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   RuntimeRequestError,
+  buildVoiceTrackAudioUrl,
   deleteVoiceTrack,
   fetchVoiceProfiles,
   fetchVoiceTrack,
@@ -73,6 +74,12 @@ describe("M07 配音中心 Runtime client 契约", () => {
       { path: "/api/voice/tracks/voice-1", method: "GET", body: undefined },
       { path: "/api/voice/tracks/voice-1", method: "DELETE", body: undefined }
     ]);
+  });
+
+  it("为播放器生成 Runtime 音频流地址而不是本地文件路径", () => {
+    expect(buildVoiceTrackAudioUrl("voice track-1", "2026-05-11T10:00:00Z")).toBe(
+      "http://127.0.0.1:8000/api/voice/tracks/voice%20track-1/audio?v=2026-05-11T10%3A00%3A00Z"
+    );
   });
 
   it("把 Runtime 错误信封转换为可见错误", async () => {

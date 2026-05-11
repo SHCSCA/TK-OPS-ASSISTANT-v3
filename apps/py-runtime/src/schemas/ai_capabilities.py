@@ -56,8 +56,13 @@ class AIProviderSecretStatusDto(BaseModel):
 
 
 class AIProviderSecretInput(BaseModel):
-    apiKey: str = Field(min_length=1)
+    apiKey: str | None = None
     baseUrl: str | None = None
+    accessToken: str | None = None
+    appId: str | None = None
+    openApiAccessKey: str | None = None
+    openApiSecretKey: str | None = None
+    openApiRegion: str | None = None
 
 
 class AIProviderHealthCheckInput(BaseModel):

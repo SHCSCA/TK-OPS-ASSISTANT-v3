@@ -104,6 +104,10 @@ describe("AI settings layout contract", () => {
     expect(providerPanel).toContain('data-field="provider.model.search"');
     expect(providerPanel).toContain('data-field="provider.model.capability"');
     expect(providerPanel).toContain('data-action="provider.model.next-page"');
+    expect(providerPanel).toContain('data-field="provider.secret.accessToken"');
+    expect(providerPanel).toContain('data-field="provider.secret.openApiAccessKey"');
+    expect(providerPanel).toContain('data-field="provider.secret.openApiSecretKey"');
+    expect(providerPanel).toContain("isVolcengineTtsProvider");
     expect(providerPanel).toContain("capabilityLabel");
     expect(providerPanel).not.toContain("provider-catalog-card");
     expect(capabilityMatrix).toContain("capability-matrix__list");

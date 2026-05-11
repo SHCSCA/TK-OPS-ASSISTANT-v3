@@ -40,9 +40,9 @@
       <span class="material-symbols-outlined">warning</span>
       <span>{{ bannerTitle }}：{{ bannerMessage }}</span>
     </div>
-    <div v-else-if="store.activeTask" class="dashboard-alert" data-tone="brand">
+    <div v-else-if="store.status === 'generating'" class="dashboard-alert" data-tone="brand">
       <span class="material-symbols-outlined spinning">sync</span>
-      <span>{{ store.activeTask.message }}（{{ store.activeTask.progress }}%）</span>
+      <span>{{ bannerTitle }}：{{ activeTaskMessage }}</span>
     </div>
 
     <div v-if="!currentProject" class="empty-state">
@@ -62,8 +62,11 @@
       />
 
       <VoicePreviewStage
+        class="voice-preview-slot"
         :active-paragraph="activeParagraph"
+        :active-paragraph-index="store.activeParagraphIndex"
         :generation-message="normalizedGenerationMessage"
+        :paragraphs="store.paragraphs"
         :selected-profile="selectedProfile"
         :selected-track="store.selectedTrack"
         :state-message="panelStateMessage"
@@ -105,7 +108,6 @@
 import { computed, onMounted, watch } from "vue";
 
 import Button from "@/components/ui/Button/Button.vue";
-import Card from "@/components/ui/Card/Card.vue";
 import VoiceParamsPanel from "@/modules/voice/VoiceParamsPanel.vue";
 import VoicePreviewStage from "@/modules/voice/VoicePreviewStage.vue";
 import VoiceProfileRail from "@/modules/voice/VoiceProfileRail.vue";
@@ -126,6 +128,13 @@ const hasBlockedTrack = computed(() => store.selectedTrack?.status === "blocked"
 const normalizedGenerationMessage = computed(() =>
   normalizeBlockedProviderMessage(store.generationResult?.message ?? null)
 );
+const activeTaskMessage = computed(() => {
+  const message = store.activeTask?.message || bannerMessage.value;
+  const progress = typeof store.activeTask?.progress === "number"
+    ? `（${store.activeTask.progress}%）`
+    : "";
+  return `${message}${progress}`;
+});
 
 const presentationStatus = computed(() => {
   return hasBlockedTrack.value && store.status === "ready" ? "blocked" : store.status;
@@ -433,7 +442,13 @@ function normalizeBlockedProviderMessage(message: string | null): string | null 
   min-height: 0;
 }
 
+.voice-preview-slot {
+  grid-column: 2;
+  min-width: 0;
+}
+
 .voice-rail {
+  grid-column: 3;
   display: grid;
   align-content: start;
   gap: var(--space-4);
@@ -448,6 +463,10 @@ function normalizeBlockedProviderMessage(message: string | null): string | null 
 
   .voice-workspace {
     grid-template-columns: minmax(240px, 1fr) minmax(360px, 1fr);
+  }
+
+  .voice-preview-slot {
+    grid-column: 2;
   }
 
   .voice-rail {
@@ -465,7 +484,12 @@ function normalizeBlockedProviderMessage(message: string | null): string | null 
     grid-template-columns: 1fr;
   }
 
+  .voice-preview-slot {
+    grid-column: 1;
+  }
+
   .voice-rail {
+    grid-column: 1;
     grid-template-columns: 1fr;
   }
 

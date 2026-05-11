@@ -161,7 +161,17 @@ const capabilityForms = ref<AICapabilityConfig[]>([]);
 const currentSection = ref<SettingsSectionId>("provider");
 const selectedCapabilityId = ref("script_generation");
 const selectedProviderId = ref("openai");
-const providerDrafts = reactive<Record<string, { apiKey: string; baseUrl: string }>>({});
+type ProviderSecretDraft = {
+  apiKey: string;
+  baseUrl: string;
+  accessToken: string;
+  appId: string;
+  openApiAccessKey: string;
+  openApiSecretKey: string;
+  openApiRegion: string;
+};
+
+const providerDrafts = reactive<Record<string, ProviderSecretDraft>>({});
 const providerHealthModelDrafts = reactive<Record<string, string>>({});
 const localBanner = ref<{ message: string; tone: "blocked" | "error" | "ready" } | null>(null);
 const SUPPORTED_PROVIDER_IDS = new Set(["openai", "deepseek", "volcengine", "volcengine_tts"]);
@@ -430,11 +440,24 @@ async function handleSaveProviderSecret(): Promise<void> {
 
   const draft = ensureProviderDraft(selectedProviderId.value);
   const input: AIProviderSecretInput = {
-    apiKey: draft.apiKey.trim(),
     baseUrl: draft.baseUrl.trim() || undefined
   };
+  if (selectedProviderId.value === "volcengine_tts") {
+    input.apiKey = draft.apiKey.trim() || undefined;
+    input.accessToken = draft.accessToken.trim() || undefined;
+    input.appId = draft.appId.trim() || undefined;
+    input.openApiAccessKey = draft.openApiAccessKey.trim() || undefined;
+    input.openApiSecretKey = draft.openApiSecretKey.trim() || undefined;
+    input.openApiRegion = draft.openApiRegion.trim() || "cn-beijing";
+  } else {
+    input.apiKey = draft.apiKey.trim();
+  }
   await capabilityStore.saveProviderSecret(selectedProviderId.value, input);
   draft.apiKey = "";
+  draft.accessToken = "";
+  draft.appId = "";
+  draft.openApiAccessKey = "";
+  draft.openApiSecretKey = "";
 }
 
 async function handleCheckProvider(): Promise<void> {
@@ -691,17 +714,21 @@ function mapRuntimeDetailTone(): DetailContextTone {
   return "info";
 }
 
-function ensureProviderDraft(providerId: string, fallbackBaseUrl = ""): {
-  apiKey: string;
-  baseUrl: string;
-} {
+function ensureProviderDraft(providerId: string, fallbackBaseUrl = ""): ProviderSecretDraft {
   if (!providerDrafts[providerId]) {
     providerDrafts[providerId] = {
       apiKey: "",
-      baseUrl: fallbackBaseUrl
+      baseUrl: fallbackBaseUrl,
+      accessToken: "",
+      appId: "",
+      openApiAccessKey: "",
+      openApiSecretKey: "",
+      openApiRegion: "cn-beijing"
     };
   } else if (!providerDrafts[providerId].baseUrl && fallbackBaseUrl) {
     providerDrafts[providerId].baseUrl = fallbackBaseUrl;
+  } else if (!providerDrafts[providerId].openApiRegion) {
+    providerDrafts[providerId].openApiRegion = "cn-beijing";
   }
 
   return providerDrafts[providerId];
