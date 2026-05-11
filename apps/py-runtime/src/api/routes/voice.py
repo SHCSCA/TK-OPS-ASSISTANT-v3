@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Request, status
+from fastapi.responses import FileResponse
 
 from schemas.envelope import ok_response
 from schemas.voice import (
@@ -71,6 +74,16 @@ def fetch_waveform(track_id: str, request: Request) -> dict[str, object]:
     return ok_response(waveform.model_dump(mode="json"))
 
 
+@router.get("/tracks/{track_id}/audio")
+def stream_audio(track_id: str, request: Request) -> FileResponse:
+    audio_path = _svc(request).get_audio_file_path(track_id)
+    return FileResponse(
+        audio_path,
+        filename=audio_path.name,
+        media_type=_audio_media_type(audio_path),
+    )
+
+
 @router.get("/tracks/{track_id}")
 def get_track(track_id: str, request: Request) -> dict[str, object]:
     track = _svc(request).get_track(track_id)
@@ -81,3 +94,16 @@ def get_track(track_id: str, request: Request) -> dict[str, object]:
 def delete_track(track_id: str, request: Request) -> dict[str, object]:
     _svc(request).delete_track(track_id)
     return ok_response(None)
+
+
+def _audio_media_type(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".mp3":
+        return "audio/mpeg"
+    if suffix == ".wav":
+        return "audio/wav"
+    if suffix == ".ogg":
+        return "audio/ogg"
+    if suffix == ".m4a":
+        return "audio/mp4"
+    return "application/octet-stream"

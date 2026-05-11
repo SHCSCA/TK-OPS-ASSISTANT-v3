@@ -50,6 +50,11 @@ def set_provider_secret(
         provider_id,
         api_key=payload.apiKey,
         base_url=payload.baseUrl,
+        access_token=payload.accessToken,
+        app_id=payload.appId,
+        open_api_access_key=payload.openApiAccessKey,
+        open_api_secret_key=payload.openApiSecretKey,
+        open_api_region=payload.openApiRegion,
     )
     return ok_response(status.model_dump(mode='json'))
 

@@ -21,6 +21,8 @@ _DOUBAO_TTS_V3_SSE_ENDPOINT = 'https://openspeech.bytedance.com/api/v3/tts/unidi
 _DEFAULT_CLUSTER = 'volcano_tts'
 _DEFAULT_RESOURCE_ID = 'seed-tts-2.0'
 _DEFAULT_UID = 'tk-ops-runtime'
+_SSE_AUDIO_SUCCESS_CODES = {0, 3000}
+_SSE_TERMINAL_SUCCESS_CODES = {20000000}
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,16 +221,11 @@ def _resolve_resource_id(request: TTSRequest, options: dict[str, str]) -> str:
         _option_value(options, 'resource_id', 'resourceId', 'resource')
         or os.getenv('TK_OPS_VOLCENGINE_TTS_RESOURCE_ID', '').strip()
     )
-    if configured:
+    if configured == _DEFAULT_RESOURCE_ID:
         return configured
-
-    # 已知 1.0 独占模式：mars_bigtts、iv_bigtts 等旧版音色
-    voice_id = request.voice_id.strip().lower()
-    _V1_ONLY_PATTERNS = ('mars_bigtts', 'iv_bigtts', 'mars_speech')
-    if any(p in voice_id for p in _V1_ONLY_PATTERNS):
-        return 'seed-tts-1.0'
-    # 其余均默认走 seed-tts-2.0（含 uranus、moon 等 API 同步的 2.0 音色）
-    return 'seed-tts-2.0'
+    if configured:
+        log.warning('火山豆包语音当前只接入 seed-tts-2.0，已忽略 resource_id=%s', configured)
+    return _DEFAULT_RESOURCE_ID
 
 
 def _speech_rate_from_speed(speed: float) -> int:
@@ -243,18 +240,22 @@ def _decode_streaming_audio_response(body: bytes) -> bytes:
             error_code='ai_provider_empty_response',
         )
     audio_chunks: list[bytes] = []
-    for event in _streaming_response_events(body):
-        code = event.get('code')
+    events = _streaming_response_events(body)
+    for event in events:
+        code = _event_code(event.get('code'))
         data = event.get('data')
         # 有 base64 音频数据的事件（V3 SSE 用 code=0，旧协议用 code=3000）
-        if isinstance(data, str) and data.strip() and isinstance(code, int) and code >= 0:
+        if isinstance(data, str) and data.strip() and code in _SSE_AUDIO_SUCCESS_CODES:
             audio_chunks.append(_decode_base64_audio(data))
             continue
         # 无音频的正常事件（如结束信号），跳过
-        if isinstance(code, int) and code >= 0:
+        if code in _SSE_TERMINAL_SUCCESS_CODES:
+            continue
+        if code in _SSE_AUDIO_SUCCESS_CODES and (not isinstance(data, str) or not data.strip()):
             continue
         # 其余视为远端错误
         remote_message = _remote_message(event)
+        log.warning('火山豆包语音 SSE 返回错误事件: code=%s, message=%s', code, remote_message)
         raise ProviderHTTPException(
             status_code=502,
             detail=f'火山豆包语音合成失败：{remote_message}',
@@ -262,9 +263,18 @@ def _decode_streaming_audio_response(body: bytes) -> bytes:
         )
     audio_bytes = b''.join(audio_chunks)
     if not audio_bytes:
+        event_summary = [
+            {
+                'code': event.get('code'),
+                'message': event.get('message'),
+                'dataLength': len(event.get('data') or '') if isinstance(event.get('data'), str) else 0,
+            }
+            for event in events[:5]
+        ]
+        log.warning('火山豆包语音 SSE 未返回音频块: events=%s', event_summary)
         raise ProviderHTTPException(
             status_code=502,
-            detail='火山豆包语音合成返回了空音频。',
+            detail='火山豆包语音未返回音频数据，请检查文本语言是否与音色匹配，或切换同语种音色后重试。',
             error_code='ai_provider_empty_response',
         )
     return audio_bytes
@@ -314,6 +324,18 @@ def _streaming_response_events(body: bytes) -> list[dict[str, object]]:
     return events
 
 
+def _event_code(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized and normalized.lstrip('-').isdigit():
+            return int(normalized)
+    return None
+
+
 def _resolve_endpoint_and_options(base_url: str) -> tuple[str, dict[str, str]]:
     raw_base_url = (base_url or '').strip()
     if not raw_base_url:
@@ -335,7 +357,7 @@ def _resolve_credentials(api_key: str, options: dict[str, str]) -> _VolcengineTT
     secret_options = _parse_secret_options(api_key)
     merged = {**options, **secret_options}
     raw_secret = (api_key or '').strip()
-    token_value = _option_value(merged, 'token', 'access_token', 'api_key')
+    token_value = _option_value(merged, 'token', 'access_token', 'accessToken', 'api_key')
     if not token_value and not raw_secret.startswith('{'):
         token_value = raw_secret
     token = _normalize_token(token_value)

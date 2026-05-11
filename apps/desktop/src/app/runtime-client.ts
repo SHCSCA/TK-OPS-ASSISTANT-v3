@@ -130,6 +130,23 @@ function resolveRuntimeBaseUrl(): string {
   return import.meta.env.VITE_RUNTIME_BASE_URL?.trim() || DEFAULT_RUNTIME_BASE_URL;
 }
 
+export function buildRuntimeResourceUrl(path: string, query: Record<string, string> = {}): string {
+  const url = new URL(path, resolveRuntimeBaseUrl());
+  Object.entries(query).forEach(([key, value]) => {
+    if (value) {
+      url.searchParams.set(key, value);
+    }
+  });
+  return url.toString();
+}
+
+export function buildVoiceTrackAudioUrl(trackId: string, cacheKey?: string | null): string {
+  return buildRuntimeResourceUrl(
+    `/api/voice/tracks/${encodeURIComponent(trackId)}/audio`,
+    cacheKey ? { v: cacheKey } : {}
+  );
+}
+
 export class RuntimeRequestError extends Error {
   details: unknown;
   errorCode: string;

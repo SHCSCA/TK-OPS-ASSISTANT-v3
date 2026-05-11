@@ -234,7 +234,7 @@ def test_voice_generate_track_contract_returns_blocked_when_tts_is_unavailable(
     response = client.post(
         "/api/voice/projects/project-voice/tracks/generate",
         json={
-            "profileId": "volcengine-vv-20-zh",
+            "profileId": "volcengine_tts-zh_female_vv_uranus_bigtts",
             "sourceText": "第一句\n第二句",
             "speed": 1.0,
             "pitch": 0,
@@ -289,7 +289,7 @@ def test_voice_generate_track_contract_returns_processing_task_when_tts_is_avail
     response = client.post(
         "/api/voice/projects/project-voice/tracks/generate",
         json={
-            "profileId": "volcengine-vv-20-zh",
+            "profileId": "volcengine_tts-zh_female_vv_uranus_bigtts",
             "sourceText": "第一句\n第二句",
             "speed": 1.0,
             "pitch": 0,
@@ -351,7 +351,7 @@ def test_voice_segment_regenerate_contract_returns_taskbus_task(
     response = client.post(
         "/api/voice/tracks/voice-track-1/segments/1/regenerate",
         json={
-            "profileId": "volcengine-vv-20-zh",
+            "profileId": "volcengine_tts-zh_female_vv_uranus_bigtts",
             "speed": 1.0,
             "pitch": 0,
             "emotion": "calm",
@@ -371,7 +371,7 @@ def test_voice_segment_regenerate_contract_returns_taskbus_task(
     assert task["kind"] == "ai-voice"
     assert task["ownerRef"] == {"kind": "voice-track", "id": "voice-track-1"}
     assert task["status"] in {"queued", "running", "succeeded"}
-    assert track["segments"][1]["regeneration"]["profileId"] == "volcengine-vv-20-zh"
+    assert track["segments"][1]["regeneration"]["profileId"] == "volcengine_tts-zh_female_vv_uranus_bigtts"
     assert track["segments"][1]["regeneration"]["status"] in {
         "queued",
         "running",
@@ -387,7 +387,7 @@ def test_voice_segment_regenerate_contract_returns_blocked_when_tts_is_unavailab
     response = client.post(
         "/api/voice/tracks/voice-track-1/segments/1/regenerate",
         json={
-            "profileId": "volcengine-vv-20-zh",
+            "profileId": "volcengine_tts-zh_female_vv_uranus_bigtts",
             "speed": 1.0,
             "pitch": 0,
             "emotion": "calm",
@@ -465,3 +465,36 @@ def test_voice_waveform_contract_returns_deterministic_summary_for_local_audio_f
     assert first["points"]
     assert first["points"] == second["points"]
     assert first["durationMs"] == second["durationMs"]
+
+
+def test_voice_audio_contract_streams_local_audio_file(
+    tmp_path: Path,
+) -> None:
+    client = TestClient(_build_app(tmp_path))
+    audio_path = tmp_path / "workspace" / "voice" / "voice-track-1.mp3"
+    audio_path.parent.mkdir(parents=True, exist_ok=True)
+    audio_bytes = b"voice-audio-test-bytes"
+    audio_path.write_bytes(audio_bytes)
+    client.app.state.voice_repository.update_track(
+        "voice-track-1",
+        file_path=str(audio_path),
+    )
+
+    response = client.get("/api/voice/tracks/voice-track-1/audio")
+
+    assert response.status_code == 200
+    assert response.content == audio_bytes
+    assert response.headers["content-type"].startswith("audio/mpeg")
+
+
+def test_voice_audio_contract_returns_404_when_audio_file_missing(
+    tmp_path: Path,
+) -> None:
+    client = TestClient(_build_app(tmp_path))
+
+    response = client.get("/api/voice/tracks/voice-track-1/audio")
+
+    assert response.status_code == 404
+    payload = response.json()
+    assert payload["ok"] is False
+    assert "音频文件" in payload["error"]

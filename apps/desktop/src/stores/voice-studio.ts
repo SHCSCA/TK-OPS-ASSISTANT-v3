@@ -167,7 +167,9 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           await this.loadTrackDetail(this.selectedTrackId, false);
         }
 
-        this.status = "ready";
+        this.status = this.activeTask && isActiveTaskStatus(this.activeTask.status)
+          ? "generating"
+          : "ready";
         this.initializeTaskWatch();
       } catch (error) {
         this.applyRuntimeError(error);
@@ -194,9 +196,11 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
     },
 
     handleTaskEvent(event: TaskEvent): void {
+      const matchesActiveTask = Boolean(event.taskId && event.taskId === this.activeTask?.id);
+      const matchesVoiceTaskType = isVoiceTaskType(event.taskType);
       if (
-        event.projectId !== this.projectId ||
-        (event.taskType !== "ai_voice" && event.taskType !== "tts_generation")
+        (event.projectId && event.projectId !== this.projectId) ||
+        (!matchesVoiceTaskType && !matchesActiveTask)
       ) {
         return;
       }
@@ -204,7 +208,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       if (event.type === "task.started" || event.type === "task.progress") {
         this.activeTask = {
           id: event.taskId ?? "",
-          task_type: event.taskType ?? "ai_voice",
+          task_type: event.taskType ?? this.activeTask?.task_type ?? "ai-voice",
           project_id: event.projectId ?? this.projectId,
           status: "running",
           progress: event.progressPct ?? event.progress ?? 0,
@@ -316,9 +320,18 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
         }
 
         if (result.track?.status === "blocked") {
+          this.activeTask = null;
           this.status = "blocked";
           toast.warning("配音已保存为草稿", result.message || "缺少 TTS Provider，无法生成真实音频。");
+        } else if (result.task) {
+          this.activeTask = normalizeTaskInfo(result.task, this.projectId);
+          this.status = this.activeTask && isActiveTaskStatus(this.activeTask.status)
+            ? "generating"
+            : "ready";
+        } else if (isTrackGenerating(result.track?.status)) {
+          this.status = "generating";
         } else {
+          this.activeTask = null;
           this.status = "ready";
         }
         return result;
@@ -442,6 +455,7 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
           [trackId]: detail
         };
         this.upsertTrack(detail);
+        this.syncActiveTaskFromTrack(detail);
       } catch (error) {
         if (surfaceError) {
           this.applyRuntimeError(error);
@@ -456,13 +470,23 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       if (!this.paragraphs.length) {
         return "empty";
       }
+      if (this.activeTask && isActiveTaskStatus(this.activeTask.status)) {
+        return "generating";
+      }
+      if (isTrackGenerating(this.selectedTrack?.status)) {
+        return "generating";
+      }
       if (this.selectedTrackId && this.trackDetailsById[this.selectedTrackId]?.status === "blocked") {
         return "blocked";
       }
-      if (!this.profiles.some((profile) => profile.enabled)) {
-        return "blocked";
-      }
       return "ready";
+    },
+
+    syncActiveTaskFromTrack(track: VoiceTrackDto): void {
+      const activeTask = normalizeTaskInfo(track.activeTask, this.projectId);
+      if (activeTask && isActiveTaskStatus(activeTask.status)) {
+        this.activeTask = activeTask;
+      }
     },
 
     applyInputError(message: string): void {
@@ -481,3 +505,82 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
     }
   }
 });
+
+const VOICE_TASK_TYPES = new Set(["ai-voice", "ai_voice", "tts_generation"]);
+
+type RuntimeVoiceTask = Partial<TaskInfo> & {
+  kind?: unknown;
+  taskType?: unknown;
+  projectId?: unknown;
+  progressPct?: unknown;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+  status?: unknown;
+};
+
+function isVoiceTaskType(taskType: string | null | undefined): boolean {
+  return typeof taskType === "string" && VOICE_TASK_TYPES.has(taskType);
+}
+
+function isActiveTaskStatus(status: TaskInfo["status"]): boolean {
+  return status === "queued" || status === "running";
+}
+
+function isTrackGenerating(status: VoiceTrackDto["status"] | null | undefined): boolean {
+  return status === "generating" || status === "processing" || status === "queued" || status === "running";
+}
+
+function normalizeTaskInfo(rawTask: unknown, fallbackProjectId: string): TaskInfo | null {
+  if (!rawTask || typeof rawTask !== "object") {
+    return null;
+  }
+
+  const task = rawTask as RuntimeVoiceTask;
+  const id = asString(task.id);
+  if (!id) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+  const taskType =
+    asString(task.task_type) ??
+    asString(task.taskType) ??
+    asString(task.kind) ??
+    "ai-voice";
+
+  return {
+    id,
+    task_type: taskType,
+    project_id: asString(task.project_id) ?? asString(task.projectId) ?? fallbackProjectId,
+    status: normalizeTaskStatus(task.status),
+    progress: normalizeProgress(task.progressPct ?? task.progress),
+    message: asString(task.message) ?? "正在生成配音草稿…",
+    created_at: asString(task.created_at) ?? asString(task.createdAt) ?? now,
+    updated_at: asString(task.updated_at) ?? asString(task.updatedAt) ?? now
+  };
+}
+
+function normalizeTaskStatus(status: unknown): TaskInfo["status"] {
+  if (
+    status === "queued" ||
+    status === "running" ||
+    status === "succeeded" ||
+    status === "failed" ||
+    status === "cancelled"
+  ) {
+    return status;
+  }
+  return "queued";
+}
+
+function normalizeProgress(value: unknown): number {
+  const progress = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(progress)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round(progress)));
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}

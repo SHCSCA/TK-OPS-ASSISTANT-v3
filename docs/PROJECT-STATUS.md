@@ -1,6 +1,6 @@
 # TK-OPS 项目状态总览
 
-> 更新日期：2026-04-24（当前应用版本以根 `package.json#version` 为准；V2 前后端落地：F-01~F-08 + B-01~B-06 + Modules A-H 运行时事件层全部合入；本次文档复核已重新对齐当前 `main` 代码、Runtime 路由清单与契约测试）
+> 更新日期：2026-05-11（当前应用版本以根 `package.json#version` 为准；本次复核已对齐火山豆包 TTS2、配音音频流接口、配音中心段落预览与音色同步配置链路）
 > 状态来源：根 `README.md`、`CHANGELOG.md`、`docs/` 真源文档、`docs/superpowers/` 实施记录、`docs/RUNTIME-API-CALLS.md`、`graphify-out/GRAPH_REPORT.md`，以及当前仓库代码与测试结构。
 > 本文只记录当前实现与文档对齐状态，不替代产品真源、UI 真源、架构真源或 Runtime API 真源。
 
@@ -28,7 +28,7 @@
 
 - **UI 主链基线 + Precision Sculpting 全站收口**：16 个正式页面的像素级精修、物理动效、AI 流光反馈均已并入 `main`。
 - **Runtime 路由面完整**：`apps/py-runtime/src/app/factory.py` 已注册 23 个业务 Router（accounts / ai-capabilities / ai-providers / assets / automation / bootstrap / dashboard / device-workspaces / license / prompt-templates / publishing / renders / review / search / scripts / settings / storyboards / subtitles / tasks / video-deconstruction / voice / workspace / ws），覆盖 16 页所需的基础面。
-- **AI Provider 适配层雏形**：`apps/py-runtime/src/ai/providers/` 下已落地 `openai_chat` / `openai_responses` / `anthropic_messages` / `gemini_generate` / `cohere_chat` / `tts_openai` 适配器与基类，文本生成服务与 TTS 骨架已接通。
+- **AI Provider 适配层雏形**：`apps/py-runtime/src/ai/providers/` 下已落地 `openai_chat` / `openai_responses` / `anthropic_messages` / `gemini_generate` / `cohere_chat` / `tts_openai` / `tts_volcengine` 适配器与基类，文本生成服务与火山豆包 TTS2 配音链路已接通。
 - **任务总线 + WebSocket**：`services/task_manager.py` 与 `services/ws_manager.py` 已承载视频导入等长任务进度分发，前端通过 TaskBus 与 AI 流光条消费状态。
 - **测试网**：`tests/runtime/` 单元测试与 `tests/contracts/` 契约测试覆盖 license、bootstrap、scripts、storyboards、workspace、video-deconstruction、voice、subtitles、accounts、devices、automation、publishing、renders、review、tasks、settings-config、ai-capabilities 等主链；`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致。
 - **开发态体验**：`npm run app:dev` 已支持复用现有 Runtime / 前端开发服务器，避免 8000 / 1420 端口误报。
@@ -52,7 +52,7 @@
 | 4 | `storyboard_planning_center` | 分镜规划中心 | 已落地 | 已接线 | 部分登记 | 未启动 | 镜头卡片瀑布流、脚本段落联动齐备；Shot CRUD / 模板仍待补齐。 |
 | 5 | `ai_editing_workspace` | AI 剪辑工作台 | 已落地 | 已接线 | 已登记 | 未启动 | 多轨时间线草稿读取 / 创建 / 保存 + AI 命令阻塞态契约已落档；clip 原子操作 / 导出 / 预览仍待深化。 |
 | 6 | `video_deconstruction_center` | 视频拆解中心 | 已落地 | 已接线 | 已登记 | 进行中 | F-08 FFprobe 降级提示 + 真实 `router.push` 跳诊断已落地；阶段 / 转写 / 切段 / 回流还在 D2/D4。 |
-| 7 | `voice_studio` | 配音中心 | 已落地 | 已接线 | 已登记 | 未启动 | 音色列表、波形动画、系统设置双向绑定齐备；profiles 写入 / 段级 / 试听 / 停顿仍在 D4。 |
+| 7 | `voice_studio` | 配音中心 | 已落地 | 已接线 | 已登记 | 进行中 | 火山豆包 TTS2 音色同步、真实音频生成、整段 / 当前段落预览、生成中状态和音色列表滚动已接通；分段重生拼接、字幕联动和更细停顿策略仍待深化。 |
 | 8 | `subtitle_alignment_center` | 字幕对齐中心 | 已落地 | 已接线 | 已登记 | 未启动 | 扫描脉冲、字幕段水平流转、统计指标齐备；手动对齐 / 模板 / 导出 / 源波形仍在 D4。 |
 | 9 | `asset_library` | 资产中心 | 已落地 | 已接线 | 已登记 | 未启动 | 预览引擎修复、资产墙无缝平移、原生 Dialog 异步加载齐备；缩略图 / 批量 / 分组 / refs 子接口待文档对齐。 |
 | 10 | `account_management` | 账号管理 | 已落地 | 已接线 | 已登记 | 进行中 | F-03 校验态与能力绑定已接通；`/api/accounts` 14 条 HTTP 路由已写入 `RUNTIME-API-CALLS.md`，后续继续深化状态广播、脱敏与异常样例。 |
@@ -63,7 +63,7 @@
 | 15 | `review_optimization_center` | 复盘与优化中心 | 已落地 | 已接线 | 已登记 | 未启动 | V2 后端服务扩展已合入；建议列表 / 回流能力仍待接通前端。 |
 | 16 | `ai_system_settings` | AI 与系统设置 | 已落地 | 已接线 | 已登记 | 进行中 | F-04 日志目录 + F-05/06/07 就绪徽章/能力画像/重复模型拦截 + B-03/B-04/B-05 提供商健康/Secret/能力绑定已接通。 |
 
-**契约登记状态（2026-04-24 复核）**：`docs/RUNTIME-API-CALLS.md` 当前记录 181 条 HTTP 路由，FastAPI 实际注册 181 条，文档与代码一致，已实现未文档化路由为 0。`docs/BACKEND-REQUIREMENTS-2026-04-17.md` 中 96/34/62 的统计是 4 月 17 日历史快照，不再代表当前 M10-M14 路由登记状态。
+**契约登记状态（2026-05-11 复核）**：`docs/RUNTIME-API-CALLS.md` 当前记录 185 条 HTTP 路由，FastAPI 实际注册 185 条，文档与代码一致，已实现未文档化路由为 0。`docs/BACKEND-REQUIREMENTS-2026-04-17.md` 中 96/34/62 的统计是 4 月 17 日历史快照，不再代表当前 M10-M14 路由登记状态。
 
 ## 4. 已知待收口问题（工程债，与 V2 需求收口并行推进）
 
@@ -72,7 +72,7 @@
 
 1. **页面文件硬限已清零**：16 个正式页面已拆到 600 行以内，当前最高为 `AISystemSettingsPage.vue` 596 行；页面样式已迁出到 scoped CSS 文件，后续新增页面仍需遵守 `page / composable / helpers / types / styles` 分层边界，避免超大 SFC 回流。
 2. **RUNTIME-API-CALLS 路由登记缺口已清零，V2 类型漂移已收口**：M10-M14 不再存在“已实现路由未登记”问题；Prompt 模板、M08 字幕、M11 设备、M13 发布、M14 渲染与 TaskBus 的前端类型 / wrapper 漂移已按当前后端 schema 修复。M11 旧库迁移已补齐 `device_workspaces / execution_bindings` 的阻断列修复。剩余接口债主要是 M02/M03/M04/M06/M09 的字段级 D2 收口、更多异常样例和端到端联调说明。
-3. **深度功能未通**：M05-M08 四页的 UI 层已落地，但真实的 OpenAI Chat / FFmpeg 解析 / TTS 合成 / 字幕对齐后端路径仍在骨架。AI Provider 适配器虽已就位，真正贯穿 Script → Storyboard → Voice → Subtitle → Workspace 的 AI 链路仍需逐段落地。
+3. **深度功能分阶段打通**：M07 配音中心已接通火山豆包 TTS2 真实合成与音频预览；M05 / M06 / M08 的真实 OpenAI Chat、FFmpeg 深度解析、字幕对齐与时间线回流仍需继续逐段落地。
 4. **导航分组漂移**：`apps/desktop/src/app/router/route-manifest.ts` 使用"全局管理 / 核心管线"等实现口径，与 `docs/UI-DESIGN-PRD.md` 五组导航口径存在差异，调整前必须先同步文档。
 5. **历史蓝图未标注**：`.claude/plan/tkops-frontend-modules.md` 仍沿用"待开发"口径，需在顶部显式标注为历史蓝图，避免后续代理误判。
 6. **Stitch 参考稿混入旧后台口径**：`docs/stitch_text_document/` 同时包含当前可参考的创作工具稿和旧 CRM/经营系统稿，UI 实现只能参考视觉节奏，不得让旧产品范围回流。

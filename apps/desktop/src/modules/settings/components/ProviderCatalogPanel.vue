@@ -271,7 +271,7 @@
           <p>{{ selectedProviderHealth?.message ?? secretStatusSummary }}</p>
         </div>
 
-        <label class="settings-field">
+        <label v-if="!isVolcengineTtsProvider" class="settings-field">
           <span>API Key</span>
           <input
             v-model="providerDraft.apiKey"
@@ -281,6 +281,64 @@
             type="password"
           />
         </label>
+        <template v-else>
+          <div class="provider-credential-inspector__section">
+            <span>语音合成</span>
+            <label class="settings-field">
+              <span>Access Token</span>
+              <input
+                v-model="providerDraft.accessToken"
+                data-field="provider.secret.accessToken"
+                :placeholder="ttsAccessTokenPlaceholder"
+                :disabled="disabled"
+                type="password"
+              />
+            </label>
+            <label class="settings-field">
+              <span>App ID（可选）</span>
+              <input
+                v-model="providerDraft.appId"
+                data-field="provider.secret.appId"
+                placeholder="请输入火山语音 App ID"
+                :disabled="disabled"
+                type="password"
+              />
+            </label>
+          </div>
+
+          <div class="provider-credential-inspector__section">
+            <span>官方音色同步</span>
+            <label class="settings-field">
+              <span>Access Key ID</span>
+              <input
+                v-model="providerDraft.openApiAccessKey"
+                data-field="provider.secret.openApiAccessKey"
+                :placeholder="openApiAccessKeyPlaceholder"
+                :disabled="disabled"
+                type="password"
+              />
+            </label>
+            <label class="settings-field">
+              <span>Secret Access Key</span>
+              <input
+                v-model="providerDraft.openApiSecretKey"
+                data-field="provider.secret.openApiSecretKey"
+                :placeholder="openApiSecretKeyPlaceholder"
+                :disabled="disabled"
+                type="password"
+              />
+            </label>
+            <label class="settings-field">
+              <span>OpenAPI Region</span>
+              <input
+                v-model="providerDraft.openApiRegion"
+                data-field="provider.secret.openApiRegion"
+                placeholder="cn-beijing"
+                :disabled="disabled"
+              />
+            </label>
+          </div>
+        </template>
         <label class="settings-field">
           <span>Base URL</span>
           <input
@@ -337,6 +395,15 @@ import type {
 } from "@/types/runtime";
 
 type ProviderTemplateGroup = "model" | "media";
+type ProviderSecretDraft = {
+  apiKey: string;
+  baseUrl: string;
+  accessToken: string;
+  appId: string;
+  openApiAccessKey: string;
+  openApiSecretKey: string;
+  openApiRegion: string;
+};
 
 const SUPPORTED_PROVIDER_IDS = new Set(["openai", "deepseek", "volcengine", "volcengine_tts"]);
 
@@ -344,7 +411,7 @@ const props = defineProps<{
   disabled: boolean;
   healthModel: string;
   providerCatalog: AIProviderCatalogItem[];
-  providerDraft: { apiKey: string; baseUrl: string };
+  providerDraft: ProviderSecretDraft;
   refreshResult: AIModelCatalogRefreshResult | null;
   selectedProviderHealth: AIProviderHealth | null;
   selectedProviderId: string;
@@ -382,6 +449,7 @@ const remoteSyncProviderCount = computed(
 const selectedProvider = computed(
   () => visibleProviderCatalog.value.find((item) => item.provider === props.selectedProviderId) ?? null
 );
+const isVolcengineTtsProvider = computed(() => props.selectedProviderId === "volcengine_tts");
 const selectedProviderLabel = computed(() =>
   selectedProvider.value ? `${selectedProvider.value.label} 模型目录` : "模型目录"
 );
@@ -466,6 +534,15 @@ const secretStatusSummary = computed(() => {
 });
 const secretPlaceholder = computed(() =>
   props.secretStatus?.configured ? "已保存密钥，输入后会覆盖" : "请输入 Provider API Key"
+);
+const ttsAccessTokenPlaceholder = computed(() =>
+  props.secretStatus?.configured ? "已保存合成凭据，输入后会更新" : "请输入火山语音合成 Access Token"
+);
+const openApiAccessKeyPlaceholder = computed(() =>
+  props.secretStatus?.configured ? "已保存 OpenAPI AK，输入后会更新" : "请输入 Access Key ID"
+);
+const openApiSecretKeyPlaceholder = computed(() =>
+  props.secretStatus?.configured ? "已保存 OpenAPI SK，输入后会更新" : "请输入 Secret Access Key"
 );
 const providerStatusText = computed(() =>
   selectedProvider.value ? providerStatusLabel(selectedProvider.value.status) : "待选择"
@@ -969,6 +1046,19 @@ function modalityLabel(modality: string): string {
 .provider-credential-inspector__facts {
   display: grid;
   gap: var(--space-1);
+}
+
+.provider-credential-inspector__section {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-default);
+}
+
+.provider-credential-inspector__section > span {
+  color: var(--text-secondary);
+  font: var(--font-caption);
 }
 
 .settings-workspace-panel__button {
