@@ -61,11 +61,6 @@
         <strong>{{ realTimelineLabel }}</strong>
         <p>{{ panelStateMessage }}</p>
       </Card>
-      <Card class="semantic-summary__card">
-        <span class="semantic-summary__label">脚本文案</span>
-        <strong>{{ scriptStateLabel }}</strong>
-        <p>{{ paragraphPreview }}</p>
-      </Card>
     </section>
 
     <div v-if="!currentProject" class="empty-state">
@@ -75,23 +70,28 @@
     </div>
 
     <div v-else class="subtitle-workspace">
-      <SubtitleSegmentList
-        :active-index="store.activeSegmentIndex"
-        :error-message="store.error?.message ?? null"
-        :segments="store.draftSegments"
-        :state-message="panelStateMessage"
-        :status="presentationStatus"
-        @select="store.selectSegment"
-        @update-segment="store.updateDraftSegment"
-      />
+      <div class="subtitle-left-column">
+        <SubtitleScriptTable
+          :rows="store.scriptRows"
+          :source-voice-track="store.sourceVoiceTrack"
+          :state-message="panelStateMessage"
+        />
+        <SubtitleSegmentList
+          :active-index="store.activeSegmentIndex"
+          :error-message="store.error?.message ?? null"
+          :segments="store.draftSegments"
+          :state-message="panelStateMessage"
+          :status="presentationStatus"
+          @select="store.selectSegment"
+          @update-segment="store.updateDraftSegment"
+        />
+      </div>
 
       <SubtitlePreviewStage
         :active-segment="store.activeSegment"
-        :generation-message="store.generationResult?.message ?? null"
-        :selected-track="store.selectedTrack"
-        :state-message="panelStateMessage"
         :status="presentationStatus"
         :style-config="store.style"
+        @update-style="store.updateStyle"
       />
 
       <aside class="subtitle-rail">
@@ -128,6 +128,7 @@ import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
 import SubtitlePreviewStage from "@/modules/subtitles/SubtitlePreviewStage.vue";
 import SubtitleSegmentList from "@/modules/subtitles/SubtitleSegmentList.vue";
+import SubtitleScriptTable from "@/modules/subtitles/SubtitleScriptTable.vue";
 import SubtitleStylePanel from "@/modules/subtitles/SubtitleStylePanel.vue";
 import SubtitleTimingPanel from "@/modules/subtitles/SubtitleTimingPanel.vue";
 import SubtitleVersionPanel from "@/modules/subtitles/SubtitleVersionPanel.vue";
@@ -189,13 +190,6 @@ const pageStateTone = computed(() => {
   return "ready";
 });
 
-const scriptStateLabel = computed(() => {
-  if (store.status === "loading") return "加载中";
-  if (store.status === "error") return "异常";
-  if (!hasScript.value) return "文案为空";
-  return "已就绪";
-});
-
 const bannerTitle = computed(() => {
   if (!currentProject.value) return "生成入口已锁定";
   if (store.status === "loading") return "正在读取项目状态";
@@ -253,11 +247,6 @@ const realTimelineLabel = computed(() => {
   if (store.status === "blocked" || hasBlockedTrack.value) return "真实时间码待补齐";
   if (store.status === "aligning") return "真实时间码生成中";
   return hasSelectedTrack.value ? "真实时间码已接入" : "真实时间码未生成";
-});
-
-const paragraphPreview = computed(() => {
-  if (!store.paragraphs.length) return "暂无脚本文案";
-  return store.paragraphs.map((paragraph) => paragraph.text).join(" ");
 });
 
 const timingLocked = computed(
@@ -386,7 +375,7 @@ function hasBlockingAlignment(track: SubtitleTrackDto | null): boolean {
 
 .semantic-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-4);
   flex-shrink: 0;
@@ -459,6 +448,14 @@ function hasBlockingAlignment(track: SubtitleTrackDto | null): boolean {
   min-height: 0;
 }
 
+.subtitle-left-column {
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .subtitle-rail {
   display: grid;
   align-content: start;
@@ -475,6 +472,10 @@ function hasBlockingAlignment(track: SubtitleTrackDto | null): boolean {
   .subtitle-rail {
     grid-column: 1 / -1;
     grid-template-columns: 1fr 1fr;
+  }
+
+  .subtitle-left-column {
+    min-height: auto;
   }
 }
 

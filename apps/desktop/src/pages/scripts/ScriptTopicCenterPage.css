@@ -625,9 +625,15 @@
   transform: translateX(100%);
 }
 
+@media (max-width: 1200px) {
+  .script-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 860px) {
   .script-workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .page-header__row {
     flex-direction: column;

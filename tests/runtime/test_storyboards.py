@@ -134,6 +134,145 @@ class JsonStoryboardAITextGenerationService:
         )
 
 
+class ScriptAndContinuationStoryboardAITextGenerationService:
+    def __init__(self, jobs: AIJobRepository) -> None:
+        self._jobs = jobs
+
+    def generate_text(self, capability_id: str, prompt: dict[str, str], **kwargs: object) -> FakeGenerationResult:
+        job = self._jobs.create_running(
+            project_id=str(kwargs.get('project_id')) if kwargs.get('project_id') else None,
+            capability_id=capability_id,
+            provider='deepseek',
+            model='deepseek-v4-flash',
+        )
+        self._jobs.mark_succeeded(job.id, duration_ms=18)
+        if capability_id == 'script_generation':
+            text = '''
+            {
+              "schemaVersion": "script_document_v1",
+              "title": "Wall Lamp That Changes Your Mood in Seconds",
+              "metadata": {
+                "platform": "TikTok",
+                "videoRatio": "9:16",
+                "duration": "15s",
+                "targetUsers": "租房用户",
+                "videoGoal": "展示墙灯氛围变化",
+                "contentStyle": "真实口播",
+                "shootingMethod": "手机竖屏",
+                "language": "English",
+                "scriptVersion": "v1",
+                "handoff": "进入分镜生成"
+              },
+              "strategy": {
+                "corePainPoint": "房间氛围差",
+                "userEmotion": "期待变化",
+                "contentAngle": "前后对比",
+                "mainHook": "取消晚餐计划",
+                "conversionGoal": "评论私信",
+                "complianceNote": "避免绝对化承诺"
+              },
+              "hooks": ["This lamp made me cancel my dinner plan."],
+              "segments": [
+                {
+                  "segmentId": "S01",
+                  "time": "0-5s",
+                  "goal": "钩子",
+                  "voiceover": "This lamp made me cancel my dinner plan.",
+                  "subtitle": "This lamp made me cancel my dinner plan.",
+                  "visualSuggestion": "打开墙灯，展示房间前后差异",
+                  "retentionPoint": "反常识钩子",
+                  "storyboardHint": "真实房间固定镜头"
+                }
+              ],
+              "voiceoverFull": "This lamp made me cancel my dinner plan.",
+              "subtitles": ["This lamp made me cancel my dinner plan."],
+              "shootingChecklist": [],
+              "editingSuggestions": [],
+              "cta": {},
+              "backupTitles": [],
+              "backupHooks": [],
+              "tags": [],
+              "handoff": {
+                "nextAgent": "storyboard_generation",
+                "scriptRevision": "v1",
+                "segmentIds": ["S01"],
+                "videoRatio": "9:16",
+                "readyForStoryboard": true,
+                "readyForTts": true,
+                "readyForSubtitle": true,
+                "notes": "按 segmentId 进入分镜。"
+              }
+            }
+            '''
+        elif capability_id == 'storyboard_generation':
+            text = '''
+            {
+              "schemaVersion": "storyboard_document_v1",
+              "metadata": {
+                "storyboardId": "sb-continuation",
+                "basedOnScriptRevision": "v1",
+                "videoRatio": "9:16",
+                "targetDurationSec": 15,
+                "shotCount": 2
+              },
+              "overview": [],
+              "shots": [
+                {
+                  "shotId": "SH01",
+                  "segmentId": "S01",
+                  "time": "0-3s",
+                  "shotSize": "中景",
+                  "visualContent": "墙灯打开，房间亮起",
+                  "action": "手按开关",
+                  "cameraAngle": "正面平视",
+                  "cameraMovement": "固定",
+                  "voiceover": "This lamp made me cancel my dinner plan.",
+                  "subtitle": "This lamp made me cancel my dinner plan.",
+                  "audio": "轻微开关声",
+                  "shootingNote": "保持墙面整洁",
+                  "transition": "硬切",
+                  "visualPrompt": "真实房间，9:16 竖屏"
+                },
+                {
+                  "shotId": "SH02",
+                  "segmentId": "S01",
+                  "time": "3-5s",
+                  "shotSize": "特写",
+                  "visualContent": "手机关闭订餐页面",
+                  "action": "手指点击取消按钮",
+                  "cameraAngle": "俯拍 90 度",
+                  "cameraMovement": "固定",
+                  "voiceover": "（延续上句口播）",
+                  "subtitle": "(延续上句字幕)",
+                  "audio": "手机点击提示音",
+                  "shootingNote": "避免泄露隐私",
+                  "transition": "快切",
+                  "visualPrompt": "手机屏幕特写，真实操作"
+                }
+              ],
+              "relations": ["S01 -> SH01, SH02"],
+              "handoff": {
+                "nextAgent": "video_generation",
+                "storyboardId": "sb-continuation",
+                "shotIds": ["SH01", "SH02"],
+                "shotsReadyForAiVideo": [],
+                "shotsNeedRealFootage": ["SH01", "SH02"],
+                "keyframes": ["SH01"],
+                "notes": "按 shotId 进入视频生成。"
+              }
+            }
+            '''
+        else:
+            raise AssertionError(capability_id)
+        return FakeGenerationResult(
+            text=text,
+            provider='deepseek',
+            model='deepseek-v4-flash',
+            ai_job_id=job.id,
+            request_id=job.id,
+        )
+
+
 class FencedJsonAITextGenerationService:
     def __init__(self, jobs: AIJobRepository) -> None:
         self._jobs = jobs
@@ -309,6 +448,38 @@ def test_storyboard_generation_stores_json_document_and_derives_scenes(runtime_a
     assert version['scenes'][0]['title'] == 'SH01 · S01'
     assert version['scenes'][0]['voiceover'] == '下午三点别再喝温咖啡了。'
     assert version['scenes'][1]['subtitle'] == '一杯撑完整个下午'
+
+
+def test_storyboard_generation_replaces_continuation_placeholders_with_source_script(runtime_app) -> None:
+    runtime_app.state.ai_text_generation_service = ScriptAndContinuationStoryboardAITextGenerationService(
+        runtime_app.state.ai_job_repository
+    )
+    client = TestClient(runtime_app)
+
+    project_response = client.post(
+        '/api/dashboard/projects',
+        json={'name': 'Storyboard Continuation Project', 'description': 'continuation placeholder'},
+    )
+    project_id = project_response.json()['data']['id']
+
+    script_response = client.post(
+        f'/api/scripts/projects/{project_id}/generate',
+        json={'topic': 'wall lamp, English copy'},
+    )
+    assert script_response.status_code == 200
+
+    generate_response = client.post(f'/api/storyboards/projects/{project_id}/generate')
+
+    assert generate_response.status_code == 200
+    version = generate_response.json()['data']['currentVersion']
+    serialized = str(version['storyboardJson'])
+    second_shot = version['storyboardJson']['shots'][1]
+    second_scene = version['scenes'][1]
+    assert '延续上句' not in serialized
+    assert second_shot['voiceover'] == 'This lamp made me cancel my dinner plan.'
+    assert second_shot['subtitle'] == 'This lamp made me cancel my dinner plan.'
+    assert second_scene['voiceover'] == 'This lamp made me cancel my dinner plan.'
+    assert second_scene['subtitle'] == 'This lamp made me cancel my dinner plan.'
 
 
 def test_storyboard_generation_accepts_fenced_json_provider_output(runtime_app) -> None:

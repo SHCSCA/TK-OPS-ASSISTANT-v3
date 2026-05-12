@@ -31,8 +31,8 @@ defineProps<{
 }
 
 .structured-table {
-  width: 100%;
-  min-width: 760px;
+  width: max-content;
+  min-width: 1280px;
   border-collapse: collapse;
   background: var(--surface-raised);
 }
@@ -44,6 +44,32 @@ defineProps<{
   border-left: 1px solid var(--border-subtle);
   text-align: left;
   vertical-align: top;
+  min-width: 92px;
+  max-width: 280px;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+.structured-table th:nth-child(1),
+.structured-table td:nth-child(1),
+.structured-table th:nth-child(2),
+.structured-table td:nth-child(2) {
+  min-width: 72px;
+  max-width: 96px;
+}
+
+.structured-table th:nth-child(5),
+.structured-table td:nth-child(5),
+.structured-table th:nth-child(6),
+.structured-table td:nth-child(6),
+.structured-table th:nth-child(9),
+.structured-table td:nth-child(9),
+.structured-table th:nth-child(10),
+.structured-table td:nth-child(10),
+.structured-table th:nth-child(12),
+.structured-table td:nth-child(12) {
+  min-width: 220px;
 }
 
 .structured-table th:first-child,

@@ -22,12 +22,26 @@ describe("page responsive layout contract", () => {
 
   it("keeps storyboard list workspace readable when the shell content narrows", () => {
     const css = readSource("../src/pages/storyboards/StoryboardPlanningCenterPage.css");
+    const table = readSource("../src/pages/storyboards/components/StructuredTable.vue");
 
     expect(css).toMatch(/\.page-header__actions\s*{[\s\S]*flex-wrap:\s*wrap;/);
     expect(css).toMatch(/\.board-tags\s*{[\s\S]*flex-wrap:\s*wrap;/);
     expect(css).toMatch(/\.storyboard-editor-content\s*{[\s\S]*min-width:\s*0;/);
     expect(css).toMatch(/\.storyboard-preview-pane\s*{[\s\S]*overflow-y:\s*auto;/);
+    expect(table).toMatch(/\.structured-table\s*{[\s\S]*width:\s*max-content;/);
+    expect(table).toMatch(/\.structured-table\s*{[\s\S]*min-width:\s*1280px;/);
+    expect(table).toMatch(/\.structured-table th:nth-child\(12\),[\s\S]*\.structured-table td:nth-child\(12\)\s*{[\s\S]*min-width:\s*220px;/);
+    expect(table).toMatch(/\.structured-table th,[\s\S]*\.structured-table td\s*{[\s\S]*word-break:\s*normal;/);
     expect(css).not.toContain("editor-mode-switch");
+  });
+
+  it("keeps generated script tables readable instead of squeezing long English copy", () => {
+    const table = readSource("../src/pages/scripts/components/ScriptStructuredPreview.vue");
+
+    expect(table).toMatch(/\.structured-table\s*{[\s\S]*width:\s*max-content;/);
+    expect(table).toMatch(/\.structured-table\s*{[\s\S]*min-width:\s*1120px;/);
+    expect(table).toMatch(/\.structured-table th:nth-child\(8\),[\s\S]*\.structured-table td:nth-child\(8\)\s*{[\s\S]*min-width:\s*200px;/);
+    expect(table).toMatch(/\.structured-table th,[\s\S]*\.structured-table td\s*{[\s\S]*word-break:\s*normal;/);
   });
 
   it("keeps review workspace content inside the shell content host", () => {

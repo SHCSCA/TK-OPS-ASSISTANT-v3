@@ -5,10 +5,15 @@ import {
   fetchScriptDocument,
   fetchSubtitleTrack,
   fetchSubtitleTracks,
+  fetchVoiceTracks,
   generateSubtitleTrack,
   updateSubtitleTrack
 } from "@/app/runtime-client";
-import { extractScriptDocumentDownstreamText } from "@/modules/scripts/script-document-view-model";
+import {
+  extractScriptDocumentDownstreamText,
+  extractScriptDocumentSubtitleRows
+} from "@/modules/scripts/script-document-view-model";
+import type { ScriptSubtitleTableRow } from "@/modules/scripts/script-document-view-model";
 import { useTaskBusStore } from "@/stores/task-bus";
 import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 import type {
@@ -17,9 +22,25 @@ import type {
   SubtitleSegmentDto,
   SubtitleTrackDto,
   SubtitleTrackGenerateResultDto,
-  SubtitleStyleDto
+  SubtitleStyleDto,
+  VoiceTrackDto
 } from "@/types/runtime";
 import type { TaskEvent, TaskInfo } from "@/types/task-events";
+
+const DEFAULT_SUBTITLE_STYLE: SubtitleStyleDto = {
+  preset: "default",
+  fontSize: 24,
+  position: "bottom",
+  textColor: "#FFFFFF",
+  background: "transparent",
+  lineHeight: 1.35,
+  boxWidth: 88,
+  offsetX: 0,
+  offsetY: 0
+};
+
+const LEGACY_SEGMENT_PREFIX_RE =
+  /^S\d{2,}\s+\d+(?:\.\d+)?\s*[-–—]\s*\d+(?:\.\d+)?\s*(?:s|秒)?\s+/i;
 
 export interface SubtitleParagraph {
   text: string;
@@ -50,7 +71,9 @@ type SubtitleAlignmentState = {
   generationResult: SubtitleTrackGenerateResultDto | null;
   paragraphs: SubtitleParagraph[];
   projectId: string;
+  scriptRows: ScriptSubtitleTableRow[];
   selectedTrackId: string | null;
+  sourceVoiceTrack: VoiceTrackDto | null;
   status: SubtitleAlignmentStatus;
   style: SubtitleStyleDto;
   trackDetailsById: Record<string, SubtitleTrackDto>;
@@ -68,15 +91,11 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
     generationResult: null,
     paragraphs: [],
     projectId: "",
+    scriptRows: [],
     selectedTrackId: null,
+    sourceVoiceTrack: null,
     status: "idle",
-    style: {
-      preset: "default",
-      fontSize: 24,
-      position: "bottom",
-      textColor: "#FFFFFF",
-      background: "transparent"
-    },
+    style: { ...DEFAULT_SUBTITLE_STYLE },
     trackDetailsById: {},
     tracks: [],
     activeTask: null,
@@ -89,7 +108,15 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       (state.selectedTrackId ? state.trackDetailsById[state.selectedTrackId] : null) ??
       state.tracks.find((track) => track.id === state.selectedTrackId) ??
       null,
-    sourceText: (state): string => state.paragraphs.map((paragraph) => paragraph.text).join("\n\n"),
+    sourceText: (state): string => {
+      const rowTexts = state.scriptRows
+        .map((row) => cleanSubtitleSourceText(row.subtitle || row.voiceover))
+        .filter(Boolean);
+      if (rowTexts.length > 0) {
+        return rowTexts.join("\n");
+      }
+      return state.paragraphs.map((paragraph) => cleanSubtitleSourceText(paragraph.text)).filter(Boolean).join("\n");
+    },
     viewState(): SubtitleAlignmentViewState {
       if (this.status === "loading" || this.status === "aligning" || this.status === "saving") {
         return "loading";
@@ -115,18 +142,24 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       this.activeTask = null;
 
       try {
-        const [document, tracks] = await Promise.all([
+        const [document, tracks, voiceTracks] = await Promise.all([
           fetchScriptDocument(projectId),
-          fetchSubtitleTracks(projectId)
+          fetchSubtitleTracks(projectId),
+          fetchVoiceTracks(projectId)
         ]);
 
         this.document = document;
-        this.tracks = tracks;
-        this.trackDetailsById = Object.fromEntries(tracks.map((track) => [track.id, track]));
+        this.sourceVoiceTrack = voiceTracks.find((track) => track.status === "ready") ?? null;
         this.paragraphs = this.extractParagraphs(
           document.currentVersion?.documentJson ?? null,
           document.currentVersion?.content ?? ""
         );
+        this.scriptRows = extractScriptDocumentSubtitleRows(
+          document.currentVersion?.documentJson ?? null,
+          document.currentVersion?.content ?? ""
+        );
+        this.tracks = tracks.map((track) => normalizeTrackForScriptRows(track, this.scriptRows));
+        this.trackDetailsById = Object.fromEntries(this.tracks.map((track) => [track.id, track]));
 
         const initialTrackId = tracks[0]?.id ?? null;
         this.selectedTrackId = initialTrackId;
@@ -195,7 +228,9 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
       }
 
       try {
-        const tracks = await fetchSubtitleTracks(this.projectId);
+        const tracks = (await fetchSubtitleTracks(this.projectId)).map((track) =>
+          normalizeTrackForScriptRows(track, this.scriptRows)
+        );
         this.tracks = tracks;
         this.trackDetailsById = {
           ...this.trackDetailsById,
@@ -238,19 +273,21 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
         const result = await generateSubtitleTrack(this.projectId, {
           sourceText,
           language: "zh-CN",
-          stylePreset: this.style.preset || "default"
+          stylePreset: this.style.preset || "default",
+          sourceVoiceTrackId: this.sourceVoiceTrack?.id ?? null
         });
 
         this.generationResult = result;
         if (result.track) {
+          const normalizedTrack = normalizeTrackForScriptRows(result.track, this.scriptRows);
           this.trackDetailsById = {
             ...this.trackDetailsById,
-            [result.track.id]: result.track
+            [normalizedTrack.id]: normalizedTrack
           };
-          this.upsertTrack(result.track);
-          this.selectedTrackId = result.track.id;
-          this.draftSegments = result.track.segments.map((segment) => ({ ...segment }));
-          this.style = { ...result.track.style };
+          this.upsertTrack(normalizedTrack);
+          this.selectedTrackId = normalizedTrack.id;
+          this.draftSegments = normalizedTrack.segments.map((segment) => ({ ...segment }));
+          this.style = normalizeSubtitleStyle(normalizedTrack.style);
           this.activeSegmentIndex = 0;
         }
 
@@ -273,25 +310,26 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
         this.trackDetailsById[trackId] ?? this.tracks.find((track) => track.id === trackId) ?? null;
 
       try {
-        const track = await fetchSubtitleTrack(trackId);
+        const track = normalizeTrackForScriptRows(await fetchSubtitleTrack(trackId), this.scriptRows);
         this.trackDetailsById = {
           ...this.trackDetailsById,
           [trackId]: track
         };
         this.upsertTrack(track);
         this.draftSegments = track.segments.map((segment) => ({ ...segment }));
-        this.style = { ...track.style };
+        this.style = normalizeSubtitleStyle(track.style);
         this.activeSegmentIndex = 0;
         this.status = this.resolveBaseStatus();
       } catch (error) {
         if (cachedTrack) {
+          const track = normalizeTrackForScriptRows(cachedTrack, this.scriptRows);
           this.trackDetailsById = {
             ...this.trackDetailsById,
-            [trackId]: cachedTrack
+            [trackId]: track
           };
-          this.upsertTrack(cachedTrack);
-          this.draftSegments = cachedTrack.segments.map((segment) => ({ ...segment }));
-          this.style = { ...cachedTrack.style };
+          this.upsertTrack(track);
+          this.draftSegments = track.segments.map((segment) => ({ ...segment }));
+          this.style = normalizeSubtitleStyle(track.style);
           this.activeSegmentIndex = 0;
           this.status = this.resolveBaseStatus();
           return;
@@ -320,7 +358,7 @@ export const useSubtitleAlignmentStore = defineStore("subtitle-alignment", {
         };
         this.upsertTrack(updated);
         this.draftSegments = updated.segments.map((segment) => ({ ...segment }));
-        this.style = { ...updated.style };
+        this.style = normalizeSubtitleStyle(updated.style);
         this.status = "ready";
         return updated;
       } catch (error) {
@@ -422,4 +460,65 @@ function hasBlockingAlignment(track: SubtitleTrackDto | null): boolean {
     track.alignment.status === "needs_alignment" ||
     Boolean(track.alignment.errorCode)
   );
+}
+
+function cleanSubtitleSourceText(value: string): string {
+  return value.replace(LEGACY_SEGMENT_PREFIX_RE, "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeSubtitleStyle(style: SubtitleStyleDto): SubtitleStyleDto {
+  return {
+    ...DEFAULT_SUBTITLE_STYLE,
+    ...style,
+    lineHeight: style.lineHeight ?? DEFAULT_SUBTITLE_STYLE.lineHeight,
+    boxWidth: style.boxWidth ?? DEFAULT_SUBTITLE_STYLE.boxWidth,
+    offsetX: style.offsetX ?? DEFAULT_SUBTITLE_STYLE.offsetX,
+    offsetY: style.offsetY ?? DEFAULT_SUBTITLE_STYLE.offsetY
+  };
+}
+
+function normalizeTrackForScriptRows(track: SubtitleTrackDto, rows: ScriptSubtitleTableRow[]): SubtitleTrackDto {
+  const segments = normalizeTrackSegmentsForScriptRows(track.segments, rows);
+  return {
+    ...track,
+    style: normalizeSubtitleStyle(track.style),
+    segments
+  };
+}
+
+function normalizeTrackSegmentsForScriptRows(
+  segments: SubtitleSegmentDto[],
+  rows: ScriptSubtitleTableRow[]
+): SubtitleSegmentDto[] {
+  if (!shouldRepairTrackSegments(segments, rows)) {
+    return segments;
+  }
+
+  return rows.map((row, index) => {
+    const sourceSegment = segments[index] ?? null;
+    return {
+      segmentIndex: index,
+      text: cleanSubtitleSourceText(row.subtitle || row.voiceover),
+      startMs: sourceSegment?.startMs ?? null,
+      endMs: sourceSegment?.endMs ?? null,
+      confidence: sourceSegment?.confidence ?? null,
+      locked: sourceSegment?.locked ?? false
+    };
+  });
+}
+
+function shouldRepairTrackSegments(segments: SubtitleSegmentDto[], rows: ScriptSubtitleTableRow[]): boolean {
+  if (segments.length === 0 || rows.length === 0) {
+    return false;
+  }
+  if (segments.some((segment) => LEGACY_SEGMENT_PREFIX_RE.test(segment.text))) {
+    return true;
+  }
+  if (segments.length === rows.length) {
+    return false;
+  }
+
+  const rowText = rows.map((row) => cleanSubtitleSourceText(row.subtitle || row.voiceover)).filter(Boolean).join(" ");
+  const segmentText = segments.map((segment) => cleanSubtitleSourceText(segment.text)).filter(Boolean).join(" ");
+  return rowText.length > 0 && segmentText.length > 0 && rowText === segmentText;
 }

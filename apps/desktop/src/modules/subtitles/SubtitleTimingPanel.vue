@@ -24,6 +24,7 @@
       <label>
         <span>开始毫秒</span>
         <input
+          data-testid="subtitle-timing-start"
           :value="segment.startMs ?? ''"
           inputmode="numeric"
           placeholder="待对齐"

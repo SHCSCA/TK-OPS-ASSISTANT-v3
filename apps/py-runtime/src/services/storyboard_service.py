@@ -257,7 +257,10 @@ class StoryboardService:
             project_id=project.id,
             request_id=request_id,
         )
-        storyboard_json = parse_storyboard_document_json(result.text)
+        storyboard_json = _normalize_storyboard_script_text(
+            parse_storyboard_document_json(result.text),
+            script_document.currentVersion.documentJson,
+        )
         scenes = build_storyboard_scenes_from_json(storyboard_json)
         stored = self._repository.save_version(
             project.id,
@@ -496,6 +499,76 @@ def _script_source_for_storyboard(version: object) -> str:
 
         return json.dumps(document_json, ensure_ascii=False)
     return str(getattr(version, 'content', ''))
+
+
+def _normalize_storyboard_script_text(
+    storyboard_json: dict[str, object],
+    script_document_json: dict[str, object] | None,
+) -> dict[str, object]:
+    shots = storyboard_json.get('shots')
+    if not isinstance(shots, list):
+        return storyboard_json
+
+    segment_text = _script_segment_text_map(script_document_json)
+    normalized = deepcopy(storyboard_json)
+    normalized_shots = normalized.get('shots')
+    if not isinstance(normalized_shots, list):
+        return normalized
+
+    for shot in normalized_shots:
+        if not isinstance(shot, dict):
+            continue
+        segment_id = str(shot.get('segmentId') or '').strip()
+        source = segment_text.get(segment_id, {})
+        if _is_continuation_placeholder(str(shot.get('voiceover') or '')):
+            shot['voiceover'] = source.get('voiceover', '')
+        if _is_continuation_placeholder(str(shot.get('subtitle') or '')):
+            shot['subtitle'] = source.get('subtitle') or source.get('voiceover', '')
+    return normalized
+
+
+def _script_segment_text_map(
+    script_document_json: dict[str, object] | None,
+) -> dict[str, dict[str, str]]:
+    if not isinstance(script_document_json, dict):
+        return {}
+    segments = script_document_json.get('segments')
+    if not isinstance(segments, list):
+        return {}
+
+    result: dict[str, dict[str, str]] = {}
+    for index, segment in enumerate(segments, start=1):
+        if not isinstance(segment, dict):
+            continue
+        segment_id = str(segment.get('segmentId') or f'S{index:02d}').strip()
+        if not segment_id:
+            continue
+        result[segment_id] = {
+            'voiceover': str(segment.get('voiceover') or segment.get('spokenText') or '').strip(),
+            'subtitle': str(segment.get('subtitle') or segment.get('screenText') or '').strip(),
+        }
+    return result
+
+
+def _is_continuation_placeholder(value: str) -> bool:
+    normalized = (
+        value.replace('(', '')
+        .replace(')', '')
+        .replace('（', '')
+        .replace('）', '')
+        .replace('【', '')
+        .replace('】', '')
+        .replace('[', '')
+        .replace(']', '')
+        .replace(' ', '')
+        .lower()
+    )
+    if not normalized:
+        return False
+    return any(
+        marker in normalized
+        for marker in ('延续上句', '延续上一句', '同上', 'sameasabove', 'continueprevious')
+    )
 
 
 def _manual_markdown_to_scenes(

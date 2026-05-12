@@ -48,7 +48,18 @@ describe("M08 字幕对齐中心页面", () => {
     expect(wrapper.text()).toContain("已保存阻断草稿，但没有生成真实时间码。");
     expect(wrapper.text()).toContain("版本：阻断草稿");
     expect(wrapper.text()).toContain("阻断草稿");
+    expect(wrapper.text()).toContain("脚本文案表格");
+    expect(wrapper.text()).toContain("段号");
+    expect(wrapper.text()).toContain("字幕文案");
     expect(wrapper.text()).toContain("第一段脚本！");
+    expect(summaryLabels(wrapper)).not.toContain("脚本文案");
+    expect(wrapper.get('[data-testid="subtitle-preview-stage"]').text()).toContain("预览画面");
+    expect(wrapper.get('[data-testid="subtitle-preview-frame"]').attributes("data-ratio")).toBe("9:16");
+    expect(wrapper.get('[data-testid="subtitle-preview-stage"]').text()).not.toContain("脚本文本和字幕段已经接通");
+    expect(wrapper.get('[data-testid="subtitle-style-fields"]').attributes("disabled")).toBeUndefined();
+    expect(wrapper.get('[data-testid="subtitle-style-line-height"]').attributes("disabled")).toBeUndefined();
+    expect(wrapper.get('[data-testid="subtitle-style-box-width"]').attributes("disabled")).toBeUndefined();
+    expect(wrapper.get('[data-testid="subtitle-timing-start"]').attributes("disabled")).toBeUndefined();
     expect(wrapper.text()).not.toMatch(/假时间码|成功结果/);
   });
 
@@ -100,6 +111,10 @@ function mountSubtitlePageWithProject() {
   });
 }
 
+function summaryLabels(wrapper: ReturnType<typeof mountSubtitlePageWithProject>) {
+  return wrapper.findAll(".semantic-summary__label").map((item) => item.text());
+}
+
 function createSubtitleFetch() {
   return createRouteAwareFetch((path, method, init) => {
     if (path === "/api/scripts/projects/project-1/document" && method === "GET") {
@@ -107,6 +122,12 @@ function createSubtitleFetch() {
     }
     if (path === "/api/subtitles/projects/project-1/tracks") {
       return okJsonResponse([subtitleTrack()]);
+    }
+    if (path === "/api/voice/projects/project-1/tracks") {
+      return okJsonResponse([voiceTrack()]);
+    }
+    if (path === "/api/subtitles/tracks/subtitle-1" && method === "GET") {
+      return okJsonResponse(subtitleTrack());
     }
     if (path === "/api/subtitles/projects/project-1/tracks/generate") {
       return okJsonResponse({
@@ -121,6 +142,57 @@ function createSubtitleFetch() {
     }
     throw new Error(`Unhandled request: ${method} ${path}`);
   });
+}
+
+function voiceTrack(id = "voice-ready") {
+  return {
+    id,
+    projectId: "project-1",
+    timelineId: null,
+    source: "tts",
+    provider: "volcengine_tts",
+    voiceName: "Vivi 2.0",
+    filePath: "voice.mp3",
+    segments: [
+      {
+        segmentIndex: 0,
+        text: "第一段脚本！",
+        startMs: 0,
+        endMs: 1800,
+        audioAssetId: null,
+        regeneration: null
+      }
+    ],
+    status: "ready",
+    version: {
+      revision: 1,
+      updatedAt: now()
+    },
+    config: {
+      parameterSource: "profile",
+      profileId: "voice-profile-1",
+      provider: "volcengine_tts",
+      voiceId: "zh_female_vv_uranus_bigtts",
+      voiceName: "Vivi 2.0",
+      locale: "zh-CN",
+      model: "seed-tts-2.0",
+      speed: 1,
+      pitch: 0,
+      emotion: "calm",
+      sourceText: "第一段脚本！",
+      sourceLineCount: 1,
+      lastOperation: null
+    },
+    preview: {
+      status: "ready",
+      resourceId: id,
+      filePath: "voice.mp3",
+      message: "音频已生成。"
+    },
+    activeTask: null,
+    createdAt: now(),
+    updatedAt: now()
+  };
 }
 
 function scriptDocument() {
@@ -169,6 +241,20 @@ function subtitleTrack(id = "subtitle-1", text = "第一段脚本！", fontSize 
       }
     ],
     status: "blocked",
-    createdAt: now()
+    createdAt: now(),
+    updatedAt: now(),
+    sourceVoice: {
+      trackId: "voice-ready",
+      revision: 1,
+      updatedAt: now()
+    },
+    alignment: {
+      status: "draft",
+      diffSummary: null,
+      errorCode: null,
+      errorMessage: null,
+      nextAction: "绑定来源配音轨后重新对齐。",
+      updatedAt: now()
+    }
   };
 }

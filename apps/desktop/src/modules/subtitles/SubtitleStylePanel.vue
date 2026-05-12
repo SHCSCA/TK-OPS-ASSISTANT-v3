@@ -15,15 +15,40 @@
       <p>{{ lockedReason }}</p>
     </div>
 
-    <fieldset class="style-fields" :disabled="locked">
+    <fieldset class="style-fields" data-testid="subtitle-style-fields" :disabled="locked">
       <label>
         <span>字体大小</span>
         <input
+          data-testid="subtitle-style-font-size"
           :value="styleConfig.fontSize"
           max="72"
           min="18"
           type="number"
           @input="updateFontSize"
+        />
+      </label>
+      <label>
+        <span>行距</span>
+        <input
+          data-testid="subtitle-style-line-height"
+          :value="styleConfig.lineHeight ?? 1.35"
+          max="2.4"
+          min="1"
+          step="0.05"
+          type="range"
+          @input="updateLineHeight"
+        />
+      </label>
+      <label>
+        <span>字幕框宽度</span>
+        <input
+          data-testid="subtitle-style-box-width"
+          :value="styleConfig.boxWidth ?? 88"
+          max="96"
+          min="36"
+          step="1"
+          type="range"
+          @input="updateBoxWidth"
         />
       </label>
       <label>
@@ -76,6 +101,14 @@ const emit = defineEmits<{
 
 function updateFontSize(event: Event): void {
   emit("update-style", { fontSize: Number((event.target as HTMLInputElement).value) });
+}
+
+function updateLineHeight(event: Event): void {
+  emit("update-style", { lineHeight: Number((event.target as HTMLInputElement).value) });
+}
+
+function updateBoxWidth(event: Event): void {
+  emit("update-style", { boxWidth: Number((event.target as HTMLInputElement).value) });
 }
 </script>
 
@@ -184,5 +217,10 @@ select {
   padding: 0 10px;
 }
 
-/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
+input[type="range"] {
+  padding: 0;
+  accent-color: var(--brand-primary);
+}
+
+/* 动效降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

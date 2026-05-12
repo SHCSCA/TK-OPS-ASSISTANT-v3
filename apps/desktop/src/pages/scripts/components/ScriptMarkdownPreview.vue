@@ -18,6 +18,7 @@ const previewHtml = computed(() => renderScriptMarkdownPreview(props.markdown));
 .script-markdown-preview {
   display: block;
   min-width: 0;
+  overflow-x: auto;
   color: var(--color-text-primary, #0f172a);
   font-size: 15px;
   line-height: 1.75;
@@ -72,7 +73,8 @@ const previewHtml = computed(() => renderScriptMarkdownPreview(props.markdown));
 }
 
 .script-markdown-preview :deep(table) {
-  width: 100%;
+  width: max-content;
+  min-width: 720px;
   border-collapse: collapse;
   border-radius: 8px;
   overflow: hidden;
@@ -86,6 +88,11 @@ const previewHtml = computed(() => renderScriptMarkdownPreview(props.markdown));
   border-bottom: 1px solid var(--color-border-subtle, rgba(15, 23, 42, 0.08));
   text-align: left;
   vertical-align: top;
+  min-width: 96px;
+  max-width: 260px;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
   font-size: 14px;
   line-height: 1.65;
 }

@@ -1,5 +1,7 @@
 <template>
   <div class="storyboard-structured-preview" data-storyboard-structured-preview>
+    <h1>{{ view.title }}</h1>
+    <h2>详细分镜表</h2>
     <StructuredTable :headers="view.shotTable.headers" :rows="view.shotTable.rows" />
   </div>
 </template>
@@ -21,5 +23,21 @@ const view = computed(() => buildStoryboardViewModel(props.storyboardJson));
 .storyboard-structured-preview {
   width: 100%;
   min-width: 0;
+}
+
+.storyboard-structured-preview h1,
+.storyboard-structured-preview h2 {
+  margin: 0 0 14px;
+  color: var(--text-strong);
+  font-weight: 800;
+}
+
+.storyboard-structured-preview h1 {
+  font-size: 1.55rem;
+  line-height: 1.25;
+}
+
+.storyboard-structured-preview h2 {
+  font-size: 1.15rem;
 }
 </style>

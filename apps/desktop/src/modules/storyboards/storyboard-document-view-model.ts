@@ -145,6 +145,9 @@ function asText(value: unknown): string {
 
 function normalizeRepeatedText(value: unknown): string {
   const text = asText(value);
+  if (isContinuationPlaceholder(text)) {
+    return "";
+  }
   if (!text.includes("/")) {
     return text;
   }
@@ -154,6 +157,22 @@ function normalizeRepeatedText(value: unknown): string {
     .filter(Boolean);
   const uniqueParts = parts.filter((part, index) => parts.findIndex((item) => item === part) === index);
   return uniqueParts.length > 0 ? uniqueParts.join(" / ") : text;
+}
+
+function isContinuationPlaceholder(value: string): boolean {
+  const normalized = value
+    .replace(/[()（）【】\[\]\s]/g, "")
+    .toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  return (
+    normalized.includes("延续上句") ||
+    normalized.includes("延续上一句") ||
+    normalized.includes("同上") ||
+    normalized.includes("sameasabove") ||
+    normalized.includes("continueprevious")
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

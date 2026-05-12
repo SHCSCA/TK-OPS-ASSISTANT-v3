@@ -11,6 +11,10 @@ class SubtitleStyleDto(BaseModel):
     position: Literal["bottom", "center", "top"] = "bottom"
     textColor: str = "#FFFFFF"
     background: str = "rgba(0,0,0,0.62)"
+    lineHeight: float = Field(default=1.35, ge=1.0, le=2.4)
+    boxWidth: int = Field(default=88, ge=36, le=96)
+    offsetX: int = Field(default=0, ge=-45, le=45)
+    offsetY: int = Field(default=0, ge=-45, le=45)
 
 
 class SubtitleSegmentDto(BaseModel):

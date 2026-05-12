@@ -60,6 +60,74 @@ describe("M08 字幕对齐中心 store", () => {
     expect(store.selectedTrackId).toBe("subtitle-2");
   });
 
+  it("生成字幕时默认携带最新 ready 配音轨", async () => {
+    let generateBody: Record<string, unknown> | null = null;
+    vi.stubGlobal(
+      "fetch",
+      createSubtitleFetch({
+        captureGenerateBody: (body) => {
+          generateBody = body;
+        }
+      })
+    );
+
+    const store = useSubtitleAlignmentStore();
+    await store.load("project-1");
+
+    expect(store.sourceVoiceTrack?.id).toBe("voice-ready");
+
+    await store.generate();
+
+    expect(generateBody?.sourceVoiceTrackId).toBe("voice-ready");
+  });
+
+  it("生成字幕时使用脚本文案表格行并清理段号时间前缀", async () => {
+    let generateBody: Record<string, unknown> | null = null;
+    vi.stubGlobal(
+      "fetch",
+      createSubtitleFetch({
+        scriptContent: legacySegmentPrefixedScript(),
+        captureGenerateBody: (body) => {
+          generateBody = body;
+        }
+      })
+    );
+
+    const store = useSubtitleAlignmentStore();
+    await store.load("project-1");
+    await store.generate();
+
+    expect(store.scriptRows).toHaveLength(3);
+    expect(generateBody?.sourceText).toBe([
+      "This lamp made me cancel my dinner plan.",
+      "Now my room feels like a 5-star hotel lounge.",
+      "Want this vibe? Drop 'glow' and I'll DM you the link."
+    ].join("\n"));
+    expect(String(generateBody?.sourceText)).not.toContain("S01 0-5s");
+    expect(String(generateBody?.sourceText)).not.toContain("Wall Lamp That Changes");
+  });
+
+  it("加载旧字幕轨道时按脚本文案表格修正脏段落", async () => {
+    vi.stubGlobal(
+      "fetch",
+      createSubtitleFetch({
+        scriptContent: legacySegmentPrefixedScript(),
+        legacyMalformedTrack: true
+      })
+    );
+
+    const store = useSubtitleAlignmentStore();
+    await store.load("project-1");
+
+    expect(store.scriptRows).toHaveLength(3);
+    expect(store.draftSegments.map((segment) => segment.text)).toEqual([
+      "This lamp made me cancel my dinner plan.",
+      "Now my room feels like a 5-star hotel lounge.",
+      "Want this vibe? Drop 'glow' and I'll DM you the link."
+    ]);
+    expect(store.selectedTrack?.segments).toHaveLength(3);
+  });
+
   it("空脚本时不请求生成并进入中文错误态", async () => {
     vi.stubGlobal("fetch", createSubtitleFetch({ emptyScript: true }));
 
@@ -118,6 +186,7 @@ describe("M08 字幕对齐中心 store", () => {
           return okJsonResponse(scriptDocument());
         }
         if (path === "/api/subtitles/projects/project-1/tracks") return okJsonResponse(tracks);
+        if (path === "/api/voice/projects/project-1/tracks") return okJsonResponse([voiceTrack()]);
         if (path === "/api/subtitles/tracks/subtitle-1" && method === "DELETE") {
           tracks = [];
           return okJsonResponse(undefined);
@@ -141,6 +210,8 @@ function createSubtitleFetch(
     noTracks?: boolean;
     scriptContent?: string;
     withTrackDetails?: boolean;
+    captureGenerateBody?: (body: Record<string, unknown>) => void;
+    legacyMalformedTrack?: boolean;
   } = {}
 ) {
   return createRouteAwareFetch((path, method, init) => {
@@ -150,14 +221,22 @@ function createSubtitleFetch(
       );
     }
     if (path === "/api/subtitles/projects/project-1/tracks") {
-      return okJsonResponse(options.noTracks ? [] : [subtitleTrack()]);
+      return okJsonResponse(options.noTracks ? [] : [options.legacyMalformedTrack ? legacyMalformedSubtitleTrack() : subtitleTrack()]);
+    }
+    if (path === "/api/voice/projects/project-1/tracks") {
+      return okJsonResponse([voiceTrack("voice-draft", "processing"), voiceTrack("voice-ready", "ready")]);
     }
     if (path === "/api/subtitles/tracks/subtitle-1" && method === "GET") {
       return okJsonResponse(
-        options.withTrackDetails ? subtitleTrackWithDetails("subtitle-1") : subtitleTrack()
+        options.legacyMalformedTrack
+          ? legacyMalformedSubtitleTrack()
+          : options.withTrackDetails
+            ? subtitleTrackWithDetails("subtitle-1")
+            : subtitleTrack()
       );
     }
     if (path === "/api/subtitles/projects/project-1/tracks/generate") {
+      options.captureGenerateBody?.(JSON.parse(String(init?.body)));
       return okJsonResponse({
         track: subtitleTrack("subtitle-2"),
         task: null,
@@ -170,6 +249,79 @@ function createSubtitleFetch(
     }
     throw new Error(`Unhandled request: ${method} ${path}`);
   });
+}
+
+function legacyMalformedSubtitleTrack() {
+  return {
+    ...subtitleTrack("subtitle-1"),
+    segments: [
+      "Wall Lamp That Changes Your Mood in Seconds",
+      "S01 0-5s This lamp made me cancel my dinner plan.",
+      "S02 5-10s Now my room feels like a 5-star hotel lounge.",
+      "S03 10-15s Want this vibe?",
+      "Drop 'glow' and I'll DM you the link.",
+      "This lamp made me cancel my dinner plan. Now my room feels like a 5-star hotel lounge. Want this vibe?",
+      "Drop 'glow' and I'll DM you the link."
+    ].map((text, index) => ({
+      segmentIndex: index,
+      text,
+      startMs: index * 5000,
+      endMs: index * 5000 + 5000,
+      confidence: null,
+      locked: false
+    }))
+  };
+}
+
+function voiceTrack(id = "voice-ready", status = "ready") {
+  return {
+    id,
+    projectId: "project-1",
+    timelineId: null,
+    source: "tts",
+    provider: "volcengine_tts",
+    voiceName: "Vivi 2.0",
+    filePath: "voice.mp3",
+    segments: [
+      {
+        segmentIndex: 0,
+        text: "第一段脚本",
+        startMs: 0,
+        endMs: 1800,
+        audioAssetId: null,
+        regeneration: null
+      }
+    ],
+    status,
+    version: {
+      revision: 1,
+      updatedAt: now()
+    },
+    config: {
+      parameterSource: "profile",
+      profileId: "voice-profile-1",
+      provider: "volcengine_tts",
+      voiceId: "zh_female_vv_uranus_bigtts",
+      voiceName: "Vivi 2.0",
+      locale: "zh-CN",
+      model: "seed-tts-2.0",
+      speed: 1,
+      pitch: 0,
+      emotion: "calm",
+      sourceText: "第一段脚本",
+      sourceLineCount: 1,
+      lastOperation: null
+    },
+    preview: {
+      status: "ready",
+      resourceId: id,
+      filePath: "voice.mp3",
+      message: "音频已生成。"
+    },
+    activeTask: null,
+    createdAt: now(),
+    updatedAt: now()
+  };
 }
 
 function scriptDocument(content = "第一段脚本\n\n第二段脚本") {
@@ -219,6 +371,16 @@ plain coffee cup
 Same old cup every morning.
 Link in bio.
 \`\`\``;
+}
+
+function legacySegmentPrefixedScript() {
+  return [
+    "Wall Lamp That Changes Your Mood in Seconds",
+    "S01 0-5s This lamp made me cancel my dinner plan.",
+    "S02 5-10s Now my room feels like a 5-star hotel lounge.",
+    "S03 10-15s Want this vibe? Drop 'glow' and I'll DM you the link.",
+    "This lamp made me cancel my dinner plan. Now my room feels like a 5-star hotel lounge."
+  ].join("\n");
 }
 
 function subtitleTrack(id = "subtitle-1", text = "第一段脚本", fontSize = 32) {

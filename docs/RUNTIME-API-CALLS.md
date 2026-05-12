@@ -448,6 +448,7 @@
 - `StoryboardSceneDto` / `StoryboardShotDto` 固定返回：`sceneId`、`title`、`summary`、`visualPrompt`
 - `StoryboardTemplateDto` 固定返回：`id`、`name`、`description`、`shots[]`
 - `source` 当前已落地值包含：`manual`、`ai_generate`、`sync_from_script`、`shot_create`、`shot_update`、`shot_delete`
+- `POST /generate` 保存 AI 分镜 JSON 前会清理 `voiceover/subtitle` 中的“延续上句 / 同上”占位；能匹配来源脚本 `segmentId` 时回填该段真实口播与字幕文本，不能匹配时写入空字符串
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
@@ -943,7 +944,8 @@ waveform 缺少音频：
   - `timingChangedSegments`
   - `textChangedSegments`
   - `lockedSegments`
-- `SubtitleTrackGenerateInput` 当前支持 `sourceVoiceTrackId`，用于在生成阶段直接挂接来源音轨
+- `SubtitleStyleDto` 当前包含：`preset`、`fontSize`、`position`、`textColor`、`background`、`lineHeight`、`boxWidth`、`offsetX`、`offsetY`，用于前端 9:16 预览窗口中的字幕大小、行距、字幕框宽度与拖动偏移
+- `SubtitleTrackGenerateInput` 当前支持 `sourceVoiceTrackId`，用于在生成阶段直接挂接来源音轨；前端未传时 Runtime 会自动选择当前项目最新 `ready` 配音轨
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
@@ -958,9 +960,10 @@ waveform 缺少音频：
 
 **当前错误语义**
 
-- `POST /generate` 当前是 deterministic local 规则生成，不依赖 AI Provider
-- 若未传 `sourceVoiceTrackId`，生成结果会写成 `alignment.status="draft"`，提示先绑定来源音轨
-- 若传入 `sourceVoiceTrackId` 且音轨存在，会回填 `sourceVoice`，并将 `alignment.status` 置为 `pending_alignment`
+- `POST /generate` 当前是 deterministic local 规则生成，不依赖 AI Provider，也不伪装为声学级 forced alignment
+- 若未传 `sourceVoiceTrackId`，Runtime 会自动选择当前项目最新 `ready` 配音轨；没有可用配音轨时降级为 `alignment.status="draft"`，提示先生成配音轨
+- 若来源配音轨存在，会回填 `sourceVoice`；来源配音片段已有有效 `startMs/endMs` 时会沿用时间码并将 `alignment.status` 置为 `aligned`，否则写入估算时间码并置为 `pending_alignment`
+- `POST /generate` 会清理旧脚本行里的 `S01 0-5s` 类段号与时间前缀；英文脚本文案按脚本文案表格行生成，不再因为 `?` 被拆成额外字幕段
 - `POST /align` 要求所有 segments 都具备有效时间码；成功后会生成 `diffSummary`，并将 `alignment.status` 置为 `aligned`
 - `PATCH /tracks/{track_id}` 会重新计算 `diffSummary`；若片段缺少完整时间码，会把 `alignment.status` 置为 `needs_alignment`，并返回 `errorCode=subtitle.timecode_incomplete`
 - `POST /export` 返回的是内联导出结果：`fileName`、`content`、`lineCount`、`status`、`message`，不是文件路径
@@ -971,6 +974,7 @@ waveform 缺少音频：
 - 已修复：`SubtitleTrackGenerateInput` 已声明 `sourceVoiceTrackId`
 - 已修复：`SubtitleStyleTemplateDto` 已补齐 `description / style`
 - 已修复：`SubtitleExportDto` 已切换为后端当前返回的 `fileName / content / lineCount / status / message` 内联导出口径
+- 已修复：`SubtitleStyleDto` 已补齐 `lineHeight / boxWidth / offsetX / offsetY`，前端旧轨道加载时会按脚本文案表格清理历史脏字幕段
 
 **示例**
 
@@ -990,7 +994,11 @@ waveform 缺少音频：
         "fontSize": 32,
         "position": "bottom",
         "textColor": "#FFFFFF",
-        "background": "rgba(0,0,0,0.62)"
+        "background": "rgba(0,0,0,0.62)",
+        "lineHeight": 1.35,
+        "boxWidth": 88,
+        "offsetX": 0,
+        "offsetY": 0
       },
       "segments": [
         {
@@ -2071,7 +2079,7 @@ waveform 缺少音频：
 | M14 渲染导出 | 已修复：前端 `RenderResourceUsageDto`、templates/profile 类型与后端 schema 对齐，renders store 增加 profiles/templates/resource-usage/retry 消费 | 已有 `runtime-client-b-s5.spec.ts` 与 `runtime-stores-m09-m15.spec.ts` 覆盖 |
 | TaskBus | 已修复：前端兼容缺少 `schema_version` 的历史事件并补齐为 `1`；`video_status_changed` 仍作为 legacy event type 保留 | 已有 `task-bus.spec.ts` 覆盖 |
 
-当前文档与代码对齐批次：**2026-05-11 火山豆包 TTS2 与配音中心音频预览收口，185 条 HTTP 接口明细已与当前后端代码全量对齐；后续主要补更多异常样例与端到端联调说明**
+当前文档与代码对齐批次：**2026-05-12 字幕对齐中心脚本文案表格、来源配音轨、9:16 预览与样式微调收口，185 条 HTTP 接口明细已与当前后端代码全量对齐；后续主要补更多异常样例与端到端联调说明**
 
 ---
 

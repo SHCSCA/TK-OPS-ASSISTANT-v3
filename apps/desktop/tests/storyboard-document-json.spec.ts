@@ -48,4 +48,35 @@ describe("storyboard document json view model", () => {
       subtitle: "下午三点，拒绝温咖啡"
     });
   });
+
+  it("does not surface continuation placeholders in voiceover and subtitle cells", () => {
+    const storyboardJson = {
+      schemaVersion: "storyboard_document_v1",
+      shots: [
+        {
+          shotId: "SH01",
+          segmentId: "S01",
+          time: "0-3秒",
+          voiceover: "This lamp made me cancel my dinner plan.",
+          subtitle: "This lamp made me cancel my dinner plan.",
+          visualContent: "墙灯打开，房间亮起"
+        },
+        {
+          shotId: "SH02",
+          segmentId: "S01",
+          time: "3-5秒",
+          voiceover: "（延续上句口播）",
+          subtitle: "(延续上句字幕)",
+          visualContent: "手机关闭订单页"
+        }
+      ]
+    };
+
+    const view = buildStoryboardViewModel(storyboardJson);
+    const secondRow = view.shotTable.rows[1];
+
+    expect(secondRow.join(" ")).not.toContain("延续上句");
+    expect(secondRow[8]).toBe("");
+    expect(secondRow[9]).toBe("");
+  });
 });

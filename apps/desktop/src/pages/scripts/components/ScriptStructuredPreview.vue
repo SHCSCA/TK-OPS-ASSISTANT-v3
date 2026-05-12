@@ -112,8 +112,8 @@ const view = computed(() => buildScriptDocumentViewModel(props.documentJson));
 }
 
 .structured-table {
-  width: 100%;
-  min-width: 680px;
+  width: max-content;
+  min-width: 1120px;
   border-collapse: collapse;
   background: var(--surface-raised);
 }
@@ -125,6 +125,30 @@ const view = computed(() => buildScriptDocumentViewModel(props.documentJson));
   border-left: 1px solid var(--border-subtle);
   text-align: left;
   vertical-align: top;
+  min-width: 96px;
+  max-width: 260px;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+.structured-table th:nth-child(1),
+.structured-table td:nth-child(1),
+.structured-table th:nth-child(2),
+.structured-table td:nth-child(2) {
+  min-width: 72px;
+  max-width: 96px;
+}
+
+.structured-table th:nth-child(4),
+.structured-table td:nth-child(4),
+.structured-table th:nth-child(5),
+.structured-table td:nth-child(5),
+.structured-table th:nth-child(6),
+.structured-table td:nth-child(6),
+.structured-table th:nth-child(8),
+.structured-table td:nth-child(8) {
+  min-width: 200px;
 }
 
 .structured-table th:first-child,

@@ -175,7 +175,7 @@ function formatMs(ms: number): string {
 
 .segment-list {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   padding: 12px;
 }
 
@@ -183,9 +183,10 @@ function formatMs(ms: number): string {
   display: grid;
   gap: 8px;
   padding: 12px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid color-mix(in srgb, var(--border-default) 78%, var(--text-tertiary));
   border-radius: 8px;
   background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition:
     border-color var(--motion-fast) var(--ease-standard),
@@ -197,6 +198,12 @@ function formatMs(ms: number): string {
 .segment-item--active {
   border-color: color-mix(in srgb, var(--brand-primary) 40%, transparent);
   background: color-mix(in srgb, var(--brand-primary) 8%, var(--bg-card));
+}
+
+.segment-item--active {
+  box-shadow:
+    inset 3px 0 0 var(--brand-primary),
+    var(--shadow-sm);
 }
 
 .segment-item:hover {
@@ -212,6 +219,8 @@ function formatMs(ms: number): string {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .segment-head > div {
@@ -233,7 +242,7 @@ function formatMs(ms: number): string {
 }
 
 textarea {
-  min-height: 72px;
+  min-height: 92px;
   resize: vertical;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
@@ -305,5 +314,5 @@ textarea:focus {
   position: absolute;
 }
 
-/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
+/* 动效降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

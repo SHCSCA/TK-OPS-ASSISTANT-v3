@@ -835,6 +835,10 @@ export type SubtitleStyleDto = {
   position: "bottom" | "center" | "top";
   textColor: string;
   background: string;
+  lineHeight?: number;
+  boxWidth?: number;
+  offsetX?: number;
+  offsetY?: number;
 };
 
 export type SubtitleSegmentDto = {

@@ -1,135 +1,112 @@
 <template>
   <section class="panel-shell" data-testid="subtitle-preview-stage">
     <div v-if="status === 'aligning'" class="ai-flow-bar" />
-    <div class="stage-copy">
-      <span class="stage-copy__kicker">字幕校对台</span>
-      <h2>{{ title }}</h2>
-      <p>{{ stageCopy }}</p>
-    </div>
-
-    <div class="stage-meta">
-      <span class="stage-meta__chip">{{ selectedTrack?.language ?? "zh-CN" }}</span>
-      <span class="stage-meta__chip">{{ selectedTrack?.source ?? "script" }}</span>
-      <span class="stage-meta__chip">{{ styleConfig.preset }}</span>
-    </div>
-
-    <div class="preview-frame" :class="{ 'preview-frame--busy': status === 'aligning' }">
+    <div
+      ref="frameRef"
+      class="preview-frame"
+      data-ratio="9:16"
+      data-testid="subtitle-preview-frame"
+      :class="{ 'preview-frame--busy': status === 'aligning' }"
+    >
       <div class="safe-area">
         <span class="preview-label">预览画面</span>
-        <p class="subtitle-overlay" :style="overlayStyle">
+        <p
+          class="subtitle-overlay"
+          data-testid="subtitle-overlay"
+          :class="{ 'subtitle-overlay--dragging': isDragging }"
+          :style="overlayStyle"
+          @pointerdown="handlePointerDown"
+        >
           {{ activeSegment?.text ?? "选中字幕段后，这里会展示叠字效果。" }}
         </p>
       </div>
-    </div>
-
-    <div class="detail-surface">
-      <div class="detail-surface__row">
-        <strong>{{ statusLabel }}</strong>
-        <span>{{ statusMessage }}</span>
-      </div>
-      <dl v-if="selectedTrack" class="detail-grid">
-        <div>
-          <dt>字幕来源</dt>
-          <dd>{{ selectedTrack.source }}</dd>
-        </div>
-        <div>
-          <dt>语言</dt>
-          <dd>{{ selectedTrack.language }}</dd>
-        </div>
-        <div>
-          <dt>创建时间</dt>
-          <dd>{{ formatDate(selectedTrack.createdAt) }}</dd>
-        </div>
-        <div>
-          <dt>轨道状态</dt>
-          <dd>{{ selectedTrack.status }}</dd>
-        </div>
-      </dl>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 
 import type { SubtitleAlignmentStatus } from "@/stores/subtitle-alignment";
-import type { SubtitleSegmentDto, SubtitleStyleDto, SubtitleTrackDto } from "@/types/runtime";
+import type { SubtitleSegmentDto, SubtitleStyleDto } from "@/types/runtime";
 
 const props = defineProps<{
   activeSegment: SubtitleSegmentDto | null;
-  generationMessage: string | null;
-  selectedTrack: SubtitleTrackDto | null;
-  stateMessage: string;
   status: SubtitleAlignmentStatus;
   styleConfig: SubtitleStyleDto;
 }>();
 
-const title = computed(() => {
-  if (props.status === "aligning") return "正在生成字幕草稿。";
-  if (props.status === "blocked") return "字幕对齐能力被阻断。";
-  if (props.status === "error") return "字幕工作台需要处理错误。";
-  if (!props.selectedTrack) return "等待真实字幕版本。";
-  return "脚本文本和字幕段已经接通。";
-});
+const emit = defineEmits<{
+  "update-style": [patch: Partial<SubtitleStyleDto>];
+}>();
 
-const stageCopy = computed(() => {
-  const segmentText = props.activeSegment?.text ?? "选择字幕段后，这里会显示当前叠字上下文。";
-  const trackText = props.selectedTrack
-    ? `${props.selectedTrack.source} · ${props.selectedTrack.language}`
-    : "当前没有选中的字幕版本。";
-  return `${segmentText} 当前轨道：${trackText}`;
-});
+const frameRef = ref<HTMLElement | null>(null);
+const isDragging = ref(false);
 
-const statusLabel = computed(() => {
-  if (props.status === "loading") return "读取中";
-  if (props.status === "aligning") return "对齐中";
-  if (props.status === "blocked") return "阻断";
-  if (props.status === "saving") return "保存中";
-  if (props.status === "error") return "错误";
-  if (!props.selectedTrack) return "空态";
-  return "可用";
-});
-
-const statusMessage = computed(() => {
-  if (props.status === "loading") return "正在读取脚本文本、字幕版本和样式草稿。";
-  if (props.status === "aligning") return "正在把脚本文本整理为字幕草稿，不会提前写入假时间码。";
-  if (props.status === "blocked") {
-    return props.generationMessage || props.stateMessage;
-  }
-  if (props.status === "saving") return "正在保存字幕段和样式校正。";
-  if (props.status === "error") return props.stateMessage;
-  if (!props.selectedTrack) {
-    return "真实时间码尚未生成，先创建字幕版本。";
-  }
-  return props.stateMessage;
+const basePositionPercent = computed(() => {
+  if (props.styleConfig.position === "top") return 22;
+  if (props.styleConfig.position === "center") return 50;
+  return 78;
 });
 
 const overlayStyle = computed(() => ({
   background: props.styleConfig.background,
   color: props.styleConfig.textColor,
   fontSize: `${props.styleConfig.fontSize}px`,
-  top:
-    props.styleConfig.position === "top"
-      ? "16%"
-      : props.styleConfig.position === "center"
-        ? "50%"
-        : "auto",
-  bottom: props.styleConfig.position === "bottom" ? "14%" : "auto",
-  transform:
-    props.styleConfig.position === "center" ? "translate(-50%, -50%)" : "translateX(-50%)"
+  left: `${clamp(50 + (props.styleConfig.offsetX ?? 0), 8, 92)}%`,
+  lineHeight: String(props.styleConfig.lineHeight ?? 1.35),
+  top: `${clamp(basePositionPercent.value + (props.styleConfig.offsetY ?? 0), 8, 92)}%`,
+  transform: "translate(-50%, -50%)",
+  width: `${clamp(props.styleConfig.boxWidth ?? 88, 36, 96)}%`
 }));
 
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
+onBeforeUnmount(() => {
+  stopDragging();
+});
+
+function handlePointerDown(event: PointerEvent): void {
+  event.preventDefault();
+  isDragging.value = true;
+  (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+  updatePositionFromPointer(event);
+  window.addEventListener("pointermove", handlePointerMove);
+  window.addEventListener("pointerup", handlePointerUp, { once: true });
+}
+
+function handlePointerMove(event: PointerEvent): void {
+  if (!isDragging.value) {
+    return;
+  }
+  updatePositionFromPointer(event);
+}
+
+function handlePointerUp(event: PointerEvent): void {
+  updatePositionFromPointer(event);
+  stopDragging();
+}
+
+function updatePositionFromPointer(event: PointerEvent): void {
+  const rect = frameRef.value?.getBoundingClientRect();
+  if (!rect || rect.width <= 0 || rect.height <= 0) {
+    return;
   }
 
-  return new Intl.DateTimeFormat("zh-CN", {
-    dateStyle: "short",
-    hour12: false,
-    timeStyle: "short"
-  }).format(date);
+  const xPercent = ((event.clientX - rect.left) / rect.width) * 100;
+  const yPercent = ((event.clientY - rect.top) / rect.height) * 100;
+  emit("update-style", {
+    offsetX: Math.round(clamp(xPercent - 50, -45, 45)),
+    offsetY: Math.round(clamp(yPercent - basePositionPercent.value, -45, 45))
+  });
+}
+
+function stopDragging(): void {
+  isDragging.value = false;
+  window.removeEventListener("pointermove", handlePointerMove);
+  window.removeEventListener("pointerup", handlePointerUp);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 </script>
 
@@ -137,6 +114,7 @@ function formatDate(value: string): string {
 .panel-shell {
   display: grid;
   gap: 16px;
+  place-items: center;
   min-height: 0;
   border: 1px solid var(--border-default);
   border-radius: 8px;
@@ -158,60 +136,18 @@ function formatDate(value: string): string {
   z-index: 10;
 }
 
-.stage-copy {
-  display: grid;
-  gap: 8px;
-}
-
-.stage-copy__kicker {
-  color: var(--brand-primary);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-h2 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 28px;
-  line-height: 1.2;
-}
-
-.stage-copy p {
-  margin: 0;
-  max-width: 760px;
-  color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.75;
-}
-
-.stage-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.stage-meta__chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
 .preview-frame {
   position: relative;
   overflow: hidden;
-  aspect-ratio: 16 / 9;
+  width: min(100%, 360px);
+  aspect-ratio: 9 / 16;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: 28px;
   background:
-    linear-gradient(160deg, rgba(0, 0, 0, 0.96), rgba(22, 28, 28, 0.98)),
+    radial-gradient(circle at 50% 18%, rgba(34, 42, 42, 0.88), transparent 34%),
+    linear-gradient(160deg, rgba(0, 0, 0, 0.98), rgba(13, 18, 18, 0.98)),
     #050808;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
 }
 
 .preview-frame--busy::after {
@@ -229,9 +165,9 @@ h2 {
 
 .safe-area {
   position: absolute;
-  inset: 8%;
+  inset: 7% 8%;
   border: 1px dashed rgba(255, 255, 255, 0.18);
-  border-radius: 8px;
+  border-radius: 22px;
 }
 
 .preview-label {
@@ -244,62 +180,18 @@ h2 {
 
 .subtitle-overlay {
   position: absolute;
-  left: 50%;
-  max-width: min(88%, 760px);
   margin: 0;
-  padding: 5px 18px;
+  padding: 6px 14px;
   border-radius: 6px;
-  line-height: 1.35;
+  cursor: grab;
   text-align: center;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+  touch-action: none;
+  user-select: none;
 }
 
-.detail-surface {
-  display: grid;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--bg-card);
-}
-
-.detail-surface__row {
-  display: grid;
-  gap: 4px;
-}
-
-.detail-surface__row strong {
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.detail-surface__row span {
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.detail-grid div {
-  display: grid;
-  gap: 4px;
-}
-
-.detail-grid dt {
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-
-.detail-grid dd {
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.6;
-  word-break: break-word;
+.subtitle-overlay--dragging {
+  cursor: grabbing;
 }
 
 @keyframes subtitle-scan {
@@ -311,5 +203,5 @@ h2 {
   }
 }
 
-/* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
+/* 动效降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */
 </style>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildScriptDocumentViewModel,
+  extractScriptDocumentSubtitleRows,
   extractScriptDocumentDownstreamText
 } from "@/modules/scripts/script-document-view-model";
 
@@ -77,6 +78,83 @@ describe("script document json view model", () => {
     expect(extractScriptDocumentDownstreamText(documentJson, "subtitle").map((item) => item.text)).toEqual([
       "字幕一",
       "字幕二"
+    ]);
+  });
+
+  it("converts structured script copy into subtitle table rows", () => {
+    const rows = extractScriptDocumentSubtitleRows({
+      segments: [
+        {
+          segmentId: "S01",
+          time: "0-3秒",
+          goal: "钩子",
+          voiceover: "下午三点别再喝温咖啡了。",
+          subtitle: "下午三点，拒绝温咖啡"
+        },
+        {
+          segmentId: "S02",
+          time: "3-7秒",
+          goal: "痛点",
+          voiceover: "冰块全融了。",
+          subtitle: "冰块全融了"
+        }
+      ]
+    });
+
+    expect(rows).toEqual([
+      {
+        goal: "钩子",
+        segmentId: "S01",
+        source: "结构化脚本",
+        subtitle: "下午三点，拒绝温咖啡",
+        time: "0-3秒",
+        voiceover: "下午三点别再喝温咖啡了。"
+      },
+      {
+        goal: "痛点",
+        segmentId: "S02",
+        source: "结构化脚本",
+        subtitle: "冰块全融了",
+        time: "3-7秒",
+        voiceover: "冰块全融了。"
+      }
+    ]);
+  });
+
+  it("converts legacy segment-prefixed script text without leaking segment labels into subtitles", () => {
+    const rows = extractScriptDocumentSubtitleRows(null, [
+      "Wall Lamp That Changes Your Mood in Seconds",
+      "S01 0-5s This lamp made me cancel my dinner plan.",
+      "S02 5-10s Now my room feels like a 5-star hotel lounge.",
+      "S03 10-15s Want this vibe? Drop 'glow' and I'll DM you the link.",
+      "This lamp made me cancel my dinner plan. Now my room feels like a 5-star hotel lounge."
+    ].join("\n"));
+
+    expect(rows).toEqual([
+      {
+        goal: "",
+        segmentId: "S01",
+        source: "旧脚本段落",
+        subtitle: "This lamp made me cancel my dinner plan.",
+        time: "0-5s",
+        voiceover: ""
+      },
+      {
+        goal: "",
+        segmentId: "S02",
+        source: "旧脚本段落",
+        subtitle: "Now my room feels like a 5-star hotel lounge.",
+        time: "5-10s",
+        voiceover: ""
+      },
+      {
+        goal: "",
+        segmentId: "S03",
+        source: "旧脚本段落",
+        subtitle: "Want this vibe? Drop 'glow' and I'll DM you the link.",
+        time: "10-15s",
+        voiceover: ""
+      }
     ]);
   });
 });

@@ -77,6 +77,8 @@ SCRIPT_GENERATION_RULES = '''
 - 每 5-8 秒必须有一个留存刺激点，例如新信息、反转、对比、细节特写、情绪变化、用户疑问、结果展示或悬念推进。
 - 口播要短句、生活化、有节奏、直接、不像广告、不堆参数、不过度夸张。
 - 字幕要适合手机屏幕阅读，中文每句不超过 18 个字，英文每句不超过 12 个单词。
+- 面向观众的脚本文案字段按目标语言输出，包括 title、hooks、voiceover、subtitle、voiceoverFull、subtitles 和 CTA 展示文案。
+- 制作说明类字段必须保持中文，包括 metadata、strategy、segments.goal、visualSuggestion、retentionPoint、storyboardHint、shootingChecklist、editingSuggestions 和 handoff.notes。
 - CTA 必须自然，优先使用评论、收藏、选择题或置顶评论引导，禁止“保证有效”“必买”“全网最低价”等硬广承诺。
 
 ## 可拍摄与下游规则
@@ -133,6 +135,8 @@ STORYBOARD_GENERATION_RULES = '''
 - 分镜默认适合 TikTok 竖屏 9:16，镜头必须可用普通手机拍摄。
 - AI 视频镜头和真实实拍镜头必须明确区分，真实产品或关键操作不得强行用 AI 视频替代。
 - 每个 shot 必须保留对应口播、字幕、拍摄注意、转场和给视频生成 Agent 的 visualPrompt。
+- voiceover 和 subtitle 必须填写对应脚本原文；如果某个 shot 不承载口播或字幕，使用空字符串。
+- 禁止使用“延续上句”“同上”“见上文”等占位文案。
 '''
 
 DEFAULT_AGENT_PROMPT_CONFIG['script_generation'] = {

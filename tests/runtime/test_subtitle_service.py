@@ -22,7 +22,12 @@ from schemas.subtitles import (
 from services.subtitle_service import SubtitleService
 
 
-def _make_subtitle_service(tmp_path: Path) -> SubtitleService:
+def _make_subtitle_service(
+    tmp_path: Path,
+    *,
+    include_voice_track: bool = True,
+    voice_segments_json: str | None = None,
+) -> SubtitleService:
     engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
@@ -41,23 +46,24 @@ def _make_subtitle_service(tmp_path: Path) -> SubtitleService:
                 last_accessed_at=now,
             )
         )
-        session.add(
-            VoiceTrack(
-                id="voice-track-1",
-                project_id="project-subtitle",
-                timeline_id=None,
-                source="tts",
-                provider="openai",
-                voice_name="标准女声",
-                file_path=str(tmp_path / "voice.mp3"),
-                segments_json='[{"segmentIndex":0,"text":"第一句"}]',
-                status="ready",
-                version=3,
-                config_json="{}",
-                created_at=now,
-                updated_at=now,
+        if include_voice_track:
+            session.add(
+                VoiceTrack(
+                    id="voice-track-1",
+                    project_id="project-subtitle",
+                    timeline_id=None,
+                    source="tts",
+                    provider="openai",
+                    voice_name="标准女声",
+                    file_path=str(tmp_path / "voice.mp3"),
+                    segments_json=voice_segments_json or '[{"segmentIndex":0,"text":"第一句"}]',
+                    status="ready",
+                    version=3,
+                    config_json="{}",
+                    created_at=now,
+                    updated_at=now,
+                )
             )
-        )
         session.add(
             SubtitleTrack(
                 id="subtitle-track-1",
@@ -117,7 +123,7 @@ def _make_subtitle_service(tmp_path: Path) -> SubtitleService:
 
 
 def test_generate_track_creates_draft_track_without_source_voice(tmp_path: Path) -> None:
-    service = _make_subtitle_service(tmp_path)
+    service = _make_subtitle_service(tmp_path, include_voice_track=False)
 
     generated = service.generate_track(
         "project-subtitle",
@@ -141,6 +147,31 @@ def test_generate_track_creates_draft_track_without_source_voice(tmp_path: Path)
     assert len(generated.track.segments) == 2
 
 
+def test_generate_track_strips_legacy_segment_prefixes(tmp_path: Path) -> None:
+    service = _make_subtitle_service(tmp_path, include_voice_track=False)
+
+    generated = service.generate_track(
+        "project-subtitle",
+        SubtitleTrackGenerateInput(
+            sourceText="\n".join(
+                [
+                    "S01 0-5s This lamp made me cancel my dinner plan.",
+                    "S02 5-10s Now my room feels like a 5-star hotel lounge.",
+                    "S03 10-15s Want this vibe? Drop 'glow' and I'll DM you the link.",
+                ]
+            ),
+            language="zh-CN",
+            stylePreset="creator-default",
+        ),
+    )
+
+    assert [segment.text for segment in generated.track.segments] == [
+        "This lamp made me cancel my dinner plan.",
+        "Now my room feels like a 5-star hotel lounge.",
+        "Want this vibe? Drop 'glow' and I'll DM you the link.",
+    ]
+
+
 def test_generate_track_records_source_voice_snapshot(tmp_path: Path) -> None:
     service = _make_subtitle_service(tmp_path)
 
@@ -158,6 +189,52 @@ def test_generate_track_records_source_voice_snapshot(tmp_path: Path) -> None:
     assert generated.track.sourceVoice.trackId == "voice-track-1"
     assert generated.track.sourceVoice.revision == 3
     assert generated.track.alignment.status == "pending_alignment"
+
+
+def test_generate_track_auto_uses_latest_ready_voice_track(tmp_path: Path) -> None:
+    service = _make_subtitle_service(tmp_path)
+
+    generated = service.generate_track(
+        "project-subtitle",
+        SubtitleTrackGenerateInput(
+            sourceText="第一句。\n第二句。",
+            language="zh-CN",
+            stylePreset="creator-default",
+        ),
+    )
+
+    assert generated.track.sourceVoice is not None
+    assert generated.track.sourceVoice.trackId == "voice-track-1"
+    assert generated.task is not None
+    assert generated.task["sourceVoiceTrackId"] == "voice-track-1"
+    assert generated.track.alignment.status == "pending_alignment"
+
+
+def test_generate_track_uses_source_voice_segment_timecodes(tmp_path: Path) -> None:
+    service = _make_subtitle_service(
+        tmp_path,
+        voice_segments_json="""
+        [
+          {"segmentIndex": 0, "text": "第一句", "startMs": 120, "endMs": 1720},
+          {"segmentIndex": 1, "text": "第二句", "startMs": 1840, "endMs": 3200}
+        ]
+        """.strip(),
+    )
+
+    generated = service.generate_track(
+        "project-subtitle",
+        SubtitleTrackGenerateInput(
+            sourceText="第一句。\n第二句。",
+            language="zh-CN",
+            stylePreset="creator-default",
+        ),
+    )
+
+    assert [(item.startMs, item.endMs) for item in generated.track.segments] == [
+        (120, 1720),
+        (1840, 3200),
+    ]
+    assert generated.track.alignment.status == "aligned"
 
 
 def test_align_track_updates_alignment_diff_summary(tmp_path: Path) -> None:

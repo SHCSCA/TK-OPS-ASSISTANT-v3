@@ -186,7 +186,7 @@
 }
 
 .script-preview-pane :deep(.script-markdown-preview table) {
-  min-width: 560px;
+  min-width: 720px;
 }
 
 .script-preview-pane :deep(.script-markdown-preview th),
@@ -324,7 +324,7 @@
 }
 
 .storyboard-preview-pane :deep(.script-markdown-preview table) {
-  min-width: 560px;
+  min-width: 1120px;
 }
 
 .storyboard-source {

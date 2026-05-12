@@ -92,6 +92,8 @@ def test_ai_capabilities_use_agent_prompt_config_defaults(
     assert '前 3 秒强钩子' in script_prompt
     assert '每 5-8 秒' in script_prompt
     assert '手机竖屏' in script_prompt
+    assert '面向观众的脚本文案字段按目标语言输出' in script_prompt
+    assert '制作说明类字段必须保持中文' in script_prompt
     assert '字段值允许为空字符串或空数组' in script_prompt
     assert '严格 JSON' in script_prompt
     rewrite_prompt = (
@@ -108,6 +110,7 @@ def test_ai_capabilities_use_agent_prompt_config_defaults(
     assert 'shotId' in storyboard_prompt
     assert '真实实拍' in storyboard_prompt
     assert 'AI 视频' in storyboard_prompt
+    assert '禁止使用“延续上句”' in storyboard_prompt
     assert '严格 JSON' in storyboard_prompt
     video_prompt = (
         capabilities['video_transcription']['systemPrompt']

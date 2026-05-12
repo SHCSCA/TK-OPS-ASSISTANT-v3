@@ -37,6 +37,11 @@ MISSING_SOURCE_TEXT_MESSAGE = "\u5b57\u5e55\u6e90\u6587\u672c\u4e0d\u80fd\u4e3a\
 MISSING_TIMECODE_MESSAGE = "\u5b57\u5e55\u7247\u6bb5\u7f3a\u5c11\u6709\u6548\u65f6\u95f4\u7801\uff0c\u65e0\u6cd5\u5b8c\u6210\u5bf9\u9f50\u6216\u5bfc\u51fa\u3002"
 INVALID_TIMECODE_MESSAGE = "\u5b57\u5e55\u7247\u6bb5\u65f6\u95f4\u7801\u65e0\u6548\uff0c\u8bf7\u5148\u4fee\u6b63\u540e\u518d\u91cd\u8bd5\u3002"
 SOURCE_VOICE_NOT_FOUND_MESSAGE = "\u6307\u5b9a\u7684\u6765\u6e90\u97f3\u8f68\u4e0d\u5b58\u5728\uff0c\u8bf7\u91cd\u65b0\u9009\u62e9\u540e\u518d\u751f\u6210\u5b57\u5e55\u3002"
+LEGACY_SEGMENT_PREFIX_RE = re.compile(
+    r"^\s*S\d{2,}\s+\d+(?:\.\d+)?\s*[-–—]\s*\d+(?:\.\d+)?\s*(?:s|秒)?\s+",
+    re.IGNORECASE,
+)
+ASCII_LETTER_RE = re.compile(r"[A-Za-z]")
 
 
 @dataclass(frozen=True)
@@ -70,14 +75,30 @@ class SubtitleService:
         project_id: str,
         payload: SubtitleTrackGenerateInput,
     ) -> SubtitleTrackGenerateResultDto:
-        segments = self._split_segments(payload.sourceText)
+        source_voice_track = self._resolve_source_voice_track(
+            project_id=project_id,
+            track_id=payload.sourceVoiceTrackId,
+        )
+        source_voice_timecodes = self._voice_segment_timecodes_by_index(source_voice_track)
+        segments = self._split_segments(payload.sourceText, source_voice_timecodes=source_voice_timecodes)
         if not segments:
             raise HTTPException(status_code=400, detail=MISSING_SOURCE_TEXT_MESSAGE)
 
         style = self._resolve_style(payload.stylePreset)
         generated_at = utc_now_iso()
-        source_voice = self._resolve_source_voice(payload.sourceVoiceTrackId)
-        alignment_status = "pending_alignment" if source_voice is not None else "draft"
+        source_voice = (
+            self._voice_track_to_source_dto(source_voice_track)
+            if source_voice_track is not None
+            else None
+        )
+        source_has_timecodes = all(segment.segmentIndex in source_voice_timecodes for segment in segments)
+        alignment_status = (
+            "aligned"
+            if source_has_timecodes
+            else "pending_alignment"
+            if source_voice is not None
+            else "draft"
+        )
         metadata = self._build_metadata(
             source_voice=source_voice,
             alignment_status=alignment_status,
@@ -85,9 +106,11 @@ class SubtitleService:
             error_code=None,
             error_message=None,
             next_action=(
-                "\u8fd0\u884c\u5b57\u5e55\u5bf9\u9f50\uff0c\u786e\u8ba4\u5b57\u5e55\u65f6\u95f4\u7801\u4e0e\u97f3\u8f68\u4fdd\u6301\u4e00\u81f4\u3002"
+                "\u5df2\u6309\u6765\u6e90\u914d\u97f3\u6bb5\u843d\u751f\u6210\u5b57\u5e55\u65f6\u95f4\u7801\uff0c\u53ef\u7ee7\u7eed\u4eba\u5de5\u5fae\u8c03\u3002"
+                if source_has_timecodes
+                else "\u5df2\u7ed1\u5b9a\u6765\u6e90\u914d\u97f3\u8f68\uff0c\u8bf7\u68c0\u67e5\u4f30\u7b97\u65f6\u95f4\u7801\u540e\u4fdd\u5b58\u3002"
                 if source_voice is not None
-                else "\u5148\u9009\u62e9\u6765\u6e90\u97f3\u8f68\uff0c\u518d\u6267\u884c\u5b57\u5e55\u5bf9\u9f50\u3002"
+                else "\u5148\u751f\u6210\u914d\u97f3\u8f68\uff0c\u518d\u6267\u884c\u5b57\u5e55\u5bf9\u9f50\u53ef\u83b7\u5f97\u66f4\u53ef\u9760\u65f6\u95f4\u7801\u3002"
             ),
             updated_at=generated_at,
         )
@@ -124,7 +147,8 @@ class SubtitleService:
                 "segmentCount": len(segments),
                 "sourceCharacters": len(payload.sourceText),
                 "generatedAt": generated_at,
-                "sourceVoiceTrackId": payload.sourceVoiceTrackId,
+                "sourceVoiceTrackId": source_voice.trackId if source_voice is not None else None,
+                "alignmentMode": "voice_segment" if source_has_timecodes else "estimated",
             },
             message=GENERATE_MESSAGE,
         )
@@ -386,10 +410,31 @@ class SubtitleService:
         centiseconds = ms // 10
         return f"{hours:d}:{minutes:02d}:{seconds:02d}.{centiseconds:02d}"
 
-    def _split_segments(self, source_text: str) -> list[SubtitleSegmentDto]:
+    def _split_segments(
+        self,
+        source_text: str,
+        *,
+        source_voice_timecodes: dict[int, tuple[int, int]] | None = None,
+    ) -> list[SubtitleSegmentDto]:
         segments: list[SubtitleSegmentDto] = []
         current_start_ms = 0
+        voice_segments = source_voice_timecodes or {}
         for index, text in enumerate(self._split_source_text(source_text)):
+            voice_timecode = voice_segments.get(index)
+            if voice_timecode is not None:
+                start_ms, end_ms = voice_timecode
+                segments.append(
+                    SubtitleSegmentDto(
+                        segmentIndex=index,
+                        text=text,
+                        startMs=start_ms,
+                        endMs=end_ms,
+                        confidence=0.96,
+                    )
+                )
+                current_start_ms = end_ms + 120
+                continue
+
             duration_ms = self._estimate_segment_duration_ms(text)
             segments.append(
                 SubtitleSegmentDto(
@@ -402,15 +447,45 @@ class SubtitleService:
             current_start_ms += duration_ms + 120
         return segments
 
+    def _voice_segment_timecodes_by_index(
+        self,
+        source_voice_track: VoiceTrack | None,
+    ) -> dict[int, tuple[int, int]]:
+        if source_voice_track is None:
+            return {}
+        try:
+            raw_segments = json.loads(source_voice_track.segments_json)
+        except json.JSONDecodeError as exc:
+            log.exception("\u89e3\u6790\u6765\u6e90\u914d\u97f3\u6bb5\u843d\u5931\u8d25")
+            raise HTTPException(status_code=500, detail="\u89e3\u6790\u6765\u6e90\u914d\u97f3\u6bb5\u843d\u5931\u8d25\u3002") from exc
+        if not isinstance(raw_segments, list):
+            raise HTTPException(status_code=500, detail="\u6765\u6e90\u914d\u97f3\u6bb5\u843d\u683c\u5f0f\u65e0\u6548\u3002")
+
+        timecodes: dict[int, tuple[int, int]] = {}
+        for item in raw_segments:
+            if not isinstance(item, dict):
+                continue
+            index = self._int_or_none(item.get("segmentIndex"))
+            start_ms = self._int_or_none(item.get("startMs"))
+            end_ms = self._int_or_none(item.get("endMs"))
+            if index is None or start_ms is None or end_ms is None:
+                continue
+            if self._is_valid_timecode_pair(start_ms, end_ms):
+                timecodes[index] = (start_ms, end_ms)
+        return timecodes
+
     def _split_source_text(self, source_text: str) -> list[str]:
         segments: list[str] = []
         for raw_line in source_text.splitlines():
-            line = raw_line.strip()
+            line = self._clean_source_segment_text(raw_line)
             if not line:
+                continue
+            if ASCII_LETTER_RE.search(line):
+                segments.append(line)
                 continue
             parts = [
                 part.strip()
-                for part in re.split(r"(?<=[\u3002\uff01\uff1f!?])\s*", line)
+                for part in re.split(r"(?<=[\u3002\uff01\uff1f])\s*", line)
                 if part.strip()
             ]
             if parts:
@@ -418,6 +493,9 @@ class SubtitleService:
             else:
                 segments.append(line)
         return segments
+
+    def _clean_source_segment_text(self, value: str) -> str:
+        return re.sub(r"\s+", " ", LEGACY_SEGMENT_PREFIX_RE.sub("", value).strip())
 
     def _estimate_segment_duration_ms(self, text: str) -> int:
         normalized_text = re.sub(r"\s+", "", text)
@@ -434,9 +512,14 @@ class SubtitleService:
             raise HTTPException(status_code=404, detail="\u5b57\u5e55\u8f68\u9053\u4e0d\u5b58\u5728\u3002")
         return track
 
-    def _resolve_source_voice(self, track_id: str | None) -> SubtitleSourceVoiceDto | None:
+    def _resolve_source_voice_track(
+        self,
+        *,
+        project_id: str,
+        track_id: str | None,
+    ) -> VoiceTrack | None:
         if track_id is None:
-            return None
+            return self._latest_ready_voice_track(project_id)
         if self._voice_repository is None:
             raise HTTPException(status_code=503, detail="\u6765\u6e90\u97f3\u8f68\u4ed3\u5e93\u672a\u521d\u59cb\u5316\u3002")
         try:
@@ -446,7 +529,17 @@ class SubtitleService:
             raise HTTPException(status_code=500, detail="\u67e5\u8be2\u6765\u6e90\u97f3\u8f68\u5931\u8d25\u3002") from exc
         if voice_track is None:
             raise HTTPException(status_code=404, detail=SOURCE_VOICE_NOT_FOUND_MESSAGE)
-        return self._voice_track_to_source_dto(voice_track)
+        return voice_track
+
+    def _latest_ready_voice_track(self, project_id: str) -> VoiceTrack | None:
+        if self._voice_repository is None:
+            return None
+        try:
+            tracks = self._voice_repository.list_tracks(project_id)
+        except Exception as exc:
+            log.exception("\u67e5\u8be2\u9879\u76ee\u914d\u97f3\u8f68\u5217\u8868\u5931\u8d25")
+            raise HTTPException(status_code=500, detail="\u67e5\u8be2\u9879\u76ee\u914d\u97f3\u8f68\u5217\u8868\u5931\u8d25\u3002") from exc
+        return next((track for track in tracks if track.status == "ready"), None)
 
     def _voice_track_to_source_dto(self, track: VoiceTrack) -> SubtitleSourceVoiceDto:
         return SubtitleSourceVoiceDto(
@@ -608,6 +701,9 @@ class SubtitleService:
         if start_ms < 0 or end_ms <= start_ms:
             raise HTTPException(status_code=400, detail=INVALID_TIMECODE_MESSAGE)
 
+    def _is_valid_timecode_pair(self, start_ms: int, end_ms: int) -> bool:
+        return start_ms >= 0 and end_ms > start_ms
+
     def _ensure_timecode_value(self, milliseconds: int | None) -> int:
         if milliseconds is None:
             raise HTTPException(status_code=400, detail=MISSING_TIMECODE_MESSAGE)
@@ -622,6 +718,14 @@ class SubtitleService:
         if text_value == "":
             return fallback
         return text_value
+
+    def _int_or_none(self, value: object) -> int | None:
+        if isinstance(value, bool) or value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
 
     def _to_dto(self, track: SubtitleTrack) -> SubtitleTrackDto:
         metadata = self._decode_metadata(track.metadata_json)

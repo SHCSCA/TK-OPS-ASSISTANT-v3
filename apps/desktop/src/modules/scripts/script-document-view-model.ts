@@ -29,6 +29,15 @@ export type ScriptDownstreamLine = {
   estimatedDuration: number;
 };
 
+export type ScriptSubtitleTableRow = {
+  goal: string;
+  segmentId: string;
+  source: string;
+  subtitle: string;
+  time: string;
+  voiceover: string;
+};
+
 const SEGMENT_HEADERS = [
   "段落ID",
   "时间",
@@ -39,6 +48,9 @@ const SEGMENT_HEADERS = [
   "留存点",
   "给分镜Agent的提示"
 ];
+
+const LEGACY_SEGMENT_PREFIX_RE =
+  /^(S\d{2,})\s+(\d+(?:\.\d+)?\s*[-–—]\s*\d+(?:\.\d+)?\s*(?:s|秒)?)\s+(.+)$/i;
 
 export function buildScriptDocumentViewModel(documentJson: ScriptDocumentJson | null | undefined): ScriptDocumentViewModel {
   const document = isRecord(documentJson) ? documentJson : {};
@@ -93,6 +105,49 @@ export function extractScriptDocumentDownstreamText(
   return useful.map((text) => ({
     text,
     estimatedDuration: estimateScriptLineDuration(text)
+  }));
+}
+
+export function extractScriptDocumentSubtitleRows(
+  documentJson: ScriptDocumentJson | null | undefined,
+  legacyContent = ""
+): ScriptSubtitleTableRow[] {
+  const document = isRecord(documentJson) ? documentJson : null;
+  const segments = normalizeSegments(document?.segments);
+  if (segments.length > 0) {
+    return segments
+      .map((segment, index) => ({
+        goal: asText(segment.goal),
+        segmentId: asText(segment.segmentId) || `S${String(index + 1).padStart(2, "0")}`,
+        source: "结构化脚本",
+        subtitle: asText(segment.subtitle) || asText(segment.voiceover),
+        time: asText(segment.time),
+        voiceover: asText(segment.voiceover)
+      }))
+      .filter((row) => row.subtitle || row.voiceover);
+  }
+
+  const legacySegmentRows = extractLegacySegmentRows(legacyContent);
+  if (legacySegmentRows.length > 0) {
+    return legacySegmentRows;
+  }
+
+  const directSubtitles = normalizeStringList(document?.subtitles || document?.subtitleFull);
+  const fallbackLines =
+    directSubtitles.length > 0
+      ? directSubtitles.map((text) => ({ text, source: "字幕完整稿" }))
+      : extractScriptDownstreamText(legacyContent, "subtitle").map((line) => ({
+          text: line.text,
+          source: "旧脚本"
+        }));
+
+  return fallbackLines.map((line, index) => ({
+    goal: "",
+    segmentId: `S${String(index + 1).padStart(2, "0")}`,
+    source: line.source,
+    subtitle: line.text,
+    time: "",
+    voiceover: ""
   }));
 }
 
@@ -180,6 +235,31 @@ function normalizeStringList(value: unknown): string[] {
 
 function splitText(value: string): string[] {
   return value.split(/\r?\n+/).map(cleanText).filter(Boolean);
+}
+
+function extractLegacySegmentRows(content: string): ScriptSubtitleTableRow[] {
+  return content
+    .split(/\r?\n+/)
+    .map(cleanText)
+    .map((line) => {
+      const match = line.match(LEGACY_SEGMENT_PREFIX_RE);
+      if (!match) {
+        return null;
+      }
+      return {
+        goal: "",
+        segmentId: match[1].toUpperCase(),
+        source: "旧脚本段落",
+        subtitle: cleanText(match[3]),
+        time: normalizeLegacyTime(match[2]),
+        voiceover: ""
+      };
+    })
+    .filter((row): row is ScriptSubtitleTableRow => Boolean(row));
+}
+
+function normalizeLegacyTime(value: string): string {
+  return value.replace(/\s+/g, "");
 }
 
 function cleanText(value: string): string {
