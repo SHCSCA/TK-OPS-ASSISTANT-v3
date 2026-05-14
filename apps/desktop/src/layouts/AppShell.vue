@@ -198,6 +198,8 @@ const pageTypeLabel = computed(() => {
       return "编辑流";
     case "queue":
       return "任务队列";
+    case "management":
+      return "管理页";
     case "settings":
       return "系统设置";
     default:
@@ -883,6 +885,20 @@ function formatShanghaiDateTime(value: string) {
   overflow-x: hidden;
   overflow-y: auto;
   position: relative;
+}
+
+.app-shell[data-page-type="dashboard"] .app-shell__content :deep(.page-container),
+.app-shell[data-page-type="settings"] .app-shell__content :deep(.settings-console) {
+  max-width: min(1680px, 100%);
+}
+
+.app-shell[data-page-type="editor"] .app-shell__content :deep(.page-container),
+.app-shell[data-page-type="workspace"] .app-shell__content :deep(.page-container),
+.app-shell[data-page-type="queue"] .app-shell__content :deep(.page-container),
+.app-shell[data-page-type="management"] .app-shell__content :deep(.page-container) {
+  margin-left: 0;
+  margin-right: 0;
+  max-width: none;
 }
 
 .app-shell__detail {

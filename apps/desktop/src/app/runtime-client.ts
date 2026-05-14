@@ -49,6 +49,7 @@ import type {
   TimelinePrecheckDto,
   TrimWorkspaceClipInput,
   WorkspaceTimelineCreateInput,
+  WorkspaceTimelineAssembleInput,
   WorkspaceTimelineResultDto,
   WorkspaceTimelineUpdateInput,
   PromptTemplateDto,
@@ -610,6 +611,22 @@ export async function precheckTimeline(
   return requestRuntime<TimelinePrecheckDto>(`/api/workspace/timelines/${timelineId}/precheck`, {
     method: "POST"
   });
+}
+
+export async function assembleWorkspaceTimeline(
+  projectId: string,
+  input: WorkspaceTimelineAssembleInput = {}
+): Promise<WorkspaceTimelineResultDto> {
+  return requestRuntime<WorkspaceTimelineResultDto>(
+    `/api/workspace/projects/${projectId}/timeline/assemble`,
+    {
+      body: JSON.stringify({
+        mode: input.mode ?? "merge_managed",
+        timelineName: input.timelineName ?? "主时间线"
+      }),
+      method: "POST"
+    }
+  );
 }
 
 export async function fetchWorkspaceTimeline(

@@ -2,14 +2,19 @@ import { defineStore } from "pinia";
 
 import {
   RuntimeRequestError,
+  assembleWorkspaceTimeline,
   createWorkspaceTimeline,
   fetchWorkspaceTimeline,
+  precheckTimeline,
   runWorkspaceAICommand,
   updateWorkspaceTimeline
 } from "@/app/runtime-client";
 import type {
   RuntimeRequestErrorShape,
+  TimelinePrecheckDto,
   WorkspaceAICommandResultDto,
+  WorkspaceAssemblyStateDto,
+  WorkspaceSaveStateDto,
   WorkspaceTimelineDto,
   WorkspaceTimelineResultDto,
   WorkspaceTimelineTrackDto
@@ -25,10 +30,13 @@ export type EditingWorkspaceStatus =
   | "error";
 
 type EditingWorkspaceState = {
+  assemblyState: WorkspaceAssemblyStateDto | null;
   blockedMessage: string | null;
   error: RuntimeRequestErrorShape | null;
   lastCommandResult: WorkspaceAICommandResultDto | null;
+  precheck: TimelinePrecheckDto | null;
   projectId: string;
+  saveState: WorkspaceSaveStateDto | null;
   selectedClipId: string | null;
   selectedTrackId: string | null;
   status: EditingWorkspaceStatus;
@@ -37,10 +45,13 @@ type EditingWorkspaceState = {
 
 export const useEditingWorkspaceStore = defineStore("editing-workspace", {
   state: (): EditingWorkspaceState => ({
+    assemblyState: null,
     blockedMessage: null,
     error: null,
     lastCommandResult: null,
+    precheck: null,
     projectId: "",
+    saveState: null,
     selectedClipId: null,
     selectedTrackId: null,
     status: "idle",
@@ -68,6 +79,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.error = null;
       this.projectId = projectId;
       this.lastCommandResult = null;
+      this.precheck = null;
 
       try {
         this.applyTimelineResult(await fetchWorkspaceTimeline(projectId));
@@ -90,6 +102,50 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         const result = await createWorkspaceTimeline(pid, { name });
         this.applyTimelineResult(result);
         return result.timeline;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async assembleTimeline(projectId?: string): Promise<WorkspaceTimelineDto | null> {
+      const pid = projectId || this.projectId;
+      if (!pid) {
+        this.applyInputError("请先选择项目。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+      this.projectId = pid;
+      this.precheck = null;
+
+      try {
+        const result = await assembleWorkspaceTimeline(pid, {
+          mode: "merge_managed",
+          timelineName: this.timeline?.name ?? "主时间线"
+        });
+        this.applyTimelineResult(result);
+        return result.timeline;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async runPrecheck(): Promise<TimelinePrecheckDto | null> {
+      if (!this.timeline) {
+        this.applyInputError("当前项目还没有时间线草稿。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+
+      try {
+        const result = await precheckTimeline(this.timeline.id);
+        this.precheck = result;
+        this.blockedMessage = result.status === "warning" ? result.message ?? "时间线预检发现问题。" : null;
+        this.status = "ready";
+        return result;
       } catch (error) {
         this.applyRuntimeError(error);
         return null;
@@ -156,6 +212,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     applyTimelineResult(result: WorkspaceTimelineResultDto): void {
       this.timeline = result.timeline;
       this.blockedMessage = result.timeline ? null : result.message;
+      this.saveState = result.saveState ?? null;
+      this.assemblyState = result.assemblyState ?? null;
       this.selectedTrackId = this.resolveSelectedTrackId();
       this.selectedClipId = this.resolveSelectedClipId();
       this.status = result.timeline ? "ready" : "empty";

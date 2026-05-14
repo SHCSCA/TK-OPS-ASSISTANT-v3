@@ -10,7 +10,9 @@ from schemas.workspace import (
     TimelineCreateInput,
     TimelineUpdateInput,
     WorkspaceAICommandInput,
+    WorkspaceTimelineAssembleInput,
 )
+from services.workspace_assembly import WorkspaceAssemblyService
 from services.workspace_service import WorkspaceService
 
 router = APIRouter(prefix="/api/workspace", tags=["workspace"])
@@ -20,10 +22,18 @@ def _svc(request: Request) -> WorkspaceService:
     return request.app.state.workspace_service  # type: ignore[no-any-return]
 
 
+def _assembly_svc(request: Request) -> WorkspaceAssemblyService:
+    return request.app.state.workspace_assembly_service  # type: ignore[no-any-return]
+
+
+def _timeline_payload(result) -> dict[str, object]:  # type: ignore[no-untyped-def]
+    return result.model_dump(mode="json", exclude={"assemblyState"})
+
+
 @router.get("/projects/{project_id}/timeline")
 def get_project_timeline(project_id: str, request: Request) -> dict[str, object]:
     result = _svc(request).get_project_timeline(project_id)
-    return ok_response(result.model_dump(mode="json"))
+    return ok_response(_timeline_payload(result))
 
 
 @router.post("/projects/{project_id}/timeline", status_code=status.HTTP_201_CREATED)
@@ -33,6 +43,16 @@ def create_project_timeline(
     request: Request,
 ) -> dict[str, object]:
     result = _svc(request).create_project_timeline(project_id, payload)
+    return ok_response(_timeline_payload(result))
+
+
+@router.post("/projects/{project_id}/timeline/assemble")
+def assemble_project_timeline(
+    project_id: str,
+    payload: WorkspaceTimelineAssembleInput,
+    request: Request,
+) -> dict[str, object]:
+    result = _assembly_svc(request).assemble_project_timeline(project_id, payload)
     return ok_response(result.model_dump(mode="json"))
 
 
@@ -43,7 +63,7 @@ def update_timeline(
     request: Request,
 ) -> dict[str, object]:
     result = _svc(request).update_timeline(timeline_id, payload)
-    return ok_response(result.model_dump(mode="json"))
+    return ok_response(_timeline_payload(result))
 
 
 @router.get("/clips/{clip_id}")
@@ -59,7 +79,7 @@ def move_clip(
     request: Request,
 ) -> dict[str, object]:
     result = _svc(request).move_clip(clip_id, payload)
-    return ok_response(result.model_dump(mode="json"))
+    return ok_response(_timeline_payload(result))
 
 
 @router.post("/clips/{clip_id}/trim")
@@ -69,7 +89,7 @@ def trim_clip(
     request: Request,
 ) -> dict[str, object]:
     result = _svc(request).trim_clip(clip_id, payload)
-    return ok_response(result.model_dump(mode="json"))
+    return ok_response(_timeline_payload(result))
 
 
 @router.post("/clips/{clip_id}/replace")
@@ -79,7 +99,7 @@ def replace_clip(
     request: Request,
 ) -> dict[str, object]:
     result = _svc(request).replace_clip(clip_id, payload)
-    return ok_response(result.model_dump(mode="json"))
+    return ok_response(_timeline_payload(result))
 
 
 @router.get("/timelines/{timeline_id}/preview")

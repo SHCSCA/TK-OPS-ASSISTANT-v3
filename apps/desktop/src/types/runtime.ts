@@ -597,6 +597,15 @@ export type StoryboardTemplateDto = {
 
 export type WorkspaceTimelineTrackKind = "video" | "audio" | "subtitle";
 
+export type WorkspaceTimelineClipMetadataDto = {
+  sourceKind: string | null;
+  sourceRevision: number | null;
+  segmentIndex: number | null;
+  segmentId: string | null;
+  text: string | null;
+  visualPrompt: string | null;
+};
+
 export type WorkspaceTimelineClipDto = {
   id: string;
   trackId: string;
@@ -608,6 +617,7 @@ export type WorkspaceTimelineClipDto = {
   inPointMs: number;
   outPointMs: number | null;
   status: string;
+  metadata?: WorkspaceTimelineClipMetadataDto;
 };
 
 export type WorkspaceTimelineTrackDto = {
@@ -632,8 +642,43 @@ export type WorkspaceTimelineDto = {
   updatedAt: string;
 };
 
+export type WorkspaceActiveTaskDto = {
+  id: string;
+  taskType: string;
+  status: string;
+  progress: number;
+  message: string;
+  updatedAt: string;
+};
+
+export type WorkspaceSaveStateDto = {
+  saved: boolean;
+  updatedAt: string;
+  source: string;
+  message: string;
+};
+
+export type WorkspaceAssemblySourceDto = {
+  kind: string;
+  status: string;
+  label: string;
+  revision: number | null;
+  trackId: string | null;
+  segmentCount: number;
+  message: string;
+};
+
+export type WorkspaceAssemblyStateDto = {
+  status: string;
+  sources: WorkspaceAssemblySourceDto[];
+  issues: string[];
+};
+
 export type WorkspaceTimelineResultDto = {
   timeline: WorkspaceTimelineDto | null;
+  activeTask?: WorkspaceActiveTaskDto | null;
+  saveState?: WorkspaceSaveStateDto | null;
+  assemblyState?: WorkspaceAssemblyStateDto | null;
   message: string;
 };
 
@@ -659,8 +704,10 @@ export type TimelinePreviewDto = {
 };
 
 export type TimelinePrecheckDto = {
+  timelineId?: string;
   status: string;
-  issues: Array<Record<string, unknown>>;
+  message?: string;
+  issues: string[];
 };
 
 export type WorkspaceTimelineCreateInput = {
@@ -673,6 +720,11 @@ export type WorkspaceTimelineUpdateInput = {
   tracks: WorkspaceTimelineTrackDto[];
 };
 
+export type WorkspaceTimelineAssembleInput = {
+  mode?: "merge_managed";
+  timelineName?: string;
+};
+
 export type WorkspaceAICommandInput = {
   timelineId?: string | null;
   capabilityId: string;
@@ -680,7 +732,7 @@ export type WorkspaceAICommandInput = {
 };
 
 export type WorkspaceAICommandResultDto = {
-  status: "blocked";
+  status: "blocked" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
   task: TaskInfo | null;
   message: string;
 };

@@ -59,15 +59,15 @@ describe("page responsive layout contract", () => {
   it("keeps AI editing workspace panels from overlapping when detail panel narrows content", () => {
     const css = readSource("../src/pages/workspace/AIEditingWorkspacePage.css");
 
-    expect(css).toMatch(/\.page-container\s*{[\s\S]*width:\s*100%;/);
-    expect(css).toMatch(/\.page-container\s*{[\s\S]*min-width:\s*0;/);
-    expect(css).toMatch(/\.page-container\s*{[\s\S]*overflow-x:\s*hidden;/);
-    expect(css).toMatch(/\.page-container\s*{[\s\S]*container-name:\s*editing-workspace;/);
+    expect(css).toMatch(/\.editing-workspace-page\s*{[\s\S]*width:\s*100%;/);
+    expect(css).toMatch(/\.editing-workspace-page\s*{[\s\S]*min-width:\s*0;/);
+    expect(css).toMatch(/\.editing-workspace-page\s*{[\s\S]*overflow:\s*hidden;/);
+    expect(css).toMatch(/\.editing-workspace-page\s*{[\s\S]*container-name:\s*editing-workspace;/);
     expect(css).not.toContain("height: 400px");
-    expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(min\(100%,\s*240px\),\s*280px\)\s+minmax\(0,\s*1fr\)\s+minmax\(min\(100%,\s*240px\),\s*280px\);/);
+    expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(240px,\s*320px\)\s+minmax\(420px,\s*1fr\)\s+minmax\(260px,\s*340px\);/);
     expect(css).toMatch(/\.stage-panel\s*{[\s\S]*flex:\s*1\s+1\s+auto;/);
     expect(css).toMatch(/\.stage-panel\s*{[\s\S]*min-height:\s*0;/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*260px\)\s+minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*300px\)\s+minmax\(0,\s*1fr\);/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
   });
 });

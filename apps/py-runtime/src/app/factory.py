@@ -93,6 +93,7 @@ from services.video_multimodal_analysis_service import VideoMultimodalAnalysisSe
 from services.video_transcription_service import VideoTranscriptionService
 from services.voice_artifact_store import VoiceArtifactStore
 from services.voice_service import VoiceService
+from services.workspace_assembly import WorkspaceAssemblyService
 from services.workspace_service import WorkspaceService
 
 log = logging.getLogger(__name__)
@@ -278,6 +279,14 @@ def create_app() -> FastAPI:
         timeline_repository,
         task_manager=task_manager,
     )
+    workspace_assembly_service = WorkspaceAssemblyService(
+        timeline_repository=timeline_repository,
+        script_repository=script_repository,
+        storyboard_repository=storyboard_repository,
+        voice_repository=voice_repository,
+        subtitle_repository=subtitle_repository,
+        workspace_service=workspace_service,
+    )
     video_import_service = VideoImportService(
         repository=imported_video_repository,
         stage_repository=video_deconstruction_repository,
@@ -366,6 +375,7 @@ def create_app() -> FastAPI:
     app.state.voice_service = voice_service
     app.state.subtitle_service = subtitle_service
     app.state.workspace_service = workspace_service
+    app.state.workspace_assembly_service = workspace_assembly_service
     app.state.video_import_service = video_import_service
     app.state.task_manager = task_manager
     app.state.search_service = search_service

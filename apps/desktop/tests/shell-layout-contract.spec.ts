@@ -132,7 +132,7 @@ describe("shell layout contract", () => {
     );
     expect(desktop1199).not.toContain("position: absolute;");
     expect(desktop1199).toMatch(/\.app-shell__workspace\s*{[\s\S]*var\(--sidebar-width-expanded\)\s+minmax\(0,\s*1fr\)\s+auto;/);
-    expect(compact960).not.toMatch(/\.app-shell__detail\s*{[\s\S]*position:\s*absolute;/);
+    expect(compact960).not.toMatch(/\.app-shell__detail\s*{[^}]*position:\s*absolute;/);
     expect(compact960).toMatch(/\.app-shell\[data-detail-presentation="rail"\]\s+\.app-shell__workspace\s*{[\s\S]*var\(--detail-rail-width\)/);
     expect(compact960).toMatch(/\.app-shell\[data-detail-presentation="rail"\]\s+\.app-shell__detail\s*{[\s\S]*width:\s*var\(--detail-rail-width\)/);
     expect(compact960).toMatch(/\.app-shell\[data-detail-presentation="focus"\]\s+\.app-shell__detail\s*{[\s\S]*grid-column:\s*1;/);

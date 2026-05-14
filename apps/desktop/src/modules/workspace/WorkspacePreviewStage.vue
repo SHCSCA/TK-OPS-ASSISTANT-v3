@@ -2,7 +2,7 @@
   <main class="workspace-preview-stage" aria-label="预览舞台">
     <header class="workspace-preview-stage__header">
       <div>
-        <strong>预览区</strong>
+        <strong>播放器</strong>
         <p>{{ headerDescription }}</p>
       </div>
       <span class="workspace-preview-stage__pill">
@@ -11,14 +11,16 @@
     </header>
 
     <div class="workspace-preview-stage__body">
-      <div class="workspace-preview-stage__frame">
-        <transition name="preview-fade" mode="out-in">
-          <div :key="headline" class="workspace-preview-stage__canvas">
-            <span class="material-symbols-outlined">movie</span>
-            <strong>{{ headline }}</strong>
-            <p>{{ description }}</p>
-          </div>
-        </transition>
+      <div class="workspace-preview-stage__viewer">
+        <div class="workspace-preview-stage__phone" data-testid="workspace-preview-phone" data-ratio="9:16">
+          <transition name="preview-fade" mode="out-in">
+            <div :key="headline" class="workspace-preview-stage__screen">
+              <small>9:16</small>
+              <strong>{{ headline }}</strong>
+              <p>{{ previewText }}</p>
+            </div>
+          </transition>
+        </div>
       </div>
 
       <aside class="workspace-preview-stage__facts scroll-area">
@@ -53,10 +55,7 @@
           <span class="material-symbols-outlined">fast_forward</span>
         </button>
       </div>
-      <p>
-        真实媒体预览尚未接入，本阶段不展示伪进度或伪画面。
-        <span v-if="blockedMessage">{{ blockedMessage }}</span>
-      </p>
+      <p>{{ description }}</p>
     </footer>
   </main>
 </template>
@@ -85,16 +84,24 @@ const selectionLabel = computed(() => {
 
 const headerDescription = computed(() => {
   if (!props.timeline) return "等待创建时间线草稿。";
-  if (props.selectedClip) return "当前选中片段已与时间线和检查器联动。";
-  if (props.selectedTrack) return "当前选中轨道已与时间线和检查器联动。";
-  return "预览区保留工作台骨架，等待真实媒体预览接入。";
+  if (props.selectedClip) return `${sourceTypeLabel(props.selectedClip.sourceType)} · ${formatMs(props.selectedClip.durationMs)}`;
+  if (props.selectedTrack) return `${trackKindLabel(props.selectedTrack.kind)} · ${props.selectedTrack.clips.length} 个片段`;
+  return "选择时间线片段后查看画面上下文。";
 });
 
 const headline = computed(() => {
   if (props.selectedClip) return props.selectedClip.label;
   if (props.selectedTrack) return props.selectedTrack.name;
-  if (props.timeline) return "主预览未接入";
+  if (props.timeline) return "主播放器";
   return "等待时间线草稿";
+});
+
+const previewText = computed(() => {
+  if (props.selectedClip?.metadata?.text) return props.selectedClip.metadata.text;
+  if (props.selectedClip?.metadata?.visualPrompt) return props.selectedClip.metadata.visualPrompt;
+  if (props.selectedClip) return sourceTypeLabel(props.selectedClip.sourceType);
+  if (props.selectedTrack) return `${props.selectedTrack.name} · ${props.selectedTrack.clips.length} 个片段`;
+  return "暂无画面";
 });
 
 const description = computed(() => {
@@ -105,7 +112,7 @@ const description = computed(() => {
     return `${trackKindLabel(props.selectedTrack.kind)} · ${props.selectedTrack.clips.length} 个片段`;
   }
   if (props.timeline) {
-    return "当前只保留真实时间线选择态，不伪造播放进度。";
+    return props.blockedMessage ?? "时间线已载入。";
   }
   return "先创建空草稿，再把真实片段、音轨和字幕落到同一条时间线。";
 });
@@ -119,6 +126,7 @@ const durationLabel = computed(() => {
 const trackCountLabel = computed(() => `${props.timeline?.tracks.length ?? 0} 条`);
 
 function sourceTypeLabel(sourceType: string): string {
+  if (sourceType === "storyboard") return "分镜规划";
   if (sourceType === "asset") return "资产中心";
   if (sourceType === "imported_video") return "视频拆解";
   if (sourceType === "voice_track") return "配音中心";
@@ -146,7 +154,7 @@ function formatMs(value: number): string {
 .workspace-preview-stage {
   background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
   border: 1px solid var(--border-default);
-  border-radius: 24px;
+  border-radius: 8px;
   box-shadow: var(--shadow-sm);
   display: grid;
   gap: 16px;
@@ -164,7 +172,7 @@ function formatMs(value: number): string {
 }
 
 .workspace-preview-stage__header p,
-.workspace-preview-stage__canvas p,
+.workspace-preview-stage__screen p,
 .workspace-preview-stage__footer p {
   color: var(--text-secondary);
   margin: 0;
@@ -187,35 +195,64 @@ function formatMs(value: number): string {
   align-items: stretch;
 }
 
-.workspace-preview-stage__frame {
-  background:
-    radial-gradient(circle at top, color-mix(in srgb, var(--brand-primary) 16%, transparent), transparent 56%),
-    var(--surface-tertiary);
+.workspace-preview-stage__viewer {
+  align-items: center;
+  background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
-  border-radius: 22px;
-  display: grid;
+  border-radius: 8px;
+  display: flex;
   flex: 1;
-  min-height: 320px;
+  justify-content: center;
+  min-height: 360px;
   padding: 18px;
 }
 
-.workspace-preview-stage__canvas {
+.workspace-preview-stage__phone {
+  aspect-ratio: 9 / 16;
+  background: #07090b;
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  display: grid;
+  min-height: 320px;
+  overflow: hidden;
+  width: min(42vh, 240px);
+}
+
+.workspace-preview-stage__screen {
   align-content: center;
   display: grid;
   gap: 10px;
   justify-items: center;
   text-align: center;
+  color: #ffffff;
+  padding: 24px;
 }
 
-.workspace-preview-stage__canvas .material-symbols-outlined {
-  font-size: 44px;
+.workspace-preview-stage__screen small {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.workspace-preview-stage__screen p {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.workspace-preview-stage__screen strong,
+.workspace-preview-stage__screen p {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.workspace-preview-stage__screen strong {
+  font-size: 20px;
+  line-height: 1.25;
 }
 
 .workspace-preview-stage__facts {
   align-content: start;
   background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
-  border-radius: 18px;
+  border-radius: 8px;
   display: grid;
   gap: 12px;
   min-width: 220px;

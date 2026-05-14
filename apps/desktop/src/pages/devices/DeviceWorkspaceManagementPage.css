@@ -102,7 +102,7 @@
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(280px, min(34%, 360px)) minmax(0, 1fr);
+  grid-template-columns: minmax(320px, min(30%, 420px)) minmax(0, 1fr);
   gap: var(--density-panel-gap);
   flex: 1;
   min-height: 0;

@@ -31,7 +31,7 @@ describe("device workspace layout contract", () => {
     expect(shellCss).toMatch(/\.command-content-host\s*{[\s\S]*overflow-x:\s*hidden;/);
     expect(appShell).toMatch(/\.app-shell__content\s*{[\s\S]*overflow-x:\s*hidden;/);
     expect(deviceCss).toMatch(
-      /\.workspace-grid\s*{[\s\S]*grid-template-columns:\s*minmax\(280px,\s*min\(34%,\s*360px\)\)\s+minmax\(0,\s*1fr\);/
+      /\.workspace-grid\s*{[\s\S]*grid-template-columns:\s*minmax\(320px,\s*min\(30%,\s*420px\)\)\s+minmax\(0,\s*1fr\);/
     );
     expect(deviceCss).toMatch(/@media\s*\(max-width:\s*1320px\)\s*{[\s\S]*\.workspace-grid\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
     expect(deviceCss).toMatch(/\.detail-metadata\s*{[\s\S]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(220px,\s*1fr\)\);/);

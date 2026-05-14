@@ -8,6 +8,15 @@ class TimelineResolutionDto(BaseModel):
     height: int = Field(ge=1)
 
 
+class TimelineClipMetadataDto(BaseModel):
+    sourceKind: str | None = None
+    sourceRevision: int | None = None
+    segmentIndex: int | None = Field(default=None, ge=0)
+    segmentId: str | None = None
+    text: str | None = None
+    visualPrompt: str | None = None
+
+
 class TimelineClipDto(BaseModel):
     id: str
     trackId: str
@@ -22,6 +31,7 @@ class TimelineClipDto(BaseModel):
     prompt: str | None = None
     resolution: TimelineResolutionDto | None = None
     editableFields: list[str] = Field(default_factory=list)
+    metadata: TimelineClipMetadataDto = Field(default_factory=TimelineClipMetadataDto)
 
 
 class TimelineTrackDto(BaseModel):
@@ -67,6 +77,22 @@ class WorkspaceSaveStateDto(BaseModel):
     message: str
 
 
+class WorkspaceAssemblySourceDto(BaseModel):
+    kind: str
+    status: str
+    label: str
+    revision: int | None = None
+    trackId: str | None = None
+    segmentCount: int = Field(default=0, ge=0)
+    message: str
+
+
+class WorkspaceAssemblyStateDto(BaseModel):
+    status: str
+    sources: list[WorkspaceAssemblySourceDto] = Field(default_factory=list)
+    issues: list[str] = Field(default_factory=list)
+
+
 class TimelineDto(BaseModel):
     id: str
     projectId: str
@@ -91,10 +117,16 @@ class TimelineUpdateInput(BaseModel):
     tracks: list[TimelineTrackDto]
 
 
+class WorkspaceTimelineAssembleInput(BaseModel):
+    mode: str = "merge_managed"
+    timelineName: str = "主时间线"
+
+
 class WorkspaceTimelineResultDto(BaseModel):
     timeline: TimelineDto | None = None
     activeTask: WorkspaceActiveTaskDto | None = None
     saveState: WorkspaceSaveStateDto | None = None
+    assemblyState: WorkspaceAssemblyStateDto | None = None
     message: str
 
 

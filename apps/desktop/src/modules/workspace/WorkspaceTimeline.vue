@@ -2,7 +2,7 @@
   <section class="workspace-timeline" aria-label="项目时间线" :data-state="status">
     <header class="workspace-timeline__header">
       <div>
-        <strong>{{ timeline?.name ?? "时间线" }}</strong>
+        <strong>时间线</strong>
         <p>{{ subtitle }}</p>
       </div>
       <span class="workspace-timeline__pill">
@@ -41,10 +41,10 @@
             :class="{ 'workspace-track--selected': selectedTrackId === track.id }"
           >
             <button class="workspace-track__label" type="button" @click="$emit('select-track', track.id)">
-              <span class="material-symbols-outlined">{{ trackIcon(track.kind) }}</span>
+                <span class="material-symbols-outlined">{{ trackIcon(track.kind) }}</span>
               <div>
                 <strong>{{ track.name }}</strong>
-                <small>{{ trackKindLabel(track.kind) }} · {{ track.clips.length }} 个片段</small>
+                <small>{{ trackKindLabel(track.kind) }} · {{ trackPolicy(track.id) }} · {{ track.clips.length }} 个片段</small>
               </div>
             </button>
 
@@ -63,7 +63,7 @@
                   @click="$emit('select-clip', { clipId: clip.id, trackId: track.id })"
                 >
                   <strong>{{ clip.label }}</strong>
-                  <small>{{ sourceTypeLabel(clip.sourceType) }} · {{ formatMs(clip.durationMs) }}</small>
+                  <small>{{ clipSubtitle(clip) }}</small>
                 </button>
               </transition-group>
               <span v-if="track.clips.length === 0" class="workspace-track__empty">当前轨道暂无片段</span>
@@ -119,7 +119,7 @@ const markers = computed(() => {
 
 const subtitle = computed(() => {
   if (!props.timeline) return "等待创建时间线草稿";
-  return `${props.tracks.length} 条轨道 · ${formatMs(durationMs.value)}`;
+  return `${props.timeline.name} · ${props.tracks.length} 条轨道 · ${formatMs(durationMs.value)}`;
 });
 
 const selectedSummary = computed(() => {
@@ -141,11 +141,21 @@ function trackKindLabel(kind: WorkspaceTimelineTrackKind): string {
 }
 
 function sourceTypeLabel(sourceType: string): string {
+  if (sourceType === "storyboard") return "分镜";
   if (sourceType === "asset") return "资产";
   if (sourceType === "imported_video") return "拆解";
   if (sourceType === "voice_track") return "配音";
   if (sourceType === "subtitle_track") return "字幕";
   return "手动";
+}
+
+function trackPolicy(trackId: string): string {
+  return trackId.startsWith("managed-") ? "受管轨道" : "手动轨道";
+}
+
+function clipSubtitle(clip: WorkspaceTimelineClipDto): string {
+  const segmentId = clip.metadata?.segmentId ? `${clip.metadata.segmentId} · ` : "";
+  return `${segmentId}${sourceTypeLabel(clip.sourceType)} · ${formatMs(clip.durationMs)}`;
 }
 
 function clipStyle(clip: WorkspaceTimelineClipDto): Record<string, string> {
@@ -172,7 +182,7 @@ function formatMs(value: number): string {
 .workspace-timeline {
   background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
   border: 1px solid var(--border-default);
-  border-radius: 22px;
+  border-radius: 8px;
   box-shadow: var(--shadow-sm);
   display: grid;
   gap: 16px;
@@ -211,7 +221,7 @@ function formatMs(value: number): string {
 .workspace-timeline__empty {
   background: var(--surface-tertiary);
   border: 1px dashed var(--border-default);
-  border-radius: 18px;
+  border-radius: 8px;
   padding: 18px;
 }
 
@@ -268,7 +278,7 @@ function formatMs(value: number): string {
   align-items: stretch;
   background: var(--surface-tertiary);
   border: 1px solid transparent;
-  border-radius: 18px;
+  border-radius: 8px;
   padding: 14px;
 }
 
@@ -295,7 +305,7 @@ function formatMs(value: number): string {
 .workspace-track__lane {
   background: color-mix(in srgb, var(--surface-secondary) 84%, transparent);
   border: 1px solid var(--border-default);
-  border-radius: 14px;
+  border-radius: 8px;
   min-height: 84px;
   position: relative;
 }
@@ -304,7 +314,7 @@ function formatMs(value: number): string {
   align-content: start;
   background: color-mix(in srgb, var(--brand-primary) 14%, var(--surface-secondary));
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 8px;
   color: var(--text-primary);
   display: grid;
   gap: 4px;

@@ -29,6 +29,10 @@ describe("B-S4 Runtime client contract", () => {
     await runtimeClient.replaceWorkspaceClip("clip-1", { assetId: "asset-9" });
     await runtimeClient.fetchTimelinePreview("timeline-1");
     await runtimeClient.precheckTimeline("timeline-1");
+    await runtimeClient.assembleWorkspaceTimeline("project-1", {
+      mode: "merge_managed",
+      timelineName: "主时间线"
+    });
     await runtimeClient.createVoiceProfile({
       provider: "openai",
       voiceId: "alloy",
@@ -75,6 +79,11 @@ describe("B-S4 Runtime client contract", () => {
         path: "/api/workspace/timelines/timeline-1/precheck",
         method: "POST",
         body: undefined
+      },
+      {
+        path: "/api/workspace/projects/project-1/timeline/assemble",
+        method: "POST",
+        body: { mode: "merge_managed", timelineName: "主时间线" }
       },
       {
         path: "/api/voice/profiles",
@@ -147,6 +156,34 @@ function sampleResponse(path: string, method: string): unknown {
   }
   if (path.endsWith("/precheck")) {
     return { status: "ok", issues: [] };
+  }
+  if (path.endsWith("/timeline/assemble")) {
+    return {
+      timeline: {
+        id: "timeline-1",
+        projectId: "project-1",
+        name: "主时间线",
+        status: "draft",
+        durationSeconds: 12,
+        source: "manual",
+        tracks: [],
+        createdAt: "2026-04-17T12:00:00Z",
+        updatedAt: "2026-04-17T12:00:00Z"
+      },
+      message: "已汇入创作结果。",
+      activeTask: null,
+      saveState: {
+        saved: true,
+        updatedAt: "2026-04-17T12:00:00Z",
+        source: "assembly",
+        message: "已汇入脚本、分镜、配音和字幕。"
+      },
+      assemblyState: {
+        status: "ready",
+        sources: [],
+        issues: []
+      }
+    };
   }
   if (path === "/api/voice/profiles" && method === "POST") {
     return {

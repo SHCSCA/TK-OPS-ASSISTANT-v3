@@ -1,17 +1,29 @@
 <template>
-  <aside class="workspace-asset-rail" aria-label="工作台素材来源">
+  <aside class="workspace-asset-rail" aria-label="工作台素材池">
     <div class="workspace-asset-rail__heading">
       <span class="material-symbols-outlined">inventory_2</span>
       <div>
-        <strong>片段来源</strong>
-        <p>只展示当前时间线已经接入的真实片段来源。</p>
+        <strong>素材池</strong>
+        <p>{{ sourceSummary }}</p>
       </div>
     </div>
 
     <div class="workspace-asset-rail__summary">
-      <small>当前来源</small>
+      <small>汇入状态</small>
       <strong>{{ summaryTitle }}</strong>
       <p>{{ summaryDescription }}</p>
+    </div>
+
+    <div v-if="sourceCards.length" class="workspace-asset-rail__sources">
+      <article
+        v-for="source in sourceCards"
+        :key="source.kind"
+        class="workspace-asset-rail__source"
+        :data-status="source.status"
+      >
+        <span>{{ sourceKindLabel(source.kind) }}</span>
+        <strong>{{ source.segmentCount }} 段</strong>
+      </article>
     </div>
 
     <div v-if="!timeline" class="workspace-asset-rail__empty">
@@ -30,7 +42,7 @@
         >
           <div>
             <strong>{{ entry.label }}</strong>
-            <p>{{ entry.trackName }} · {{ sourceTypeLabel(entry.sourceType) }}</p>
+            <p>{{ entry.trackName }} · {{ sourceTypeLabel(entry.sourceType) }} · {{ trackPolicy(entry.trackId) }}</p>
           </div>
           <span :data-status="entry.status">
             {{ entry.status }}
@@ -44,9 +56,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type { WorkspaceTimelineClipDto, WorkspaceTimelineDto } from "@/types/runtime";
+import type {
+  WorkspaceAssemblyStateDto,
+  WorkspaceTimelineClipDto,
+  WorkspaceTimelineDto
+} from "@/types/runtime";
 
 const props = defineProps<{
+  assemblyState: WorkspaceAssemblyStateDto | null;
   selectedClip: WorkspaceTimelineClipDto | null;
   timeline: WorkspaceTimelineDto | null;
 }>();
@@ -59,6 +76,14 @@ const sourceEntries = computed(() =>
     }))
   ) ?? []
 );
+
+const sourceCards = computed(() => props.assemblyState?.sources ?? []);
+
+const sourceSummary = computed(() => {
+  if (!props.assemblyState) return "等待从脚本、分镜、配音和字幕汇入。";
+  if (props.assemblyState.status === "ready") return "创作链路来源已接入时间线。";
+  return props.assemblyState.issues.join(" ") || "部分来源仍需处理。";
+});
 
 const summaryTitle = computed(() => {
   if (!props.timeline) return "等待真实时间线";
@@ -73,7 +98,16 @@ const summaryDescription = computed(() => {
   return "点击时间线片段后，这里会同步显示对应来源。";
 });
 
+function sourceKindLabel(kind: string): string {
+  if (kind === "script") return "脚本";
+  if (kind === "storyboard") return "分镜";
+  if (kind === "voice") return "配音";
+  if (kind === "subtitle") return "字幕";
+  return kind;
+}
+
 function sourceTypeLabel(sourceType: string): string {
+  if (sourceType === "storyboard") return "分镜规划";
   if (sourceType === "asset") return "资产中心";
   if (sourceType === "imported_video") return "视频拆解";
   if (sourceType === "voice_track") return "配音中心";
@@ -81,13 +115,17 @@ function sourceTypeLabel(sourceType: string): string {
   if (sourceType === "manual") return "手动片段";
   return sourceType;
 }
+
+function trackPolicy(trackId: string): string {
+  return trackId.startsWith("managed-") ? "受管轨道" : "手动轨道";
+}
 </script>
 
 <style scoped>
 .workspace-asset-rail {
   background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
   border: 1px solid var(--border-default);
-  border-radius: 20px;
+  border-radius: 8px;
   box-shadow: var(--shadow-sm);
   display: grid;
   gap: 14px;
@@ -110,10 +148,9 @@ function sourceTypeLabel(sourceType: string): string {
 
 .workspace-asset-rail__summary {
   background:
-    linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 14%, transparent), transparent 60%),
     var(--surface-tertiary);
   border: 1px solid var(--border-default);
-  border-radius: 16px;
+  border-radius: 8px;
   display: grid;
   gap: 6px;
   padding: 14px;
@@ -123,10 +160,34 @@ function sourceTypeLabel(sourceType: string): string {
   color: var(--text-tertiary);
 }
 
+.workspace-asset-rail__sources {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-asset-rail__source {
+  background: var(--surface-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.workspace-asset-rail__source span {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.workspace-asset-rail__source[data-status="missing"] {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--border-default));
+}
+
 .workspace-asset-rail__empty {
   background: var(--surface-tertiary);
   border: 1px dashed var(--border-default);
-  border-radius: 16px;
+  border-radius: 8px;
   padding: 16px;
 }
 
@@ -156,7 +217,7 @@ function sourceTypeLabel(sourceType: string): string {
   align-items: center;
   background: var(--surface-tertiary);
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: 8px;
   display: flex;
   gap: 10px;
   justify-content: space-between;

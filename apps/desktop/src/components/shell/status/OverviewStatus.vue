@@ -33,6 +33,8 @@ const pageTypeLabel = computed(() => {
       return "编辑流";
     case "queue":
       return "任务队列";
+    case "management":
+      return "管理页";
     case "settings":
       return "系统设置";
     default:

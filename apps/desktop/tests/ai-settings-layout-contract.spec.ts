@@ -48,7 +48,7 @@ describe("AI settings layout contract", () => {
     expect(settingsCss).toMatch(/\.settings-console\s*{[\s\S]*width:\s*100%;/);
     expect(settingsCss).toMatch(/\.settings-console\s*{[\s\S]*container-name:\s*settings-console;/);
     expect(settingsCss).toMatch(/\.settings-console\s*{[\s\S]*container-type:\s*inline-size;/);
-    expect(settingsCss).toMatch(/\.settings-console\s*{[\s\S]*max-width:\s*var\(--density-page-max-width\);/);
+    expect(settingsCss).toMatch(/\.settings-console\s*{[\s\S]*max-width:\s*min\(1680px,\s*100%\);/);
     expect(settingsCss).toMatch(/\.settings-console\s*{[\s\S]*padding:\s*var\(--density-page-padding-y\)\s+var\(--density-page-padding-x\)/);
     expect(settingsCss).toMatch(/\.settings-console\s*{[\s\S]*overflow-x:\s*hidden;/);
     expect(settingsCss).toMatch(

@@ -23,8 +23,13 @@ from domain.models import Base
 from domain.models import Project
 from persistence.engine import create_runtime_engine, create_session_factory
 from repositories.timeline_repository import TimelineRepository
+from repositories.script_repository import ScriptRepository
+from repositories.storyboard_repository import StoryboardRepository
+from repositories.subtitle_repository import SubtitleRepository
+from repositories.voice_repository import VoiceRepository
 from schemas.envelope import error_response
 from services.task_manager import TaskManager
+from services.workspace_assembly import WorkspaceAssemblyService
 from services.workspace_service import WorkspaceService
 
 
@@ -87,10 +92,23 @@ def runtime_client(tmp_path):
         )
         session.commit()
     repository = TimelineRepository(session_factory=session_factory)
+    script_repository = ScriptRepository(session_factory=session_factory)
+    storyboard_repository = StoryboardRepository(session_factory=session_factory)
+    voice_repository = VoiceRepository(session_factory=session_factory)
+    subtitle_repository = SubtitleRepository(session_factory=session_factory)
     workspace_service = WorkspaceService(repository, task_manager=TaskManager())
+    workspace_assembly_service = WorkspaceAssemblyService(
+        timeline_repository=repository,
+        script_repository=script_repository,
+        storyboard_repository=storyboard_repository,
+        voice_repository=voice_repository,
+        subtitle_repository=subtitle_repository,
+        workspace_service=workspace_service,
+    )
 
     app = FastAPI()
     app.state.workspace_service = workspace_service
+    app.state.workspace_assembly_service = workspace_assembly_service
     app.include_router(workspace_router)
 
     @app.exception_handler(StarletteHTTPException)
@@ -181,6 +199,23 @@ def test_workspace_timeline_contract_returns_empty_state(
     assert data["activeTask"] is None
     assert data["saveState"] is None
     assert "没有时间线" in data["message"]
+
+
+def test_workspace_assembly_contract_returns_sources_and_timeline(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.post(
+        "/api/workspace/projects/project-workspace/timeline/assemble",
+        json={"mode": "merge_managed", "timelineName": "主时间线"},
+    )
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert set(data) == {"timeline", "activeTask", "saveState", "assemblyState", "message"}
+    assert data["timeline"] is not None
+    assert data["saveState"]["source"] == "assembly"
+    assert set(data["assemblyState"]) == {"status", "sources", "issues"}
+    assert isinstance(data["assemblyState"]["sources"], list)
 
 
 def test_workspace_timeline_contract_creates_and_updates_draft(

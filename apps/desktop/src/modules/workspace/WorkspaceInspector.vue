@@ -3,7 +3,7 @@
     <div class="workspace-inspector__heading">
       <span class="material-symbols-outlined">tune</span>
       <div>
-        <strong>检查器</strong>
+        <strong>基础属性</strong>
         <p>{{ headingDescription }}</p>
       </div>
     </div>
@@ -38,10 +38,30 @@
         <dt>选中片段</dt>
         <dd>{{ selectedClip?.label ?? "未选择" }}</dd>
       </div>
+      <div class="fact-item">
+        <dt>起点 / 时长</dt>
+        <dd>{{ clipTimingLabel }}</dd>
+      </div>
+      <div class="fact-item">
+        <dt>来源</dt>
+        <dd>{{ sourceLabel }}</dd>
+      </div>
     </section>
 
     <section class="workspace-inspector__card">
-      <small>动作边界</small>
+      <small>本地预检</small>
+      <strong>{{ precheckTitle }}</strong>
+      <p>{{ precheckDescription }}</p>
+    </section>
+
+    <section v-if="assemblyState" class="workspace-inspector__card">
+      <small>创作链路</small>
+      <strong>{{ assemblyState.status === "ready" ? "来源已接入" : "来源需处理" }}</strong>
+      <p>{{ assemblySummary }}</p>
+    </section>
+
+    <section class="workspace-inspector__card">
+      <small>基础工具</small>
       <strong>{{ actionBoundaryTitle }}</strong>
       <p>{{ actionBoundaryDescription }}</p>
     </section>
@@ -53,14 +73,20 @@ import { computed } from "vue";
 
 import type { EditingWorkspaceStatus } from "@/stores/editing-workspace";
 import type {
+  TimelinePrecheckDto,
+  WorkspaceAssemblyStateDto,
+  WorkspaceSaveStateDto,
   WorkspaceTimelineClipDto,
   WorkspaceTimelineDto,
   WorkspaceTimelineTrackDto
 } from "@/types/runtime";
 
 const props = defineProps<{
+  assemblyState: WorkspaceAssemblyStateDto | null;
   blockedMessage: string | null;
   errorMessage: string | null;
+  precheck: TimelinePrecheckDto | null;
+  saveState: WorkspaceSaveStateDto | null;
   selectedClip: WorkspaceTimelineClipDto | null;
   selectedTrack: WorkspaceTimelineTrackDto | null;
   status: EditingWorkspaceStatus;
@@ -81,7 +107,7 @@ const statusLabel = computed(() => {
 });
 
 const headingDescription = computed(() => {
-  if (props.timeline) return "围绕当前时间线、轨道和片段给出真实上下文。";
+  if (props.timeline) return props.saveState?.message ?? "围绕当前时间线、轨道和片段给出真实上下文。";
   return "等待时间线草稿进入工作台。";
 });
 
@@ -101,17 +127,61 @@ const actionBoundaryTitle = computed(() => {
 });
 
 const actionBoundaryDescription = computed(() => {
-  if (!props.timeline) return "没有 timeline 时，工具栏与 AI 工具条只显示空态或 disabled。";
-  if (!props.selectedClip) return "AI 命令可以发起，但不会伪造片段级生成结果。";
+  if (!props.timeline) return "没有时间线时，基础工具保持不可用。";
+  if (!props.selectedClip) return "选择片段后显示起点、时长和来源。";
   return `片段状态：${props.selectedClip.status}，来源：${props.selectedClip.sourceType}。`;
 });
+
+const clipTimingLabel = computed(() => {
+  if (!props.selectedClip) return "未选择";
+  return `${formatMs(props.selectedClip.startMs)} / ${formatMs(props.selectedClip.durationMs)}`;
+});
+
+const sourceLabel = computed(() => {
+  if (!props.selectedClip) return "未选择";
+  return props.selectedClip.metadata?.sourceKind ?? props.selectedClip.sourceType;
+});
+
+const precheckTitle = computed(() => {
+  if (!props.precheck) return "未执行";
+  return props.precheck.status === "ready" ? "通过" : "需处理";
+});
+
+const precheckDescription = computed(() => {
+  if (!props.precheck) return "点击本地预检后显示时间线检查结果。";
+  if (props.precheck.issues.length === 0) return props.precheck.message ?? "时间线本地预检通过。";
+  return props.precheck.issues.join(" ");
+});
+
+const assemblySummary = computed(() => {
+  if (!props.assemblyState) return "";
+  if (props.assemblyState.issues.length > 0) return props.assemblyState.issues.join(" ");
+  return props.assemblyState.sources
+    .map((source) => `${sourceKindLabel(source.kind)} ${source.segmentCount} 段`)
+    .join(" · ");
+});
+
+function sourceKindLabel(kind: string): string {
+  if (kind === "script") return "脚本";
+  if (kind === "storyboard") return "分镜";
+  if (kind === "voice") return "配音";
+  if (kind === "subtitle") return "字幕";
+  return kind;
+}
+
+function formatMs(value: number): string {
+  const totalSeconds = Math.max(0, Math.floor(value / 1000));
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
 </script>
 
 <style scoped>
 .workspace-inspector {
   background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
   border: 1px solid var(--border-default);
-  border-radius: 20px;
+  border-radius: 8px;
   box-shadow: var(--shadow-sm);
   display: grid;
   gap: 14px;
@@ -135,7 +205,7 @@ const actionBoundaryDescription = computed(() => {
 .workspace-inspector__card {
   background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
-  border-radius: 16px;
+  border-radius: 8px;
   display: grid;
   gap: 6px;
   padding: 14px;
@@ -157,7 +227,7 @@ const actionBoundaryDescription = computed(() => {
 .workspace-inspector__facts {
   background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
-  border-radius: 16px;
+  border-radius: 8px;
   display: grid;
   gap: 12px;
   margin: 0;

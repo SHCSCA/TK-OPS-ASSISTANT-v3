@@ -1,6 +1,6 @@
 [package]
 name = "tk-ops-desktop"
-version = "0.4.4"
+version = "0.4.5"
 description = "TK-OPS desktop shell"
 authors = ["TK-OPS"]
 edition = "2021"

@@ -4,7 +4,7 @@
   width: 100%;
   container-name: settings-console;
   container-type: inline-size;
-  max-width: var(--density-page-max-width);
+  max-width: min(1680px, 100%);
   margin: 0 auto;
   padding: var(--density-page-padding-y) var(--density-page-padding-x) var(--density-page-padding-bottom);
   min-height: auto;

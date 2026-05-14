@@ -1,6 +1,6 @@
 <template>
   <ProjectContextGuard>
-    <div class="page-container h-full">
+    <div class="editing-workspace-page h-full">
       <header class="page-header">
         <div class="page-header__crumb">首页 / 创作中枢</div>
         <div class="page-header__row">
@@ -20,6 +20,25 @@
               刷新工作台
             </Button>
             <Button
+              variant="ai"
+              data-testid="workspace-assemble-button"
+              :running="status === 'saving' && !timeline"
+              :disabled="assembleDisabled"
+              @click="handleAssemble"
+            >
+              <template #leading><span class="material-symbols-outlined">hub</span></template>
+              汇入创作链路
+            </Button>
+            <Button
+              variant="secondary"
+              data-testid="workspace-precheck-button"
+              :disabled="precheckDisabled"
+              @click="handlePrecheck"
+            >
+              <template #leading><span class="material-symbols-outlined">rule_settings</span></template>
+              本地预检
+            </Button>
+            <Button
               variant="primary"
               :running="status === 'saving'"
               :disabled="saveDisabled"
@@ -36,7 +55,7 @@
               @click="handleMagicCut"
             >
               <template #leading><span class="material-symbols-outlined">auto_awesome</span></template>
-              一键 AI 粗剪
+              智能粗剪
             </Button>
           </div>
         </div>
@@ -45,16 +64,17 @@
           <Chip variant="default" size="sm">当前项目：{{ currentProjectName }}</Chip>
           <Chip variant="default" size="sm">时间线：{{ timelineName }}</Chip>
           <Chip variant="default" size="sm">当前选择：{{ selectionLabel }}</Chip>
+          <Chip variant="default" size="sm">汇入：{{ assemblyLabel }}</Chip>
+          <Chip variant="default" size="sm">预检：{{ precheckLabel }}</Chip>
         </div>
       </header>
 
       <div v-if="currentProjectId" class="workspace-semantic-labels">
-        <span>核心创作中枢</span>
-        <span>片段来源</span>
-        <span>预览区</span>
-        <span>AI 工具栏</span>
-        <span>检查器</span>
-        <span>运行能力待接入</span>
+        <span>素材池</span>
+        <span>播放器</span>
+        <span>基础属性</span>
+        <span>基础工具</span>
+        <span>时间线</span>
       </div>
 
       <div v-if="!currentProjectId" class="dashboard-alert" data-tone="warning">
@@ -73,6 +93,10 @@
         <span class="material-symbols-outlined">warning</span>
         <span>{{ blockedMessage }}</span>
       </div>
+      <div v-else-if="precheck?.message" class="dashboard-alert" data-tone="brand">
+        <span class="material-symbols-outlined">rule_settings</span>
+        <span>{{ precheck.message }}</span>
+      </div>
 
       <div v-if="status === 'loading' && !timeline" class="empty-state">
         <span class="material-symbols-outlined spinning">progress_activity</span>
@@ -80,34 +104,45 @@
         <p>正在同步当前项目的时间线与可用状态。</p>
       </div>
 
-      <div v-else-if="!timeline && currentProjectId" class="empty-state">
+      <div v-if="!timeline && currentProjectId && status !== 'loading'" class="empty-state empty-state--inline">
         <span class="material-symbols-outlined">movie_edit</span>
         <strong>时间线尚未创建</strong>
         <p>{{ blockedMessage || "当前项目还没有时间线草稿。" }}</p>
-        <Button
-          variant="primary"
-          data-testid="workspace-create-draft-button"
-          :disabled="status === 'saving'"
-          @click="handleCreateDraft"
-        >
-          创建主时间线
-        </Button>
+        <div class="empty-state__actions">
+          <Button
+            variant="primary"
+            data-testid="workspace-create-draft-button"
+            :disabled="status === 'saving'"
+            @click="handleCreateDraft"
+          >
+            创建主时间线
+          </Button>
+          <Button
+            variant="ai"
+            :running="status === 'saving'"
+            :disabled="assembleDisabled"
+            @click="handleAssemble"
+          >
+            汇入创作链路
+          </Button>
+        </div>
       </div>
 
       <transition name="workspace-pop" appear>
-        <div v-if="timeline" class="workspace-grid scroll-area">
+        <div v-if="currentProjectId && status !== 'loading'" class="workspace-editor scroll-area">
           <div class="workspace-stage">
-            <div class="stage-panel-wrapper">
-              <p class="panel-label">片段来源</p>
+            <div class="stage-panel-wrapper stage-panel-wrapper--asset">
+              <p class="panel-label">素材池</p>
               <WorkspaceAssetRail
                 class="stage-panel"
+                :assembly-state="assemblyState"
                 :selected-clip="selectedClip"
                 :timeline="timeline"
               />
             </div>
 
             <div class="stage-panel-wrapper preview-panel-wrapper">
-              <p class="panel-label">预览区</p>
+              <p class="panel-label">播放器</p>
               <WorkspacePreviewStage
                 class="stage-panel preview-panel"
                 :blocked-message="blockedMessage"
@@ -117,12 +152,15 @@
               />
             </div>
 
-            <div class="stage-panel-wrapper">
-              <p class="panel-label">检查器</p>
+            <div class="stage-panel-wrapper stage-panel-wrapper--inspector">
+              <p class="panel-label">基础属性</p>
               <WorkspaceInspector
                 class="stage-panel"
+                :assembly-state="assemblyState"
                 :blocked-message="inspectorBlockedMessage"
                 :error-message="error?.message ?? null"
+                :precheck="precheck"
+                :save-state="saveState"
                 :selected-clip="selectedClip"
                 :selected-track="selectedTrack"
                 :status="status"
@@ -131,8 +169,32 @@
             </div>
           </div>
 
+          <div class="workspace-tool-bar" aria-label="基础工具">
+            <div>
+              <strong>基础工具</strong>
+              <span>{{ toolBarStatus }}</span>
+            </div>
+            <div class="workspace-tool-bar__actions">
+              <button type="button" disabled title="撤销">
+                <span class="material-symbols-outlined">undo</span>
+              </button>
+              <button type="button" disabled title="重做">
+                <span class="material-symbols-outlined">redo</span>
+              </button>
+              <button type="button" disabled title="分割">
+                <span class="material-symbols-outlined">content_cut</span>
+              </button>
+              <button type="button" disabled title="删除">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+              <button type="button" disabled title="吸附">
+                <span class="material-symbols-outlined">join_full</span>
+              </button>
+            </div>
+          </div>
+
           <div class="workspace-timeline-area-wrapper">
-            <p class="panel-label">核心创作中枢</p>
+            <p class="panel-label">时间线</p>
             <div class="workspace-timeline-area">
               <WorkspaceTimeline
                 :selected-clip-id="selectedClipId"
@@ -173,10 +235,13 @@ const workspaceStore = useEditingWorkspaceStore();
 const taskBusStore = useTaskBusStore();
 
 const {
+  assemblyState,
   blockedMessage,
   error,
   hasTimeline,
   orderedTracks,
+  precheck,
+  saveState,
   selectedClip,
   selectedClipId,
   selectedTrack,
@@ -189,6 +254,14 @@ const currentProjectId = computed(() => projectStore.currentProject?.projectId ?
 const currentProjectName = computed(() => projectStore.currentProject?.projectName ?? "未选择项目");
 const timelineName = computed(() => timeline.value?.name ?? "未创建时间线");
 const workspaceTaskTypes = new Set(["ai-workspace-command", "magic_cut", "ai-magic-cut"]);
+const assemblyLabel = computed(() => {
+  if (!assemblyState.value) return "未汇入";
+  return assemblyState.value.status === "ready" ? "已接入" : "需处理";
+});
+const precheckLabel = computed(() => {
+  if (!precheck.value) return "未检查";
+  return precheck.value.status === "ready" ? "通过" : "有问题";
+});
 
 const selectionLabel = computed(() => {
   if (selectedClip.value) return `片段：${selectedClip.value.label}`;
@@ -220,12 +293,20 @@ const isGenerating = computed(() => {
 });
 
 const saveDisabled = computed(() => !timeline.value || status.value === "loading" || isGenerating.value);
+const assembleDisabled = computed(() => !currentProjectId.value || status.value === "loading" || isGenerating.value);
+const precheckDisabled = computed(() => !timeline.value || status.value === "loading" || isGenerating.value);
 const generateDisabled = computed(
   () => !timeline.value || status.value === "loading" || isGenerating.value
 );
+const toolBarStatus = computed(() => {
+  if (!timeline.value) return "等待时间线";
+  if (selectedClip.value) return `片段：${selectedClip.value.label}`;
+  if (selectedTrack.value) return `轨道：${selectedTrack.value.name}`;
+  return "未选择片段";
+});
 
 const inspectorBlockedMessage = computed(() => {
-  return blockedMessage.value ?? (timeline.value ? "运行能力待接入" : null);
+  return blockedMessage.value;
 });
 
 onMounted(() => {
@@ -266,7 +347,9 @@ watch(
         metrics: [
           { id: "timeline", label: "时间线", value: timelineName.value },
           { id: "tracks", label: "轨道数", value: String(timeline.value?.tracks.length ?? 0) },
-          { id: "selection", label: "当前选择", value: selectionLabel.value }
+          { id: "selection", label: "当前选择", value: selectionLabel.value },
+          { id: "assembly", label: "汇入", value: assemblyLabel.value },
+          { id: "precheck", label: "预检", value: precheckLabel.value }
         ],
         sections: [
           {
@@ -301,6 +384,12 @@ watch(
                 value: activeTask.value
                   ? `${activeTask.value.message}（${activeTask.value.progress}%）`
                   : "无"
+              },
+              {
+                id: "precheck",
+                label: "本地预检",
+                value: precheck.value?.message ?? "未执行",
+                multiline: true
               }
             ]
           }
@@ -327,6 +416,16 @@ async function handleCreateDraft(): Promise<void> {
 
 async function handleSave(): Promise<void> {
   await workspaceStore.saveTimeline();
+}
+
+async function handleAssemble(): Promise<void> {
+  if (currentProjectId.value) {
+    await workspaceStore.assembleTimeline(currentProjectId.value);
+  }
+}
+
+async function handlePrecheck(): Promise<void> {
+  await workspaceStore.runPrecheck();
 }
 
 async function handleMagicCut(): Promise<void> {

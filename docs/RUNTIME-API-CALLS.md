@@ -1,8 +1,8 @@
-> 更新日期：2026-05-11；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。配音中心已补齐火山豆包 TTS2、音频流预览、段落预览和音色同步配置链路。
+> 更新日期：2026-05-13；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。M05 AI 剪辑工作台已补齐创作链路汇入、受管轨道装配、9:16 基础播放器布局与本地预检状态链路。
 
 # Runtime API 与前端调用真源
 
-**当前状态（2026-05-11）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致（185 / 185）；`voice.audio / voice.profiles.refresh / volcengine_tts2 / ai-capability secret` 已回流到本文。§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
+**当前状态（2026-05-13）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致（186 / 186）；`workspace.timeline.assemble / voice.audio / voice.profiles.refresh / volcengine_tts2 / ai-capability secret` 已回流到本文。§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
 **接口版本**: V1（统一 JSON 信封，无独立版本号前缀）
 **唯一真源约束**: 后端路由、服务、前端 `runtime-client.ts`、Pinia store、契约测试发生变化时，必须在同一次改动中更新本文件。
 **编码约束**: 本文档必须使用 UTF-8 无 BOM 保存，所有读取、生成、校验脚本都按 UTF-8 处理，避免中文出现乱码。
@@ -95,17 +95,17 @@
 
 ## 1.5 文档-代码差异矩阵（V1）
 
-- HTTP 文档路由数（提取）：185
-- HTTP 代码路由数（去重）：185
-- HTTP 文档与代码一致：185
+- HTTP 文档路由数（提取）：186
+- HTTP 代码路由数（去重）：186
+- HTTP 文档与代码一致：186
 - HTTP 代码未写入文档（需补充）：0
 - HTTP 文档有但代码未见（需补齐）：0
 
-### 接口状态表（2026-05-11）
+### 接口状态表（2026-05-13）
 
 | 状态 | 数量 | 说明 |
 | --- | --- | --- |
-| 已实现并已文档化 | 185 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
+| 已实现并已文档化 | 186 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
 | 已实现但未文档化 | 0 | 本轮已补齐 `bootstrap / dashboard / settings / devices / ai-providers` 新增运行时接口登记 |
 | 文档已写但未实现 | 0 | 本轮已补齐 `/api/video-deconstruction` 文档要求的 7 个接口，并完成剩余接口登记 |
 | 字段仍可继续细化 | 若干 | 主要是高级接口的错误码、更多响应示例和边界说明 |
@@ -124,6 +124,7 @@
 - 已补登记 `/api/video-deconstruction/videos/{video_id}/stages`
 - 已补登记 `/api/video-deconstruction/videos/{video_id}/stages/{stage_id}/rerun`
 - 已补登记 `/api/voice/providers/{provider_id}/profiles/refresh`
+- 已补登记 `/api/workspace/projects/{project_id}/timeline/assemble`
 - 已补登记 `GET /api/bootstrap/readiness`
 - 已补登记 `DELETE /api/dashboard/projects/{project_id}`
 - 已补登记 `GET /api/settings/diagnostics/media`
@@ -546,7 +547,7 @@
 
 ## 6. AI 剪辑工作台
 
-**核心返回 DTO**: `WorkspaceTimelineResultDto`、`TimelineDto`、`WorkspaceAICommandResultDto`
+**核心返回 DTO**: `WorkspaceTimelineResultDto`、`TimelineDto`、`WorkspaceAssemblyStateDto`、`WorkspaceAICommandResultDto`
 
 - `TimelineDto` 新增：
   - `version`：`versionToken`、`updatedAt`、`trackCount`、`clipCount`
@@ -554,11 +555,14 @@
 - `WorkspaceTimelineResultDto` 新增：
   - `activeTask`：当前时间线的活跃任务快照；当前无活跃任务时返回 `null`
   - `saveState`：`saved`、`updatedAt`、`source`、`message`
+  - `assemblyState`：仅 `POST /timeline/assemble` 返回，包含 `status`、`sources[]`、`issues[]`
+- `TimelineClipDto.metadata` 新增：`sourceKind`、`sourceRevision`、`segmentIndex`、`segmentId`、`text`、`visualPrompt`，用于前端播放器、素材池和基础属性面板展示真实来源。
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/workspace/projects/{project_id}/timeline` | 路径参数：`project_id` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState?`、`message` | `404`、`500` | `fetchWorkspaceTimeline` |
 | `POST /api/workspace/projects/{project_id}/timeline` | `TimelineCreateInput`：`name` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `createWorkspaceTimeline` |
+| `POST /api/workspace/projects/{project_id}/timeline/assemble` | `WorkspaceTimelineAssembleInput`：`mode=merge_managed`、`timelineName` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=assembly`、`assemblyState`、`message` | `400`、`404`、`422`、`500` | `assembleWorkspaceTimeline`、`editing-workspace.ts:assembleTimeline` |
 | `PATCH /api/workspace/timelines/{timeline_id}` | `TimelineUpdateInput`：`name?`、`durationSeconds?`、`tracks[]` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `updateWorkspaceTimeline` |
 | `GET /api/workspace/clips/{clip_id}` | 路径参数：`clip_id` | `WorkspaceClipDetailDto` | `404` | `fetchWorkspaceClip` |
 | `POST /api/workspace/clips/{clip_id}/move` | 路径参数：`clip_id`；`ClipMoveInput`：`targetTrackId`、`startMs` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `moveWorkspaceClip` |
@@ -572,10 +576,12 @@
 
 - `GET /preview` 不伪造渲染画面，返回基于真实轨道、片段与时长统计生成的本地 manifest。
 - `POST /precheck` 校验轨道类型、片段时长、起始时间与片段数据格式；空轨道会返回可见问题列表。
+- `POST /timeline/assemble` 读取当前项目最新脚本、分镜、已完成配音轨和可用字幕轨，生成三条受管轨道：`managed-video-storyboard`、`managed-audio-voice`、`managed-subtitle-track`；已有手动轨道会保留，不会被覆盖。
+- `WorkspaceAssemblyStateDto.sources[]` 固定按 `script / storyboard / voice / subtitle` 返回来源状态；缺失来源会写入 `issues[]` 并返回 `status=warning`。
 - `TimelineDto.version` 不伪造整数版号，使用真实 `timeline.id + updatedAt + trackCount + clipCount` 生成 `versionToken` 作为当前时间线版本信号。
 - `TimelineDto.assetReferenceStatus` 基于真实片段 `sourceType/sourceId/status` 聚合，不编造素材可用性。
 - `WorkspaceTimelineResultDto.activeTask` 只返回当前 Runtime 进程内、且 `ownerRef` 绑定到该时间线的活跃任务，优先 `ai-workspace-command`。
-- `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`save`、`clip_move`、`clip_trim`、`clip_replace`。
+- `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`assembly`、`save`、`clip_move`、`clip_trim`、`clip_replace`。
 
 **示例**
 
@@ -610,6 +616,72 @@
       "message": "已确认保存时间线草稿。"
     },
     "message": "已保存时间线草稿。"
+  }
+}
+```
+
+**汇入示例**
+
+`POST /api/workspace/projects/project-1/timeline/assemble`
+
+```json
+{
+  "mode": "merge_managed",
+  "timelineName": "主时间线"
+}
+```
+
+```json
+{
+  "ok": true,
+  "data": {
+    "timeline": {
+      "id": "timeline-1",
+      "name": "主时间线",
+      "tracks": [
+        {
+          "id": "managed-video-storyboard",
+          "kind": "video",
+          "name": "分镜视频轨",
+          "clips": [
+            {
+              "id": "managed-video-storyboard-01",
+              "sourceType": "storyboard",
+              "label": "S01 · 分镜画面",
+              "metadata": {
+                "sourceKind": "storyboard",
+                "sourceRevision": 1,
+                "segmentIndex": 0,
+                "segmentId": "S01",
+                "text": "This lamp made me cancel my dinner plan.",
+                "visualPrompt": "墙灯亮起，房间从冷光转暖光。"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "saveState": {
+      "saved": true,
+      "source": "assembly",
+      "message": "已保存 M05 剪辑工作台受管轨道。"
+    },
+    "assemblyState": {
+      "status": "ready",
+      "sources": [
+        {
+          "kind": "script",
+          "status": "ready",
+          "label": "脚本 v1",
+          "revision": 1,
+          "trackId": null,
+          "segmentCount": 5,
+          "message": "已读取最新脚本。"
+        }
+      ],
+      "issues": []
+    },
+    "message": "剪辑工作台时间线已从脚本、分镜、配音和字幕汇入。"
   }
 }
 ```
@@ -2073,13 +2145,14 @@ waveform 缺少音频：
 | 模块 | 差异 | 当前处理 |
 | --- | --- | --- |
 | Prompt 模板 | 已修复：前端 `runtime-client.ts` 使用 `PUT`，请求字段对齐 `kind/name/description/content` | 已有 `runtime-client-b-s3.spec.ts` 覆盖 |
+| M05 AI 剪辑工作台 | 已修复：新增 `timeline/assemble` 汇入口，前端 `WorkspaceTimelineResultDto`、`WorkspaceAssemblyStateDto`、`TimelineClipMetadataDto` 与后端 schema 对齐 | 已有 `runtime-client-b-s4.spec.ts`、`runtime-client-workspace.spec.ts`、`editing-workspace-store.spec.ts` 与 `ai-editing-workspace-page.spec.ts` 覆盖 |
 | M08 字幕对齐 | 已修复：前端 `SubtitleTrackDto`、`SubtitleTrackGenerateInput`、`SubtitleStyleTemplateDto`、`SubtitleExportDto` 与后端 sourceVoice / alignment / 内联导出 schema 对齐 | 已有 `runtime-client-b-s4.spec.ts`、`runtime-client-subtitles.spec.ts` 与 `subtitle-alignment-store.spec.ts` 覆盖 |
 | M11 设备与工作区 | 已修复：前端新增嵌套 browser instance routes、`BrowserInstanceWriteResultDto`，binding 入参与后端 `AccountBindingDto` 对齐 | 已有 `runtime-client-b-s5.spec.ts` 覆盖；legacy alias 继续保留为后端兼容能力 |
 | M13 发布中心 | 已修复：前端 `PublishReceiptDto`、`PublishCalendarDto` 与后端聚合 schema 对齐，publishing store 增加 calendar / receipt 消费 | 已有 `runtime-client-b-s5.spec.ts` 与 `runtime-stores-m09-m15.spec.ts` 覆盖 |
 | M14 渲染导出 | 已修复：前端 `RenderResourceUsageDto`、templates/profile 类型与后端 schema 对齐，renders store 增加 profiles/templates/resource-usage/retry 消费 | 已有 `runtime-client-b-s5.spec.ts` 与 `runtime-stores-m09-m15.spec.ts` 覆盖 |
 | TaskBus | 已修复：前端兼容缺少 `schema_version` 的历史事件并补齐为 `1`；`video_status_changed` 仍作为 legacy event type 保留 | 已有 `task-bus.spec.ts` 覆盖 |
 
-当前文档与代码对齐批次：**2026-05-12 字幕对齐中心脚本文案表格、来源配音轨、9:16 预览与样式微调收口，185 条 HTTP 接口明细已与当前后端代码全量对齐；后续主要补更多异常样例与端到端联调说明**
+当前文档与代码对齐批次：**2026-05-13 M05 创作链路汇入、受管轨道、9:16 基础播放器与本地预检收口，186 条 HTTP 接口明细已与当前后端代码全量对齐；后续主要补更多异常样例与端到端联调说明**
 
 ---
 

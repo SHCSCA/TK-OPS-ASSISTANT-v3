@@ -57,6 +57,38 @@ describe("M05 AI 剪辑工作台页面", () => {
             201
           );
         }
+        if (path === "/api/workspace/projects/project-1/timeline/assemble" && method === "POST") {
+          timelineState = workspaceTimeline([managedVideoTrack(), managedAudioTrack(), managedSubtitleTrack()]);
+          return okJsonResponse({
+            timeline: timelineState,
+            activeTask: null,
+            saveState: {
+              saved: true,
+              updatedAt: now(),
+              source: "assembly",
+              message: "已保存 M05 剪辑工作台受管轨道。"
+            },
+            assemblyState: {
+              status: "ready",
+              sources: [
+                sourceState("script"),
+                sourceState("storyboard"),
+                sourceState("voice"),
+                sourceState("subtitle")
+              ],
+              issues: []
+            },
+            message: "剪辑工作台时间线已从脚本、分镜、配音和字幕汇入。"
+          });
+        }
+        if (path === "/api/workspace/timelines/timeline-1/precheck" && method === "POST") {
+          return okJsonResponse({
+            timelineId: "timeline-1",
+            status: "ready",
+            message: "时间线本地预检通过。",
+            issues: []
+          });
+        }
         if (path === "/api/workspace/projects/project-1/ai-commands" && method === "POST") {
           return okJsonResponse({
             status: "blocked",
@@ -74,13 +106,15 @@ describe("M05 AI 剪辑工作台页面", () => {
     await flushPromises();
 
     expect(router.currentRoute.value.path).toBe("/workspace/editing");
+    expect(wrapper.find(".editing-workspace-page").exists()).toBe(true);
+    expect(wrapper.find(".page-container").exists()).toBe(false);
     expect(calls.some((call) => call.path === "/api/workspace/projects/project-1/timeline")).toBe(
       true
     );
-    expect(wrapper.text()).toContain("核心创作中枢");
-    expect(wrapper.text()).toContain("片段来源");
-    expect(wrapper.text()).toContain("预览区");
-    expect(wrapper.text()).toContain("AI 工具栏");
+    expect(wrapper.text()).toContain("素材池");
+    expect(wrapper.text()).toContain("播放器");
+    expect(wrapper.text()).toContain("基础属性");
+    expect(wrapper.text()).toContain("时间线");
     expect(wrapper.text()).toContain("当前项目还没有时间线草稿");
     expect(wrapper.text()).not.toContain("BGM_");
 
@@ -88,14 +122,33 @@ describe("M05 AI 剪辑工作台页面", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("主画面");
-    expect(wrapper.text()).toContain("AI 工具栏");
-    expect(wrapper.text()).toContain("运行能力待接入");
-    expect(wrapper.text()).toContain("检查器");
+    expect(wrapper.text()).toContain("基础工具");
+    expect(wrapper.text()).toContain("基础属性");
     expect(calls).toContainEqual({
       path: "/api/workspace/projects/project-1/timeline",
       method: "POST",
       body: { name: "主时间线" }
     });
+
+    await wrapper.get('[data-testid="workspace-assemble-button"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.get('[data-testid="workspace-preview-phone"]').attributes("data-ratio")).toBe("9:16");
+    expect(wrapper.text()).toContain("分镜视频轨");
+    expect(wrapper.text()).toContain("配音轨");
+    expect(wrapper.text()).toContain("字幕轨");
+    expect(wrapper.text()).toContain("受管轨道");
+    expect(wrapper.text()).toContain("本地预检");
+    expect(calls).toContainEqual({
+      path: "/api/workspace/projects/project-1/timeline/assemble",
+      method: "POST",
+      body: { mode: "merge_managed", timelineName: "主时间线" }
+    });
+
+    await wrapper.get('[data-testid="workspace-precheck-button"]').trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("时间线本地预检通过");
 
     const taskBusStore = useTaskBusStore(pinia);
     taskBusStore.handleIncomingMessage(JSON.stringify({
@@ -248,7 +301,7 @@ function now() {
   return "2026-04-17T10:00:00Z";
 }
 
-function workspaceTimeline() {
+function workspaceTimeline(tracks = [manualVideoTrack()]) {
   return {
     id: "timeline-1",
     projectId: "project-1",
@@ -256,31 +309,110 @@ function workspaceTimeline() {
     status: "draft",
     durationSeconds: 12,
     source: "manual",
-    tracks: [
-      {
-        id: "track-video",
-        kind: "video",
-        name: "主画面",
-        orderIndex: 0,
-        locked: false,
-        muted: false,
-        clips: [
-          {
-            id: "clip-video",
-            trackId: "track-video",
-            sourceType: "manual",
-            sourceId: null,
-            label: "开场镜头",
-            startMs: 0,
-            durationMs: 4200,
-            inPointMs: 0,
-            outPointMs: null,
-            status: "ready"
-          }
-        ]
-      }
-    ],
+    tracks,
     createdAt: now(),
     updatedAt: now()
+  };
+}
+
+function manualVideoTrack() {
+  return {
+    id: "track-video",
+    kind: "video",
+    name: "主画面",
+    orderIndex: 0,
+    locked: false,
+    muted: false,
+    clips: [
+      {
+        id: "clip-video",
+        trackId: "track-video",
+        sourceType: "manual",
+        sourceId: null,
+        label: "开场镜头",
+        startMs: 0,
+        durationMs: 4200,
+        inPointMs: 0,
+        outPointMs: null,
+        status: "ready"
+      }
+    ]
+  };
+}
+
+function managedVideoTrack() {
+  return {
+    id: "managed-video-storyboard",
+    kind: "video",
+    name: "分镜视频轨",
+    orderIndex: 0,
+    locked: false,
+    muted: false,
+    clips: [
+      managedClip("managed-video-storyboard-01", "managed-video-storyboard", "storyboard", "S01 · 分镜画面")
+    ]
+  };
+}
+
+function managedAudioTrack() {
+  return {
+    id: "managed-audio-voice",
+    kind: "audio",
+    name: "配音轨",
+    orderIndex: 1,
+    locked: false,
+    muted: false,
+    clips: [
+      managedClip("managed-audio-voice-01", "managed-audio-voice", "voice_track", "S01 · 配音")
+    ]
+  };
+}
+
+function managedSubtitleTrack() {
+  return {
+    id: "managed-subtitle-track",
+    kind: "subtitle",
+    name: "字幕轨",
+    orderIndex: 2,
+    locked: false,
+    muted: false,
+    clips: [
+      managedClip("managed-subtitle-01", "managed-subtitle-track", "subtitle_track", "S01 · 字幕")
+    ]
+  };
+}
+
+function managedClip(id: string, trackId: string, sourceType: string, label: string) {
+  return {
+    id,
+    trackId,
+    sourceType,
+    sourceId: `${sourceType}-1`,
+    label,
+    startMs: 0,
+    durationMs: 5000,
+    inPointMs: 0,
+    outPointMs: null,
+    status: sourceType === "storyboard" ? "pending" : "ready",
+    metadata: {
+      sourceKind: sourceType === "storyboard" ? "storyboard" : sourceType,
+      sourceRevision: 1,
+      segmentIndex: 0,
+      segmentId: "S01",
+      text: "This lamp made me cancel my dinner plan.",
+      visualPrompt: "墙灯亮起，房间从冷光转暖光。"
+    }
+  };
+}
+
+function sourceState(kind: string) {
+  return {
+    kind,
+    status: "ready",
+    label: kind,
+    revision: kind === "script" || kind === "storyboard" ? 1 : null,
+    trackId: kind === "voice" || kind === "subtitle" ? `${kind}-track` : null,
+    segmentCount: 1,
+    message: "已读取。"
   };
 }
