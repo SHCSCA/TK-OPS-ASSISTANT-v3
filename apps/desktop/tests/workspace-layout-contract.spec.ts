@@ -25,13 +25,20 @@ describe("workspace layout taxonomy contract", () => {
     const css = readSource("../src/pages/workspace/AIEditingWorkspacePage.css");
 
     expect(css).toMatch(
-      /\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+minmax\(220px,\s*32vh\);/
+      /\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+minmax\(260px,\s*34vh\);/
     );
+    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*gap:\s*var\(--space-3\);/);
     expect(css).toMatch(
-      /\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(240px,\s*320px\)\s+minmax\(420px,\s*1fr\)\s+minmax\(260px,\s*340px\);/
+      /\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(270px,\s*330px\)\s+minmax\(520px,\s*1fr\)\s+minmax\(280px,\s*340px\);/
     );
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*300px\)\s+minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*gap:\s*var\(--space-3\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*330px\)\s+minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*180px;/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*auto\s+auto\s+minmax\(260px,\s*36vh\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*overflow-y:\s*auto;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+    expect(css).not.toContain(".workspace-tool-bar");
+    expect(css).not.toContain(".workspace-tool-bar__actions");
   });
 
   it("keeps shell page-type metadata without hiding every workspace page", () => {
@@ -65,5 +72,35 @@ describe("workspace layout taxonomy contract", () => {
       /\.app-shell\[data-page-type="editor"\][\s\S]*\.app-shell\[data-page-type="management"\][\s\S]*max-width:\s*none;/
     );
     expect(shell).not.toContain('.app-shell[data-page-type="settings"] .app-shell__content :deep(.page-container)');
+  });
+
+  it("renders the M05 timeline visual contract through the view model", () => {
+    const timeline = readSource("../src/modules/workspace/WorkspaceTimeline.vue");
+
+    expect(timeline).toContain("buildTimelineRows");
+    expect(timeline).toContain("TimelineClipView");
+    expect(timeline).toContain("computePlayheadPercent");
+    expect(timeline).toMatch(
+      /<div\s+v-else\s+class="workspace-timeline__body">[\s\S]*<article[\s\S]*v-for="row in rows"[\s\S]*<button[\s\S]*v-for="clipView in row\.clips"/
+    );
+    expect(timeline).toMatch(
+      /<button[\s\S]*v-for="clipView in row\.clips"[\s\S]*:style="clipStyle\(clipView\)"[\s\S]*@click="\$emit\('select-clip',\s*\{\s*clipId:\s*clipView\.id,\s*trackId:\s*row\.id\s*\}\)"/
+    );
+    expect(timeline).toMatch(
+      /<div\s+class="workspace-timeline__playhead"\s+:style="\{\s*left:\s*`\$\{playheadPercent\}%`\s*\}">/
+    );
+    expect(timeline).toMatch(
+      /v-if="row\.visualClass === 'video'"[\s\S]*class="workspace-timeline__thumbnail-strip"[\s\S]*<span\s+v-for="index in 5"/
+    );
+    expect(timeline).toMatch(
+      /v-else-if="row\.visualClass === 'voice' \|\| row\.visualClass === 'bgm'"[\s\S]*class="workspace-timeline__waveform"[\s\S]*<span\s+v-for="index in 14"/
+    );
+    expect(timeline).toMatch(
+      /<div\s+v-else\s+class="workspace-timeline__subtitle-block">[\s\S]*\{\{\s*subtitleText\(clipView\.clip\)\s*\}\}/
+    );
+    expect(timeline).toMatch(/\.workspace-track--video\s+\.workspace-clip\s*{/);
+    expect(timeline).toMatch(/\.workspace-track--voice\s+\.workspace-clip\s*{/);
+    expect(timeline).toMatch(/\.workspace-track--bgm\s+\.workspace-clip\s*{/);
+    expect(timeline).toMatch(/\.workspace-track--subtitle\s+\.workspace-clip\s*{/);
   });
 });

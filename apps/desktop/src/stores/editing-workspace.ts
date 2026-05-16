@@ -4,12 +4,14 @@ import {
   RuntimeRequestError,
   assembleWorkspaceTimeline,
   createWorkspaceTimeline,
+  fetchAssets,
   fetchWorkspaceTimeline,
   precheckTimeline,
   runWorkspaceAICommand,
   updateWorkspaceTimeline
 } from "@/app/runtime-client";
 import type {
+  AssetDto,
   RuntimeRequestErrorShape,
   TimelinePrecheckDto,
   WorkspaceAICommandResultDto,
@@ -29,8 +31,13 @@ export type EditingWorkspaceStatus =
   | "blocked"
   | "error";
 
+export type EditingWorkspaceAssetStatus = "idle" | "loading" | "ready" | "error";
+
 type EditingWorkspaceState = {
   assemblyState: WorkspaceAssemblyStateDto | null;
+  assetError: RuntimeRequestErrorShape | null;
+  assetStatus: EditingWorkspaceAssetStatus;
+  assets: AssetDto[];
   blockedMessage: string | null;
   error: RuntimeRequestErrorShape | null;
   lastCommandResult: WorkspaceAICommandResultDto | null;
@@ -46,6 +53,9 @@ type EditingWorkspaceState = {
 export const useEditingWorkspaceStore = defineStore("editing-workspace", {
   state: (): EditingWorkspaceState => ({
     assemblyState: null,
+    assetError: null,
+    assetStatus: "idle",
+    assets: [],
     blockedMessage: null,
     error: null,
     lastCommandResult: null,
@@ -80,11 +90,50 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.projectId = projectId;
       this.lastCommandResult = null;
       this.precheck = null;
+      this.assets = [];
+      this.assetStatus = "idle";
+      this.assetError = null;
 
       try {
         this.applyTimelineResult(await fetchWorkspaceTimeline(projectId));
+        await this.loadAssets(projectId);
       } catch (error) {
         this.applyRuntimeError(error);
+      }
+    },
+    async loadAssets(projectId?: string): Promise<AssetDto[]> {
+      if (!projectId) {
+        this.assets = [];
+        this.assetStatus = "idle";
+        this.assetError = null;
+        return [];
+      }
+
+      this.assetStatus = "loading";
+      this.assetError = null;
+
+      try {
+        const assets = (await fetchAssets()).filter(
+          (asset) => asset.projectId === projectId || asset.sourceInfo.projectId === projectId
+        );
+        this.assets = assets;
+        this.assetStatus = "ready";
+        this.assetError = null;
+        return assets;
+      } catch (error) {
+        const runtimeError =
+          error instanceof RuntimeRequestError
+            ? error
+            : new RuntimeRequestError("资产读取失败，请稍后重试。");
+        this.assets = [];
+        this.assetStatus = "error";
+        this.assetError = {
+          details: runtimeError.details,
+          message: runtimeError.message,
+          requestId: runtimeError.requestId,
+          status: runtimeError.status
+        };
+        return [];
       }
     },
     async createDraft(projectId?: string, name = "主时间线"): Promise<WorkspaceTimelineDto | null> {
@@ -194,7 +243,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
           }
         });
         this.lastCommandResult = result;
-        this.blockedMessage = result.message;
+        this.blockedMessage = result.status === "blocked" ? result.message : null;
         this.status = result.status === "blocked" ? "blocked" : "ready";
         return result;
       } catch (error) {

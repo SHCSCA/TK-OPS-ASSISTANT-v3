@@ -1,0 +1,173 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  buildTimelineRows,
+  computePlayheadPercent,
+  trackVisualClass
+} from "@/modules/workspace/workspaceTimelineViewModel";
+import type { WorkspaceTimelineTrackDto } from "@/types/runtime";
+
+describe("workspace timeline view model", () => {
+  it("连续片段布局没有可视间隙", () => {
+    const [row] = buildTimelineRows(
+      [
+        track({
+          clips: [
+            clip({ id: "clip-3", startMs: 10000, durationMs: 5000 }),
+            clip({ id: "clip-1", startMs: 0, durationMs: 5000 }),
+            clip({ id: "clip-2", startMs: 5000, durationMs: 5000 })
+          ]
+        })
+      ],
+      15000
+    );
+
+    expect(row.clips.map((item) => item.id)).toEqual(["clip-1", "clip-2", "clip-3"]);
+    expect(row.clips.map((item) => item.leftPercent)).toEqual([0, 33.333, 66.667]);
+    expect(row.clips.map((item) => item.widthPercent)).toEqual([33.333, 33.333, 33.333]);
+  });
+
+  it("为连续片段输出首中尾 joinClass，单片段输出 single", () => {
+    const rows = buildTimelineRows(
+      [
+        track({
+          id: "track-sequence",
+          clips: [
+            clip({ id: "clip-1", startMs: 0, durationMs: 5000 }),
+            clip({ id: "clip-2", startMs: 5000, durationMs: 5000 }),
+            clip({ id: "clip-3", startMs: 10000, durationMs: 5000 })
+          ]
+        }),
+        track({
+          id: "track-single",
+          orderIndex: 1,
+          clips: [clip({ id: "clip-single", trackId: "track-single", startMs: 0, durationMs: 15000 })]
+        })
+      ],
+      15000
+    );
+
+    expect(rows[0].clips.map((item) => item.joinClass)).toEqual(["start", "middle", "end"]);
+    expect(rows[1].clips[0].joinClass).toBe("single");
+  });
+
+  it("输出轨道视觉 class 和高度层级", () => {
+    const rows = buildTimelineRows(
+      [
+        track({ id: "track-subtitle", kind: "subtitle", name: "字幕", orderIndex: 3 }),
+        track({ id: "track-bgm", kind: "audio", name: "BGM 音乐", orderIndex: 2 }),
+        track({ id: "track-voice", kind: "audio", name: "旁白", orderIndex: 1 }),
+        track({ id: "track-video", kind: "video", name: "视频", orderIndex: 0 })
+      ],
+      15000
+    );
+
+    expect(rows.map((row) => row.id)).toEqual(["track-video", "track-voice", "track-bgm", "track-subtitle"]);
+    expect(rows.map((row) => row.visualClass)).toEqual(["video", "voice", "bgm", "subtitle"]);
+    expect(rows.map((row) => row.heightClass)).toEqual(["tall", "medium", "medium", "compact"]);
+    expect(trackVisualClass("audio", "环境声")).toBe("bgm");
+  });
+
+  it("播放头百分比 clamp 到 0-100", () => {
+    expect(computePlayheadPercent(-1000, 15000)).toBe(0);
+    expect(computePlayheadPercent(7500, 15000)).toBe(50);
+    expect(computePlayheadPercent(20000, 15000)).toBe(100);
+    expect(computePlayheadPercent(500, 0)).toBe(50);
+  });
+
+  it("片段百分比 clamp 到 0-100", () => {
+    const [row] = buildTimelineRows(
+      [
+        track({
+          clips: [
+            clip({ id: "clip-start-overflow", startMs: 20000, durationMs: 5000 }),
+            clip({ id: "clip-duration-overflow", startMs: 0, durationMs: 20000 })
+          ]
+        })
+      ],
+      15000
+    );
+
+    expect(row.clips.find((item) => item.id === "clip-start-overflow")).toMatchObject({
+      leftPercent: 100,
+      widthPercent: 0
+    });
+    expect(row.clips.find((item) => item.id === "clip-duration-overflow")).toMatchObject({
+      leftPercent: 0,
+      widthPercent: 100
+    });
+  });
+
+  it("片段右边界超过时间线时裁剪可渲染宽度", () => {
+    const [row] = buildTimelineRows(
+      [
+        track({
+          clips: [clip({ id: "clip-overflow-right", startMs: 9000, durationMs: 5000 })]
+        })
+      ],
+      10000
+    );
+
+    expect(row.clips[0]).toMatchObject({
+      leftPercent: 90,
+      widthPercent: 10
+    });
+  });
+
+  it("NaN 百分比输入回退到 0", () => {
+    const [row] = buildTimelineRows(
+      [
+        track({
+          clips: [
+            clip({ id: "clip-start-nan", startMs: Number.NaN, durationMs: 5000 }),
+            clip({ id: "clip-duration-nan", startMs: 0, durationMs: Number.NaN })
+          ]
+        })
+      ],
+      15000
+    );
+
+    expect(row.clips.find((item) => item.id === "clip-start-nan")).toMatchObject({
+      leftPercent: 0,
+      widthPercent: 33.333
+    });
+    expect(row.clips.find((item) => item.id === "clip-duration-nan")).toMatchObject({
+      leftPercent: 0,
+      widthPercent: 0
+    });
+    expect(computePlayheadPercent(Number.NaN, 15000)).toBe(0);
+    expect(computePlayheadPercent(500, Number.NaN)).toBe(0);
+  });
+});
+
+function track(input: Partial<WorkspaceTimelineTrackDto> = {}): WorkspaceTimelineTrackDto {
+  return {
+    id: input.id ?? "track-video",
+    kind: input.kind ?? "video",
+    name: input.name ?? "视频轨",
+    orderIndex: input.orderIndex ?? 0,
+    locked: input.locked ?? false,
+    muted: input.muted ?? false,
+    clips: input.clips ?? []
+  };
+}
+
+function clip(input: {
+  id: string;
+  trackId?: string;
+  startMs: number;
+  durationMs: number;
+}): WorkspaceTimelineTrackDto["clips"][number] {
+  return {
+    id: input.id,
+    trackId: input.trackId ?? "track-video",
+    sourceType: "asset",
+    sourceId: input.id,
+    label: input.id,
+    startMs: input.startMs,
+    durationMs: input.durationMs,
+    inPointMs: 0,
+    outPointMs: null,
+    status: "ready"
+  };
+}

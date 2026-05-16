@@ -136,8 +136,13 @@
               <WorkspaceAssetRail
                 class="stage-panel"
                 :assembly-state="assemblyState"
+                :asset-error="assetError"
+                :asset-status="assetStatus"
+                :assets="assets"
+                :project-id="currentProjectId"
                 :selected-clip="selectedClip"
                 :timeline="timeline"
+                @sync-assets="handleSyncAssets"
               />
             </div>
 
@@ -159,6 +164,7 @@
                 :assembly-state="assemblyState"
                 :blocked-message="inspectorBlockedMessage"
                 :error-message="error?.message ?? null"
+                :last-command-result="lastCommandResult"
                 :precheck="precheck"
                 :save-state="saveState"
                 :selected-clip="selectedClip"
@@ -169,29 +175,7 @@
             </div>
           </div>
 
-          <div class="workspace-tool-bar" aria-label="基础工具">
-            <div>
-              <strong>基础工具</strong>
-              <span>{{ toolBarStatus }}</span>
-            </div>
-            <div class="workspace-tool-bar__actions">
-              <button type="button" disabled title="撤销">
-                <span class="material-symbols-outlined">undo</span>
-              </button>
-              <button type="button" disabled title="重做">
-                <span class="material-symbols-outlined">redo</span>
-              </button>
-              <button type="button" disabled title="分割">
-                <span class="material-symbols-outlined">content_cut</span>
-              </button>
-              <button type="button" disabled title="删除">
-                <span class="material-symbols-outlined">delete</span>
-              </button>
-              <button type="button" disabled title="吸附">
-                <span class="material-symbols-outlined">join_full</span>
-              </button>
-            </div>
-          </div>
+          <WorkspaceTimelineToolbar :status-label="toolBarStatus" />
 
           <div class="workspace-timeline-area-wrapper">
             <p class="panel-label">时间线</p>
@@ -224,6 +208,7 @@ import WorkspaceAssetRail from "@/modules/workspace/WorkspaceAssetRail.vue";
 import WorkspaceInspector from "@/modules/workspace/WorkspaceInspector.vue";
 import WorkspacePreviewStage from "@/modules/workspace/WorkspacePreviewStage.vue";
 import WorkspaceTimeline from "@/modules/workspace/WorkspaceTimeline.vue";
+import WorkspaceTimelineToolbar from "@/modules/workspace/WorkspaceTimelineToolbar.vue";
 import { useEditingWorkspaceStore } from "@/stores/editing-workspace";
 import { useProjectStore } from "@/stores/project";
 import { createRouteDetailContext, useShellUiStore } from "@/stores/shell-ui";
@@ -236,9 +221,13 @@ const taskBusStore = useTaskBusStore();
 
 const {
   assemblyState,
+  assetError,
+  assetStatus,
+  assets,
   blockedMessage,
   error,
   hasTimeline,
+  lastCommandResult,
   orderedTracks,
   precheck,
   saveState,
@@ -437,6 +426,12 @@ async function handleMagicCut(): Promise<void> {
 async function handleRetry(): Promise<void> {
   if (currentProjectId.value) {
     await workspaceStore.load(currentProjectId.value);
+  }
+}
+
+async function handleSyncAssets(): Promise<void> {
+  if (currentProjectId.value) {
+    await workspaceStore.loadAssets(currentProjectId.value);
   }
 }
 

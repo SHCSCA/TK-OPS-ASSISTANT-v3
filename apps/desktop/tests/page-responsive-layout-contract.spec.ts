@@ -64,10 +64,15 @@ describe("page responsive layout contract", () => {
     expect(css).toMatch(/\.editing-workspace-page\s*{[\s\S]*overflow:\s*hidden;/);
     expect(css).toMatch(/\.editing-workspace-page\s*{[\s\S]*container-name:\s*editing-workspace;/);
     expect(css).not.toContain("height: 400px");
-    expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(240px,\s*320px\)\s+minmax\(420px,\s*1fr\)\s+minmax\(260px,\s*340px\);/);
+    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+minmax\(260px,\s*34vh\);/);
+    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*gap:\s*var\(--space-3\);/);
+    expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(270px,\s*330px\)\s+minmax\(520px,\s*1fr\)\s+minmax\(280px,\s*340px\);/);
+    expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*gap:\s*var\(--space-3\);/);
     expect(css).toMatch(/\.stage-panel\s*{[\s\S]*flex:\s*1\s+1\s+auto;/);
     expect(css).toMatch(/\.stage-panel\s*{[\s\S]*min-height:\s*0;/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*300px\)\s+minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*330px\)\s+minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*180px;/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*auto\s+auto\s+minmax\(260px,\s*36vh\);[\s\S]*overflow-y:\s*auto;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
   });
 });

@@ -129,8 +129,8 @@
 
 .workspace-editor {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto minmax(220px, 32vh);
-  gap: var(--space-4);
+  grid-template-rows: minmax(0, 1fr) auto minmax(260px, 34vh);
+  gap: var(--space-3);
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -139,8 +139,8 @@
 
 .workspace-stage {
   display: grid;
-  gap: var(--space-4);
-  grid-template-columns: minmax(240px, 320px) minmax(420px, 1fr) minmax(260px, 340px);
+  gap: var(--space-3);
+  grid-template-columns: minmax(270px, 330px) minmax(520px, 1fr) minmax(280px, 340px);
   align-items: stretch;
   min-height: 0;
   min-width: 0;
@@ -192,59 +192,6 @@
   min-height: 100%;
 }
 
-.workspace-tool-bar {
-  align-items: center;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-default);
-  border-radius: 8px;
-  display: flex;
-  gap: var(--space-3);
-  justify-content: space-between;
-  min-width: 0;
-  padding: 10px 12px;
-}
-
-.workspace-tool-bar > div:first-child {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  min-width: 0;
-}
-
-.workspace-tool-bar strong {
-  color: var(--color-text-primary);
-  font: var(--font-title-sm);
-}
-
-.workspace-tool-bar span {
-  color: var(--color-text-secondary);
-  font: var(--font-body-sm);
-}
-
-.workspace-tool-bar__actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.workspace-tool-bar__actions button {
-  align-items: center;
-  background: var(--color-bg-muted);
-  border: 1px solid var(--color-border-default);
-  border-radius: 8px;
-  color: var(--color-text-secondary);
-  display: inline-flex;
-  height: 32px;
-  justify-content: center;
-  width: 32px;
-}
-
-.workspace-tool-bar__actions button:disabled {
-  cursor: not-allowed;
-  opacity: 0.56;
-}
-
 .workspace-timeline-area {
   flex: 1;
   min-height: 0;
@@ -285,7 +232,7 @@
 
 @container editing-workspace (max-width: 1180px) {
   .workspace-stage {
-    grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 330px) minmax(0, 1fr);
   }
 
   .page-header__row {
@@ -298,6 +245,7 @@
 
   .stage-panel-wrapper--inspector {
     grid-column: 1 / -1;
+    min-height: 180px;
   }
 }
 
@@ -307,7 +255,7 @@
   }
 
   .workspace-editor {
-    grid-template-rows: auto auto minmax(220px, 34vh);
+    grid-template-rows: auto auto minmax(260px, 36vh);
     overflow-y: auto;
   }
 
@@ -317,14 +265,5 @@
 
   .stage-panel-wrapper--inspector {
     grid-column: auto;
-  }
-
-  .workspace-tool-bar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .workspace-tool-bar__actions {
-    justify-content: flex-start;
   }
 }

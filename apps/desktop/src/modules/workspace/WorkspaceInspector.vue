@@ -15,44 +15,67 @@
       {{ blockedMessage }}
     </div>
 
-    <section class="workspace-inspector__card">
-      <small>工作台状态</small>
-      <strong>{{ statusLabel }}</strong>
-      <p>{{ statusDescription }}</p>
+    <section class="workspace-inspector__section">
+      <h3>片段信息</h3>
+      <dl class="workspace-inspector__facts">
+        <div class="fact-item">
+          <dt>工作台状态</dt>
+          <dd>
+            <strong>{{ statusLabel }}</strong>
+            <span>{{ statusDescription }}</span>
+          </dd>
+        </div>
+        <div class="fact-item">
+          <dt>时间线</dt>
+          <dd>{{ timeline?.name ?? "未创建" }}</dd>
+        </div>
+        <div class="fact-item">
+          <dt>轨道</dt>
+          <dd>{{ selectedTrack?.name ?? "未选择" }}</dd>
+        </div>
+        <div class="fact-item">
+          <dt>片段</dt>
+          <dd>{{ selectedClip?.label ?? "未选择" }}</dd>
+        </div>
+        <div class="fact-item">
+          <dt>片段状态</dt>
+          <dd>{{ selectedClip?.status ?? "未选择" }}</dd>
+        </div>
+      </dl>
     </section>
 
-    <section class="workspace-inspector__facts scroll-area">
-      <div class="fact-item">
-        <dt>时间线</dt>
-        <dd>{{ timeline?.name ?? "未创建" }}</dd>
-      </div>
-      <div class="fact-item">
-        <dt>轨道数</dt>
-        <dd>{{ timeline?.tracks.length ?? 0 }}</dd>
-      </div>
-      <div class="fact-item">
-        <dt>选中轨道</dt>
-        <dd>{{ selectedTrack?.name ?? "未选择" }}</dd>
-      </div>
-      <div class="fact-item">
-        <dt>选中片段</dt>
-        <dd>{{ selectedClip?.label ?? "未选择" }}</dd>
-      </div>
-      <div class="fact-item">
-        <dt>起点 / 时长</dt>
-        <dd>{{ clipTimingLabel }}</dd>
-      </div>
-      <div class="fact-item">
-        <dt>来源</dt>
-        <dd>{{ sourceLabel }}</dd>
-      </div>
+    <section class="workspace-inspector__section">
+      <h3>时间参数</h3>
+      <dl class="workspace-inspector__facts workspace-inspector__facts--compact">
+        <div class="fact-item">
+          <dt>起点</dt>
+          <dd>{{ clipStartLabel }}</dd>
+        </div>
+        <div class="fact-item">
+          <dt>时长</dt>
+          <dd>{{ clipDurationLabel }}</dd>
+        </div>
+      </dl>
     </section>
 
-    <section class="workspace-inspector__card">
-      <small>本地预检</small>
+    <section class="workspace-inspector__section">
+      <h3>素材来源</h3>
+      <p>{{ sourceDescription }}</p>
+    </section>
+
+    <section class="workspace-inspector__section">
+      <h3>预检提醒</h3>
       <strong>{{ precheckTitle }}</strong>
       <p>{{ precheckDescription }}</p>
     </section>
+
+    <details class="workspace-inspector__details" data-testid="workspace-ai-suggestion-details">
+      <summary>
+        <span>AI 粗剪建议</span>
+        <em>默认折叠</em>
+      </summary>
+      <p>{{ aiSuggestionDescription }}</p>
+    </details>
 
     <section v-if="assemblyState" class="workspace-inspector__card">
       <small>创作链路</small>
@@ -74,6 +97,7 @@ import { computed } from "vue";
 import type { EditingWorkspaceStatus } from "@/stores/editing-workspace";
 import type {
   TimelinePrecheckDto,
+  WorkspaceAICommandResultDto,
   WorkspaceAssemblyStateDto,
   WorkspaceSaveStateDto,
   WorkspaceTimelineClipDto,
@@ -85,6 +109,7 @@ const props = defineProps<{
   assemblyState: WorkspaceAssemblyStateDto | null;
   blockedMessage: string | null;
   errorMessage: string | null;
+  lastCommandResult: WorkspaceAICommandResultDto | null;
   precheck: TimelinePrecheckDto | null;
   saveState: WorkspaceSaveStateDto | null;
   selectedClip: WorkspaceTimelineClipDto | null;
@@ -129,17 +154,33 @@ const actionBoundaryTitle = computed(() => {
 const actionBoundaryDescription = computed(() => {
   if (!props.timeline) return "没有时间线时，基础工具保持不可用。";
   if (!props.selectedClip) return "选择片段后显示起点、时长和来源。";
-  return `片段状态：${props.selectedClip.status}，来源：${props.selectedClip.sourceType}。`;
+  return `片段状态：${props.selectedClip.status}，来源：${sourceKindLabel(clipSourceKind.value)}。`;
 });
 
-const clipTimingLabel = computed(() => {
+const clipStartLabel = computed(() => {
   if (!props.selectedClip) return "未选择";
-  return `${formatMs(props.selectedClip.startMs)} / ${formatMs(props.selectedClip.durationMs)}`;
+  return formatMs(props.selectedClip.startMs);
 });
 
-const sourceLabel = computed(() => {
+const clipDurationLabel = computed(() => {
   if (!props.selectedClip) return "未选择";
-  return props.selectedClip.metadata?.sourceKind ?? props.selectedClip.sourceType;
+  return formatMs(props.selectedClip.durationMs);
+});
+
+const clipSourceKind = computed(() => {
+  return props.selectedClip?.metadata?.sourceKind ?? props.selectedClip?.sourceType ?? "";
+});
+
+const sourceDescription = computed(() => {
+  if (!props.selectedClip) return "选中片段后显示资产中心或创作链路来源。";
+  if (clipSourceKind.value === "asset") {
+    return "该片段来自资产中心素材，可在后续功能中替换或重新定位。";
+  }
+  return `该片段来自${sourceKindLabel(clipSourceKind.value)}。`;
+});
+
+const aiSuggestionDescription = computed(() => {
+  return props.lastCommandResult?.message ?? "暂无可应用建议。AI 建议必须经确认后才会修改时间线。";
 });
 
 const precheckTitle = computed(() => {
@@ -162,6 +203,11 @@ const assemblySummary = computed(() => {
 });
 
 function sourceKindLabel(kind: string): string {
+  if (kind === "asset") return "资产中心";
+  if (kind === "voice_track") return "配音中心";
+  if (kind === "subtitle_track") return "字幕对齐";
+  if (kind === "imported_video") return "视频拆解";
+  if (kind === "manual") return "手动片段";
   if (kind === "script") return "脚本";
   if (kind === "storyboard") return "分镜";
   if (kind === "voice") return "配音";
@@ -196,13 +242,17 @@ function formatMs(value: number): string {
 
 .workspace-inspector__heading p,
 .workspace-inspector__message,
-.workspace-inspector__card p {
+.workspace-inspector__card p,
+.workspace-inspector__section p,
+.workspace-inspector__details p {
   color: var(--text-secondary);
   margin: 0;
 }
 
 .workspace-inspector__message,
-.workspace-inspector__card {
+.workspace-inspector__card,
+.workspace-inspector__section,
+.workspace-inspector__details {
   background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
   border-radius: 8px;
@@ -224,14 +274,25 @@ function formatMs(value: number): string {
 .workspace-inspector__card small {
   color: var(--text-tertiary);
 }
+
+.workspace-inspector__section h3 {
+  font-size: 14px;
+  margin: 0;
+}
+
+.workspace-inspector__section strong {
+  color: var(--text-primary);
+}
+
 .workspace-inspector__facts {
-  background: var(--surface-tertiary);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
   display: grid;
   gap: 12px;
   margin: 0;
-  padding: 14px;
+  padding: 0;
+}
+
+.workspace-inspector__facts--compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .scroll-area {
@@ -259,6 +320,38 @@ function formatMs(value: number): string {
 }
 
 .workspace-inspector__facts dd {
+  display: grid;
+  gap: 4px;
   margin: 0;
+}
+
+.workspace-inspector__facts dd span {
+  color: var(--text-secondary);
+}
+
+.workspace-inspector__details summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.workspace-inspector__details summary::marker {
+  color: var(--text-tertiary);
+}
+
+.workspace-inspector__details em {
+  background: color-mix(in srgb, var(--surface-secondary) 86%, transparent);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-style: normal;
+  padding: 2px 8px;
+}
+
+.workspace-inspector__details p {
+  padding-top: 8px;
 }
 </style>

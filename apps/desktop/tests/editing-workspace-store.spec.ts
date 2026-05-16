@@ -38,6 +38,45 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.blockedMessage).toBeNull();
   });
 
+  it("load 同步读取当前项目资产", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({
+      assets: [
+        asset("asset-project", "project-1"),
+        asset("asset-source", null, "project-1"),
+        asset("asset-other", "project-2")
+      ]
+    }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+
+    expect(store.status).toBe("ready");
+    expect(store.assetStatus).toBe("ready");
+    expect(store.assets.map((item) => item.id)).toEqual(["asset-project", "asset-source"]);
+    expect(store.assetError).toBeNull();
+  });
+
+  it("loadAssets 无参数时清空资产且不回退到当前项目", async () => {
+    const fetchMock = createWorkspaceFetch({
+      assets: [asset("asset-project", "project-1")]
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    expect(store.projectId).toBe("project-1");
+    expect(store.assets.map((item) => item.id)).toEqual(["asset-project"]);
+
+    fetchMock.mockClear();
+    const assets = await store.loadAssets();
+
+    expect(assets).toEqual([]);
+    expect(store.assets).toEqual([]);
+    expect(store.assetStatus).toBe("idle");
+    expect(store.assetError).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("保存轨道时保留时间线并回到 ready 状态", async () => {
     vi.stubGlobal("fetch", createWorkspaceFetch());
 
@@ -95,6 +134,32 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.blockedMessage).toContain("AI 剪辑命令尚未接入 Provider");
   });
 
+  it("AI 魔法剪进入队列时不写入阻断警告", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({
+      aiCommandResult: {
+        status: "queued",
+        task: {
+          taskId: "task-workspace-1",
+          taskType: "ai-workspace-command",
+          projectId: "project-1",
+          status: "queued",
+          progress: 0,
+          message: "AI 命令 magic_cut 已进入任务队列。"
+        },
+        message: "AI 命令已进入任务队列，正在通过 TaskBus 处理。"
+      }
+    }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    const result = await store.runMagicCut("project-1");
+
+    expect(result?.status).toBe("queued");
+    expect(store.status).toBe("ready");
+    expect(store.blockedMessage).toBeNull();
+    expect(store.lastCommandResult?.message).toBe("AI 命令已进入任务队列，正在通过 TaskBus 处理。");
+  });
+
   it("Runtime 保存失败时进入 error 并保留既有草稿", async () => {
     vi.stubGlobal("fetch", createWorkspaceFetch({ failSave: true }));
 
@@ -108,10 +173,42 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.timeline?.id).toBe("timeline-1");
     expect(store.error?.message).toBe("时间线保存失败，请稍后重试。");
   });
+
+  it("资产读取失败时保留时间线和 ready 状态，只设置资产错误", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({ failAssets: true }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+
+    expect(store.status).toBe("ready");
+    expect(store.timeline?.id).toBe("timeline-1");
+    expect(store.assetStatus).toBe("error");
+    expect(store.assetError?.message).toBe("资产读取失败，请稍后重试。");
+    expect(store.assets).toEqual([]);
+  });
 });
 
-function createWorkspaceFetch(options: { failSave?: boolean; timeline?: ReturnType<typeof timeline> | null } = {}) {
+function createWorkspaceFetch(
+  options: {
+    assets?: ReturnType<typeof asset>[];
+    aiCommandResult?: {
+      message: string;
+      status: "blocked" | "queued";
+      task: Record<string, unknown> | null;
+    };
+    failAssets?: boolean;
+    failSave?: boolean;
+    timeline?: ReturnType<typeof timeline> | null;
+  } = {}
+) {
   return createRouteAwareFetch((path, method, init) => {
+    if (path === "/api/assets" && method === "GET") {
+      if (options.failAssets) {
+        return errorJsonResponse(500, "资产读取失败，请稍后重试。");
+      }
+      return okJsonResponse(options.assets ?? [asset("asset-1", "project-1")]);
+    }
+
     if (path === "/api/workspace/projects/project-1/timeline" && method === "GET") {
       return okJsonResponse({
         timeline: options.timeline === undefined ? timeline() : options.timeline,
@@ -174,7 +271,7 @@ function createWorkspaceFetch(options: { failSave?: boolean; timeline?: ReturnTy
     }
 
     if (path === "/api/workspace/projects/project-1/ai-commands" && method === "POST") {
-      return okJsonResponse({
+      return okJsonResponse(options.aiCommandResult ?? {
         status: "blocked",
         task: null,
         message: "AI 剪辑命令尚未接入 Provider，本阶段仅保存时间线草稿。"
@@ -198,6 +295,47 @@ function timeline(id = "timeline-1", tracks: unknown[] = []) {
     durationSeconds: 12,
     source: "manual",
     tracks,
+    createdAt: now(),
+    updatedAt: now()
+  };
+}
+
+function asset(id: string, projectId: string | null, sourceProjectId = projectId) {
+  return {
+    id,
+    name: id,
+    type: "video",
+    source: "local",
+    filePath: `G:/fixtures/${id}.mp4`,
+    fileSizeBytes: 1024,
+    durationMs: 12000,
+    thumbnailPath: null,
+    tags: null,
+    projectId,
+    metadataJson: null,
+    sourceInfo: {
+      source: "local",
+      projectId: sourceProjectId,
+      groupId: null,
+      filePath: `G:/fixtures/${id}.mp4`,
+      metadataSummary: {}
+    },
+    availability: {
+      status: "available",
+      errorCode: null,
+      errorMessage: null,
+      nextAction: null
+    },
+    referenceSummary: {
+      total: 0,
+      referenceTypes: [],
+      blockingDelete: false
+    },
+    thumbnailStatus: {
+      status: "missing",
+      path: null,
+      generatedAt: null
+    },
     createdAt: now(),
     updatedAt: now()
   };

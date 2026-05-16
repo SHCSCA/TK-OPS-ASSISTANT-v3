@@ -1,4 +1,4 @@
-> 更新日期：2026-05-13；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。M05 AI 剪辑工作台已补齐创作链路汇入、受管轨道装配、9:16 基础播放器布局与本地预检状态链路。
+> 更新日期：2026-05-15；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。M05 AI 剪辑工作台已补齐创作链路汇入、受管轨道装配、9:16 基础播放器布局、资产来源视图与本地预检状态链路。
 
 # Runtime API 与前端调用真源
 
@@ -582,6 +582,12 @@
 - `TimelineDto.assetReferenceStatus` 基于真实片段 `sourceType/sourceId/status` 聚合，不编造素材可用性。
 - `WorkspaceTimelineResultDto.activeTask` 只返回当前 Runtime 进程内、且 `ownerRef` 绑定到该时间线的活跃任务，优先 `ai-workspace-command`。
 - `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`assembly`、`save`、`clip_move`、`clip_trim`、`clip_replace`。
+
+### M05 UI 资产来源说明
+
+- M05 剪辑工作台素材池通过 `GET /api/assets` 读取资产中心素材，并在前端按当前项目过滤。
+- 本轮只展示资产状态，不在 UI 层直接读写本地文件。
+- `替换片段`、`加入轨道`、`分割`、`删除` 先保留为不可触发的基础工具入口，后续接入 `/api/workspace/clips/{clip_id}/replace`、`move`、`trim` 等接口。
 
 **示例**
 
