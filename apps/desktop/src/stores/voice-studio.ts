@@ -12,6 +12,7 @@ import {
 } from "@/app/runtime-client";
 import { useToast } from "@/composables/useToast";
 import { extractScriptDocumentDownstreamText } from "@/modules/scripts/script-document-view-model";
+import { normalizeStoryboardSpeechText } from "@/modules/storyboards/storyboard-document-view-model";
 import { toRuntimeErrorShape } from "@/stores/runtime-store-helpers";
 import { useTaskBusStore } from "@/stores/task-bus";
 import type {
@@ -361,7 +362,9 @@ export const useVoiceStudioStore = defineStore("voice-studio", {
       const paragraphs: Paragraph[] = [];
 
       for (const scene of scenes) {
-        const speechText = (scene.voiceover || scene.subtitle || "").trim();
+        const speechText =
+          normalizeStoryboardSpeechText(scene.voiceover) ||
+          normalizeStoryboardSpeechText(scene.subtitle);
         if (!speechText) {
           continue;
         }

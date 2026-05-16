@@ -88,7 +88,7 @@
         当前来源还没有落到时间线的真实片段。
       </div>
       <div v-else class="workspace-asset-rail__list scroll-area">
-        <transition-group name="source-list" tag="ul">
+        <transition-group name="source-list" tag="ul" class="workspace-asset-rail__source-list">
           <li
             v-for="entry in filteredSourceEntries"
             :key="entry.id"
@@ -101,12 +101,15 @@
               @click="$emit('select-source-clip', { clipId: entry.id, trackId: entry.trackId })"
             >
               <div class="workspace-asset-rail__item-main">
-                <strong>{{ sourceEntryTitle(entry) }}</strong>
+                <div class="workspace-asset-rail__item-head">
+                  <strong>{{ sourceEntryLabel(entry) }}</strong>
+                  <span class="workspace-asset-rail__item-status" :data-status="entry.status">
+                    {{ workspaceStatusLabel(entry.status) }}
+                  </span>
+                </div>
+                <span class="workspace-asset-rail__item-time">{{ sourceEntryTime(entry) }}</span>
                 <p>{{ entry.trackName }} · {{ sourceTypeLabel(entry.sourceType) }} · {{ trackPolicy(entry.trackId) }}</p>
               </div>
-              <span class="workspace-asset-rail__item-status" :data-status="entry.status">
-                {{ workspaceStatusLabel(entry.status) }}
-              </span>
             </button>
           </li>
         </transition-group>
@@ -249,9 +252,12 @@ function trackPolicy(trackId: string): string {
   return trackId.startsWith("managed-") ? "受管轨道" : "手动轨道";
 }
 
-function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string }): string {
-  const label = cleanWorkspaceText(entry.label, sourceTypeLabel(entry.sourceType));
-  return `${label} · ${formatWorkspaceClipRange(entry.startMs, entry.durationMs)}`;
+function sourceEntryLabel(entry: WorkspaceTimelineClipDto): string {
+  return cleanWorkspaceText(entry.label, sourceTypeLabel(entry.sourceType));
+}
+
+function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
+  return formatWorkspaceClipRange(entry.startMs, entry.durationMs);
 }
 </script>
 
@@ -383,10 +389,19 @@ function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string 
   display: grid;
   gap: 10px;
   grid-auto-rows: max-content;
-  list-style: none;
   margin: 0;
   min-height: 0;
   overflow-y: auto;
+  padding: 0;
+}
+
+.workspace-asset-rail__source-list {
+  display: grid;
+  gap: 10px;
+  grid-auto-rows: max-content;
+  list-style: none;
+  margin: 0;
+  min-width: 0;
   padding: 0;
 }
 
@@ -419,8 +434,8 @@ function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string 
   color: var(--text-primary);
   cursor: pointer;
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
   padding: 14px;
   text-align: left;
   transition: all var(--motion-fast) var(--ease-standard);
@@ -448,7 +463,16 @@ function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string 
   min-width: 0;
 }
 
+.workspace-asset-rail__item-head {
+  align-items: start;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
 .workspace-asset-rail__item-main strong,
+.workspace-asset-rail__item-time,
 .workspace-asset-rail__item-main p {
   min-width: 0;
   overflow: hidden;
@@ -459,6 +483,15 @@ function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string 
   line-height: 1.35;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.workspace-asset-rail__item-time {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-asset-rail__item-main p {

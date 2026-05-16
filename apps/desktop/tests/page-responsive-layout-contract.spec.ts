@@ -22,16 +22,17 @@ describe("page responsive layout contract", () => {
 
   it("keeps storyboard list workspace readable when the shell content narrows", () => {
     const css = readSource("../src/pages/storyboards/StoryboardPlanningCenterPage.css");
-    const table = readSource("../src/pages/storyboards/components/StructuredTable.vue");
+    const table = readSource("../src/pages/storyboards/components/StoryboardSegmentedTable.vue");
 
     expect(css).toMatch(/\.page-header__actions\s*{[\s\S]*flex-wrap:\s*wrap;/);
     expect(css).toMatch(/\.board-tags\s*{[\s\S]*flex-wrap:\s*wrap;/);
     expect(css).toMatch(/\.storyboard-editor-content\s*{[\s\S]*min-width:\s*0;/);
     expect(css).toMatch(/\.storyboard-preview-pane\s*{[\s\S]*overflow-y:\s*auto;/);
-    expect(table).toMatch(/\.structured-table\s*{[\s\S]*width:\s*max-content;/);
-    expect(table).toMatch(/\.structured-table\s*{[\s\S]*min-width:\s*1280px;/);
-    expect(table).toMatch(/\.structured-table th:nth-child\(12\),[\s\S]*\.structured-table td:nth-child\(12\)\s*{[\s\S]*min-width:\s*220px;/);
-    expect(table).toMatch(/\.structured-table th,[\s\S]*\.structured-table td\s*{[\s\S]*word-break:\s*normal;/);
+    expect(table).toMatch(/\.storyboard-segmented-table table\s*{[\s\S]*width:\s*max-content;/);
+    expect(table).toMatch(/\.storyboard-segmented-table table\s*{[\s\S]*min-width:\s*1380px;/);
+    expect(table).toMatch(/\.storyboard-segmented-table td:nth-child\(12\),[\s\S]*\.storyboard-segmented-table th:nth-child\(12\)\s*{[\s\S]*min-width:\s*210px;/);
+    expect(table).toMatch(/\.storyboard-segmented-table th,[\s\S]*\.storyboard-segmented-table td\s*{[\s\S]*word-break:\s*normal;/);
+    expect(table).toMatch(/\.storyboard-segmented-table__cell-text\s*{[\s\S]*-webkit-line-clamp:\s*4;/);
     expect(css).not.toContain("editor-mode-switch");
   });
 

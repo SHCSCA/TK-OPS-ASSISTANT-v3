@@ -5,9 +5,10 @@
         <strong>时间线</strong>
         <p>{{ subtitle }}</p>
       </div>
-      <span class="workspace-timeline__pill">
-        {{ selectedSummary }}
-      </span>
+      <div class="workspace-timeline__selection" :data-active="String(Boolean(selectedClip || selectedTrack))">
+        <strong class="workspace-timeline__selection-label">{{ selectedSummary.label }}</strong>
+        <span class="workspace-timeline__selection-meta">{{ selectedSummary.meta }}</span>
+      </div>
     </header>
 
     <div v-if="status === 'loading'" class="workspace-timeline__empty">
@@ -163,6 +164,16 @@ const selectedClip = computed(() => {
   return null;
 });
 
+const selectedTrack = computed(() => {
+  if (!props.selectedTrackId) return null;
+  return rows.value.find((row) => row.id === props.selectedTrackId) ?? null;
+});
+
+const selectedClipTrackName = computed(() => {
+  if (!selectedClip.value) return "";
+  return rows.value.find((row) => row.clips.some((clipView) => clipView.id === selectedClip.value?.id))?.name ?? "未知轨道";
+});
+
 const playheadPositionMs = computed(() => selectedClip.value?.startMs ?? 0);
 const playheadPercent = computed(() => computePlayheadPercent(playheadPositionMs.value, durationMs.value));
 const playheadLabel = computed(() => formatWorkspaceTime(playheadPositionMs.value));
@@ -173,9 +184,24 @@ const subtitle = computed(() => {
 });
 
 const selectedSummary = computed(() => {
-  if (props.selectedClipId) return "已联动到片段";
-  if (props.selectedTrackId) return "已联动到轨道";
-  return "点击片段查看详情";
+  if (selectedClip.value) {
+    return {
+      label: clipLabel(selectedClip.value),
+      meta: `${selectedClipTrackName.value} · ${workspaceStatusLabel(selectedClip.value.status)} · ${formatWorkspaceClipRange(selectedClip.value.startMs, selectedClip.value.durationMs)}`
+    };
+  }
+
+  if (selectedTrack.value) {
+    return {
+      label: selectedTrack.value.name,
+      meta: `${trackMeta(selectedTrack.value)} · ${selectedTrack.value.clips.length} 个片段`
+    };
+  }
+
+  return {
+    label: "未选择片段",
+    meta: "点击时间线片段或素材池来源查看详情"
+  };
 });
 
 function trackIcon(kind: WorkspaceTimelineTrackKind): string {
@@ -250,6 +276,10 @@ function clipLabel(clip: WorkspaceTimelineClipDto): string {
   background: rgba(15, 23, 42, 0.86);
 }
 
+.workspace-timeline__header > div {
+  min-width: 0;
+}
+
 .workspace-timeline__header p,
 .workspace-track__label small,
 .workspace-track__empty,
@@ -258,13 +288,35 @@ function clipLabel(clip: WorkspaceTimelineClipDto): string {
   margin: 0;
 }
 
-.workspace-timeline__pill {
-  background: rgba(15, 23, 42, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 999px;
-  color: rgba(226, 232, 240, 0.82);
+.workspace-timeline__selection {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  min-width: 0;
+  max-width: min(420px, 42vw);
+  color: rgba(226, 232, 240, 0.84);
+}
+
+.workspace-timeline__selection-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(248, 250, 252, 0.94);
+  font-size: 12px;
+}
+
+.workspace-timeline__selection-meta {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(203, 213, 225, 0.68);
   font-size: 11px;
-  padding: 4px 10px;
+}
+
+.workspace-timeline__selection[data-active="true"] .workspace-timeline__selection-label {
+  color: #fde68a;
 }
 
 .workspace-timeline__empty {

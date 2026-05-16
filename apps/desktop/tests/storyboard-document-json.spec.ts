@@ -68,15 +68,27 @@ describe("storyboard document json view model", () => {
           voiceover: "（延续上句口播）",
           subtitle: "(延续上句字幕)",
           visualContent: "手机关闭订单页"
+        },
+        {
+          shotId: "SH03",
+          segmentId: "S02",
+          time: "5-8秒",
+          voiceover: "(延续口播)",
+          subtitle: "（延续字幕）",
+          visualContent: "房间暖光亮起"
         }
       ]
     };
 
     const view = buildStoryboardViewModel(storyboardJson);
     const secondRow = view.shotTable.rows[1];
+    const thirdRow = view.shotTable.rows[2];
 
     expect(secondRow.join(" ")).not.toContain("延续上句");
     expect(secondRow[8]).toBe("");
     expect(secondRow[9]).toBe("");
+    expect(thirdRow.join(" ")).not.toContain("延续");
+    expect(thirdRow[8]).toBe("");
+    expect(thirdRow[9]).toBe("");
   });
 });

@@ -290,9 +290,7 @@ const generateDisabled = computed(
 );
 const toolBarStatus = computed(() => {
   if (!timeline.value) return "等待时间线";
-  if (selectedClip.value) return `片段：${cleanWorkspaceText(selectedClip.value.label, "未命名片段")}`;
-  if (selectedTrack.value) return `轨道：${selectedTrack.value.name}`;
-  return "未选择片段";
+  return "选择工具 · 磁吸开启";
 });
 
 const inspectorBlockedMessage = computed(() => {

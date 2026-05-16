@@ -120,8 +120,8 @@ function buildShotView(shot: Record<string, any>, index: number): StoryboardShot
     action: asText(shot.action),
     cameraAngle: asText(shot.cameraAngle),
     cameraMovement: asText(shot.cameraMovement),
-    voiceover: normalizeRepeatedText(shot.voiceover),
-    subtitle: normalizeRepeatedText(shot.subtitle),
+    voiceover: normalizeStoryboardSpeechText(shot.voiceover),
+    subtitle: normalizeStoryboardSpeechText(shot.subtitle),
     audio: asText(shot.audio),
     shootingNote: asText(shot.shootingNote),
     visualPrompt: asText(shot.visualPrompt),
@@ -143,7 +143,7 @@ function asText(value: unknown): string {
   return "";
 }
 
-function normalizeRepeatedText(value: unknown): string {
+export function normalizeStoryboardSpeechText(value: unknown): string {
   const text = asText(value);
   if (isContinuationPlaceholder(text)) {
     return "";
@@ -169,6 +169,9 @@ function isContinuationPlaceholder(value: string): boolean {
   return (
     normalized.includes("延续上句") ||
     normalized.includes("延续上一句") ||
+    normalized.includes("延续口播") ||
+    normalized.includes("延续字幕") ||
+    normalized.includes("沿用上句") ||
     normalized.includes("同上") ||
     normalized.includes("sameasabove") ||
     normalized.includes("continueprevious")

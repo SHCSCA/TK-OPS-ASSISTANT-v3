@@ -53,8 +53,8 @@
             <span class="meta-value">{{ selectedProfile ? formatLocale(selectedProfile.locale) : "--" }}</span>
           </div>
           <div class="meta-item">
-            <span class="meta-label">片段数量</span>
-            <span class="meta-value">{{ selectedTrack?.segments.length ?? 0 }} 段</span>
+            <span class="meta-label">脚本段数</span>
+            <span class="meta-value">{{ safeParagraphs.length }} 段</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">Provider</span>

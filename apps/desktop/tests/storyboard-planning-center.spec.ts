@@ -189,7 +189,7 @@ describe("Storyboard planning center", () => {
     });
   });
 
-  it("shows the adopted script as markdown preview without structure anchors", async () => {
+  it("shows the adopted script as a compact table without structure anchors", async () => {
     const pinia = prepareProject();
     const fetchMock = createRouteAwareFetch((path, method) => {
       if (path === "/api/storyboards/projects/project-001/document" && method === "GET") {
@@ -241,9 +241,217 @@ describe("Storyboard planning center", () => {
 
     await vi.waitFor(() => {
       expect(wrapper.find('[data-script-reference-mode="outline"]').exists()).toBe(false);
-      expect(wrapper.get("[data-storyboard-script-preview]").text()).toContain("春日咖啡冷饮短视频脚本");
+      expect(wrapper.find("[data-storyboard-script-preview] [data-script-workspace-table]").exists()).toBe(true);
+      expect(wrapper.get("[data-storyboard-script-preview]").text()).toContain("口播文案");
       expect(wrapper.find("[data-storyboard-script-preview] table").exists()).toBe(true);
       expect(wrapper.get("[data-storyboard-script-preview]").text()).toContain("冰块落入玻璃杯");
+    });
+  });
+
+  it("shows legacy script reference as a compact table instead of raw narrow text", async () => {
+    const pinia = prepareProject();
+    const legacyScript = [
+      "Wall Lamp That Changes Your Mood in Seconds",
+      "S01 0-5s This lamp made me cancel my dinner plan.",
+      "S02 5-10s Now my room feels like a 5-star hotel lounge.",
+      "S03 10-15s Want this vibe? Drop 'glow' and I'll DM you the link.",
+      "This lamp made me cancel my dinner plan. Now my room feels like a 5-star hotel lounge."
+    ].join("\n");
+    const fetchMock = createRouteAwareFetch((path, method) => {
+      if (path === "/api/storyboards/projects/project-001/document" && method === "GET") {
+        return okJsonResponse({
+          projectId: "project-001",
+          basedOnScriptRevision: 13,
+          currentVersion: null,
+          versions: [],
+          recentJobs: []
+        });
+      }
+      if (path === "/api/scripts/projects/project-001/document" && method === "GET") {
+        return okJsonResponse({
+          projectId: "project-001",
+          currentVersion: {
+            revision: 13,
+            source: "manual",
+            content: legacyScript,
+            provider: null,
+            model: null,
+            aiJobId: null,
+            createdAt: "2026-04-25T09:45:00Z"
+          },
+          versions: [],
+          recentJobs: []
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    const router = createAppRouter(pinia, createMemoryHistory());
+    await router.push("/storyboards/planning");
+    await router.isReady();
+
+    const wrapper = mount(StoryboardPlanningCenterPage, {
+      global: {
+        plugins: [pinia, router]
+      }
+    });
+    await flushPromises();
+
+    await vi.waitFor(() => {
+      expect(wrapper.find("[data-storyboard-script-preview] [data-script-workspace-table]").exists()).toBe(true);
+      expect(wrapper.findAll("[data-storyboard-script-preview] [data-script-workspace-row]")).toHaveLength(3);
+      expect(wrapper.get("[data-storyboard-script-preview]").text()).toContain("口播文案");
+      expect(wrapper.get("[data-storyboard-script-preview]").text()).toContain("This lamp made me cancel my dinner plan.");
+      expect(wrapper.get("[data-storyboard-script-preview]").text()).not.toContain(
+        "This lamp made me cancel my dinner plan. Now my room feels like a 5-star hotel lounge."
+      );
+    });
+  });
+
+  it("groups storyboard shots by script segment and flags time boundary drift", async () => {
+    const pinia = prepareProject();
+    const fetchMock = createRouteAwareFetch((path, method) => {
+      if (path === "/api/storyboards/projects/project-001/document" && method === "GET") {
+        return okJsonResponse({
+          projectId: "project-001",
+          basedOnScriptRevision: 13,
+          currentVersion: {
+            revision: 1,
+            basedOnScriptRevision: 13,
+            source: "ai_generate",
+            scenes: [],
+            format: "json_v1",
+            storyboardJson: {
+              schemaVersion: "storyboard_document_v1",
+              metadata: {
+                storyboardId: "sb-wall-lamp",
+                basedOnScriptRevision: 13,
+                shotCount: 4
+              },
+              shots: [
+                {
+                  shotId: "SH01",
+                  segmentId: "S01",
+                  time: "0-3s",
+                  shotSize: "中景",
+                  visualContent: "昏暗房间，一只手推开房门，脚步踏入",
+                  action: "推门后停下",
+                  cameraAngle: "正面偏右30度",
+                  cameraMovement: "固定镜头",
+                  voiceover: "This lamp made me cancel my dinner plan.",
+                  subtitle: "This lamp made me cancel my dinner plan.",
+                  audio: "轻快电子节拍",
+                  transition: "快切",
+                  shootingNote: "保持灯光变化清晰"
+                },
+                {
+                  shotId: "SH02",
+                  segmentId: "S01",
+                  time: "3-5s",
+                  shotSize: "特写",
+                  visualContent: "手机屏幕显示订单取消按钮",
+                  action: "手指点击取消",
+                  cameraAngle: "俯拍90度",
+                  cameraMovement: "固定镜头",
+                  voiceover: "(延续上句口播)",
+                  subtitle: "(延续上句字幕)",
+                  audio: "手机点击提示音",
+                  transition: "无",
+                  shootingNote: "避免泄露隐私"
+                },
+                {
+                  shotId: "SH03",
+                  segmentId: "S02",
+                  time: "5-8s",
+                  shotSize: "全景",
+                  visualContent: "房间被暖光照亮",
+                  action: "人物靠在沙发上",
+                  cameraAngle: "正面平视",
+                  cameraMovement: "缓慢横移",
+                  voiceover: "Now my room feels like a 5-star hotel lounge.",
+                  subtitle: "Now my room feels like a 5-star hotel lounge.",
+                  audio: "背景音乐减弱",
+                  transition: "叠化",
+                  shootingNote: "突出氛围变化"
+                },
+                {
+                  shotId: "SH04",
+                  segmentId: "S02",
+                  time: "11-12s",
+                  shotSize: "大特写",
+                  visualContent: "壁灯纹理细节",
+                  action: "手指滑过灯杆",
+                  cameraAngle: "侧上方45度",
+                  cameraMovement: "轻推",
+                  voiceover: "",
+                  subtitle: "",
+                  audio: "环境音",
+                  transition: "无",
+                  shootingNote: "测试越界提示"
+                }
+              ]
+            },
+            provider: "deepseek",
+            model: "deepseek-v4-flash",
+            aiJobId: "job-storyboard",
+            createdAt: "2026-05-12T20:49:00Z"
+          },
+          versions: [],
+          recentJobs: []
+        });
+      }
+      if (path === "/api/scripts/projects/project-001/document" && method === "GET") {
+        return okJsonResponse({
+          projectId: "project-001",
+          currentVersion: {
+            revision: 13,
+            source: "manual",
+            content: [
+              "Wall Lamp That Changes Your Mood in Seconds",
+              "S01 0-5s This lamp made me cancel my dinner plan.",
+              "S02 5-10s Now my room feels like a 5-star hotel lounge.",
+              "S03 10-15s Want this vibe? Drop 'glow' and I'll DM you the link."
+            ].join("\n"),
+            provider: null,
+            model: null,
+            aiJobId: null,
+            createdAt: "2026-04-25T09:45:00Z"
+          },
+          versions: [],
+          recentJobs: []
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+    const router = createAppRouter(pinia, createMemoryHistory());
+    await router.push("/storyboards/planning");
+    await router.isReady();
+
+    const wrapper = mount(StoryboardPlanningCenterPage, {
+      global: {
+        plugins: [pinia, router]
+      }
+    });
+    await flushPromises();
+
+    await vi.waitFor(() => {
+      expect(wrapper.find("[data-storyboard-segmented-table]").exists()).toBe(true);
+      const groups = wrapper.findAll("[data-storyboard-segment-group]");
+      expect(groups).toHaveLength(2);
+      expect(groups[0]?.attributes("data-segment-id")).toBe("S01");
+      expect(groups[1]?.attributes("data-segment-id")).toBe("S02");
+      expect(groups[0]?.text()).toContain("SH01");
+      expect(groups[0]?.text()).toContain("SH02");
+      expect(groups[1]?.text()).toContain("SH03");
+      expect(groups[1]?.text()).toContain("SH04");
+      expect(wrapper.get("[data-storyboard-shot-warning]").text()).toContain("时间越界");
+      expect(wrapper.get("[data-storyboard-shot-warning]").text()).toContain("S02 5-10s");
+      expect(wrapper.text()).toContain("对应段落");
     });
   });
 

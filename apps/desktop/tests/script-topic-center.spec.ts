@@ -12,7 +12,7 @@ describe("Script topic center", () => {
     vi.restoreAllMocks();
   });
 
-  it("defaults to markdown preview and saves edited source content", async () => {
+  it("defaults to table workspace for legacy script text and saves edited source content", async () => {
     const projectContext = {
       projectId: "project-001",
       projectName: "Summer Launch",
@@ -23,7 +23,13 @@ describe("Script topic center", () => {
       currentVersion: {
         revision: 1,
         source: "manual",
-        content: "Old hook\nOld body",
+        content: [
+          "Wall Lamp That Changes Your Mood in Seconds",
+          "S01 0-5s This lamp made me cancel my dinner plan.",
+          "S02 5-10s Now my room feels like a 5-star hotel lounge.",
+          "S03 10-15s Want this vibe? Drop 'glow' and I'll DM you the link.",
+          "This lamp made me cancel my dinner plan. Now my room feels like a 5-star hotel lounge."
+        ].join("\n"),
         provider: null,
         model: null,
         aiJobId: null,
@@ -33,7 +39,13 @@ describe("Script topic center", () => {
         {
           revision: 1,
           source: "manual",
-          content: "Old hook\nOld body",
+          content: [
+            "Wall Lamp That Changes Your Mood in Seconds",
+            "S01 0-5s This lamp made me cancel my dinner plan.",
+            "S02 5-10s Now my room feels like a 5-star hotel lounge.",
+            "S03 10-15s Want this vibe? Drop 'glow' and I'll DM you the link.",
+            "This lamp made me cancel my dinner plan. Now my room feels like a 5-star hotel lounge."
+          ].join("\n"),
           provider: null,
           model: null,
           aiJobId: null,
@@ -105,16 +117,20 @@ describe("Script topic center", () => {
 
     expect(wrapper.find('[data-script-section="prompt-panel"]').exists()).toBe(true);
     expect(wrapper.find('[data-script-section="editor"]').exists()).toBe(true);
-    expect(wrapper.find('[data-script-section="versions"]').exists()).toBe(true);
-    expect(wrapper.find('[data-script-section="title-variants"]').exists()).toBe(true);
     expect(wrapper.text()).toContain("策划工作台");
     expect(wrapper.text()).toContain("视频主题");
     expect(wrapper.text()).toContain("产品/服务");
     expect(wrapper.text()).toContain("目标用户");
     expect(wrapper.text()).toContain("禁止内容");
     expect(wrapper.text()).toContain("结构锚点");
-    expect(wrapper.get("[data-script-preview]").text()).toContain("Old hook");
-    expect(wrapper.get("[data-script-preview]").text()).toContain("Old body");
+    expect(wrapper.get("[data-script-workspace-table]").text()).toContain("口播文案");
+    expect(wrapper.findAll("[data-script-workspace-row]")).toHaveLength(3);
+    expect(wrapper.get("[data-script-workspace-table]").text()).toContain("S01");
+    expect(wrapper.get("[data-script-workspace-table]").text()).toContain("0-5s");
+    expect(wrapper.get("[data-script-workspace-table]").text()).toContain("This lamp made me cancel my dinner plan.");
+    expect(wrapper.get("[data-script-workspace-table]").text()).not.toContain(
+      "This lamp made me cancel my dinner plan. Now my room feels like a 5-star hotel lounge."
+    );
 
     await wrapper.get('[data-editor-mode="source"]').trigger("click");
     const sourceInput = wrapper.get('[data-script-source-input] textarea');
@@ -134,8 +150,8 @@ describe("Script topic center", () => {
 
     await vi.waitFor(() => {
       expect(wrapper.text()).toContain("修订 2");
-      expect(wrapper.findAll('[data-script-version-item]')).toHaveLength(2);
-      expect(wrapper.text()).toContain("当前主标题");
+      expect(wrapper.text()).toContain("主标题");
+      expect(wrapper.text()).toContain("New hook");
     });
   });
 
@@ -226,7 +242,7 @@ describe("Script topic center", () => {
     expect(requestBody.topic).toContain("禁止内容：不要夸大承诺");
   });
 
-  it("uses the same cleaned markdown for anchors and preview rendering", async () => {
+  it("uses the same cleaned markdown for anchors and table workspace rendering", async () => {
     const projectContext = {
       projectId: "project-001",
       projectName: "Summer Launch",
@@ -316,12 +332,10 @@ describe("Script topic center", () => {
       expect(wrapper.findAll(".outline-item")).toHaveLength(3);
       expect(wrapper.find(".outline-list").text()).not.toContain("---");
       expect(wrapper.find(".outline-list").text()).not.toContain("markdown");
-      expect(wrapper.find(".script-markdown-preview table").exists()).toBe(true);
-      expect(wrapper.get("[data-script-preview]").text()).toContain("改写后脚本主题：工位“续命”杯");
-      expect(wrapper.get("[data-script-preview]").text()).toContain("分镜脚本");
-      expect(wrapper.get("[data-script-preview]").text()).toContain("工位开场");
-      expect(wrapper.get("[data-script-preview]").text()).not.toContain("```");
-      expect(wrapper.get("[data-script-preview]").text()).not.toContain("markdown");
+      expect(wrapper.find("[data-script-workspace-table]").exists()).toBe(true);
+      expect(wrapper.get("[data-script-workspace-table]").text()).toContain("工位开场");
+      expect(wrapper.get("[data-script-workspace-table]").text()).not.toContain("```");
+      expect(wrapper.get("[data-script-workspace-table]").text()).not.toContain("markdown");
     });
   });
 });

@@ -86,6 +86,9 @@ describe("workspace layout taxonomy contract", () => {
     expect(page).toMatch(
       /<div\s+class="workspace-timeline-area">[\s\S]*<WorkspaceTimelineToolbar\s+:status-label="toolBarStatus"\s*\/>[\s\S]*<WorkspaceTimeline/
     );
+    const toolBarStatusBlock = page.match(/const toolBarStatus = computed\(\(\) => \{[\s\S]*?\n\}\);/)?.[0] ?? "";
+    expect(toolBarStatusBlock).toContain('return "选择工具 · 磁吸开启";');
+    expect(toolBarStatusBlock).not.toContain("selectedClip.value");
     expect(timeline).toContain("buildTimelineRows");
     expect(timeline).toContain("TimelineClipView");
     expect(timeline).toContain("computePlayheadPercent");
@@ -117,6 +120,16 @@ describe("workspace layout taxonomy contract", () => {
     expect(timeline).toMatch(/\.workspace-track--compact\s*{[\s\S]*min-height:\s*34px;/);
     expect(timeline).toContain("workspaceTrackMetaLabel");
     expect(timeline).toContain("cleanWorkspaceText");
+    expect(timeline).toContain('class="workspace-timeline__selection"');
+    expect(timeline).toContain('class="workspace-timeline__selection-label"');
+    expect(timeline).toContain('class="workspace-timeline__selection-meta"');
+    expect(timeline).toContain("const selectedTrack = computed");
+    expect(timeline).toContain("selectedClipTrackName");
+    expect(timeline).toContain("formatWorkspaceClipRange(selectedClip.value.startMs, selectedClip.value.durationMs)");
+    expect(timeline).toContain("workspaceStatusLabel(selectedClip.value.status)");
+    expect(timeline).toMatch(/\.workspace-timeline__selection\s*{[\s\S]*min-width:\s*0;/);
+    expect(timeline).toMatch(/\.workspace-timeline__selection-label\s*{[\s\S]*text-overflow:\s*ellipsis;/);
+    expect(timeline).toMatch(/\.workspace-timeline__selection-meta\s*{[\s\S]*white-space:\s*nowrap;/);
   });
 
   it("keeps the preview phone inside the visible M05 stage", () => {
@@ -147,10 +160,15 @@ describe("workspace layout taxonomy contract", () => {
     expect(assetRail).toContain('"select-source-clip": [payload: { clipId: string; trackId: string }];');
     expect(assetRail).toContain('@click="$emit(\'select-source-clip\', { clipId: entry.id, trackId: entry.trackId })"');
     expect(assetRail).toContain('class="workspace-asset-rail__item-card"');
+    expect(assetRail).toContain('class="workspace-asset-rail__source-list"');
+    expect(assetRail).toContain('class="workspace-asset-rail__item-head"');
     expect(assetRail).toContain('class="workspace-asset-rail__item-main"');
+    expect(assetRail).toContain('class="workspace-asset-rail__item-time"');
     expect(assetRail).toContain('class="workspace-asset-rail__item-status"');
     expect(assetRail).toContain('class="workspace-asset-card__meta"');
     expect(assetRail).toContain('class="workspace-asset-card__status"');
+    expect(assetRail).toContain("sourceEntryLabel");
+    expect(assetRail).toContain("sourceEntryTime");
     expect(assetRail).toMatch(
       /\.workspace-asset-rail\s*{[\s\S]*grid-template-rows:\s*auto\s+auto\s+auto\s+auto\s+minmax\(0,\s*1fr\);/
     );
@@ -158,9 +176,14 @@ describe("workspace layout taxonomy contract", () => {
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*grid-auto-rows:\s*max-content;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*min-height:\s*0;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*overflow-y:\s*auto;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__source-list\s*{[\s\S]*padding:\s*0;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__source-list\s*{[\s\S]*margin:\s*0;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__source-list\s*{[\s\S]*list-style:\s*none;/);
     expect(assetRail).toMatch(
-      /\.workspace-asset-rail__item-card\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/
+      /\.workspace-asset-rail__item-card\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/
     );
+    expect(assetRail).toMatch(/\.workspace-asset-rail__item-head\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__item-time\s*{[\s\S]*white-space:\s*nowrap;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__item-status\s*{[\s\S]*white-space:\s*nowrap;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__item-main\s+p\s*{[\s\S]*-webkit-line-clamp:\s*2;/);
     expect(assetRail).toMatch(
