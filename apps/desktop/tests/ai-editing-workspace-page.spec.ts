@@ -47,6 +47,9 @@ describe("M05 AI 剪辑工作台页面", () => {
             message: "当前项目还没有时间线草稿。"
           });
         }
+        if (path === "/api/assets" && method === "GET") {
+          return okJsonResponse([workspaceAsset()]);
+        }
         if (path === "/api/workspace/projects/project-1/timeline" && method === "POST") {
           timelineState = workspaceTimeline();
           return okJsonResponse(
@@ -124,6 +127,27 @@ describe("M05 AI 剪辑工作台页面", () => {
     expect(wrapper.text()).toContain("主画面");
     expect(wrapper.text()).toContain("基础工具");
     expect(wrapper.text()).toContain("基础属性");
+    expect(wrapper.text()).toContain("片段信息");
+    expect(wrapper.text()).toContain("时间参数");
+    expect(wrapper.text()).toContain("素材来源");
+    expect(wrapper.text()).toContain("AI 粗剪建议");
+    expect(wrapper.text()).toContain("默认折叠");
+    const aiSuggestionDetails = wrapper.get('[data-testid="workspace-ai-suggestion-details"]');
+    expect((aiSuggestionDetails.element as HTMLDetailsElement).open).toBe(false);
+    const timelineToolbar = wrapper.get('[data-testid="workspace-timeline-toolbar"]');
+    expect(timelineToolbar.text()).toContain("选择");
+    expect(timelineToolbar.text()).toContain("移动");
+    expect(timelineToolbar.text()).toContain("分割");
+    expect(timelineToolbar.text()).toContain("删除");
+    expect(timelineToolbar.text()).toContain("磁吸");
+    expect(wrapper.get('[data-testid="workspace-tool-split"]').text()).toContain("分割");
+    expect(wrapper.get('[data-testid="workspace-tool-select"]').classes()).toContain(
+      "workspace-timeline-toolbar__button--active"
+    );
+    await wrapper.get(".workspace-clip").trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("该片段来自资产中心素材，可在后续功能中替换或重新定位。");
     expect(calls).toContainEqual({
       path: "/api/workspace/projects/project-1/timeline",
       method: "POST",
@@ -133,10 +157,21 @@ describe("M05 AI 剪辑工作台页面", () => {
     await wrapper.get('[data-testid="workspace-assemble-button"]').trigger("click");
     await flushPromises();
 
-    expect(wrapper.get('[data-testid="workspace-preview-phone"]').attributes("data-ratio")).toBe("9:16");
+    const previewPhone = wrapper.get('[data-testid="workspace-preview-phone"]');
+    expect(previewPhone.attributes("data-ratio")).toBe("9:16");
+    expect(previewPhone.text()).toContain("9:16");
+    expect(wrapper.get('[data-testid="workspace-preview-transport"]').text()).toContain("00:");
+    expect(wrapper.text()).toContain("分镜占位");
+    expect(wrapper.text()).toContain("待处理");
+    expect(wrapper.text()).not.toContain("pending");
+    expect(wrapper.text()).not.toContain("draft");
+    expect(wrapper.text()).not.toContain("延续字幕");
     expect(wrapper.text()).toContain("分镜视频轨");
     expect(wrapper.text()).toContain("配音轨");
     expect(wrapper.text()).toContain("字幕轨");
+    expect(wrapper.text()).toContain("资产");
+    expect(wrapper.text()).toContain("warm-room-lamp-vertical.mp4");
+    expect(wrapper.text()).toContain("加入轨道");
     expect(wrapper.text()).toContain("受管轨道");
     expect(wrapper.text()).toContain("本地预检");
     expect(calls).toContainEqual({
@@ -315,6 +350,47 @@ function workspaceTimeline(tracks = [manualVideoTrack()]) {
   };
 }
 
+function workspaceAsset() {
+  return {
+    id: "asset-warm-room-lamp",
+    name: "warm-room-lamp-vertical.mp4",
+    type: "video",
+    source: "asset",
+    filePath: "G:/assets/warm-room-lamp-vertical.mp4",
+    fileSizeBytes: 2048000,
+    durationMs: 7200,
+    thumbnailPath: null,
+    tags: null,
+    projectId: "project-1",
+    metadataJson: null,
+    sourceInfo: {
+      source: "import",
+      projectId: "project-1",
+      groupId: null,
+      filePath: "G:/assets/warm-room-lamp-vertical.mp4",
+      metadataSummary: {}
+    },
+    availability: {
+      status: "available",
+      errorCode: null,
+      errorMessage: null,
+      nextAction: null
+    },
+    referenceSummary: {
+      total: 0,
+      referenceTypes: [],
+      blockingDelete: false
+    },
+    thumbnailStatus: {
+      status: "missing",
+      path: null,
+      generatedAt: null
+    },
+    createdAt: now(),
+    updatedAt: now()
+  };
+}
+
 function manualVideoTrack() {
   return {
     id: "track-video",
@@ -334,7 +410,15 @@ function manualVideoTrack() {
         durationMs: 4200,
         inPointMs: 0,
         outPointMs: null,
-        status: "ready"
+        status: "ready",
+        metadata: {
+          sourceKind: "asset",
+          sourceRevision: null,
+          segmentIndex: null,
+          segmentId: null,
+          text: null,
+          visualPrompt: null
+        }
       }
     ]
   };
@@ -383,6 +467,8 @@ function managedSubtitleTrack() {
 }
 
 function managedClip(id: string, trackId: string, sourceType: string, label: string) {
+  const text = sourceType === "subtitle_track" ? "（延续字幕）" : "This lamp made me cancel my dinner plan.";
+
   return {
     id,
     trackId,
@@ -399,7 +485,7 @@ function managedClip(id: string, trackId: string, sourceType: string, label: str
       sourceRevision: 1,
       segmentIndex: 0,
       segmentId: "S01",
-      text: "This lamp made me cancel my dinner plan.",
+      text,
       visualPrompt: "墙灯亮起，房间从冷光转暖光。"
     }
   };

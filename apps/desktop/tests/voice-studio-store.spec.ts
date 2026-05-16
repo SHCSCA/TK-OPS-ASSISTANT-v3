@@ -43,6 +43,23 @@ describe("M07 配音中心 store", () => {
     expect(store.sourceText).not.toContain("9:16");
   });
 
+  it("从分镜提取配音段落时跳过延续上句占位", async () => {
+    vi.stubGlobal("fetch", createVoiceFetch({ storyboardDocument: storyboardWithContinuationPlaceholders() }));
+
+    const store = useVoiceStudioStore();
+    await store.load("project-1");
+
+    expect(store.paragraphs.map((item) => item.speechText)).toEqual([
+      "This lamp made me cancel my dinner plan.",
+      "Now my room feels like a 5-star hotel lounge."
+    ]);
+    expect(store.sourceText).not.toContain("延续上句");
+    expect(store.paragraphs.map((item) => item.text)).toEqual([
+      "0-3s: This lamp made me cancel my dinner plan.",
+      "5-8s: Now my room feels like a 5-star hotel lounge."
+    ]);
+  });
+
   it("生成配音版本时保留 blocked 状态和中文说明", async () => {
     vi.stubGlobal("fetch", createVoiceFetch());
 
@@ -237,6 +254,7 @@ function createVoiceFetch(
     emptyScript?: boolean;
     generatingTask?: boolean;
     scriptContent?: string;
+    storyboardDocument?: unknown;
     withTrackDetails?: boolean;
   } = {}
 ) {
@@ -245,6 +263,13 @@ function createVoiceFetch(
       return okJsonResponse(
         scriptDocument(options.emptyScript ? "" : options.scriptContent ?? "第一段脚本\n\n第二段脚本")
       );
+    }
+    if (
+      path === "/api/storyboards/projects/project-1/document" &&
+      method === "GET" &&
+      Object.prototype.hasOwnProperty.call(options, "storyboardDocument")
+    ) {
+      return okJsonResponse(options.storyboardDocument);
     }
     if (path === "/api/voice/profiles") {
       return okJsonResponse([
@@ -324,6 +349,56 @@ function markdownScriptDocument() {
 \`\`\`text
 I thought this was just another plain coffee cup…
 \`\`\``;
+}
+
+function storyboardWithContinuationPlaceholders() {
+  return {
+    projectId: "project-1",
+    basedOnScriptRevision: 1,
+    currentVersion: {
+      revision: 1,
+      basedOnScriptRevision: 1,
+      source: "ai_generate",
+      scenes: [
+        {
+          sceneId: "scene-1",
+          time: "0-3s",
+          voiceover: "This lamp made me cancel my dinner plan.",
+          subtitle: "This lamp made me cancel my dinner plan."
+        },
+        {
+          sceneId: "scene-2",
+          time: "3-5s",
+          voiceover: "(延续上句口播)",
+          subtitle: "(延续上句字幕)"
+        },
+        {
+          sceneId: "scene-3",
+          time: "5-8s",
+          voiceover: "Now my room feels like a 5-star hotel lounge.",
+          subtitle: "Now my room feels like a 5-star hotel lounge."
+        },
+        {
+          sceneId: "scene-4",
+          time: "8-10s",
+          voiceover: "",
+          subtitle: "（延续上句字幕）"
+        },
+        {
+          sceneId: "scene-5",
+          time: "8-10s",
+          voiceover: "(延续口播)",
+          subtitle: "（延续字幕）"
+        }
+      ],
+      provider: "deepseek",
+      model: "deepseek-chat",
+      aiJobId: "job-001",
+      createdAt: now()
+    },
+    versions: [],
+    recentJobs: []
+  };
 }
 
 function taskInfo(

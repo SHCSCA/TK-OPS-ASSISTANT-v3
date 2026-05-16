@@ -136,8 +136,14 @@
               <WorkspaceAssetRail
                 class="stage-panel"
                 :assembly-state="assemblyState"
+                :asset-error="assetError"
+                :asset-status="assetStatus"
+                :assets="assets"
+                :project-id="currentProjectId"
                 :selected-clip="selectedClip"
                 :timeline="timeline"
+                @select-source-clip="handleSelectClip"
+                @sync-assets="handleSyncAssets"
               />
             </div>
 
@@ -159,6 +165,7 @@
                 :assembly-state="assemblyState"
                 :blocked-message="inspectorBlockedMessage"
                 :error-message="error?.message ?? null"
+                :last-command-result="lastCommandResult"
                 :precheck="precheck"
                 :save-state="saveState"
                 :selected-clip="selectedClip"
@@ -169,33 +176,10 @@
             </div>
           </div>
 
-          <div class="workspace-tool-bar" aria-label="基础工具">
-            <div>
-              <strong>基础工具</strong>
-              <span>{{ toolBarStatus }}</span>
-            </div>
-            <div class="workspace-tool-bar__actions">
-              <button type="button" disabled title="撤销">
-                <span class="material-symbols-outlined">undo</span>
-              </button>
-              <button type="button" disabled title="重做">
-                <span class="material-symbols-outlined">redo</span>
-              </button>
-              <button type="button" disabled title="分割">
-                <span class="material-symbols-outlined">content_cut</span>
-              </button>
-              <button type="button" disabled title="删除">
-                <span class="material-symbols-outlined">delete</span>
-              </button>
-              <button type="button" disabled title="吸附">
-                <span class="material-symbols-outlined">join_full</span>
-              </button>
-            </div>
-          </div>
-
           <div class="workspace-timeline-area-wrapper">
             <p class="panel-label">时间线</p>
             <div class="workspace-timeline-area">
+              <WorkspaceTimelineToolbar :status-label="toolBarStatus" />
               <WorkspaceTimeline
                 :selected-clip-id="selectedClipId"
                 :selected-track-id="selectedTrackId"
@@ -224,6 +208,8 @@ import WorkspaceAssetRail from "@/modules/workspace/WorkspaceAssetRail.vue";
 import WorkspaceInspector from "@/modules/workspace/WorkspaceInspector.vue";
 import WorkspacePreviewStage from "@/modules/workspace/WorkspacePreviewStage.vue";
 import WorkspaceTimeline from "@/modules/workspace/WorkspaceTimeline.vue";
+import WorkspaceTimelineToolbar from "@/modules/workspace/WorkspaceTimelineToolbar.vue";
+import { cleanWorkspaceText, workspaceStatusLabel } from "@/modules/workspace/workspaceTimelineViewModel";
 import { useEditingWorkspaceStore } from "@/stores/editing-workspace";
 import { useProjectStore } from "@/stores/project";
 import { createRouteDetailContext, useShellUiStore } from "@/stores/shell-ui";
@@ -236,9 +222,13 @@ const taskBusStore = useTaskBusStore();
 
 const {
   assemblyState,
+  assetError,
+  assetStatus,
+  assets,
   blockedMessage,
   error,
   hasTimeline,
+  lastCommandResult,
   orderedTracks,
   precheck,
   saveState,
@@ -264,7 +254,7 @@ const precheckLabel = computed(() => {
 });
 
 const selectionLabel = computed(() => {
-  if (selectedClip.value) return `片段：${selectedClip.value.label}`;
+  if (selectedClip.value) return `片段：${cleanWorkspaceText(selectedClip.value.label, "未命名片段")}`;
   if (selectedTrack.value) return `轨道：${selectedTrack.value.name}`;
   if (hasTimeline.value) return "尚未选择轨道或片段";
   return "等待创建时间线";
@@ -300,9 +290,7 @@ const generateDisabled = computed(
 );
 const toolBarStatus = computed(() => {
   if (!timeline.value) return "等待时间线";
-  if (selectedClip.value) return `片段：${selectedClip.value.label}`;
-  if (selectedTrack.value) return `轨道：${selectedTrack.value.name}`;
-  return "未选择片段";
+  return "选择工具 · 磁吸开启";
 });
 
 const inspectorBlockedMessage = computed(() => {
@@ -310,6 +298,8 @@ const inspectorBlockedMessage = computed(() => {
 });
 
 onMounted(() => {
+  shellUiStore.closeDetailPanel();
+
   if (typeof WebSocket !== "undefined") {
     taskBusStore.connect();
   }
@@ -335,7 +325,7 @@ watch(
         title: currentProjectName.value,
         description: hasTimeline.value ? "时间线与检查器保持联动。" : "等待创建主时间线。",
         badge: {
-          label: activeTask.value ? "处理中" : status.value === "ready" ? "已就绪" : status.value,
+          label: activeTask.value ? "处理中" : workspaceStatusLabel(status.value),
           tone: error.value
             ? "danger"
             : blockedMessage.value
@@ -357,8 +347,12 @@ watch(
             title: "当前选择",
             fields: [
               { id: "track", label: "轨道", value: selectedTrack.value?.name ?? "未选择" },
-              { id: "clip", label: "片段", value: selectedClip.value?.label ?? "未选择" },
-              { id: "status", label: "片段状态", value: selectedClip.value?.status ?? "未选择" }
+              {
+                id: "clip",
+                label: "片段",
+                value: selectedClip.value ? cleanWorkspaceText(selectedClip.value.label, "未命名片段") : "未选择"
+              },
+              { id: "status", label: "片段状态", value: workspaceStatusLabel(selectedClip.value?.status) }
             ]
           },
           {
@@ -397,9 +391,6 @@ watch(
       })
     );
 
-    if (error.value || blockedMessage.value) {
-      shellUiStore.openDetailPanel();
-    }
   },
   { immediate: true }
 );
@@ -440,15 +431,19 @@ async function handleRetry(): Promise<void> {
   }
 }
 
+async function handleSyncAssets(): Promise<void> {
+  if (currentProjectId.value) {
+    await workspaceStore.loadAssets(currentProjectId.value);
+  }
+}
+
 function handleSelectTrack(trackId: string): void {
   workspaceStore.selectTrack(trackId);
-  shellUiStore.openDetailPanel();
 }
 
 function handleSelectClip(payload: { clipId: string; trackId: string }): void {
   workspaceStore.selectTrack(payload.trackId);
   workspaceStore.selectClip(payload.clipId);
-  shellUiStore.openDetailPanel();
 }
 </script>
 

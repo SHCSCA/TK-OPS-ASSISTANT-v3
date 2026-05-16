@@ -67,11 +67,12 @@
               <div v-if="!hasScriptContent" class="empty-text">
                 当前项目尚未采用脚本文案，请先到脚本与选题中心完成脚本确认。
               </div>
-              <ScriptSegmentTable
-                v-else-if="scriptDocumentJson"
+              <ScriptWorkspaceTable
+                v-else
+                density="compact"
                 :document-json="scriptDocumentJson"
+                :content="scriptMarkdownContent"
               />
-              <ScriptMarkdownPreview v-else :markdown="scriptMarkdownContent" />
             </div>
           </Card>
         </aside>
@@ -132,6 +133,8 @@
                 <div class="storyboard-preview-pane scroll-area" data-storyboard-list-workspace>
                   <StoryboardStructuredPreview
                     v-if="storyboardDocumentJson"
+                    :script-content="scriptMarkdownContent"
+                    :script-document-json="scriptDocumentJson"
                     :storyboard-json="storyboardDocumentJson"
                   />
                   <ScriptMarkdownPreview v-else :markdown="storyboardMarkdown" />
@@ -158,7 +161,7 @@ import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 import ScriptMarkdownPreview from "@/pages/scripts/components/ScriptMarkdownPreview.vue";
-import ScriptSegmentTable from "@/pages/scripts/components/ScriptSegmentTable.vue";
+import ScriptWorkspaceTable from "@/pages/scripts/components/ScriptWorkspaceTable.vue";
 import StoryboardStructuredPreview from "@/pages/storyboards/components/StoryboardStructuredPreview.vue";
 import { buildStoryboardMarkdown } from "@/pages/storyboards/storyboard-markdown";
 import { useProjectStore } from "@/stores/project";

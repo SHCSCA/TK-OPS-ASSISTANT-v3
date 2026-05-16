@@ -152,7 +152,7 @@ onMounted(() => {
   taskBusStore.connect();
 
   if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-    constrainedShellQuery = window.matchMedia("(max-width: 1440px)");
+    constrainedShellQuery = window.matchMedia("(max-width: 1859px)");
     compactDetailShellQuery = window.matchMedia("(max-width: 960px)");
     syncShellConstraint(constrainedShellQuery);
     syncCompactDetailShell(compactDetailShellQuery);

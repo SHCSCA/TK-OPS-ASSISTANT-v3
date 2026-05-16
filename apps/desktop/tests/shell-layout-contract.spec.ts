@@ -99,6 +99,8 @@ describe("shell layout contract", () => {
   it("protects the main workspace when a desktop detail panel is open", () => {
     const appShell = readSource("../src/layouts/AppShell.vue");
 
+    expect(appShell).toContain('window.matchMedia("(max-width: 1859px)")');
+    expect(appShell).not.toContain('window.matchMedia("(max-width: 1440px)")');
     expect(appShell).toContain("const shouldProtectWorkspace = computed");
     expect(appShell).toContain("const effectiveSidebarCollapsed = computed");
     expect(appShell).toContain(':is-collapsed="effectiveSidebarCollapsed"');

@@ -79,7 +79,7 @@ describe("M09 资产中心页面体验", () => {
     await flushPromises();
 
     expect(wrapper.findAll('[data-testid^="asset-card-"]')).toHaveLength(3);
-    expect(wrapper.text()).toContain("当前结果");
+    expect(wrapper.text()).toContain("资产结果");
 
     await wrapper.get('[data-testid="asset-card-asset-image"]').trigger("click");
     await flushPromises();
@@ -111,6 +111,12 @@ describe("M09 资产中心页面体验", () => {
             )
           );
         }
+        if (path === "/api/assets/asset-3" && method === "GET") {
+          return okJsonResponse(
+            asset("asset-3", "batch-b.jpg", "image", "D:/tkops/assets/batch-b.jpg")
+          );
+        }
+        if (path === "/api/assets/asset-3/references" && method === "GET") return okJsonResponse([]);
         throw new Error(`Unhandled request: ${method} ${path}`);
       })
     );

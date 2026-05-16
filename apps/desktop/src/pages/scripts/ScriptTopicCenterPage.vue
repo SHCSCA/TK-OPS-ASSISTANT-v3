@@ -178,11 +178,11 @@
                   <button
                     type="button"
                     class="editor-mode-switch__button"
-                    :class="{ 'is-active': editorMode === 'preview' }"
-                    data-editor-mode="preview"
-                    @click="editorMode = 'preview'"
+                    :class="{ 'is-active': editorMode === 'table' }"
+                    data-editor-mode="table"
+                    @click="editorMode = 'table'"
                   >
-                    预览
+                    表格
                   </button>
                   <button
                     type="button"
@@ -210,11 +210,11 @@
                 </p>
               </div>
               <div v-else class="editor-content">
-                <ScriptStructuredPreview
-                  v-if="activeDocumentJson"
+                <ScriptWorkspaceTable
+                  v-if="editorMode === 'table'"
                   :document-json="activeDocumentJson"
+                  :content="content"
                 />
-                <ScriptMarkdownPreview v-else-if="editorMode === 'preview'" :markdown="content" />
                 <div v-else class="editor-source">
                   <Input
                     v-model="content"
@@ -337,8 +337,7 @@ import Button from "@/components/ui/Button/Button.vue";
 import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 import Input from "@/components/ui/Input/Input.vue";
-import ScriptMarkdownPreview from "@/pages/scripts/components/ScriptMarkdownPreview.vue";
-import ScriptStructuredPreview from "@/pages/scripts/components/ScriptStructuredPreview.vue";
+import ScriptWorkspaceTable from "@/pages/scripts/components/ScriptWorkspaceTable.vue";
 import { buildScriptPlainText } from "@/modules/scripts/script-document-view-model";
 import {
   buildScriptPlanningPrompt,
@@ -351,7 +350,7 @@ import { createRouteDetailContext, useShellUiStore } from "@/stores/shell-ui";
 import { useScriptStudioStore } from "@/stores/script-studio";
 import type { ScriptVersion } from "@/types/runtime";
 
-type EditorMode = "preview" | "source";
+type EditorMode = "table" | "source";
 type PageState = "loading" | "empty" | "ready" | "error" | "blocked";
 type Tone = "neutral" | "brand" | "success" | "warning" | "danger" | "info" | "default";
 
@@ -361,7 +360,7 @@ const shellUiStore = useShellUiStore();
 const { document } = storeToRefs(scriptStore);
 
 const content = ref("");
-const editorMode = ref<EditorMode>("preview");
+const editorMode = ref<EditorMode>("table");
 const showVersionDrawer = ref(false);
 const planningBrief = reactive(createDefaultPlanningBrief());
 const selectedRevision = ref<number | null>(null);
@@ -455,7 +454,7 @@ watch(
     if (!projectId || projectId === previousProjectId) return;
     Object.assign(planningBrief, createDefaultPlanningBrief());
     selectedRevision.value = null;
-    editorMode.value = "preview";
+    editorMode.value = "table";
     void scriptStore.load(projectId);
   },
   { immediate: true }
