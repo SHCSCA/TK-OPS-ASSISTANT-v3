@@ -140,8 +140,17 @@ describe("workspace layout taxonomy contract", () => {
   });
 
   it("keeps the M05 asset rail list scrollable instead of clipping long content", () => {
+    const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
     const assetRail = readSource("../src/modules/workspace/WorkspaceAssetRail.vue");
 
+    expect(page).toContain('@select-source-clip="handleSelectClip"');
+    expect(assetRail).toContain('"select-source-clip": [payload: { clipId: string; trackId: string }];');
+    expect(assetRail).toContain('@click="$emit(\'select-source-clip\', { clipId: entry.id, trackId: entry.trackId })"');
+    expect(assetRail).toContain('class="workspace-asset-rail__item-card"');
+    expect(assetRail).toContain('class="workspace-asset-rail__item-main"');
+    expect(assetRail).toContain('class="workspace-asset-rail__item-status"');
+    expect(assetRail).toContain('class="workspace-asset-card__meta"');
+    expect(assetRail).toContain('class="workspace-asset-card__status"');
     expect(assetRail).toMatch(
       /\.workspace-asset-rail\s*{[\s\S]*grid-template-rows:\s*auto\s+auto\s+auto\s+auto\s+minmax\(0,\s*1fr\);/
     );
@@ -149,6 +158,18 @@ describe("workspace layout taxonomy contract", () => {
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*grid-auto-rows:\s*max-content;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*min-height:\s*0;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*overflow-y:\s*auto;/);
+    expect(assetRail).toMatch(
+      /\.workspace-asset-rail__item-card\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/
+    );
+    expect(assetRail).toMatch(/\.workspace-asset-rail__item-status\s*{[\s\S]*white-space:\s*nowrap;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__item-main\s+p\s*{[\s\S]*-webkit-line-clamp:\s*2;/);
+    expect(assetRail).toMatch(
+      /\.workspace-asset-card\s*{[\s\S]*grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\);/
+    );
+    expect(assetRail).not.toMatch(/\.workspace-asset-card\s*{[\s\S]*grid-template-columns:\s*54px\s+minmax\(0,\s*1fr\)\s+auto;/);
+    expect(assetRail).toMatch(/\.workspace-asset-card__meta\s*{[\s\S]*justify-content:\s*space-between;/);
+    expect(assetRail).toMatch(/\.workspace-asset-card__status\s*{[\s\S]*white-space:\s*nowrap;/);
+    expect(assetRail).toMatch(/\.workspace-asset-card__body\s+p\s*{[\s\S]*-webkit-line-clamp:\s*2;/);
     expect(assetRail).toContain("workspaceStatusLabel");
     expect(assetRail).toContain("formatWorkspaceClipRange");
   });

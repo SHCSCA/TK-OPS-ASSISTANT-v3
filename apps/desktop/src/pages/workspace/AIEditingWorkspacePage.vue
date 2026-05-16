@@ -142,6 +142,7 @@
                 :project-id="currentProjectId"
                 :selected-clip="selectedClip"
                 :timeline="timeline"
+                @select-source-clip="handleSelectClip"
                 @sync-assets="handleSyncAssets"
               />
             </div>

@@ -59,9 +59,11 @@
           <div class="workspace-asset-card__body">
             <strong>{{ asset.name }}</strong>
             <p>{{ asset.summary }}</p>
-            <span>{{ asset.status }}</span>
           </div>
-          <button type="button" disabled>{{ asset.primaryAction }}</button>
+          <div class="workspace-asset-card__meta">
+            <span class="workspace-asset-card__status">{{ asset.status }}</span>
+            <button type="button" disabled>{{ asset.primaryAction }}</button>
+          </div>
         </article>
       </div>
     </template>
@@ -93,13 +95,19 @@
             class="workspace-asset-rail__item"
             :class="{ 'workspace-asset-rail__item--active': selectedClip?.id === entry.id }"
           >
-            <div>
-              <strong>{{ sourceEntryTitle(entry) }}</strong>
-              <p>{{ entry.trackName }} · {{ sourceTypeLabel(entry.sourceType) }} · {{ trackPolicy(entry.trackId) }}</p>
-            </div>
-            <span :data-status="entry.status">
-              {{ workspaceStatusLabel(entry.status) }}
-            </span>
+            <button
+              class="workspace-asset-rail__item-card"
+              type="button"
+              @click="$emit('select-source-clip', { clipId: entry.id, trackId: entry.trackId })"
+            >
+              <div class="workspace-asset-rail__item-main">
+                <strong>{{ sourceEntryTitle(entry) }}</strong>
+                <p>{{ entry.trackName }} · {{ sourceTypeLabel(entry.sourceType) }} · {{ trackPolicy(entry.trackId) }}</p>
+              </div>
+              <span class="workspace-asset-rail__item-status" :data-status="entry.status">
+                {{ workspaceStatusLabel(entry.status) }}
+              </span>
+            </button>
           </li>
         </transition-group>
       </div>
@@ -142,6 +150,7 @@ const props = defineProps<{
 
 defineEmits<{
   "sync-assets": [];
+  "select-source-clip": [payload: { clipId: string; trackId: string }];
 }>();
 
 const activeTab = ref<SourceTabId>("assets");
@@ -268,7 +277,7 @@ function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string 
 
 .workspace-asset-rail__heading p,
 .workspace-asset-rail__summary p,
-.workspace-asset-rail__item p,
+.workspace-asset-rail__item-main p,
 .workspace-asset-rail__empty p,
 .workspace-asset-rail__empty {
   color: var(--text-secondary);
@@ -397,62 +406,105 @@ function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string 
 }
 
 .workspace-asset-rail__item {
-  align-items: center;
+  list-style: none;
+  min-width: 0;
+}
+
+.workspace-asset-rail__item-card {
+  align-items: start;
+  appearance: none;
   background: var(--surface-tertiary);
   border: 1px solid transparent;
   border-radius: 8px;
-  cursor: default;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
   padding: 14px;
+  text-align: left;
   transition: all var(--motion-fast) var(--ease-standard);
+  width: 100%;
 }
 
-.workspace-asset-rail__item:hover {
+.workspace-asset-rail__item-card:hover,
+.workspace-asset-rail__item-card:focus-visible {
   background: var(--color-bg-hover);
+  outline: none;
 }
 
-.workspace-asset-rail__item:active {
+.workspace-asset-rail__item-card:active {
   transform: scale(0.98);
 }
 
-.workspace-asset-rail__item--active {
+.workspace-asset-rail__item--active .workspace-asset-rail__item-card {
   border-color: color-mix(in srgb, var(--brand-primary) 32%, var(--border-default));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-primary) 28%, transparent);
 }
 
-.workspace-asset-rail__item span,
-.workspace-asset-card__body span {
+.workspace-asset-rail__item-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.workspace-asset-rail__item-main strong,
+.workspace-asset-rail__item-main p {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.workspace-asset-rail__item-main strong {
+  display: -webkit-box;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.workspace-asset-rail__item-main p {
+  color: var(--text-secondary);
+  display: -webkit-box;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.workspace-asset-rail__item-status {
   border-radius: 999px;
   font-size: 12px;
   padding: 4px 10px;
 }
 
-.workspace-asset-rail__item span[data-status="ready"] {
+.workspace-asset-rail__item-status {
+  align-self: start;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.workspace-asset-rail__item-status[data-status="ready"] {
   background: color-mix(in srgb, var(--color-success) 16%, transparent);
   color: var(--color-success);
 }
 
-.workspace-asset-rail__item span[data-status="blocked"] {
+.workspace-asset-rail__item-status[data-status="blocked"] {
   background: color-mix(in srgb, var(--color-warning) 16%, transparent);
   color: var(--color-warning);
 }
 
-.workspace-asset-rail__item span[data-status="error"],
-.workspace-asset-rail__item span[data-status="missing_source"] {
+.workspace-asset-rail__item-status[data-status="error"],
+.workspace-asset-rail__item-status[data-status="missing_source"] {
   background: color-mix(in srgb, var(--color-danger) 16%, transparent);
   color: var(--color-danger);
 }
 
 .workspace-asset-card {
-  align-items: center;
+  align-items: start;
   background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
   border-radius: 8px;
   display: grid;
-  gap: 10px;
-  grid-template-columns: 54px minmax(0, 1fr) auto;
+  gap: 10px 12px;
+  grid-template-columns: 44px minmax(0, 1fr);
   padding: 12px;
 }
 
@@ -479,6 +531,7 @@ function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string 
   color: var(--text-secondary);
   display: flex;
   justify-content: center;
+  min-width: 0;
 }
 
 .workspace-asset-card__body {
@@ -489,9 +542,12 @@ function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string 
 
 .workspace-asset-card__body strong,
 .workspace-asset-card__body p {
+  display: -webkit-box;
+  line-height: 1.35;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .workspace-asset-card__body p {
@@ -499,10 +555,23 @@ function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string 
   margin: 0;
 }
 
-.workspace-asset-card__body span {
+.workspace-asset-card__meta {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.workspace-asset-card__status {
   background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+  border-radius: 999px;
   color: var(--text-secondary);
-  justify-self: start;
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 4px 10px;
+  white-space: nowrap;
 }
 
 .workspace-asset-card button {
@@ -510,8 +579,10 @@ function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string 
   border: 1px solid var(--border-default);
   border-radius: 8px;
   color: var(--text-secondary);
+  flex: 0 0 auto;
   min-height: 32px;
   padding: 0 10px;
+  white-space: nowrap;
 }
 
 .source-list-move,
