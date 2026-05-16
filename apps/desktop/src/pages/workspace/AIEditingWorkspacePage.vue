@@ -175,11 +175,10 @@
             </div>
           </div>
 
-          <WorkspaceTimelineToolbar :status-label="toolBarStatus" />
-
           <div class="workspace-timeline-area-wrapper">
             <p class="panel-label">时间线</p>
             <div class="workspace-timeline-area">
+              <WorkspaceTimelineToolbar :status-label="toolBarStatus" />
               <WorkspaceTimeline
                 :selected-clip-id="selectedClipId"
                 :selected-track-id="selectedTrackId"

@@ -63,7 +63,7 @@ const tools = [
   gap: var(--space-3);
   justify-content: space-between;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 8px 12px;
 }
 
 .workspace-timeline-toolbar__status {
@@ -105,7 +105,7 @@ const tools = [
   color: rgb(219 231 247 / 72%);
   display: inline-flex;
   gap: 6px;
-  height: 32px;
+  height: 30px;
   justify-content: center;
   min-width: 70px;
   padding: 0 10px;
@@ -244,7 +244,7 @@ const tools = [
   border-radius: 8px;
   display: inline-flex;
   gap: 8px;
-  height: 32px;
+  height: 30px;
   padding: 0 10px;
 }
 

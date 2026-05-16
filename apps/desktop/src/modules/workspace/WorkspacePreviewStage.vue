@@ -179,8 +179,11 @@ function formatMs(value: number): string {
   border-radius: 8px;
   box-shadow: var(--shadow-sm);
   display: grid;
-  gap: 16px;
-  padding: 18px;
+  gap: 12px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 14px;
 }
 
 .workspace-preview-stage__header,
@@ -215,6 +218,11 @@ function formatMs(value: number): string {
 
 .workspace-preview-stage__body {
   align-items: stretch;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(270px, 430px) minmax(220px, 290px);
+  min-height: 0;
+  justify-content: center;
 }
 
 .workspace-preview-stage__viewer {
@@ -225,10 +233,10 @@ function formatMs(value: number): string {
   border: 1px solid var(--border-default);
   border-radius: 8px;
   display: flex;
-  flex: 1;
   justify-content: center;
-  min-height: 360px;
-  padding: 18px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 14px;
 }
 
 .workspace-preview-stage__phone {
@@ -240,9 +248,11 @@ function formatMs(value: number): string {
   border-radius: 30px;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   display: grid;
-  min-height: 320px;
+  height: min(100%, 500px);
+  max-height: 500px;
+  min-height: 0;
   overflow: hidden;
-  width: min(42vh, 240px);
+  width: auto;
 }
 
 .workspace-preview-stage__screen {
@@ -328,6 +338,8 @@ function formatMs(value: number): string {
   border-radius: 8px;
   display: grid;
   gap: 12px;
+  max-height: 100%;
+  min-height: 0;
   min-width: 220px;
   padding: 16px;
 }
@@ -407,10 +419,17 @@ function formatMs(value: number): string {
 }
 
 @media (max-width: 960px) {
-  .workspace-preview-stage__body,
   .workspace-preview-stage__footer {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .workspace-preview-stage__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-preview-stage__viewer {
+    min-height: 420px;
   }
 
   .workspace-preview-stage__facts {

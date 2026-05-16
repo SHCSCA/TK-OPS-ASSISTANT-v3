@@ -25,16 +25,21 @@ describe("workspace layout taxonomy contract", () => {
     const css = readSource("../src/pages/workspace/AIEditingWorkspacePage.css");
 
     expect(css).toMatch(
-      /\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+auto\s+minmax\(260px,\s*34vh\);/
+      /\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(420px,\s*1fr\)\s+284px;/
     );
-    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*gap:\s*var\(--space-3\);/);
+    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*gap:\s*10px;/);
     expect(css).toMatch(
       /\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(270px,\s*330px\)\s+minmax\(520px,\s*1fr\)\s+minmax\(280px,\s*340px\);/
     );
-    expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*gap:\s*var\(--space-3\);/);
+    expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*gap:\s*10px;/);
+    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*overflow-x:\s*hidden;/);
+    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*overflow-y:\s*auto;/);
+    expect(css).toMatch(/\.workspace-timeline-area-wrapper\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;/);
+    expect(css).toMatch(/\.workspace-timeline-area\s*{[\s\S]*background:\s*#0f1722;/);
+    expect(css).toContain(".workspace-timeline-area :deep(.workspace-timeline-toolbar)");
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*330px\)\s+minmax\(0,\s*1fr\);/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*180px;/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*auto\s+auto\s+minmax\(260px,\s*36vh\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*220px;/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*auto\s+minmax\(284px,\s*38vh\);/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*overflow-y:\s*auto;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
     expect(css).not.toContain(".workspace-tool-bar");
@@ -75,8 +80,12 @@ describe("workspace layout taxonomy contract", () => {
   });
 
   it("renders the M05 timeline visual contract through the view model", () => {
+    const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
     const timeline = readSource("../src/modules/workspace/WorkspaceTimeline.vue");
 
+    expect(page).toMatch(
+      /<div\s+class="workspace-timeline-area">[\s\S]*<WorkspaceTimelineToolbar\s+:status-label="toolBarStatus"\s*\/>[\s\S]*<WorkspaceTimeline/
+    );
     expect(timeline).toContain("buildTimelineRows");
     expect(timeline).toContain("TimelineClipView");
     expect(timeline).toContain("computePlayheadPercent");
@@ -102,5 +111,37 @@ describe("workspace layout taxonomy contract", () => {
     expect(timeline).toMatch(/\.workspace-track--voice\s+\.workspace-clip\s*{/);
     expect(timeline).toMatch(/\.workspace-track--bgm\s+\.workspace-clip\s*{/);
     expect(timeline).toMatch(/\.workspace-track--subtitle\s+\.workspace-clip\s*{/);
+    expect(timeline).toMatch(/\.workspace-timeline__tracks\s*{[\s\S]*height:\s*100%;/);
+    expect(timeline).toMatch(/\.workspace-track--tall\s*{[\s\S]*min-height:\s*64px;/);
+    expect(timeline).toMatch(/\.workspace-track--medium\s*{[\s\S]*min-height:\s*46px;/);
+    expect(timeline).toMatch(/\.workspace-track--compact\s*{[\s\S]*min-height:\s*34px;/);
+  });
+
+  it("keeps the preview phone inside the visible M05 stage", () => {
+    const preview = readSource("../src/modules/workspace/WorkspacePreviewStage.vue");
+
+    expect(preview).toMatch(
+      /\.workspace-preview-stage\s*{[\s\S]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/
+    );
+    expect(preview).toMatch(/\.workspace-preview-stage\s*{[\s\S]*overflow:\s*hidden;/);
+    expect(preview).toMatch(
+      /\.workspace-preview-stage__body\s*{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*minmax\(270px,\s*430px\)\s+minmax\(220px,\s*290px\);/
+    );
+    expect(preview).toMatch(/\.workspace-preview-stage__viewer\s*{[\s\S]*min-height:\s*0;/);
+    expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*aspect-ratio:\s*9\s*\/\s*16;/);
+    expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*height:\s*min\(100%,\s*500px\);/);
+    expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*max-height:\s*500px;/);
+  });
+
+  it("keeps the M05 asset rail list scrollable instead of clipping long content", () => {
+    const assetRail = readSource("../src/modules/workspace/WorkspaceAssetRail.vue");
+
+    expect(assetRail).toMatch(
+      /\.workspace-asset-rail\s*{[\s\S]*grid-template-rows:\s*auto\s+auto\s+auto\s+auto\s+minmax\(0,\s*1fr\);/
+    );
+    expect(assetRail).toMatch(/\.workspace-asset-rail\s*{[\s\S]*overflow:\s*hidden;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*grid-auto-rows:\s*max-content;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*min-height:\s*0;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*overflow-y:\s*auto;/);
   });
 });

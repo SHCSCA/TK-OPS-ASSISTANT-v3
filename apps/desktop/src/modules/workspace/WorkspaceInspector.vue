@@ -231,6 +231,8 @@ function formatMs(value: number): string {
   box-shadow: var(--shadow-sm);
   display: grid;
   gap: 14px;
+  min-height: 0;
+  overflow: auto;
   padding: 18px;
 }
 

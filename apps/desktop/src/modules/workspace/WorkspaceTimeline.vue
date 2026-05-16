@@ -251,8 +251,8 @@ function formatMs(value: number): string {
 
 .workspace-timeline__header {
   align-items: center;
-  min-height: 48px;
-  padding: 0 16px;
+  min-height: 34px;
+  padding: 0 14px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.18);
   background: rgba(15, 23, 42, 0.86);
 }
@@ -270,8 +270,8 @@ function formatMs(value: number): string {
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 999px;
   color: rgba(226, 232, 240, 0.82);
-  font-size: 12px;
-  padding: 6px 12px;
+  font-size: 11px;
+  padding: 4px 10px;
 }
 
 .workspace-timeline__empty {
@@ -287,7 +287,7 @@ function formatMs(value: number): string {
 
 .workspace-timeline__body {
   display: grid;
-  grid-template-rows: 34px minmax(0, 1fr);
+  grid-template-rows: 28px minmax(0, 1fr);
   min-height: 0;
   position: relative;
 }
@@ -308,7 +308,7 @@ function formatMs(value: number): string {
     linear-gradient(to right, rgba(148, 163, 184, 0.16) 1px, transparent 1px),
     rgba(2, 6, 23, 0.72);
   background-size: 80px 100%;
-  min-height: 34px;
+  min-height: 28px;
   position: relative;
 }
 
@@ -316,7 +316,7 @@ function formatMs(value: number): string {
   color: rgba(148, 163, 184, 0.9);
   font-size: 11px;
   position: absolute;
-  top: 9px;
+  top: 7px;
   transform: translateX(-50%);
 }
 
@@ -334,7 +334,7 @@ function formatMs(value: number): string {
 .workspace-timeline__playhead::before {
   content: "";
   position: absolute;
-  top: 30px;
+  top: 26px;
   left: -5px;
   width: 11px;
   height: 11px;
@@ -358,6 +358,7 @@ function formatMs(value: number): string {
 .workspace-timeline__tracks {
   display: grid;
   gap: 0;
+  height: 100%;
   min-height: 0;
   overflow: auto;
 }
@@ -379,22 +380,22 @@ function formatMs(value: number): string {
 .workspace-track {
   align-items: stretch;
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
+  grid-template-columns: 144px minmax(0, 1fr);
   border-bottom: 1px solid rgba(148, 163, 184, 0.16);
   background: rgba(15, 23, 42, 0.46);
   padding: 0;
 }
 
 .workspace-track--tall {
-  min-height: 112px;
+  min-height: 64px;
 }
 
 .workspace-track--medium {
-  min-height: 76px;
+  min-height: 46px;
 }
 
 .workspace-track--compact {
-  min-height: 56px;
+  min-height: 34px;
 }
 
 .workspace-track--selected {
@@ -426,7 +427,7 @@ function formatMs(value: number): string {
   color: inherit;
   min-width: 0;
   flex-shrink: 0;
-  padding: 12px;
+  padding: 8px 10px;
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -458,20 +459,20 @@ function formatMs(value: number): string {
   gap: 5px;
   min-width: 0;
   overflow: hidden;
-  padding: 8px 10px;
+  padding: 6px 9px;
   position: absolute;
-  top: 8px;
-  bottom: 8px;
+  top: 5px;
+  bottom: 5px;
   transition: all var(--motion-fast) var(--ease-standard);
   cursor: pointer;
 }
 
 .workspace-track--tall .workspace-clip {
-  grid-template-rows: minmax(34px, 1fr) auto auto;
+  grid-template-rows: minmax(24px, 1fr) auto auto;
 }
 
 .workspace-track--medium .workspace-clip {
-  grid-template-rows: minmax(20px, 1fr) auto;
+  grid-template-rows: minmax(16px, 1fr) auto;
 }
 
 .workspace-track--compact .workspace-clip {
@@ -522,7 +523,7 @@ function formatMs(value: number): string {
   display: grid;
   grid-template-columns: repeat(5, minmax(18px, 1fr));
   gap: 3px;
-  min-height: 34px;
+  min-height: 20px;
 }
 
 .workspace-timeline__thumbnail-strip span {
@@ -535,7 +536,7 @@ function formatMs(value: number): string {
 
 .workspace-timeline__waveform {
   display: flex;
-  min-height: 22px;
+  min-height: 16px;
   align-items: center;
   gap: 3px;
 }
@@ -550,11 +551,11 @@ function formatMs(value: number): string {
 }
 
 .workspace-timeline__waveform span:nth-child(3n + 1) {
-  height: 22px;
+  height: 16px;
 }
 
 .workspace-timeline__waveform span:nth-child(4n + 2) {
-  height: 16px;
+  height: 12px;
 }
 
 .workspace-timeline__waveform span:nth-child(5n) {

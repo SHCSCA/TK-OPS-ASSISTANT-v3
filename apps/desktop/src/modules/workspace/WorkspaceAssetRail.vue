@@ -244,7 +244,9 @@ function trackPolicy(trackId: string): string {
   box-shadow: var(--shadow-sm);
   display: grid;
   gap: 14px;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
   padding: 18px;
 }
 
@@ -361,9 +363,11 @@ function trackPolicy(trackId: string): string {
 .workspace-asset-rail__list {
   display: grid;
   gap: 10px;
+  grid-auto-rows: max-content;
   list-style: none;
   margin: 0;
   min-height: 0;
+  overflow-y: auto;
   padding: 0;
 }
 
