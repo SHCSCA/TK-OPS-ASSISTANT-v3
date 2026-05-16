@@ -27,10 +27,10 @@
       {
         "label": "main",
         "title": "TK-OPS",
-        "width": 1440,
+        "width": 1680,
         "height": 960,
-        "minWidth": 960,
-        "minHeight": 680,
+        "minWidth": 1680,
+        "minHeight": 900,
         "resizable": true,
         "decorations": false
       }

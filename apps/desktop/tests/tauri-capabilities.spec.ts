@@ -4,6 +4,30 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("Tauri capability 权限", () => {
+  it("主窗口保留剪辑工作台和右侧抽屉所需的最小桌面空间", () => {
+    const configPath = resolve(process.cwd(), "src-tauri", "tauri.conf.json");
+    const config = JSON.parse(readFileSync(configPath, "utf8")) as {
+      app?: {
+        windows?: Array<{
+          label?: string;
+          width?: number;
+          height?: number;
+          minWidth?: number;
+          minHeight?: number;
+          resizable?: boolean;
+        }>;
+      };
+    };
+
+    const mainWindow = config.app?.windows?.find((windowConfig) => windowConfig.label === "main");
+
+    expect(mainWindow?.width).toBe(1680);
+    expect(mainWindow?.height).toBe(960);
+    expect(mainWindow?.minWidth).toBe(1680);
+    expect(mainWindow?.minHeight).toBe(900);
+    expect(mainWindow?.resizable).toBe(true);
+  });
+
   it("主窗口允许打开系统文件选择器", () => {
     const capabilityPath = resolve(process.cwd(), "src-tauri", "capabilities", "default.json");
     const capability = JSON.parse(readFileSync(capabilityPath, "utf8")) as {
