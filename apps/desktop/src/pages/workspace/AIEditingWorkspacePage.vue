@@ -179,7 +179,14 @@
           <div class="workspace-timeline-area-wrapper">
             <p class="panel-label">时间线</p>
             <div class="workspace-timeline-area">
-              <WorkspaceTimelineToolbar :status-label="toolBarStatus" />
+              <WorkspaceTimelineToolbar
+                :can-delete="canDeleteSelectedClip"
+                :can-split="canSplitSelectedClip"
+                :disabled="status === 'loading' || isGenerating"
+                :status-label="toolBarStatus"
+                @delete="handleDeleteSelectedClip"
+                @split="handleSplitSelectedClip"
+              />
               <WorkspaceTimeline
                 :selected-clip-id="selectedClipId"
                 :selected-track-id="selectedTrackId"
@@ -291,6 +298,10 @@ const generateDisabled = computed(
 const toolBarStatus = computed(() => {
   if (!timeline.value) return "等待时间线";
   return "选择工具 · 磁吸开启";
+});
+const canDeleteSelectedClip = computed(() => Boolean(selectedClip.value));
+const canSplitSelectedClip = computed(() => {
+  return Boolean(selectedClip.value && selectedClip.value.durationMs >= 2);
 });
 
 const inspectorBlockedMessage = computed(() => {
@@ -435,6 +446,14 @@ async function handleSyncAssets(): Promise<void> {
   if (currentProjectId.value) {
     await workspaceStore.loadAssets(currentProjectId.value);
   }
+}
+
+async function handleDeleteSelectedClip(): Promise<void> {
+  await workspaceStore.deleteSelectedClip();
+}
+
+async function handleSplitSelectedClip(): Promise<void> {
+  await workspaceStore.splitSelectedClip();
 }
 
 function handleSelectTrack(trackId: string): void {

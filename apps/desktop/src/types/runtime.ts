@@ -694,6 +694,10 @@ export type TrimWorkspaceClipInput = {
   durationMs: number;
 };
 
+export type SplitWorkspaceClipInput = {
+  splitAtMs: number;
+};
+
 export type ReplaceWorkspaceClipInput = {
   assetId: string;
 };

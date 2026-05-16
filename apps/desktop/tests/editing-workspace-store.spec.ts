@@ -110,6 +110,45 @@ describe("M05 AI 剪辑工作台 store", () => {
     ]);
   });
 
+  it("删除选中片段后刷新时间线并保留受管轨道选择", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.deleteSelectedClip();
+
+    expect(timelineResult?.tracks[0].clips).toEqual([]);
+    expect(store.status).toBe("ready");
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBeNull();
+    expect(store.saveState?.source).toBe("clip_delete");
+  });
+
+  it("分割选中片段时以片段中点调用 Runtime 并保留左半段选中", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.splitSelectedClip();
+
+    const clips = timelineResult?.tracks[0].clips ?? [];
+    expect(clips.map((clip) => clip.id)).toEqual([
+      "managed-video-storyboard-01",
+      "managed-video-storyboard-01-split-2500"
+    ]);
+    expect(clips[0].durationMs).toBe(2500);
+    expect(clips[1].startMs).toBe(2500);
+    expect(store.status).toBe("ready");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.saveState?.source).toBe("clip_split");
+  });
+
   it("执行时间线预检后保存真实预检结果", async () => {
     vi.stubGlobal("fetch", createWorkspaceFetch());
 
@@ -261,6 +300,46 @@ function createWorkspaceFetch(
       });
     }
 
+    if (path === "/api/workspace/clips/managed-video-storyboard-01" && method === "DELETE") {
+      return okJsonResponse({
+        timeline: timeline("timeline-1", [managedVideoTrack([])]),
+        saveState: {
+          saved: true,
+          updatedAt: now(),
+          source: "clip_delete",
+          message: "已确认删除选中片段。"
+        },
+        message: "片段已删除。"
+      });
+    }
+
+    if (path === "/api/workspace/clips/managed-video-storyboard-01/split" && method === "POST") {
+      const body = JSON.parse(String(init?.body));
+      expect(body).toEqual({ splitAtMs: 2500 });
+      return okJsonResponse({
+        timeline: timeline("timeline-1", [managedVideoTrack([
+          managedVideoClip({
+            durationMs: 2500,
+            outPointMs: 2500
+          }),
+          managedVideoClip({
+            id: "managed-video-storyboard-01-split-2500",
+            startMs: 2500,
+            durationMs: 2500,
+            inPointMs: 2500,
+            outPointMs: 5000
+          })
+        ])]),
+        saveState: {
+          saved: true,
+          updatedAt: now(),
+          source: "clip_split",
+          message: "已确认保存片段分割结果。"
+        },
+        message: "片段已分割。"
+      });
+    }
+
     if (path === "/api/workspace/timelines/timeline-1/precheck" && method === "POST") {
       return okJsonResponse({
         timelineId: "timeline-1",
@@ -353,7 +432,7 @@ function videoTrack() {
   };
 }
 
-function managedVideoTrack() {
+function managedVideoTrack(clips = [managedVideoClip()]) {
   return {
     id: "managed-video-storyboard",
     kind: "video",
@@ -361,28 +440,31 @@ function managedVideoTrack() {
     orderIndex: 0,
     locked: false,
     muted: false,
-    clips: [
-      {
-        id: "managed-video-storyboard-01",
-        trackId: "managed-video-storyboard",
-        sourceType: "storyboard",
-        sourceId: "storyboard:1:S01",
-        label: "S01 · 分镜画面",
-        startMs: 0,
-        durationMs: 5000,
-        inPointMs: 0,
-        outPointMs: null,
-        status: "pending",
-        metadata: {
-          sourceKind: "storyboard",
-          sourceRevision: 1,
-          segmentIndex: 0,
-          segmentId: "S01",
-          text: "测试字幕",
-          visualPrompt: "测试画面"
-        }
-      }
-    ]
+    clips
+  };
+}
+
+function managedVideoClip(overrides: Partial<ReturnType<typeof managedVideoClip>> = {}) {
+  return {
+    id: "managed-video-storyboard-01",
+    trackId: "managed-video-storyboard",
+    sourceType: "storyboard",
+    sourceId: "storyboard:1:S01",
+    label: "S01 · 分镜画面",
+    startMs: 0,
+    durationMs: 5000,
+    inPointMs: 0,
+    outPointMs: null,
+    status: "pending",
+    metadata: {
+      sourceKind: "storyboard",
+      sourceRevision: 1,
+      segmentIndex: 0,
+      segmentId: "S01",
+      text: "测试字幕",
+      visualPrompt: "测试画面"
+    },
+    ...overrides
   };
 }
 

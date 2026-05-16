@@ -18,7 +18,8 @@
         :data-testid="`workspace-tool-${tool.id}`"
         :title="tool.label"
         type="button"
-        disabled
+        :disabled="tool.disabled"
+        @click="handleToolClick(tool.id)"
       >
         <span class="workspace-timeline-toolbar__icon" :data-icon="tool.icon" aria-hidden="true"></span>
         <span class="workspace-timeline-toolbar__label">{{ tool.label }}</span>
@@ -36,17 +37,43 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from "vue";
+
+const props = withDefaults(defineProps<{
   statusLabel: string;
+  disabled?: boolean;
+  canSplit?: boolean;
+  canDelete?: boolean;
+}>(), {
+  disabled: false,
+  canSplit: false,
+  canDelete: false
+});
+
+const emit = defineEmits<{
+  delete: [];
+  split: [];
 }>();
 
-const tools = [
-  { id: "select", label: "选择", icon: "select", active: true },
-  { id: "move", label: "移动", icon: "move", active: false },
-  { id: "split", label: "分割", icon: "split", active: false },
-  { id: "delete", label: "删除", icon: "delete", active: false },
-  { id: "snap", label: "磁吸", icon: "snap", active: true }
-] as const;
+type WorkspaceTimelineToolId = "select" | "move" | "split" | "delete" | "snap";
+
+const tools = computed(() => [
+  { id: "select", label: "选择", icon: "select", active: true, disabled: true },
+  { id: "move", label: "移动", icon: "move", active: false, disabled: true },
+  { id: "split", label: "分割", icon: "split", active: false, disabled: props.disabled || !props.canSplit },
+  { id: "delete", label: "删除", icon: "delete", active: false, disabled: props.disabled || !props.canDelete },
+  { id: "snap", label: "磁吸", icon: "snap", active: true, disabled: true }
+] as const);
+
+function handleToolClick(toolId: WorkspaceTimelineToolId): void {
+  if (toolId === "split") {
+    emit("split");
+    return;
+  }
+  if (toolId === "delete") {
+    emit("delete");
+  }
+}
 </script>
 
 <style scoped>

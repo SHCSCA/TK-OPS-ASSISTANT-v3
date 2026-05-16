@@ -40,6 +40,7 @@ import type {
   StoryboardShotUpdateInput,
   StoryboardTemplateDto,
   SubtitleExportDto,
+  SplitWorkspaceClipInput,
   WorkspaceAICommandInput,
   WorkspaceAICommandResultDto,
   WorkspaceClipDetailDto,
@@ -596,6 +597,22 @@ export async function replaceWorkspaceClip(
   return requestRuntime<WorkspaceTimelineResultDto>(`/api/workspace/clips/${clipId}/replace`, {
     body: JSON.stringify(input),
     method: "POST"
+  });
+}
+
+export async function splitWorkspaceClip(
+  clipId: string,
+  input: SplitWorkspaceClipInput
+): Promise<WorkspaceTimelineResultDto> {
+  return requestRuntime<WorkspaceTimelineResultDto>(`/api/workspace/clips/${clipId}/split`, {
+    body: JSON.stringify(input),
+    method: "POST"
+  });
+}
+
+export async function deleteWorkspaceClip(clipId: string): Promise<WorkspaceTimelineResultDto> {
+  return requestRuntime<WorkspaceTimelineResultDto>(`/api/workspace/clips/${clipId}`, {
+    method: "DELETE"
   });
 }
 

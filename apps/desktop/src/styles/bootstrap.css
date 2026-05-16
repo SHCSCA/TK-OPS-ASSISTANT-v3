@@ -1,0 +1,251 @@
+.bootstrap-screen {
+  align-items: center;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-brand-primary) 10%, transparent), transparent 34%),
+    linear-gradient(150deg, var(--color-bg-canvas) 0%, color-mix(in srgb, var(--color-bg-muted) 72%, var(--color-bg-surface)) 100%);
+  color: var(--color-text-primary);
+  display: grid;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: clamp(var(--space-5), 5vw, var(--space-12));
+  position: relative;
+  width: 100%;
+}
+
+.bootstrap-screen__backdrop {
+  background:
+    linear-gradient(color-mix(in srgb, var(--color-border-subtle) 52%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-border-subtle) 52%, transparent) 1px, transparent 1px);
+  background-size: 36px 36px;
+  inset: 0;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.42), transparent 72%);
+  opacity: 0.5;
+  pointer-events: none;
+  position: absolute;
+  z-index: -2;
+}
+
+.bootstrap-screen__aurora {
+  background: var(--gradient-ai-subtle);
+  inset: 0;
+  opacity: 0.72;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.bootstrap-screen__panel {
+  background: color-mix(in srgb, var(--color-bg-surface) 94%, transparent);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 28px 80px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  display: grid;
+  gap: var(--space-5);
+  max-width: 760px;
+  padding: clamp(var(--space-6), 4vw, var(--space-10));
+  width: min(100%, 760px);
+}
+
+.bootstrap-screen__panel--wide {
+  max-width: 1040px;
+  width: min(100%, 1040px);
+}
+
+.bootstrap-screen__copy {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.bootstrap-screen__eyebrow {
+  color: var(--color-brand-primary);
+  font: var(--font-caption);
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.bootstrap-screen h1 {
+  color: var(--color-text-primary);
+  font: var(--font-title-lg);
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.bootstrap-screen h2 {
+  color: var(--color-text-primary);
+  font: var(--font-title-sm);
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.bootstrap-screen__summary {
+  color: var(--color-text-secondary);
+  font: var(--font-body-md);
+  line-height: 1.75;
+  margin: 0;
+  max-width: 760px;
+}
+
+.bootstrap-screen__steps,
+.bootstrap-error__checklist {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bootstrap-screen__step,
+.bootstrap-error__checklist li {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-bg-muted) 74%, transparent);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  display: flex;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-3) var(--space-4);
+}
+
+.bootstrap-screen__dot {
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  flex: 0 0 9px;
+  height: 9px;
+  width: 9px;
+}
+
+.bootstrap-screen__dot--loading {
+  animation: pulse-dot var(--motion-pulse) ease-in-out infinite;
+  background: var(--color-brand-primary);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-brand-primary) 16%, transparent);
+}
+
+.bootstrap-screen__dot--pending {
+  background: var(--color-border-strong);
+}
+
+.bootstrap-screen__actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.bootstrap-screen__actions--full {
+  grid-column: 1 / -1;
+}
+
+.bootstrap-error__panel {
+  gap: var(--space-4);
+}
+
+.bootstrap-error__header {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-4);
+}
+
+.bootstrap-error__icon-wrap {
+  align-items: center;
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-bg-surface));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 32%, var(--color-border-default));
+  border-radius: var(--radius-lg);
+  color: var(--color-danger);
+  display: inline-flex;
+  flex: 0 0 56px;
+  height: 56px;
+  justify-content: center;
+}
+
+.bootstrap-error__icon {
+  font-size: 32px;
+}
+
+.bootstrap-error__message {
+  background: color-mix(in srgb, var(--color-danger) 9%, var(--color-bg-surface));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 28%, var(--color-border-default));
+  border-radius: var(--radius-md);
+  color: var(--color-danger);
+  font: var(--font-body-sm);
+  line-height: 1.7;
+  margin: 0;
+  padding: var(--space-4);
+}
+
+.bootstrap-error__checklist li::before {
+  background: var(--color-brand-primary);
+  border-radius: var(--radius-full);
+  content: "";
+  flex: 0 0 6px;
+  height: 6px;
+  width: 6px;
+}
+
+.bootstrap-screen .license-panel,
+.bootstrap-screen .command-panel {
+  background: color-mix(in srgb, var(--color-bg-muted) 58%, transparent);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.bootstrap-screen .wizard-page__machine-code {
+  align-items: center;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+}
+
+.bootstrap-screen .detail-panel__label {
+  color: var(--color-text-tertiary);
+  font: var(--font-caption);
+  margin: 0 0 var(--space-1);
+}
+
+.bootstrap-screen .wizard-page__machine-code strong {
+  color: var(--color-text-primary);
+  display: block;
+  font: var(--font-title-sm);
+  overflow-wrap: anywhere;
+}
+
+.bootstrap-screen .wizard-page__status {
+  color: var(--color-text-tertiary);
+  font: var(--font-body-sm);
+  line-height: 1.6;
+}
+
+.bootstrap-screen .initialization-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 760px) {
+  .bootstrap-screen {
+    align-items: stretch;
+    min-height: 100vh;
+    padding: var(--space-4);
+  }
+
+  .bootstrap-screen__panel,
+  .bootstrap-screen__panel--wide {
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    width: 100%;
+  }
+
+  .bootstrap-error__header,
+  .bootstrap-screen .wizard-page__machine-code {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .bootstrap-screen .initialization-grid {
+    grid-template-columns: 1fr;
+  }
+}

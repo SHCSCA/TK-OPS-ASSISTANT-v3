@@ -6,6 +6,7 @@ from schemas.envelope import ok_response
 from schemas.workspace import (
     ClipMoveInput,
     ClipReplaceInput,
+    ClipSplitInput,
     ClipTrimInput,
     TimelineCreateInput,
     TimelineUpdateInput,
@@ -99,6 +100,22 @@ def replace_clip(
     request: Request,
 ) -> dict[str, object]:
     result = _svc(request).replace_clip(clip_id, payload)
+    return ok_response(_timeline_payload(result))
+
+
+@router.delete("/clips/{clip_id}")
+def delete_clip(clip_id: str, request: Request) -> dict[str, object]:
+    result = _svc(request).delete_clip(clip_id)
+    return ok_response(_timeline_payload(result))
+
+
+@router.post("/clips/{clip_id}/split")
+def split_clip(
+    clip_id: str,
+    payload: ClipSplitInput,
+    request: Request,
+) -> dict[str, object]:
+    result = _svc(request).split_clip(clip_id, payload)
     return ok_response(_timeline_payload(result))
 
 

@@ -4,10 +4,12 @@ import {
   RuntimeRequestError,
   assembleWorkspaceTimeline,
   createWorkspaceTimeline,
+  deleteWorkspaceClip,
   fetchAssets,
   fetchWorkspaceTimeline,
   precheckTimeline,
   runWorkspaceAICommand,
+  splitWorkspaceClip,
   updateWorkspaceTimeline
 } from "@/app/runtime-client";
 import type {
@@ -17,6 +19,7 @@ import type {
   WorkspaceAICommandResultDto,
   WorkspaceAssemblyStateDto,
   WorkspaceSaveStateDto,
+  WorkspaceTimelineClipDto,
   WorkspaceTimelineDto,
   WorkspaceTimelineResultDto,
   WorkspaceTimelineTrackDto
@@ -258,6 +261,51 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     selectClip(clipId: string | null): void {
       this.selectedClipId = clipId;
     },
+    async deleteSelectedClip(): Promise<WorkspaceTimelineDto | null> {
+      if (!this.selectedClipId) {
+        this.applyInputError("请先选择要删除的片段。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+
+      try {
+        const result = await deleteWorkspaceClip(this.selectedClipId);
+        this.applyTimelineResult(result);
+        return result.timeline;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async splitSelectedClip(): Promise<WorkspaceTimelineDto | null> {
+      const clip = this.findClipById(this.selectedClipId);
+      if (!clip) {
+        this.applyInputError("请先选择要分割的片段。");
+        return null;
+      }
+      if (clip.durationMs < 2) {
+        this.applyInputError("片段时长过短，无法分割。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+
+      try {
+        const result = await splitWorkspaceClip(clip.id, {
+          splitAtMs: clip.startMs + Math.floor(clip.durationMs / 2)
+        });
+        this.applyTimelineResult(result);
+        return result.timeline;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
     applyTimelineResult(result: WorkspaceTimelineResultDto): void {
       this.timeline = result.timeline;
       this.blockedMessage = result.timeline ? null : result.message;
@@ -281,6 +329,11 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         return this.selectedClipId;
       }
       return null;
+    },
+    findClipById(clipId: string | null): WorkspaceTimelineClipDto | null {
+      if (!clipId || !this.timeline) return null;
+      const clips = this.timeline.tracks.flatMap((track) => track.clips);
+      return clips.find((clip) => clip.id === clipId) ?? null;
     },
     applyInputError(message: string): void {
       this.status = "error";

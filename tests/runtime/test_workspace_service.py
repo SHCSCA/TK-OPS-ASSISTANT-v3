@@ -277,6 +277,52 @@ def test_replace_clip_updates_source_metadata(tmp_path: Path) -> None:
     assert result.saveState.source == "clip_replace"
 
 
+def test_delete_clip_removes_clip_and_updates_save_state(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path)
+    _create_timeline(service)
+
+    result = service.delete_clip("clip-video-1")
+
+    assert result.timeline is not None
+    assert result.timeline.tracks[0].clips == []
+    assert result.timeline.version is not None
+    assert result.timeline.version.clipCount == 0
+    assert result.saveState is not None
+    assert result.saveState.source == "clip_delete"
+
+
+def test_split_clip_creates_continuous_pair(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path)
+    _create_timeline(service)
+
+    result = service.split_clip("clip-video-1", {"splitAtMs": 1800})
+
+    assert result.timeline is not None
+    clips = result.timeline.tracks[0].clips
+    assert [clip.id for clip in clips] == ["clip-video-1", "clip-video-1-split-1800"]
+    assert clips[0].startMs == 0
+    assert clips[0].durationMs == 1800
+    assert clips[0].inPointMs == 0
+    assert clips[0].outPointMs == 1800
+    assert clips[1].startMs == 1800
+    assert clips[1].durationMs == 2400
+    assert clips[1].inPointMs == 1800
+    assert clips[1].outPointMs == 4200
+    assert result.saveState is not None
+    assert result.saveState.source == "clip_split"
+
+
+def test_split_clip_rejects_boundary_split(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path)
+    _create_timeline(service)
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.split_clip("clip-video-1", {"splitAtMs": 0})
+
+    assert exc_info.value.status_code == 400
+    assert "片段内部" in str(exc_info.value.detail)
+
+
 def test_preview_returns_local_summary_from_real_timeline(tmp_path: Path) -> None:
     service = _make_workspace_service(tmp_path)
     timeline_id = _create_timeline(service)

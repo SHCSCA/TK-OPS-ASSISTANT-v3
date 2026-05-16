@@ -83,9 +83,11 @@ describe("workspace layout taxonomy contract", () => {
     const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
     const timeline = readSource("../src/modules/workspace/WorkspaceTimeline.vue");
 
-    expect(page).toMatch(
-      /<div\s+class="workspace-timeline-area">[\s\S]*<WorkspaceTimelineToolbar\s+:status-label="toolBarStatus"\s*\/>[\s\S]*<WorkspaceTimeline/
-    );
+    expect(page).toMatch(/<div\s+class="workspace-timeline-area">[\s\S]*<WorkspaceTimelineToolbar[\s\S]*<WorkspaceTimeline/);
+    expect(page).toContain(':can-delete="canDeleteSelectedClip"');
+    expect(page).toContain(':can-split="canSplitSelectedClip"');
+    expect(page).toContain('@delete="handleDeleteSelectedClip"');
+    expect(page).toContain('@split="handleSplitSelectedClip"');
     const toolBarStatusBlock = page.match(/const toolBarStatus = computed\(\(\) => \{[\s\S]*?\n\}\);/)?.[0] ?? "";
     expect(toolBarStatusBlock).toContain('return "选择工具 · 磁吸开启";');
     expect(toolBarStatusBlock).not.toContain("selectedClip.value");

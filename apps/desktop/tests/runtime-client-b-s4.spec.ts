@@ -27,6 +27,8 @@ describe("B-S4 Runtime client contract", () => {
     await runtimeClient.moveWorkspaceClip("clip-1", { targetTrackId: "track-2", startMs: 1800 });
     await runtimeClient.trimWorkspaceClip("clip-1", { inPointMs: 120, durationMs: 3400 });
     await runtimeClient.replaceWorkspaceClip("clip-1", { assetId: "asset-9" });
+    await runtimeClient.splitWorkspaceClip("clip-1", { splitAtMs: 1800 });
+    await runtimeClient.deleteWorkspaceClip("clip-1");
     await runtimeClient.fetchTimelinePreview("timeline-1");
     await runtimeClient.precheckTimeline("timeline-1");
     await runtimeClient.assembleWorkspaceTimeline("project-1", {
@@ -69,6 +71,16 @@ describe("B-S4 Runtime client contract", () => {
         path: "/api/workspace/clips/clip-1/replace",
         method: "POST",
         body: { assetId: "asset-9" }
+      },
+      {
+        path: "/api/workspace/clips/clip-1/split",
+        method: "POST",
+        body: { splitAtMs: 1800 }
+      },
+      {
+        path: "/api/workspace/clips/clip-1",
+        method: "DELETE",
+        body: undefined
       },
       {
         path: "/api/workspace/timelines/timeline-1/preview",
@@ -122,7 +134,13 @@ describe("B-S4 Runtime client contract", () => {
 
 function sampleResponse(path: string, method: string): unknown {
   if (path.startsWith("/api/workspace/clips/")) {
-    if (path.endsWith("/move") || path.endsWith("/trim") || path.endsWith("/replace")) {
+    if (
+      method === "DELETE" ||
+      path.endsWith("/move") ||
+      path.endsWith("/trim") ||
+      path.endsWith("/replace") ||
+      path.endsWith("/split")
+    ) {
       return {
         timeline: {
           id: "timeline-1",

@@ -568,6 +568,8 @@
 | `POST /api/workspace/clips/{clip_id}/move` | 路径参数：`clip_id`；`ClipMoveInput`：`targetTrackId`、`startMs` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `moveWorkspaceClip` |
 | `POST /api/workspace/clips/{clip_id}/trim` | 路径参数：`clip_id`；`ClipTrimInput`：`startMs?`、`durationMs?`、`inPointMs?`、`outPointMs?` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `trimWorkspaceClip` |
 | `POST /api/workspace/clips/{clip_id}/replace` | 路径参数：`clip_id`；`ClipReplaceInput`：`sourceType`、`sourceId?`、`label`、`prompt?`、`resolution?`、`editableFields[]` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `replaceWorkspaceClip` |
+| `POST /api/workspace/clips/{clip_id}/split` | 路径参数：`clip_id`；`ClipSplitInput`：`splitAtMs`，必须位于片段内部 | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_split`、`message` | `400`、`404`、`422` | `splitWorkspaceClip`、`editing-workspace.ts:splitSelectedClip` |
+| `DELETE /api/workspace/clips/{clip_id}` | 路径参数：`clip_id` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_delete`、`message` | `400`、`404` | `deleteWorkspaceClip`、`editing-workspace.ts:deleteSelectedClip` |
 | `GET /api/workspace/timelines/{timeline_id}/preview` | 路径参数：`timeline_id` | `TimelinePreviewDto`：`status=ready`，`previewUrl` 为本地 `data:application/json` manifest | `404`、`500` | `fetchTimelinePreview` |
 | `POST /api/workspace/timelines/{timeline_id}/precheck` | 路径参数：`timeline_id` | `TimelinePrecheckDto`：`status=ready/warning`、`issues[]` | `404`、`500` | `precheckTimeline` |
 | `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandInput`：`timelineId?`、`capabilityId`、`parameters` | `WorkspaceAICommandResultDto`；当前最小实现返回 `status=queued` 并创建真实 TaskBus 任务 | `404`、`422` | `runWorkspaceAICommand` |
@@ -581,13 +583,14 @@
 - `TimelineDto.version` 不伪造整数版号，使用真实 `timeline.id + updatedAt + trackCount + clipCount` 生成 `versionToken` 作为当前时间线版本信号。
 - `TimelineDto.assetReferenceStatus` 基于真实片段 `sourceType/sourceId/status` 聚合，不编造素材可用性。
 - `WorkspaceTimelineResultDto.activeTask` 只返回当前 Runtime 进程内、且 `ownerRef` 绑定到该时间线的活跃任务，优先 `ai-workspace-command`。
-- `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`assembly`、`save`、`clip_move`、`clip_trim`、`clip_replace`。
+- `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`assembly`、`save`、`clip_move`、`clip_trim`、`clip_replace`、`clip_split`、`clip_delete`。
 
 ### M05 UI 资产来源说明
 
 - M05 剪辑工作台素材池通过 `GET /api/assets` 读取资产中心素材，并在前端按当前项目过滤。
 - 本轮只展示资产状态，不在 UI 层直接读写本地文件。
-- `替换片段`、`加入轨道`、`分割`、`删除` 先保留为不可触发的基础工具入口，后续接入 `/api/workspace/clips/{clip_id}/replace`、`move`、`trim` 等接口。
+- 基础工具栏已开放选中片段的 `分割` 与 `删除`：分割使用当前片段中点生成连续左右两段，删除会刷新时间线并清空失效片段选择。
+- `替换片段`、`加入轨道`、`移动` 和裁剪手柄仍按后续阶段接入 `/api/workspace/clips/{clip_id}/replace`、`move`、`trim` 等接口。
 
 **示例**
 

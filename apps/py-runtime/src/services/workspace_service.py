@@ -14,6 +14,7 @@ from schemas.workspace import (
     AssetReferenceStatusDto,
     ClipMoveInput,
     ClipReplaceInput,
+    ClipSplitInput,
     ClipTrimInput,
     TimelineClipDto,
     TimelineCreateInput,
@@ -219,6 +220,69 @@ class WorkspaceService:
             "片段已替换。",
             "clip_replace",
             "已确认保存片段素材替换。",
+        )
+
+    def delete_clip(self, clip_id: str) -> WorkspaceTimelineResultDto:
+        timeline, tracks, track_index, clip_index, _ = self._locate_clip(clip_id)
+        track = tracks[track_index]
+        if bool(track.get("locked")):
+            raise HTTPException(status_code=400, detail="锁定轨道不能删除片段。")
+
+        track["clips"].pop(clip_index)
+        return self._save_tracks(
+            timeline,
+            tracks,
+            "片段已删除。",
+            "clip_delete",
+            "已确认删除选中片段。",
+        )
+
+    def split_clip(
+        self,
+        clip_id: str,
+        payload: ClipSplitInput | dict[str, object],
+    ) -> WorkspaceTimelineResultDto:
+        input_data = self._normalize_payload(payload)
+        timeline, tracks, track_index, clip_index, clip = self._locate_clip(clip_id)
+        track = tracks[track_index]
+        if bool(track.get("locked")):
+            raise HTTPException(status_code=400, detail="锁定轨道不能分割片段。")
+
+        split_at_ms = int(input_data["splitAtMs"])
+        start_ms = int(clip.get("startMs") or 0)
+        duration_ms = int(clip.get("durationMs") or 0)
+        end_ms = start_ms + duration_ms
+        if split_at_ms <= start_ms or split_at_ms >= end_ms:
+            raise HTTPException(status_code=400, detail="分割点必须位于片段内部。")
+
+        in_point_ms = int(clip.get("inPointMs") or 0)
+        original_out_point = clip.get("outPointMs")
+        out_point_ms = int(original_out_point) if original_out_point is not None else in_point_ms + duration_ms
+        left_duration_ms = split_at_ms - start_ms
+        right_duration_ms = end_ms - split_at_ms
+        split_media_point_ms = in_point_ms + left_duration_ms
+
+        left_clip = dict(clip)
+        left_clip["durationMs"] = left_duration_ms
+        left_clip["outPointMs"] = split_media_point_ms
+
+        right_clip = dict(clip)
+        right_clip["id"] = self._build_split_clip_id(tracks, clip_id, split_at_ms)
+        right_clip["startMs"] = split_at_ms
+        right_clip["durationMs"] = right_duration_ms
+        right_clip["inPointMs"] = split_media_point_ms
+        right_clip["outPointMs"] = out_point_ms
+
+        track_clips = track["clips"]
+        track_clips[clip_index : clip_index + 1] = [left_clip, right_clip]
+        track["clips"] = sorted(track_clips, key=lambda item: int(item.get("startMs") or 0))
+
+        return self._save_tracks(
+            timeline,
+            tracks,
+            "片段已分割。",
+            "clip_split",
+            "已确认保存片段分割结果。",
         )
 
     def fetch_timeline_preview(self, timeline_id: str) -> TimelinePreviewDto:
@@ -460,6 +524,22 @@ class WorkspaceService:
             if str(track.get("id")) == track_id:
                 return index
         return None
+
+    def _build_split_clip_id(
+        self,
+        tracks: list[dict[str, object]],
+        clip_id: str,
+        split_at_ms: int,
+    ) -> str:
+        existing_ids = {str(clip.get("id")) for clip in self._iter_clips(tracks)}
+        base_id = f"{clip_id}-split-{split_at_ms}"
+        if base_id not in existing_ids:
+            return base_id
+
+        suffix = 2
+        while f"{base_id}-{suffix}" in existing_ids:
+            suffix += 1
+        return f"{base_id}-{suffix}"
 
     def _build_version(
         self,
