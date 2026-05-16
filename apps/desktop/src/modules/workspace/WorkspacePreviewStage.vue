@@ -6,7 +6,7 @@
         <p>{{ headerDescription }}</p>
       </div>
       <span class="workspace-preview-stage__pill">
-        {{ timeline?.status ?? "未创建草稿" }}
+        {{ timelineStatusLabel }}
       </span>
     </header>
 
@@ -80,6 +80,13 @@ import type {
   WorkspaceTimelineDto,
   WorkspaceTimelineTrackDto
 } from "@/types/runtime";
+import {
+  cleanWorkspaceText,
+  formatWorkspaceTime,
+  workspaceSourceTypeLabel,
+  workspaceStatusLabel,
+  workspaceTrackKindLabel
+} from "./workspaceTimelineViewModel";
 
 const props = defineProps<{
   blockedMessage: string | null;
@@ -96,8 +103,10 @@ const selectionLabel = computed(() => {
 
 const headerDescription = computed(() => {
   if (!props.timeline) return "等待创建时间线草稿。";
-  if (props.selectedClip) return `${sourceTypeLabel(props.selectedClip.sourceType)} · ${formatMs(props.selectedClip.durationMs)}`;
-  if (props.selectedTrack) return `${trackKindLabel(props.selectedTrack.kind)} · ${props.selectedTrack.clips.length} 个片段`;
+  if (props.selectedClip) {
+    return `${workspaceSourceTypeLabel(props.selectedClip.sourceType)} · ${formatWorkspaceTime(props.selectedClip.durationMs)}`;
+  }
+  if (props.selectedTrack) return `${workspaceTrackKindLabel(props.selectedTrack.kind)} · ${props.selectedTrack.clips.length} 个片段`;
   return "选择时间线片段后查看画面上下文。";
 });
 
@@ -109,11 +118,13 @@ const headline = computed(() => {
 });
 
 const previewText = computed(() => {
-  if (props.selectedClip?.metadata?.text) return props.selectedClip.metadata.text;
+  const selectedText = cleanWorkspaceText(props.selectedClip?.metadata?.text, "");
+  if (selectedText) return selectedText;
   if (props.selectedClip?.metadata?.visualPrompt) return props.selectedClip.metadata.visualPrompt;
   if (props.selectedClip) return sourceStatusLabel.value;
   const firstTrackClip = props.selectedTrack?.clips[0];
-  if (firstTrackClip?.metadata?.text) return firstTrackClip.metadata.text;
+  const firstClipText = cleanWorkspaceText(firstTrackClip?.metadata?.text, "");
+  if (firstClipText) return firstClipText;
   if (firstTrackClip?.metadata?.visualPrompt) return firstTrackClip.metadata.visualPrompt;
   if (props.selectedTrack) return `${props.selectedTrack.name} · ${props.selectedTrack.clips.length} 个片段`;
   return sourceStatusLabel.value;
@@ -121,10 +132,10 @@ const previewText = computed(() => {
 
 const description = computed(() => {
   if (props.selectedClip) {
-    return `${sourceStatusLabel.value} · ${props.selectedClip.status} · ${formatMs(props.selectedClip.durationMs)}`;
+    return `${sourceStatusLabel.value} · ${workspaceStatusLabel(props.selectedClip.status)} · ${formatWorkspaceTime(props.selectedClip.durationMs)}`;
   }
   if (props.selectedTrack) {
-    return `${sourceStatusLabel.value} · ${trackKindLabel(props.selectedTrack.kind)} · ${props.selectedTrack.clips.length} 个片段`;
+    return `${sourceStatusLabel.value} · ${workspaceTrackKindLabel(props.selectedTrack.kind)} · ${props.selectedTrack.clips.length} 个片段`;
   }
   if (props.timeline) {
     return props.blockedMessage ?? "时间线已载入。";
@@ -135,41 +146,18 @@ const description = computed(() => {
 const durationLabel = computed(() => {
   const seconds = props.timeline?.durationSeconds;
   if (seconds === null || seconds === undefined) return "待定";
-  return formatMs(seconds * 1000);
+  return formatWorkspaceTime(seconds * 1000);
 });
 
 const trackCountLabel = computed(() => `${props.timeline?.tracks.length ?? 0} 条`);
 
-const currentTimeLabel = computed(() => formatMs(activeClip.value?.startMs ?? 0));
+const currentTimeLabel = computed(() => formatWorkspaceTime(activeClip.value?.startMs ?? 0));
 
 const activeClip = computed(() => props.selectedClip ?? props.selectedTrack?.clips[0] ?? props.timeline?.tracks[0]?.clips[0] ?? null);
 
-const sourceStatusLabel = computed(() => sourceTypeLabel(activeClip.value?.sourceType ?? null));
+const timelineStatusLabel = computed(() => (props.timeline ? workspaceStatusLabel(props.timeline.status) : "未创建草稿"));
 
-function sourceTypeLabel(sourceType: string | null): string {
-  if (sourceType === "asset") return "资产中心素材";
-  if (sourceType === "storyboard") return "分镜占位";
-  if (sourceType === "imported_video") return "视频拆解";
-  if (sourceType === "voice_track") return "配音片段";
-  if (sourceType === "subtitle_track") return "字幕片段";
-  if (!sourceType) return "暂无媒体";
-  return "手动片段";
-}
-
-function trackKindLabel(kind: WorkspaceTimelineTrackDto["kind"]): string {
-  if (kind === "audio") return "音频轨";
-  if (kind === "subtitle") return "字幕轨";
-  return "视频轨";
-}
-
-function formatMs(value: number): string {
-  const totalSeconds = Math.max(0, Math.floor(value / 1000));
-  const minutes = Math.floor(totalSeconds / 60)
-    .toString()
-    .padStart(2, "0");
-  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
-}
+const sourceStatusLabel = computed(() => workspaceSourceTypeLabel(activeClip.value?.sourceType ?? null));
 </script>
 
 <style scoped>
@@ -188,8 +176,7 @@ function formatMs(value: number): string {
 
 .workspace-preview-stage__header,
 .workspace-preview-stage__body,
-.workspace-preview-stage__footer,
-.workspace-preview-stage__transport {
+.workspace-preview-stage__footer {
   align-items: center;
   display: flex;
   gap: 14px;
@@ -349,6 +336,19 @@ function formatMs(value: number): string {
   gap: 4px;
 }
 
+.workspace-preview-stage__footer {
+  align-items: stretch;
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-preview-stage__footer p {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .scroll-area {
   overflow-y: auto;
   scrollbar-width: thin;
@@ -373,9 +373,18 @@ function formatMs(value: number): string {
   gap: 6px;
   height: 34px;
   justify-content: center;
+  min-width: 70px;
   padding: 0 10px;
   transition: transform var(--motion-fast) var(--ease-standard);
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.workspace-preview-stage__transport {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto auto auto minmax(80px, 1fr) auto;
 }
 
 .workspace-preview-stage__transport time {

@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildTimelineRows,
+  cleanWorkspaceText,
   computePlayheadPercent,
+  formatWorkspaceClipRange,
+  workspaceStatusLabel,
+  workspaceTrackMetaLabel,
   trackVisualClass
 } from "@/modules/workspace/workspaceTimelineViewModel";
 import type { WorkspaceTimelineTrackDto } from "@/types/runtime";
@@ -137,6 +141,44 @@ describe("workspace timeline view model", () => {
     });
     expect(computePlayheadPercent(Number.NaN, 15000)).toBe(0);
     expect(computePlayheadPercent(500, Number.NaN)).toBe(0);
+  });
+
+  it("时间线显示层输出中文状态和片段时间范围", () => {
+    expect(workspaceStatusLabel("draft")).toBe("草稿");
+    expect(workspaceStatusLabel("pending")).toBe("待处理");
+    expect(workspaceStatusLabel("ready")).toBe("已就绪");
+    expect(workspaceStatusLabel("unknown_status")).toBe("未标注");
+    expect(formatWorkspaceClipRange(8120, 2000)).toBe("00:08-00:10");
+  });
+
+  it("清理延续占位文本并回退到可读文案", () => {
+    expect(cleanWorkspaceText("（延续字幕）", "字幕待确认")).toBe("字幕待确认");
+    expect(cleanWorkspaceText("(延续上句口播)", "口播待确认")).toBe("口播待确认");
+    expect(cleanWorkspaceText("same as above", "字幕待确认")).toBe("字幕待确认");
+    expect(cleanWorkspaceText("延续字幕", "same as above")).toBe("待确认");
+    expect(cleanWorkspaceText("延续上句口播", "（延续字幕）")).toBe("待确认");
+    expect(cleanWorkspaceText("This lamp made me cancel my dinner plan.", "字幕待确认")).toBe(
+      "This lamp made me cancel my dinner plan."
+    );
+  });
+
+  it("轨道辅助信息不重复显示轨道类型", () => {
+    expect(
+      workspaceTrackMetaLabel({
+        id: "managed-storyboard-video",
+        kind: "video",
+        name: "分镜视频轨",
+        clipCount: 5
+      })
+    ).toBe("受管轨道 · 5 个片段");
+    expect(
+      workspaceTrackMetaLabel({
+        id: "manual-video",
+        kind: "video",
+        name: "素材",
+        clipCount: 1
+      })
+    ).toBe("视频轨 · 手动轨道 · 1 个片段");
   });
 });
 

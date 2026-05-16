@@ -162,6 +162,10 @@ describe("M05 AI 剪辑工作台页面", () => {
     expect(previewPhone.text()).toContain("9:16");
     expect(wrapper.get('[data-testid="workspace-preview-transport"]').text()).toContain("00:");
     expect(wrapper.text()).toContain("分镜占位");
+    expect(wrapper.text()).toContain("待处理");
+    expect(wrapper.text()).not.toContain("pending");
+    expect(wrapper.text()).not.toContain("draft");
+    expect(wrapper.text()).not.toContain("延续字幕");
     expect(wrapper.text()).toContain("分镜视频轨");
     expect(wrapper.text()).toContain("配音轨");
     expect(wrapper.text()).toContain("字幕轨");
@@ -463,6 +467,8 @@ function managedSubtitleTrack() {
 }
 
 function managedClip(id: string, trackId: string, sourceType: string, label: string) {
+  const text = sourceType === "subtitle_track" ? "（延续字幕）" : "This lamp made me cancel my dinner plan.";
+
   return {
     id,
     trackId,
@@ -479,7 +485,7 @@ function managedClip(id: string, trackId: string, sourceType: string, label: str
       sourceRevision: 1,
       segmentIndex: 0,
       segmentId: "S01",
-      text: "This lamp made me cancel my dinner plan.",
+      text,
       visualPrompt: "墙灯亮起，房间从冷光转暖光。"
     }
   };

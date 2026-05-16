@@ -115,6 +115,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(timeline).toMatch(/\.workspace-track--tall\s*{[\s\S]*min-height:\s*64px;/);
     expect(timeline).toMatch(/\.workspace-track--medium\s*{[\s\S]*min-height:\s*46px;/);
     expect(timeline).toMatch(/\.workspace-track--compact\s*{[\s\S]*min-height:\s*34px;/);
+    expect(timeline).toContain("workspaceTrackMetaLabel");
+    expect(timeline).toContain("cleanWorkspaceText");
   });
 
   it("keeps the preview phone inside the visible M05 stage", () => {
@@ -131,6 +133,10 @@ describe("workspace layout taxonomy contract", () => {
     expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*aspect-ratio:\s*9\s*\/\s*16;/);
     expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*height:\s*min\(100%,\s*500px\);/);
     expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*max-height:\s*500px;/);
+    expect(preview).toContain("workspaceStatusLabel");
+    expect(preview).toContain("cleanWorkspaceText");
+    expect(preview).toMatch(/\.workspace-preview-stage__transport\s*{[\s\S]*grid-template-columns:/);
+    expect(preview).toMatch(/\.workspace-preview-stage__transport button\s*{[\s\S]*white-space:\s*nowrap;/);
   });
 
   it("keeps the M05 asset rail list scrollable instead of clipping long content", () => {
@@ -143,5 +149,15 @@ describe("workspace layout taxonomy contract", () => {
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*grid-auto-rows:\s*max-content;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*min-height:\s*0;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*overflow-y:\s*auto;/);
+    expect(assetRail).toContain("workspaceStatusLabel");
+    expect(assetRail).toContain("formatWorkspaceClipRange");
+  });
+
+  it("keeps M05 selection details inside the workbench instead of auto-opening the global detail drawer", () => {
+    const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
+
+    expect(page).toContain("shellUiStore.closeDetailPanel()");
+    expect(page).not.toContain("shellUiStore.openDetailPanel()");
+    expect(page).toContain("workspaceStatusLabel");
   });
 });

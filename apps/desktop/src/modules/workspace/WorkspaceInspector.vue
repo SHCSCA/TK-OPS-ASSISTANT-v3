@@ -39,7 +39,7 @@
         </div>
         <div class="fact-item">
           <dt>片段状态</dt>
-          <dd>{{ selectedClip?.status ?? "未选择" }}</dd>
+          <dd>{{ workspaceStatusLabel(selectedClip?.status) }}</dd>
         </div>
       </dl>
     </section>
@@ -104,6 +104,7 @@ import type {
   WorkspaceTimelineDto,
   WorkspaceTimelineTrackDto
 } from "@/types/runtime";
+import { workspaceStatusLabel } from "./workspaceTimelineViewModel";
 
 const props = defineProps<{
   assemblyState: WorkspaceAssemblyStateDto | null;
@@ -154,7 +155,7 @@ const actionBoundaryTitle = computed(() => {
 const actionBoundaryDescription = computed(() => {
   if (!props.timeline) return "没有时间线时，基础工具保持不可用。";
   if (!props.selectedClip) return "选择片段后显示起点、时长和来源。";
-  return `片段状态：${props.selectedClip.status}，来源：${sourceKindLabel(clipSourceKind.value)}。`;
+  return `片段状态：${workspaceStatusLabel(props.selectedClip.status)}，来源：${sourceKindLabel(clipSourceKind.value)}。`;
 });
 
 const clipStartLabel = computed(() => {

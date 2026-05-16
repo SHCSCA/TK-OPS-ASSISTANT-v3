@@ -208,6 +208,7 @@ import WorkspaceInspector from "@/modules/workspace/WorkspaceInspector.vue";
 import WorkspacePreviewStage from "@/modules/workspace/WorkspacePreviewStage.vue";
 import WorkspaceTimeline from "@/modules/workspace/WorkspaceTimeline.vue";
 import WorkspaceTimelineToolbar from "@/modules/workspace/WorkspaceTimelineToolbar.vue";
+import { cleanWorkspaceText, workspaceStatusLabel } from "@/modules/workspace/workspaceTimelineViewModel";
 import { useEditingWorkspaceStore } from "@/stores/editing-workspace";
 import { useProjectStore } from "@/stores/project";
 import { createRouteDetailContext, useShellUiStore } from "@/stores/shell-ui";
@@ -252,7 +253,7 @@ const precheckLabel = computed(() => {
 });
 
 const selectionLabel = computed(() => {
-  if (selectedClip.value) return `片段：${selectedClip.value.label}`;
+  if (selectedClip.value) return `片段：${cleanWorkspaceText(selectedClip.value.label, "未命名片段")}`;
   if (selectedTrack.value) return `轨道：${selectedTrack.value.name}`;
   if (hasTimeline.value) return "尚未选择轨道或片段";
   return "等待创建时间线";
@@ -288,7 +289,7 @@ const generateDisabled = computed(
 );
 const toolBarStatus = computed(() => {
   if (!timeline.value) return "等待时间线";
-  if (selectedClip.value) return `片段：${selectedClip.value.label}`;
+  if (selectedClip.value) return `片段：${cleanWorkspaceText(selectedClip.value.label, "未命名片段")}`;
   if (selectedTrack.value) return `轨道：${selectedTrack.value.name}`;
   return "未选择片段";
 });
@@ -298,6 +299,8 @@ const inspectorBlockedMessage = computed(() => {
 });
 
 onMounted(() => {
+  shellUiStore.closeDetailPanel();
+
   if (typeof WebSocket !== "undefined") {
     taskBusStore.connect();
   }
@@ -323,7 +326,7 @@ watch(
         title: currentProjectName.value,
         description: hasTimeline.value ? "时间线与检查器保持联动。" : "等待创建主时间线。",
         badge: {
-          label: activeTask.value ? "处理中" : status.value === "ready" ? "已就绪" : status.value,
+          label: activeTask.value ? "处理中" : workspaceStatusLabel(status.value),
           tone: error.value
             ? "danger"
             : blockedMessage.value
@@ -345,8 +348,12 @@ watch(
             title: "当前选择",
             fields: [
               { id: "track", label: "轨道", value: selectedTrack.value?.name ?? "未选择" },
-              { id: "clip", label: "片段", value: selectedClip.value?.label ?? "未选择" },
-              { id: "status", label: "片段状态", value: selectedClip.value?.status ?? "未选择" }
+              {
+                id: "clip",
+                label: "片段",
+                value: selectedClip.value ? cleanWorkspaceText(selectedClip.value.label, "未命名片段") : "未选择"
+              },
+              { id: "status", label: "片段状态", value: workspaceStatusLabel(selectedClip.value?.status) }
             ]
           },
           {
@@ -385,9 +392,6 @@ watch(
       })
     );
 
-    if (error.value || blockedMessage.value) {
-      shellUiStore.openDetailPanel();
-    }
   },
   { immediate: true }
 );
@@ -436,13 +440,11 @@ async function handleSyncAssets(): Promise<void> {
 
 function handleSelectTrack(trackId: string): void {
   workspaceStore.selectTrack(trackId);
-  shellUiStore.openDetailPanel();
 }
 
 function handleSelectClip(payload: { clipId: string; trackId: string }): void {
   workspaceStore.selectTrack(payload.trackId);
   workspaceStore.selectClip(payload.clipId);
-  shellUiStore.openDetailPanel();
 }
 </script>
 

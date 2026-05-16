@@ -94,11 +94,11 @@
             :class="{ 'workspace-asset-rail__item--active': selectedClip?.id === entry.id }"
           >
             <div>
-              <strong>{{ entry.label }}</strong>
+              <strong>{{ sourceEntryTitle(entry) }}</strong>
               <p>{{ entry.trackName }} · {{ sourceTypeLabel(entry.sourceType) }} · {{ trackPolicy(entry.trackId) }}</p>
             </div>
             <span :data-status="entry.status">
-              {{ entry.status }}
+              {{ workspaceStatusLabel(entry.status) }}
             </span>
           </li>
         </transition-group>
@@ -115,6 +115,11 @@ import {
   sourceTypeLabel,
   type WorkspaceAssetCard
 } from "@/modules/workspace/workspaceAssetViewModel";
+import {
+  cleanWorkspaceText,
+  formatWorkspaceClipRange,
+  workspaceStatusLabel
+} from "@/modules/workspace/workspaceTimelineViewModel";
 import type {
   AssetDto,
   RuntimeRequestErrorShape,
@@ -207,7 +212,7 @@ const summaryDescription = computed(() => {
 
   if (!props.timeline) return "创建草稿前不生成伪素材列表。";
   if (filteredSourceEntries.value.length === 0) return "该来源还没有落到时间线。";
-  if (props.selectedClip) return `当前选中片段：${props.selectedClip.label}`;
+  if (props.selectedClip) return `当前选中片段：${cleanWorkspaceText(props.selectedClip.label, "待确认片段")}`;
   return "点击时间线片段后，这里会同步显示对应来源。";
 });
 
@@ -233,6 +238,11 @@ function thumbnailIcon(type: string): string {
 
 function trackPolicy(trackId: string): string {
   return trackId.startsWith("managed-") ? "受管轨道" : "手动轨道";
+}
+
+function sourceEntryTitle(entry: WorkspaceTimelineClipDto & { trackName: string }): string {
+  const label = cleanWorkspaceText(entry.label, sourceTypeLabel(entry.sourceType));
+  return `${label} · ${formatWorkspaceClipRange(entry.startMs, entry.durationMs)}`;
 }
 </script>
 

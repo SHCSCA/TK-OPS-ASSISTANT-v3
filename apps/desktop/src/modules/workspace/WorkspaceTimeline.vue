@@ -51,7 +51,7 @@
               <span class="material-symbols-outlined">{{ trackIcon(row.kind) }}</span>
               <div>
                 <strong>{{ row.name }}</strong>
-                <small>{{ trackKindLabel(row.kind) }} · {{ trackPolicy(row.id) }} · {{ row.clips.length }} 个片段</small>
+                <small>{{ trackMeta(row) }}</small>
               </div>
             </button>
 
@@ -83,7 +83,7 @@
                   <div v-else class="workspace-timeline__subtitle-block">
                     {{ subtitleText(clipView.clip) }}
                   </div>
-                  <strong>{{ clipView.label }}</strong>
+                  <strong>{{ clipLabel(clipView.clip) }}</strong>
                   <small>{{ clipSubtitle(clipView.clip) }}</small>
                 </button>
               </transition-group>
@@ -108,8 +108,15 @@ import type {
 } from "@/types/runtime";
 import {
   buildTimelineRows,
+  cleanWorkspaceText,
   computePlayheadPercent,
-  type TimelineClipView
+  formatWorkspaceClipRange,
+  formatWorkspaceTime,
+  type TimelineClipView,
+  type TimelineRowView,
+  workspaceSourceTypeLabel,
+  workspaceStatusLabel,
+  workspaceTrackMetaLabel
 } from "./workspaceTimelineViewModel";
 
 const props = defineProps<{
@@ -137,7 +144,7 @@ const markers = computed(() => {
   return Array.from({ length: count + 1 }, (_, index) => {
     const ratio = index / count;
     return {
-      label: formatMs(durationMs.value * ratio),
+      label: formatWorkspaceTime(durationMs.value * ratio),
       left: `${ratio * 100}%`
     };
   });
@@ -158,11 +165,11 @@ const selectedClip = computed(() => {
 
 const playheadPositionMs = computed(() => selectedClip.value?.startMs ?? 0);
 const playheadPercent = computed(() => computePlayheadPercent(playheadPositionMs.value, durationMs.value));
-const playheadLabel = computed(() => formatMs(playheadPositionMs.value));
+const playheadLabel = computed(() => formatWorkspaceTime(playheadPositionMs.value));
 
 const subtitle = computed(() => {
   if (!props.timeline) return "等待创建时间线草稿";
-  return `${props.timeline.name} · ${rows.value.length} 条轨道 · ${formatMs(durationMs.value)}`;
+  return `${props.timeline.name} · ${rows.value.length} 条轨道 · ${formatWorkspaceTime(durationMs.value)}`;
 });
 
 const selectedSummary = computed(() => {
@@ -177,28 +184,19 @@ function trackIcon(kind: WorkspaceTimelineTrackKind): string {
   return "movie";
 }
 
-function trackKindLabel(kind: WorkspaceTimelineTrackKind): string {
-  if (kind === "audio") return "音频轨";
-  if (kind === "subtitle") return "字幕轨";
-  return "视频轨";
-}
-
-function sourceTypeLabel(sourceType: string): string {
-  if (sourceType === "storyboard") return "分镜";
-  if (sourceType === "asset") return "资产";
-  if (sourceType === "imported_video") return "拆解";
-  if (sourceType === "voice_track") return "配音";
-  if (sourceType === "subtitle_track") return "字幕";
-  return "手动";
-}
-
-function trackPolicy(trackId: string): string {
-  return trackId.startsWith("managed-") ? "受管轨道" : "手动轨道";
+function trackMeta(row: TimelineRowView): string {
+  return workspaceTrackMetaLabel({
+    id: row.id,
+    kind: row.kind,
+    name: row.name,
+    clipCount: row.clips.length
+  });
 }
 
 function clipSubtitle(clip: WorkspaceTimelineClipDto): string {
   const segmentId = clip.metadata?.segmentId ? `${clip.metadata.segmentId} · ` : "";
-  return `${segmentId}${sourceTypeLabel(clip.sourceType)} · ${formatMs(clip.durationMs)}`;
+  const status = clip.status === "ready" ? "" : `${workspaceStatusLabel(clip.status)} · `;
+  return `${segmentId}${workspaceSourceTypeLabel(clip.sourceType)} · ${status}${formatWorkspaceClipRange(clip.startMs, clip.durationMs)}`;
 }
 
 function clipStyle(clipView: TimelineClipView): Record<string, string> {
@@ -209,16 +207,11 @@ function clipStyle(clipView: TimelineClipView): Record<string, string> {
 }
 
 function subtitleText(clip: WorkspaceTimelineClipDto): string {
-  return clip.metadata?.text || clip.label;
+  return cleanWorkspaceText(clip.metadata?.text, clip.label);
 }
 
-function formatMs(value: number): string {
-  const totalSeconds = Math.max(0, Math.floor(value / 1000));
-  const minutes = Math.floor(totalSeconds / 60)
-    .toString()
-    .padStart(2, "0");
-  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
-  return `${minutes}:${seconds}`;
+function clipLabel(clip: WorkspaceTimelineClipDto): string {
+  return cleanWorkspaceText(clip.label, workspaceSourceTypeLabel(clip.sourceType));
 }
 </script>
 
