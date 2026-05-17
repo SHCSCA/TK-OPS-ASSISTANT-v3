@@ -544,6 +544,13 @@ function handleSelectTrack(trackId: string): void {
 
 function handleSelectClip(payload: { clipId: string; trackId: string }): void {
   workspaceStore.selectTimelineClip(payload);
+  const clip = timeline.value?.tracks
+    .flatMap((track) => track.clips)
+    .find((candidate) => candidate.id === payload.clipId);
+
+  if (clip) {
+    workspaceStore.setPlayheadMs(clip.startMs);
+  }
 }
 </script>
 

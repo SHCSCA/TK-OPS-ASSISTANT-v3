@@ -481,6 +481,19 @@ describe("M05 AI 剪辑工作台页面", () => {
     await flushPromises();
     await flushPromises();
 
+    await wrapper.get('[data-testid="workspace-asset-tab-storyboard"]').trigger("click");
+    await flushPromises();
+
+    const sourceCards = wrapper.findAll(".workspace-asset-rail__item-card");
+    expect(sourceCards).toHaveLength(2);
+    await sourceCards[1].trigger("click");
+    await flushPromises();
+
+    expect(wrapper.findAll(".workspace-asset-rail__item--active")).toHaveLength(1);
+    expect(wrapper.get('[data-testid="workspace-preview-phone"]').text()).toContain("S02 · 分镜画面");
+    expect(wrapper.get('[data-testid="workspace-preview-transport"]').text()).toContain("00:06");
+    expect(wrapper.text()).toContain("当前片段：S02 · 分镜画面");
+
     wrapper.findComponent(WorkspaceTimeline).vm.$emit("select-track", "managed-video-storyboard");
     wrapper.findComponent(WorkspaceTimeline).vm.$emit("playhead", 6500);
     await flushPromises();
