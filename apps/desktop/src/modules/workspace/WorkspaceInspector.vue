@@ -38,8 +38,19 @@
           <dd>{{ selectedClip?.label ?? "未选择" }}</dd>
         </div>
         <div class="fact-item">
+          <dt>当前片段</dt>
+          <dd>{{ currentClipLabel }}</dd>
+        </div>
+        <div class="fact-item">
           <dt>片段状态</dt>
           <dd>{{ workspaceStatusLabel(selectedClip?.status) }}</dd>
+        </div>
+        <div class="fact-item">
+          <dt>保存状态</dt>
+          <dd>
+            <strong>{{ saveStateTitle }}</strong>
+            <span>{{ saveStateDescription }}</span>
+          </dd>
         </div>
       </dl>
     </section>
@@ -67,6 +78,13 @@
       <h3>预检提醒</h3>
       <strong>{{ precheckTitle }}</strong>
       <p>{{ precheckDescription }}</p>
+      <ul v-if="precheckIssues.length > 0" class="workspace-inspector__issue-list">
+        <li v-for="issue in precheckIssues" :key="issue">
+          <button type="button" data-testid="workspace-precheck-issue" @click="emit('focus-precheck-issue', issue)">
+            {{ issue }}
+          </button>
+        </li>
+      </ul>
     </section>
 
     <details class="workspace-inspector__details" data-testid="workspace-ai-suggestion-details">
@@ -104,6 +122,7 @@ import type {
   WorkspaceTimelineDto,
   WorkspaceTimelineTrackDto
 } from "@/types/runtime";
+import type { WorkspacePreviewContext } from "./workspacePreviewContext";
 import { workspaceStatusLabel } from "./workspaceTimelineViewModel";
 
 const props = defineProps<{
@@ -112,11 +131,16 @@ const props = defineProps<{
   errorMessage: string | null;
   lastCommandResult: WorkspaceAICommandResultDto | null;
   precheck: TimelinePrecheckDto | null;
+  previewContext: WorkspacePreviewContext;
   saveState: WorkspaceSaveStateDto | null;
   selectedClip: WorkspaceTimelineClipDto | null;
   selectedTrack: WorkspaceTimelineTrackDto | null;
   status: EditingWorkspaceStatus;
   timeline: WorkspaceTimelineDto | null;
+}>();
+
+const emit = defineEmits<{
+  "focus-precheck-issue": [issue: string];
 }>();
 
 const statusLabel = computed(() => {
@@ -144,6 +168,21 @@ const statusDescription = computed(() => {
   if (props.status === "saving") return "正在将当前时间线草稿写回 Runtime。";
   if (props.status === "loading") return "正在读取当前项目的时间线。";
   return "当前可继续在真实时间线草稿上选择、保存和查看上下文。";
+});
+
+const currentClipLabel = computed(() => {
+  return props.previewContext.clip ? props.previewContext.detailText : "当前片段：未命中";
+});
+
+const saveStateTitle = computed(() => {
+  if (props.status === "saving") return "保存中";
+  if (!props.saveState) return "未保存";
+  return props.saveState.saved ? "已保存" : "保存未完成";
+});
+
+const saveStateDescription = computed(() => {
+  if (props.status === "saving") return "正在将当前时间线草稿写回 Runtime。";
+  return props.saveState?.message ?? "保存时间线后显示 Runtime 返回结果。";
 });
 
 const actionBoundaryTitle = computed(() => {
@@ -192,8 +231,10 @@ const precheckTitle = computed(() => {
 const precheckDescription = computed(() => {
   if (!props.precheck) return "点击本地预检后显示时间线检查结果。";
   if (props.precheck.issues.length === 0) return props.precheck.message ?? "时间线本地预检通过。";
-  return props.precheck.issues.join(" ");
+  return props.precheck.message ?? "预检发现需要处理的问题。";
 });
+
+const precheckIssues = computed(() => props.precheck?.issues ?? []);
 
 const assemblySummary = computed(() => {
   if (!props.assemblyState) return "";
@@ -285,6 +326,30 @@ function formatMs(value: number): string {
 
 .workspace-inspector__section strong {
   color: var(--text-primary);
+}
+
+.workspace-inspector__issue-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.workspace-inspector__issue-list button {
+  background: color-mix(in srgb, var(--surface-secondary) 86%, transparent);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  line-height: 1.45;
+  padding: 8px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.workspace-inspector__issue-list button:hover {
+  border-color: color-mix(in srgb, var(--accent-primary) 38%, var(--border-default));
 }
 
 .workspace-inspector__facts {

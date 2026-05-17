@@ -99,6 +99,19 @@ describe("workspace layout taxonomy contract", () => {
     expect(toolBarStatusBlock).toContain('return "选择工具 · 磁吸开启";');
     expect(toolBarStatusBlock).not.toContain("selectedClip.value");
     expect(timeline).toContain("buildTimelineRows");
+    expect(timeline).toContain("useWorkspaceTimelineDrag");
+    expect(timeline).toContain('"move-preview": [payload: WorkspaceTimelineMovePreview]');
+    expect(timeline).toContain('"move-commit": [payload: WorkspaceTimelineMovePreview]');
+    expect(timeline).toContain('"trim-preview": [payload: WorkspaceTimelineTrimPreview]');
+    expect(timeline).toContain('"trim-commit": [payload: WorkspaceTimelineTrimPreview]');
+    expect(timeline).toContain('"drag-cancel": [payload: WorkspaceTimelineDragPreview]');
+    expect(timeline).toContain("@pointerdown.stop=\"handleMovePointerDown(clipView.clip, $event)\"");
+    expect(timeline).toContain("@pointerdown.stop=\"handleTrimPointerDown(clipView.clip, 'left', $event)\"");
+    expect(timeline).toContain("@pointerdown.stop=\"handleTrimPointerDown(clipView.clip, 'right', $event)\"");
+    expect(timeline).toContain('document.addEventListener("pointermove", handleDocumentPointerMove, { passive: true })');
+    expect(timeline).toContain('document.addEventListener("pointerup", handleDocumentPointerUp, { passive: true })');
+    expect(timeline).not.toContain("useEditingWorkspaceStore");
+    expect(timeline).not.toContain("runtimeClient");
     expect(timeline).toContain("TimelineClipView");
     expect(timeline).toContain("computePlayheadPercent");
     expect(timeline).toMatch(
@@ -145,6 +158,7 @@ describe("workspace layout taxonomy contract", () => {
 
   it("keeps the preview phone inside the visible M05 stage", () => {
     const preview = readSource("../src/modules/workspace/WorkspacePreviewStage.vue");
+    const previewContext = readSource("../src/modules/workspace/workspacePreviewContext.ts");
 
     expect(preview).toMatch(
       /\.workspace-preview-stage\s*{[\s\S]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/
@@ -157,8 +171,10 @@ describe("workspace layout taxonomy contract", () => {
     expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*aspect-ratio:\s*9\s*\/\s*16;/);
     expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*height:\s*min\(100%,\s*500px\);/);
     expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*max-height:\s*500px;/);
-    expect(preview).toContain("workspaceStatusLabel");
-    expect(preview).toContain("cleanWorkspaceText");
+    expect(preview).toContain("previewContext");
+    expect(previewContext).toContain("buildWorkspacePreviewContext");
+    expect(previewContext).toContain("cleanWorkspaceText");
+    expect(previewContext).toContain("workspaceSourceTypeLabel");
     expect(preview).toMatch(/\.workspace-preview-stage__transport\s*{[\s\S]*grid-template-columns:/);
     expect(preview).toMatch(/\.workspace-preview-stage__transport button\s*{[\s\S]*white-space:\s*nowrap;/);
   });
@@ -214,5 +230,7 @@ describe("workspace layout taxonomy contract", () => {
     expect(page).toContain("shellUiStore.closeDetailPanel()");
     expect(page).not.toContain("shellUiStore.openDetailPanel()");
     expect(page).toContain("workspaceStatusLabel");
+    expect(page).toContain(':preview-context="previewContext"');
+    expect(page).toContain('@focus-precheck-issue="handleFocusPrecheckIssue"');
   });
 });

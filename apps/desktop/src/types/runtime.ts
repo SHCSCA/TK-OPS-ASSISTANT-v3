@@ -689,6 +689,12 @@ export type MoveWorkspaceClipInput = {
   startMs: number;
 };
 
+export type InsertWorkspaceAssetClipInput = {
+  assetId: string;
+  targetTrackId?: string | null;
+  startMs?: number | null;
+};
+
 export type TrimWorkspaceClipInput = {
   startMs?: number;
   durationMs?: number;
@@ -709,11 +715,13 @@ export type TimelinePreviewDto = {
   previewUrl: string | null;
 };
 
+export type TimelinePrecheckIssueDto = string;
+
 export type TimelinePrecheckDto = {
   timelineId?: string;
   status: string;
   message?: string;
-  issues: string[];
+  issues: TimelinePrecheckIssueDto[];
 };
 
 export type WorkspaceTimelineCreateInput = {

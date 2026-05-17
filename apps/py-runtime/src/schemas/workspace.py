@@ -165,10 +165,18 @@ class ClipSplitInput(BaseModel):
     splitAtMs: int = Field(ge=0)
 
 
+class ClipInsertAssetInput(BaseModel):
+    assetId: str
+    targetTrackId: str | None = None
+    startMs: int | None = Field(default=None, ge=0)
+    label: str | None = None
+
+
 class ClipReplaceInput(BaseModel):
-    sourceType: str
+    sourceType: str = "asset"
     sourceId: str | None = None
-    label: str
+    assetId: str | None = None
+    label: str | None = None
     prompt: str | None = None
     resolution: TimelineResolutionDto | None = None
     editableFields: list[str] = Field(default_factory=list)

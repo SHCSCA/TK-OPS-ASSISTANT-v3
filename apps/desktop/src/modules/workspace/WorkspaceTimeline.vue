@@ -70,10 +70,12 @@
                     `workspace-clip--${clipView.joinClass}`,
                     { 'workspace-clip--selected': selectedClipId === clipView.id }
                   ]"
+                  :data-clip-id="clipView.id"
                   :data-status="clipView.clip.status"
                   type="button"
                   :style="clipStyle(clipView)"
                   @click.stop="$emit('select-clip', { clipId: clipView.id, trackId: row.id })"
+                  @pointerdown.stop="handleMovePointerDown(clipView.clip, $event)"
                 >
                   <span
                     v-if="clipView.id === selectedClipId"
@@ -84,6 +86,7 @@
                     tabindex="0"
                     title="左侧收短 0.5 秒"
                     @click.stop="emitTrim(clipView.id, 'left', 500)"
+                    @pointerdown.stop="handleTrimPointerDown(clipView.clip, 'left', $event)"
                     @keydown.enter.stop.prevent="emitTrim(clipView.id, 'left', 500)"
                     @keydown.space.stop.prevent="emitTrim(clipView.id, 'left', 500)"
                   />
@@ -96,6 +99,7 @@
                     tabindex="0"
                     title="右侧收短 0.5 秒"
                     @click.stop="emitTrim(clipView.id, 'right', -500)"
+                    @pointerdown.stop="handleTrimPointerDown(clipView.clip, 'right', $event)"
                     @keydown.enter.stop.prevent="emitTrim(clipView.id, 'right', -500)"
                     @keydown.space.stop.prevent="emitTrim(clipView.id, 'right', -500)"
                   />
@@ -126,7 +130,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 
 import type { EditingWorkspaceStatus } from "@/stores/editing-workspace";
 import type {
@@ -135,6 +139,14 @@ import type {
   WorkspaceTimelineTrackDto,
   WorkspaceTimelineTrackKind
 } from "@/types/runtime";
+import {
+  useWorkspaceTimelineDrag,
+  type WorkspaceTimelineDragPreview,
+  type WorkspaceTimelineMovePreview,
+  type WorkspaceTimelineTrimEdge,
+  type WorkspaceTimelineTrimPreview
+} from "./useWorkspaceTimelineDrag";
+import { buildSnapCandidates } from "./workspaceTimelineSnap";
 import {
   buildTimelineRows,
   cleanWorkspaceText,
@@ -162,6 +174,11 @@ const emit = defineEmits<{
   "select-clip": [payload: { clipId: string; trackId: string }];
   "select-track": [trackId: string];
   trim: [payload: { clipId: string; edge: "left" | "right"; deltaMs: number }];
+  "move-preview": [payload: WorkspaceTimelineMovePreview];
+  "move-commit": [payload: WorkspaceTimelineMovePreview];
+  "trim-preview": [payload: WorkspaceTimelineTrimPreview];
+  "trim-commit": [payload: WorkspaceTimelineTrimPreview];
+  "drag-cancel": [payload: WorkspaceTimelineDragPreview];
 }>();
 
 const durationMs = computed(() => {
@@ -183,6 +200,22 @@ const markers = computed(() => {
 });
 
 const rows = computed(() => buildTimelineRows(props.tracks, durationMs.value));
+const draggingClipId = ref<string | null>(null);
+const activeLaneElement = ref<HTMLElement | null>(null);
+const timelineClips = computed(() => props.tracks.flatMap((track) => track.clips));
+const snapCandidates = computed(() =>
+  buildSnapCandidates(timelineClips.value, {
+    movingClipId: draggingClipId.value,
+    playheadMs: props.playheadMs,
+    timelineEndMs: durationMs.value
+  })
+);
+const timelineDrag = useWorkspaceTimelineDrag({
+  durationMs,
+  snapCandidates,
+  snapThresholdMs: 120,
+  minDurationMs: 500
+});
 
 const selectedClip = computed(() => {
   if (!props.selectedClipId) return null;
@@ -256,9 +289,13 @@ function clipSubtitle(clip: WorkspaceTimelineClipDto): string {
 }
 
 function clipStyle(clipView: TimelineClipView): Record<string, string> {
+  const preview = timelineDrag.dragPreview.value;
+  const previewStartMs = preview?.clipId === clipView.id ? preview.startMs : clipView.clip.startMs;
+  const previewDurationMs = preview?.clipId === clipView.id ? preview.durationMs : clipView.clip.durationMs;
+
   return {
-    left: `${clipView.leftPercent}%`,
-    width: `${clipView.widthPercent}%`
+    left: `${computePlayheadPercent(previewStartMs, durationMs.value)}%`,
+    width: `${computePlayheadPercent(previewDurationMs, durationMs.value)}%`
   };
 }
 
@@ -284,6 +321,102 @@ function handleTimelinePointer(event: MouseEvent): void {
 function emitTrim(clipId: string, edge: "left" | "right", deltaMs: number): void {
   emit("trim", { clipId, edge, deltaMs });
 }
+
+function handleMovePointerDown(clip: WorkspaceTimelineClipDto, event: PointerEvent): void {
+  if (!isPrimaryPointer(event)) return;
+
+  const rect = resolveLaneRect(event);
+  if (!rect) return;
+
+  draggingClipId.value = clip.id;
+  activeLaneElement.value = resolveLaneElement(event);
+  const preview = timelineDrag.startMoveDrag({ clip, clientX: event.clientX, rect });
+  emit("move-preview", preview);
+  bindDocumentDragEvents();
+}
+
+function handleTrimPointerDown(clip: WorkspaceTimelineClipDto, edge: WorkspaceTimelineTrimEdge, event: PointerEvent): void {
+  if (!isPrimaryPointer(event)) return;
+
+  const rect = resolveLaneRect(event);
+  if (!rect) return;
+
+  draggingClipId.value = clip.id;
+  activeLaneElement.value = resolveLaneElement(event);
+  const preview = timelineDrag.startTrimDrag({ clip, edge, clientX: event.clientX, rect });
+  emit("trim-preview", preview);
+  bindDocumentDragEvents();
+}
+
+function handleDocumentPointerMove(event: PointerEvent): void {
+  const rect = resolveActiveLaneRect();
+  if (!rect) return;
+
+  const preview = timelineDrag.updateDrag({ clientX: event.clientX, rect });
+  if (!preview) return;
+
+  if (preview.gesture === "move") emit("move-preview", preview);
+  else emit("trim-preview", preview);
+}
+
+function handleDocumentPointerUp(): void {
+  const preview = timelineDrag.finishDrag();
+  unbindDocumentDragEvents();
+  draggingClipId.value = null;
+  activeLaneElement.value = null;
+
+  if (!preview) return;
+
+  if (preview.gesture === "move") emit("move-commit", preview);
+  else emit("trim-commit", preview);
+}
+
+function handleDocumentPointerCancel(): void {
+  const preview = timelineDrag.cancelDrag();
+  unbindDocumentDragEvents();
+  draggingClipId.value = null;
+  activeLaneElement.value = null;
+
+  if (preview) emit("drag-cancel", preview);
+}
+
+function bindDocumentDragEvents(): void {
+  document.addEventListener("pointermove", handleDocumentPointerMove, { passive: true });
+  document.addEventListener("pointerup", handleDocumentPointerUp, { passive: true });
+  document.addEventListener("pointercancel", handleDocumentPointerCancel, { passive: true });
+}
+
+function unbindDocumentDragEvents(): void {
+  document.removeEventListener("pointermove", handleDocumentPointerMove);
+  document.removeEventListener("pointerup", handleDocumentPointerUp);
+  document.removeEventListener("pointercancel", handleDocumentPointerCancel);
+}
+
+function resolveLaneRect(event: PointerEvent): DOMRect | null {
+  return resolveLaneElement(event)?.getBoundingClientRect() ?? null;
+}
+
+function resolveLaneElement(event: PointerEvent): HTMLElement | null {
+  const target = event.currentTarget as HTMLElement | null;
+
+  return target?.closest(".workspace-track__lane") ?? null;
+}
+
+function resolveActiveLaneRect(): DOMRect | null {
+  if (!draggingClipId.value || !activeLaneElement.value) return null;
+
+  return activeLaneElement.value.getBoundingClientRect();
+}
+
+function isPrimaryPointer(event: PointerEvent): boolean {
+  return event.button === 0 && event.isPrimary;
+}
+
+onBeforeUnmount(() => {
+  const preview = timelineDrag.cancelDrag();
+  if (preview) emit("drag-cancel", preview);
+  unbindDocumentDragEvents();
+});
 </script>
 
 <style scoped>

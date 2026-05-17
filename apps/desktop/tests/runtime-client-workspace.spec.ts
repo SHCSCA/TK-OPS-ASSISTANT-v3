@@ -4,6 +4,7 @@ import {
   RuntimeRequestError,
   createWorkspaceTimeline,
   fetchWorkspaceTimeline,
+  insertWorkspaceAssetClip,
   runWorkspaceAICommand,
   updateWorkspaceTimeline
 } from "@/app/runtime-client";
@@ -53,6 +54,19 @@ describe("M05 AI 剪辑工作台 Runtime client 契约", () => {
         });
       }
 
+      if (path === "/api/workspace/timelines/timeline-1/clips/insert-asset" && method === "POST") {
+        return okJsonResponse({
+          timeline: workspaceTimeline("timeline-1", "短视频成片草稿"),
+          saveState: {
+            saved: true,
+            updatedAt: now(),
+            source: "clip_insert_asset",
+            message: "已确认保存资产入轨结果。"
+          },
+          message: "资产已加入时间线。"
+        });
+      }
+
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -83,11 +97,17 @@ describe("M05 AI 剪辑工作台 Runtime client 契约", () => {
         instruction: "删除长停顿"
       }
     });
+    const insertResult = await insertWorkspaceAssetClip("timeline-1", {
+      assetId: "asset-video-1",
+      targetTrackId: "track-video",
+      startMs: 4200
+    });
 
     expect(emptyResult.timeline).toBeNull();
     expect(createdResult.timeline?.id).toBe("timeline-1");
     expect(updatedResult.timeline?.name).toBe("短视频成片草稿");
     expect(commandResult.status).toBe("blocked");
+    expect(insertResult.saveState?.source).toBe("clip_insert_asset");
     expect(calls).toEqual([
       { path: "/api/workspace/projects/project-1/timeline", method: "GET", body: undefined },
       {
@@ -123,6 +143,15 @@ describe("M05 AI 剪辑工作台 Runtime client 契约", () => {
           parameters: {
             instruction: "删除长停顿"
           }
+        }
+      },
+      {
+        path: "/api/workspace/timelines/timeline-1/clips/insert-asset",
+        method: "POST",
+        body: {
+          assetId: "asset-video-1",
+          targetTrackId: "track-video",
+          startMs: 4200
         }
       }
     ]);

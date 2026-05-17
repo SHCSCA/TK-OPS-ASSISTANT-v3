@@ -40,6 +40,7 @@
             </Button>
             <Button
               variant="primary"
+              data-testid="workspace-save-button"
               :running="status === 'saving'"
               :disabled="saveDisabled"
               @click="handleSave"
@@ -142,6 +143,8 @@
                 :project-id="currentProjectId"
                 :selected-clip="selectedClip"
                 :timeline="timeline"
+                @asset-insert="handleAssetInsert"
+                @asset-replace="handleAssetReplace"
                 @select-source-clip="handleSelectClip"
                 @sync-assets="handleSyncAssets"
               />
@@ -151,9 +154,7 @@
               <p class="panel-label">播放器</p>
               <WorkspacePreviewStage
                 class="stage-panel preview-panel"
-                :blocked-message="blockedMessage"
-                :selected-clip="selectedClip"
-                :selected-track="selectedTrack"
+                :preview-context="previewContext"
                 :timeline="timeline"
               />
             </div>
@@ -167,11 +168,13 @@
                 :error-message="error?.message ?? null"
                 :last-command-result="lastCommandResult"
                 :precheck="precheck"
+                :preview-context="previewContext"
                 :save-state="saveState"
                 :selected-clip="selectedClip"
                 :selected-track="selectedTrack"
                 :status="status"
                 :timeline="timeline"
+                @focus-precheck-issue="handleFocusPrecheckIssue"
               />
             </div>
           </div>
@@ -198,10 +201,14 @@
                 :status="status"
                 :timeline="timeline"
                 :tracks="orderedTracks"
+                @drag-cancel="handleTimelineDragCancel"
                 @playhead="handleSetPlayhead"
+                @move-commit="handleTimelineMoveCommit"
+                @move-preview="handleTimelineMovePreview"
                 @select-clip="handleSelectClip"
                 @select-track="handleSelectTrack"
                 @trim="handleTimelineTrim"
+                @trim-commit="handleTimelineTrimCommit"
               />
             </div>
           </div>
@@ -213,7 +220,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onBeforeUnmount, onMounted, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
 import Button from "@/components/ui/Button/Button.vue";
@@ -223,6 +230,11 @@ import WorkspaceInspector from "@/modules/workspace/WorkspaceInspector.vue";
 import WorkspacePreviewStage from "@/modules/workspace/WorkspacePreviewStage.vue";
 import WorkspaceTimeline from "@/modules/workspace/WorkspaceTimeline.vue";
 import WorkspaceTimelineToolbar from "@/modules/workspace/WorkspaceTimelineToolbar.vue";
+import type {
+  WorkspaceTimelineDragPreview,
+  WorkspaceTimelineMovePreview,
+  WorkspaceTimelineTrimPreview
+} from "@/modules/workspace/useWorkspaceTimelineDrag";
 import { cleanWorkspaceText, workspaceStatusLabel } from "@/modules/workspace/workspaceTimelineViewModel";
 import { useEditingWorkspaceStore } from "@/stores/editing-workspace";
 import { useProjectStore } from "@/stores/project";
@@ -233,6 +245,7 @@ const projectStore = useProjectStore();
 const shellUiStore = useShellUiStore();
 const workspaceStore = useEditingWorkspaceStore();
 const taskBusStore = useTaskBusStore();
+const movePreview = ref<WorkspaceTimelineMovePreview | null>(null);
 
 const {
   assemblyState,
@@ -246,6 +259,7 @@ const {
   orderedTracks,
   playheadMs,
   precheck,
+  previewContext,
   saveState,
   selectedClip,
   selectedClipId,
@@ -458,6 +472,20 @@ async function handleSyncAssets(): Promise<void> {
   }
 }
 
+async function handleAssetInsert(assetId: string): Promise<void> {
+  const result = await workspaceStore.insertAssetAtPlayhead(assetId);
+  if (result) {
+    await workspaceStore.runPrecheck();
+  }
+}
+
+async function handleAssetReplace(assetId: string): Promise<void> {
+  const result = await workspaceStore.replaceSelectedClipWithAsset(assetId);
+  if (result) {
+    await workspaceStore.runPrecheck();
+  }
+}
+
 async function handleDeleteSelectedClip(): Promise<void> {
   await workspaceStore.deleteSelectedClip();
 }
@@ -478,9 +506,38 @@ function handleSetPlayhead(positionMs: number): void {
   workspaceStore.setPlayheadMs(positionMs);
 }
 
+function handleFocusPrecheckIssue(issue: string): void {
+  workspaceStore.focusPrecheckIssue(issue);
+}
+
 async function handleTimelineTrim(payload: { clipId: string; edge: "left" | "right"; deltaMs: number }): Promise<void> {
   workspaceStore.selectClip(payload.clipId);
   await workspaceStore.trimSelectedClip(payload.edge, payload.deltaMs);
+}
+
+function handleTimelineMovePreview(payload: WorkspaceTimelineMovePreview): void {
+  movePreview.value = payload;
+}
+
+async function handleTimelineMoveCommit(payload: WorkspaceTimelineMovePreview): Promise<void> {
+  movePreview.value = null;
+  const result = await workspaceStore.commitMovePreview(payload);
+  if (result) {
+    await workspaceStore.runPrecheck();
+  }
+}
+
+async function handleTimelineTrimCommit(payload: WorkspaceTimelineTrimPreview): Promise<void> {
+  const result = await workspaceStore.commitTrimPreview(payload);
+  if (result) {
+    await workspaceStore.runPrecheck();
+  }
+}
+
+function handleTimelineDragCancel(payload: WorkspaceTimelineDragPreview): void {
+  if (payload.gesture === "move") {
+    movePreview.value = null;
+  }
 }
 
 function handleSelectTrack(trackId: string): void {

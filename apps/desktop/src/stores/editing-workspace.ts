@@ -7,13 +7,19 @@ import {
   deleteWorkspaceClip,
   fetchAssets,
   fetchWorkspaceTimeline,
+  insertWorkspaceAssetClip,
   moveWorkspaceClip,
   precheckTimeline,
+  replaceWorkspaceClip,
   runWorkspaceAICommand,
   splitWorkspaceClip,
   trimWorkspaceClip,
   updateWorkspaceTimeline
 } from "@/app/runtime-client";
+import {
+  buildWorkspacePreviewContext,
+  type WorkspacePreviewContext
+} from "@/modules/workspace/workspacePreviewContext";
 import type {
   AssetDto,
   RuntimeRequestErrorShape,
@@ -37,6 +43,24 @@ export type EditingWorkspaceStatus =
   | "error";
 
 export type EditingWorkspaceAssetStatus = "idle" | "loading" | "ready" | "error";
+
+export type EditingWorkspaceMovePreview = {
+  gesture: "move";
+  clipId: string;
+  trackId: string;
+  startMs: number;
+  durationMs: number;
+};
+
+export type EditingWorkspaceTrimPreview = {
+  gesture: "trim";
+  clipId: string;
+  trackId: string;
+  edge: "left" | "right";
+  startMs: number;
+  durationMs: number;
+  inPointMs?: number;
+};
 
 type EditingWorkspaceState = {
   assemblyState: WorkspaceAssemblyStateDto | null;
@@ -87,6 +111,19 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     selectedClip: (state) => {
       const clips = state.timeline?.tracks.flatMap((track) => track.clips) ?? [];
       return clips.find((clip) => clip.id === state.selectedClipId) ?? null;
+    },
+    previewContext: (state): WorkspacePreviewContext => {
+      const selectedTrack =
+        state.timeline?.tracks.find((track) => track.id === state.selectedTrackId) ?? null;
+      const clips = state.timeline?.tracks.flatMap((track) => track.clips) ?? [];
+      const selectedClip = clips.find((clip) => clip.id === state.selectedClipId) ?? null;
+
+      return buildWorkspacePreviewContext({
+        playheadMs: state.playheadMs,
+        selectedClip,
+        selectedTrack,
+        timeline: state.timeline
+      });
     },
     isBusy: (state): boolean => state.status === "loading" || state.status === "saving"
   },
@@ -265,6 +302,52 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     selectClip(clipId: string | null): void {
       this.selectedClipId = clipId;
     },
+    focusPrecheckIssue(issue: string): boolean {
+      if (!this.timeline) {
+        this.blockedMessage = "当前没有可定位的时间线。";
+        return false;
+      }
+
+      const normalizedIssue = issue.trim();
+      if (!normalizedIssue) {
+        this.blockedMessage = "预检问题内容为空，无法定位。";
+        return false;
+      }
+
+      const tracks = this.timeline.tracks;
+      const clips = tracks.flatMap((track) => track.clips);
+      const matchedClip = clips.find(
+        (clip) => normalizedIssue.includes(clip.id) || normalizedIssue.includes(clip.label)
+      );
+
+      if (matchedClip) {
+        this.selectedTrackId = matchedClip.trackId;
+        this.selectedClipId = matchedClip.id;
+        this.setPlayheadMs(matchedClip.startMs);
+        this.blockedMessage = null;
+        return true;
+      }
+
+      const matchedTrack = tracks.find(
+        (track) => normalizedIssue.includes(track.id) || normalizedIssue.includes(track.name)
+      );
+
+      if (matchedTrack) {
+        this.selectedTrackId = matchedTrack.id;
+        this.selectedClipId = null;
+        this.setPlayheadMs(matchedTrack.clips[0]?.startMs ?? this.playheadMs);
+        this.blockedMessage = null;
+        return true;
+      }
+
+      if (this.selectedClipId || this.selectedTrackId) {
+        this.blockedMessage = "这条预检问题没有明确片段或轨道，已保留当前选中位置。";
+        return false;
+      }
+
+      this.blockedMessage = "这条预检问题没有可定位的片段或轨道，请先在时间线中手动选择。";
+      return false;
+    },
     setPlayheadMs(value: number): void {
       const durationMs = this.resolveTimelineDurationMs();
       const roundedValue = Number.isFinite(value) ? Math.round(value) : 0;
@@ -343,6 +426,78 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         return null;
       }
     },
+    async commitMovePreview(payload: EditingWorkspaceMovePreview): Promise<WorkspaceTimelineDto | null> {
+      const originalTimeline = this.timeline;
+      const originalSelectedTrackId = this.selectedTrackId;
+      const originalSelectedClipId = this.selectedClipId;
+
+      if (!this.findClipById(payload.clipId)) {
+        this.applyInputError("请先选择要移动的片段。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+      this.selectedTrackId = payload.trackId;
+      this.selectedClipId = payload.clipId;
+
+      try {
+        const result = await moveWorkspaceClip(payload.clipId, {
+          targetTrackId: payload.trackId,
+          startMs: Math.max(0, Math.round(payload.startMs))
+        });
+        this.applyTimelineResult(result);
+        return result.timeline;
+      } catch (error) {
+        this.timeline = originalTimeline;
+        this.selectedTrackId = originalSelectedTrackId;
+        this.selectedClipId = originalSelectedClipId;
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async commitTrimPreview(payload: EditingWorkspaceTrimPreview): Promise<WorkspaceTimelineDto | null> {
+      const originalTimeline = this.timeline;
+      const originalSelectedTrackId = this.selectedTrackId;
+      const originalSelectedClipId = this.selectedClipId;
+      const clip = this.findClipById(payload.clipId);
+
+      if (!clip) {
+        this.applyInputError("请先选择要裁剪的片段。");
+        return null;
+      }
+
+      const startMs = Math.max(0, Math.round(payload.startMs));
+      const durationMs = Math.max(0, Math.round(payload.durationMs));
+      const leftDeltaMs = startMs - clip.startMs;
+      const trimInput =
+        payload.edge === "left"
+          ? {
+              startMs,
+              durationMs,
+              inPointMs: Math.max(0, Math.round(payload.inPointMs ?? clip.inPointMs + leftDeltaMs))
+            }
+          : { durationMs };
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+      this.selectedTrackId = payload.trackId;
+      this.selectedClipId = payload.clipId;
+
+      try {
+        const result = await trimWorkspaceClip(payload.clipId, trimInput);
+        this.applyTimelineResult(result);
+        return result.timeline;
+      } catch (error) {
+        this.timeline = originalTimeline;
+        this.selectedTrackId = originalSelectedTrackId;
+        this.selectedClipId = originalSelectedClipId;
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
     async trimSelectedClip(edge: "left" | "right", deltaMs: number): Promise<WorkspaceTimelineDto | null> {
       const clip = this.findClipById(this.selectedClipId);
       if (!clip) {
@@ -368,6 +523,69 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         this.applyTimelineResult(result);
         return result.timeline;
       } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async insertAssetAtPlayhead(assetId: string): Promise<WorkspaceTimelineDto | null> {
+      const originalTimeline = this.timeline;
+      const originalSelectedTrackId = this.selectedTrackId;
+      const originalSelectedClipId = this.selectedClipId;
+
+      if (!this.timeline) {
+        this.applyInputError("当前项目还没有时间线草稿。");
+        return null;
+      }
+
+      const startMs = this.playheadMs;
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+
+      try {
+        const result = await insertWorkspaceAssetClip(this.timeline.id, {
+          assetId,
+          startMs
+        });
+        this.applyTimelineResult(result);
+        this.selectInsertedAssetClip(assetId, startMs);
+        return result.timeline;
+      } catch (error) {
+        this.timeline = originalTimeline;
+        this.selectedTrackId = originalSelectedTrackId;
+        this.selectedClipId = originalSelectedClipId;
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async replaceSelectedClipWithAsset(assetId: string): Promise<WorkspaceTimelineDto | null> {
+      const originalTimeline = this.timeline;
+      const originalSelectedTrackId = this.selectedTrackId;
+      const originalSelectedClipId = this.selectedClipId;
+      const clip = this.findClipById(this.selectedClipId);
+
+      if (!clip) {
+        this.applyInputError("请先选择要替换的片段。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+
+      try {
+        const result = await replaceWorkspaceClip(clip.id, { assetId });
+        this.applyTimelineResult(result);
+        const replacedClip = this.findClipById(clip.id);
+        if (replacedClip) {
+          this.selectedTrackId = replacedClip.trackId;
+          this.selectedClipId = replacedClip.id;
+        }
+        return result.timeline;
+      } catch (error) {
+        this.timeline = originalTimeline;
+        this.selectedTrackId = originalSelectedTrackId;
+        this.selectedClipId = originalSelectedClipId;
         this.applyRuntimeError(error);
         return null;
       }
@@ -401,6 +619,17 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       if (!clipId || !this.timeline) return null;
       const clips = this.timeline.tracks.flatMap((track) => track.clips);
       return clips.find((clip) => clip.id === clipId) ?? null;
+    },
+    selectInsertedAssetClip(assetId: string, startMs: number): void {
+      if (!this.timeline) return;
+      const clips = this.timeline.tracks.flatMap((track) => track.clips);
+      const insertedClip = clips.find(
+        (clip) => clip.sourceType === "asset" && clip.sourceId === assetId && clip.startMs === startMs
+      ) ?? clips.find((clip) => clip.sourceType === "asset" && clip.sourceId === assetId);
+      if (insertedClip) {
+        this.selectedTrackId = insertedClip.trackId;
+        this.selectedClipId = insertedClip.id;
+      }
     },
     resolveTimelineDurationMs(): number {
       const declaredDurationMs = Math.max(0, Math.round((this.timeline?.durationSeconds ?? 0) * 1000));

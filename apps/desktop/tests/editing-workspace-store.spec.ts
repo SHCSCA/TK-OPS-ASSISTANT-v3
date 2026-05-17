@@ -182,6 +182,142 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.saveState?.source).toBe("clip_move");
   });
 
+  it("提交拖拽移动预览时通过 Runtime 保存并保留选中片段", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitMovePreview({
+      gesture: "move",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      startMs: 500,
+      durationMs: 5000
+    });
+
+    expect(timelineResult?.tracks[0].clips[0].startMs).toBe(500);
+    expect(store.status).toBe("ready");
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.saveState?.source).toBe("clip_move");
+  });
+
+  it("提交拖拽移动失败时保留原时间线并显示中文错误", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({ failMove: true }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    const originalTimeline = store.timeline;
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitMovePreview({
+      gesture: "move",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      startMs: 500,
+      durationMs: 5000
+    });
+
+    expect(timelineResult).toBeNull();
+    expect(store.status).toBe("error");
+    expect(store.timeline).toBe(originalTimeline);
+    expect(store.timeline?.tracks[0].clips[0].startMs).toBe(0);
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.error?.message).toBe("目标轨道已锁定，无法移动片段。");
+  });
+
+  it("提交左边缘拖拽裁剪预览时通过 Runtime 保存并保留选中片段", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitTrimPreview({
+      gesture: "trim",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      edge: "left",
+      startMs: 500,
+      durationMs: 4500,
+      inPointMs: 500
+    });
+
+    expect(timelineResult?.tracks[0].clips[0]).toMatchObject({
+      startMs: 500,
+      durationMs: 4500,
+      inPointMs: 500
+    });
+    expect(store.status).toBe("ready");
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.saveState?.source).toBe("clip_trim");
+  });
+
+  it("提交右边缘拖拽裁剪预览时只提交新时长", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitTrimPreview({
+      gesture: "trim",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      edge: "right",
+      startMs: 0,
+      durationMs: 4200,
+      inPointMs: 0
+    });
+
+    expect(timelineResult?.tracks[0].clips[0].durationMs).toBe(4200);
+    expect(store.status).toBe("ready");
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.saveState?.source).toBe("clip_trim");
+  });
+
+  it("提交拖拽裁剪失败时回滚时间线和选择并显示中文错误", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({ failTrim: true }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    const originalTimeline = store.timeline;
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitTrimPreview({
+      gesture: "trim",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      edge: "left",
+      startMs: 500,
+      durationMs: 100,
+      inPointMs: 500
+    });
+
+    expect(timelineResult).toBeNull();
+    expect(store.status).toBe("error");
+    expect(store.timeline).toBe(originalTimeline);
+    expect(store.timeline?.tracks[0].clips[0].startMs).toBe(0);
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.error?.message).toBe("片段裁剪后至少需要保留 500ms。");
+  });
+
   it("按右边缘裁剪选中片段时通过 Runtime 保存", async () => {
     vi.stubGlobal("fetch", createWorkspaceFetch());
 
@@ -195,6 +331,85 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(timelineResult?.tracks[0].clips[0].durationMs).toBe(4500);
     expect(store.status).toBe("ready");
     expect(store.saveState?.source).toBe("clip_trim");
+  });
+
+  it("按播放头把资产加入时间线并选中新资产片段", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    store.setPlayheadMs(2500);
+
+    const timelineResult = await store.insertAssetAtPlayhead("asset-1");
+
+    expect(timelineResult?.tracks[0].clips[0]).toMatchObject({
+      id: "asset-clip-1",
+      sourceType: "asset",
+      sourceId: "asset-1",
+      startMs: 2500
+    });
+    expect(store.status).toBe("ready");
+    expect(store.selectedTrackId).toBe("track-video");
+    expect(store.selectedClipId).toBe("asset-clip-1");
+    expect(store.saveState?.source).toBe("clip_insert_asset");
+  });
+
+  it("资产加入失败时保留原时间线并显示中文错误", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({ failInsert: true }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    const originalTimeline = store.timeline;
+    store.setPlayheadMs(2500);
+
+    const timelineResult = await store.insertAssetAtPlayhead("asset-1");
+
+    expect(timelineResult).toBeNull();
+    expect(store.status).toBe("error");
+    expect(store.timeline).toBe(originalTimeline);
+    expect(store.error?.message).toBe("资产入轨失败，请检查素材状态。");
+  });
+
+  it("用资产替换选中片段后保留选中片段", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.replaceSelectedClipWithAsset("asset-1");
+
+    expect(timelineResult?.tracks[0].clips[0]).toMatchObject({
+      id: "managed-video-storyboard-01",
+      sourceType: "asset",
+      sourceId: "asset-1"
+    });
+    expect(store.status).toBe("ready");
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.saveState?.source).toBe("clip_replace");
+  });
+
+  it("资产替换失败时回滚时间线和选择并显示中文错误", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({ failReplace: true }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    const originalTimeline = store.timeline;
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.replaceSelectedClipWithAsset("asset-1");
+
+    expect(timelineResult).toBeNull();
+    expect(store.status).toBe("error");
+    expect(store.timeline).toBe(originalTimeline);
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.error?.message).toBe("资产替换失败，请检查素材状态。");
   });
 
   it("执行时间线预检后保存真实预检结果", async () => {
@@ -284,7 +499,11 @@ function createWorkspaceFetch(
       task: Record<string, unknown> | null;
     };
     failAssets?: boolean;
+    failInsert?: boolean;
+    failMove?: boolean;
+    failReplace?: boolean;
     failSave?: boolean;
+    failTrim?: boolean;
     timeline?: ReturnType<typeof timeline> | null;
   } = {}
 ) {
@@ -364,6 +583,9 @@ function createWorkspaceFetch(
     if (path === "/api/workspace/clips/managed-video-storyboard-01/move" && method === "POST") {
       const body = JSON.parse(String(init?.body));
       expect(body).toEqual({ targetTrackId: "managed-video-storyboard", startMs: 500 });
+      if (options.failMove) {
+        return errorJsonResponse(409, "目标轨道已锁定，无法移动片段。");
+      }
       return okJsonResponse({
         timeline: timeline("timeline-1", [managedVideoTrack([
           managedVideoClip({ startMs: 500 })
@@ -380,6 +602,41 @@ function createWorkspaceFetch(
 
     if (path === "/api/workspace/clips/managed-video-storyboard-01/trim" && method === "POST") {
       const body = JSON.parse(String(init?.body));
+      if (options.failTrim) {
+        return errorJsonResponse(400, "片段裁剪后至少需要保留 500ms。");
+      }
+
+      if (body.startMs !== undefined) {
+        expect(body).toEqual({ startMs: 500, durationMs: 4500, inPointMs: 500 });
+        return okJsonResponse({
+          timeline: timeline("timeline-1", [managedVideoTrack([
+            managedVideoClip({ startMs: 500, durationMs: 4500, inPointMs: 500 })
+          ])]),
+          saveState: {
+            saved: true,
+            updatedAt: now(),
+            source: "clip_trim",
+            message: "已确认保存片段裁剪结果。"
+          },
+          message: "片段已裁剪。"
+        });
+      }
+
+      if (body.durationMs === 4200) {
+        return okJsonResponse({
+          timeline: timeline("timeline-1", [managedVideoTrack([
+            managedVideoClip({ durationMs: 4200 })
+          ])]),
+          saveState: {
+            saved: true,
+            updatedAt: now(),
+            source: "clip_trim",
+            message: "已确认保存片段裁剪结果。"
+          },
+          message: "片段已裁剪。"
+        });
+      }
+
       expect(body).toEqual({ durationMs: 4500 });
       return okJsonResponse({
         timeline: timeline("timeline-1", [managedVideoTrack([
@@ -392,6 +649,48 @@ function createWorkspaceFetch(
           message: "已确认保存片段裁剪结果。"
         },
         message: "片段已裁剪。"
+      });
+    }
+
+    if (path === "/api/workspace/timelines/timeline-1/clips/insert-asset" && method === "POST") {
+      const body = JSON.parse(String(init?.body));
+      expect(body).toEqual({ assetId: "asset-1", startMs: 2500 });
+      if (options.failInsert) {
+        return errorJsonResponse(409, "资产入轨失败，请检查素材状态。");
+      }
+      return okJsonResponse({
+        timeline: timeline("timeline-1", [videoTrack([assetClip()])]),
+        saveState: {
+          saved: true,
+          updatedAt: now(),
+          source: "clip_insert_asset",
+          message: "已确认保存资产入轨结果。"
+        },
+        message: "资产已加入时间线。"
+      });
+    }
+
+    if (path === "/api/workspace/clips/managed-video-storyboard-01/replace" && method === "POST") {
+      const body = JSON.parse(String(init?.body));
+      expect(body).toEqual({ assetId: "asset-1" });
+      if (options.failReplace) {
+        return errorJsonResponse(409, "资产替换失败，请检查素材状态。");
+      }
+      return okJsonResponse({
+        timeline: timeline("timeline-1", [managedVideoTrack([
+          managedVideoClip({
+            sourceType: "asset",
+            sourceId: "asset-1",
+            label: "asset-1"
+          })
+        ])]),
+        saveState: {
+          saved: true,
+          updatedAt: now(),
+          source: "clip_replace",
+          message: "已确认保存资产替换结果。"
+        },
+        message: "片段已替换。"
       });
     }
 
@@ -502,7 +801,7 @@ function asset(id: string, projectId: string | null, sourceProjectId = projectId
   };
 }
 
-function videoTrack() {
+function videoTrack(clips: unknown[] = []) {
   return {
     id: "track-video",
     kind: "video",
@@ -510,7 +809,7 @@ function videoTrack() {
     orderIndex: 0,
     locked: false,
     muted: false,
-    clips: []
+    clips
   };
 }
 
@@ -547,6 +846,29 @@ function managedVideoClip(overrides: Partial<ReturnType<typeof managedVideoClip>
       visualPrompt: "测试画面"
     },
     ...overrides
+  };
+}
+
+function assetClip() {
+  return {
+    id: "asset-clip-1",
+    trackId: "track-video",
+    sourceType: "asset",
+    sourceId: "asset-1",
+    label: "asset-1",
+    startMs: 2500,
+    durationMs: 5000,
+    inPointMs: 0,
+    outPointMs: null,
+    status: "ready",
+    metadata: {
+      sourceKind: "asset",
+      sourceRevision: null,
+      segmentIndex: null,
+      segmentId: null,
+      text: null,
+      visualPrompt: null
+    }
   };
 }
 

@@ -8,8 +8,9 @@ import pytest
 from fastapi import HTTPException
 
 from common.time import utc_now_iso
-from domain.models import Base, Project
+from domain.models import Asset, Base, Project
 from persistence.engine import create_runtime_engine, create_session_factory
+from repositories.asset_repository import AssetRepository
 from repositories.timeline_repository import TimelineRepository
 from schemas.workspace import (
     TimelineCreateInput,
@@ -26,6 +27,15 @@ def _make_workspace_service(
     *,
     task_manager: TaskManager | None = None,
 ) -> WorkspaceService:
+    service, _ = _make_workspace_context(tmp_path, task_manager=task_manager)
+    return service
+
+
+def _make_workspace_context(
+    tmp_path: Path,
+    *,
+    task_manager: TaskManager | None = None,
+) -> tuple[WorkspaceService, AssetRepository]:
     engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
@@ -46,7 +56,15 @@ def _make_workspace_service(
         )
         session.commit()
     repository = TimelineRepository(session_factory=session_factory)
-    return WorkspaceService(repository, task_manager=task_manager)
+    asset_repository = AssetRepository(session_factory=session_factory)
+    return (
+        WorkspaceService(
+            repository,
+            asset_repository=asset_repository,
+            task_manager=task_manager,
+        ),
+        asset_repository,
+    )
 
 
 def _timeline_payload() -> list[dict[str, object]]:
@@ -113,6 +131,31 @@ def _timeline_payload_with_neighbor_clip() -> list[dict[str, object]]:
     return tracks
 
 
+def _timeline_payload_with_audio_clip() -> list[dict[str, object]]:
+    tracks = _timeline_payload()
+    audio_track = tracks[1]
+    clips = audio_track["clips"]
+    assert isinstance(clips, list)
+    clips.append(
+        {
+            "id": "clip-audio-1",
+            "trackId": "track-audio-1",
+            "sourceType": "manual",
+            "sourceId": None,
+            "label": "已有环境声",
+            "startMs": 1000,
+            "durationMs": 2400,
+            "inPointMs": 0,
+            "outPointMs": None,
+            "status": "ready",
+            "prompt": None,
+            "resolution": None,
+            "editableFields": ["label", "startMs", "durationMs"],
+        }
+    )
+    return tracks
+
+
 def _create_timeline(service: WorkspaceService) -> str:
     created = service.create_project_timeline(
         "project-workspace",
@@ -126,6 +169,25 @@ def _create_timeline(service: WorkspaceService) -> str:
             name="主时间线",
             durationSeconds=12,
             tracks=_timeline_payload(),
+        ),
+    )
+    assert updated.timeline is not None
+    return updated.timeline.id
+
+
+def _create_timeline_with_audio_clip(service: WorkspaceService) -> str:
+    created = service.create_project_timeline(
+        "project-workspace",
+        TimelineCreateInput(name="主时间线"),
+    )
+    assert created.timeline is not None
+
+    updated = service.update_timeline(
+        created.timeline.id,
+        TimelineUpdateInput(
+            name="主时间线",
+            durationSeconds=12,
+            tracks=_timeline_payload_with_audio_clip(),
         ),
     )
     assert updated.timeline is not None
@@ -149,6 +211,43 @@ def _create_timeline_with_neighbor_clip(service: WorkspaceService) -> str:
     )
     assert updated.timeline is not None
     return updated.timeline.id
+
+
+def _seed_asset(
+    asset_repository: AssetRepository,
+    tmp_path: Path,
+    *,
+    asset_id: str,
+    asset_type: str,
+    name: str,
+    file_name: str,
+    duration_ms: int | None,
+    metadata_json: str | None = None,
+    create_file: bool = True,
+) -> Asset:
+    asset_path = tmp_path / file_name
+    if create_file:
+        asset_path.write_bytes(b"runtime asset")
+    now = utc_now_iso()
+    return asset_repository.create_asset(
+        Asset(
+            id=asset_id,
+            name=name,
+            type=asset_type,
+            source="local",
+            group_id=None,
+            file_path=str(asset_path),
+            file_size_bytes=asset_path.stat().st_size if asset_path.exists() else None,
+            duration_ms=duration_ms,
+            thumbnail_path=None,
+            thumbnail_generated_at=None,
+            tags=None,
+            project_id="project-workspace",
+            metadata_json=metadata_json,
+            created_at=now,
+            updated_at=now,
+        )
+    )
 
 
 def test_get_project_timeline_returns_empty_state(tmp_path: Path) -> None:
@@ -367,6 +466,140 @@ def test_replace_clip_updates_source_metadata(tmp_path: Path) -> None:
     assert result.timeline.assetReferenceStatus is not None
     assert result.timeline.assetReferenceStatus.manualClips == 0
     assert result.timeline.assetReferenceStatus.referencedClips == 1
+    assert result.saveState is not None
+    assert result.saveState.source == "clip_replace"
+
+
+def test_insert_video_asset_clip_at_requested_playhead(tmp_path: Path) -> None:
+    service, asset_repository = _make_workspace_context(tmp_path)
+    timeline_id = _create_timeline(service)
+    _seed_asset(
+        asset_repository,
+        tmp_path,
+        asset_id="asset-video-1",
+        asset_type="video",
+        name="暖光开场.mp4",
+        file_name="warm-open.mp4",
+        duration_ms=2600,
+        metadata_json='{"resolution": {"width": 1080, "height": 1920}}',
+    )
+
+    result = service.insert_asset_clip(
+        timeline_id,
+        {
+            "assetId": "asset-video-1",
+            "targetTrackId": "track-video-1",
+            "startMs": 4300,
+        },
+    )
+
+    assert result.timeline is not None
+    clip = result.timeline.tracks[0].clips[1]
+    assert clip.id == "asset-asset-video-1-4300"
+    assert clip.trackId == "track-video-1"
+    assert clip.sourceType == "asset"
+    assert clip.sourceId == "asset-video-1"
+    assert clip.label == "暖光开场.mp4"
+    assert clip.startMs == 4300
+    assert clip.durationMs == 2600
+    assert clip.resolution is not None
+    assert clip.resolution.height == 1920
+    assert set(clip.editableFields) >= {"label", "startMs", "durationMs"}
+    assert result.saveState is not None
+    assert result.saveState.source == "clip_insert_asset"
+
+
+def test_insert_audio_asset_clip_defaults_to_track_end(tmp_path: Path) -> None:
+    service, asset_repository = _make_workspace_context(tmp_path)
+    timeline_id = _create_timeline_with_audio_clip(service)
+    _seed_asset(
+        asset_repository,
+        tmp_path,
+        asset_id="asset-audio-1",
+        asset_type="audio",
+        name="环境声.wav",
+        file_name="room.wav",
+        duration_ms=1200,
+    )
+
+    result = service.insert_asset_clip(
+        timeline_id,
+        {
+            "assetId": "asset-audio-1",
+        },
+    )
+
+    assert result.timeline is not None
+    clip = result.timeline.tracks[1].clips[1]
+    assert clip.id == "asset-asset-audio-1-3400"
+    assert clip.trackId == "track-audio-1"
+    assert clip.sourceType == "asset"
+    assert clip.sourceId == "asset-audio-1"
+    assert clip.startMs == 3400
+    assert clip.durationMs == 1200
+
+
+def test_insert_asset_clip_rejects_unavailable_file(tmp_path: Path) -> None:
+    service, asset_repository = _make_workspace_context(tmp_path)
+    timeline_id = _create_timeline(service)
+    _seed_asset(
+        asset_repository,
+        tmp_path,
+        asset_id="asset-missing-1",
+        asset_type="video",
+        name="丢失素材.mp4",
+        file_name="missing.mp4",
+        duration_ms=1000,
+        create_file=False,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.insert_asset_clip(
+            timeline_id,
+            {
+                "assetId": "asset-missing-1",
+                "targetTrackId": "track-video-1",
+                "startMs": 4300,
+            },
+        )
+
+    assert exc_info.value.status_code == 400
+    assert "源文件" in str(exc_info.value.detail)
+
+
+def test_replace_clip_with_video_asset_keeps_timing_and_updates_source(
+    tmp_path: Path,
+) -> None:
+    service, asset_repository = _make_workspace_context(tmp_path)
+    _create_timeline(service)
+    _seed_asset(
+        asset_repository,
+        tmp_path,
+        asset_id="asset-video-replace",
+        asset_type="video",
+        name="替换镜头.mp4",
+        file_name="replace.mp4",
+        duration_ms=8800,
+        metadata_json='{"resolution": {"width": 1080, "height": 1920}}',
+    )
+
+    result = service.replace_clip(
+        "clip-video-1",
+        {
+            "assetId": "asset-video-replace",
+        },
+    )
+
+    assert result.timeline is not None
+    clip = result.timeline.tracks[0].clips[0]
+    assert clip.sourceType == "asset"
+    assert clip.sourceId == "asset-video-replace"
+    assert clip.label == "替换镜头.mp4"
+    assert clip.startMs == 0
+    assert clip.durationMs == 4200
+    assert clip.resolution is not None
+    assert clip.resolution.width == 1080
+    assert set(clip.editableFields) >= {"label", "startMs", "durationMs"}
     assert result.saveState is not None
     assert result.saveState.source == "clip_replace"
 

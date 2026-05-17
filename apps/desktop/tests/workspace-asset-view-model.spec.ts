@@ -78,6 +78,19 @@ describe("workspace asset view model", () => {
     });
   });
 
+  it("把 Runtime ready 资产视为可用素材", () => {
+    const cards = buildWorkspaceAssetCards({
+      projectId: "project-1",
+      assets: [asset({ id: "asset-ready", projectId: "project-1", availabilityStatus: "ready" })],
+      timeline: timeline([])
+    });
+
+    expect(cards[0]).toMatchObject({
+      status: "可用",
+      tone: "neutral"
+    });
+  });
+
   it("把缺失素材显示为路径缺失并使用重新定位操作", () => {
     const cards = buildWorkspaceAssetCards({
       projectId: "project-1",

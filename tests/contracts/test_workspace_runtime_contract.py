@@ -19,9 +19,11 @@ if str(ROUTES_SRC) not in sys.path:
 
 from workspace import router as workspace_router
 from common.time import utc_now_iso
+from domain.models import Asset
 from domain.models import Base
 from domain.models import Project
 from persistence.engine import create_runtime_engine, create_session_factory
+from repositories.asset_repository import AssetRepository
 from repositories.timeline_repository import TimelineRepository
 from repositories.script_repository import ScriptRepository
 from repositories.storyboard_repository import StoryboardRepository
@@ -126,6 +128,70 @@ def runtime_client(tmp_path):
     return TestClient(app)
 
 
+@pytest.fixture
+def runtime_client_with_assets(tmp_path):
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+    Base.metadata.create_all(engine)
+    session_factory = create_session_factory(engine)
+    with session_factory() as session:
+        now = utc_now_iso()
+        session.add(
+            Project(
+                id="project-workspace",
+                name="剪辑工作台项目",
+                description="",
+                status="active",
+                current_script_version=0,
+                current_storyboard_version=0,
+                created_at=now,
+                updated_at=now,
+                last_accessed_at=now,
+            )
+        )
+        session.commit()
+    repository = TimelineRepository(session_factory=session_factory)
+    asset_repository = AssetRepository(session_factory=session_factory)
+    script_repository = ScriptRepository(session_factory=session_factory)
+    storyboard_repository = StoryboardRepository(session_factory=session_factory)
+    voice_repository = VoiceRepository(session_factory=session_factory)
+    subtitle_repository = SubtitleRepository(session_factory=session_factory)
+    workspace_service = WorkspaceService(
+        repository,
+        asset_repository=asset_repository,
+        task_manager=TaskManager(),
+    )
+    workspace_assembly_service = WorkspaceAssemblyService(
+        timeline_repository=repository,
+        script_repository=script_repository,
+        storyboard_repository=storyboard_repository,
+        voice_repository=voice_repository,
+        subtitle_repository=subtitle_repository,
+        workspace_service=workspace_service,
+    )
+
+    app = FastAPI()
+    app.state.asset_repository = asset_repository
+    app.state.workspace_service = workspace_service
+    app.state.workspace_assembly_service = workspace_assembly_service
+    app.include_router(workspace_router)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def handle_http_exception(request, exc):  # type: ignore[no-untyped-def]
+        message = exc.detail if isinstance(exc.detail, str) else "请求处理失败"
+        return JSONResponse(status_code=exc.status_code, content=error_response(message))
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_exception(request, exc):  # type: ignore[no-untyped-def]
+        return JSONResponse(
+            status_code=500,
+            content=error_response("系统内部错误，请稍后重试"),
+        )
+
+    client = TestClient(app)
+    client.workspace_tmp_path = tmp_path  # type: ignore[attr-defined]
+    return client
+
+
 def _create_workspace_timeline(runtime_client: TestClient) -> tuple[str, str]:
     create_response = runtime_client.post(
         "/api/workspace/projects/project-workspace/timeline",
@@ -185,6 +251,40 @@ def _seed_timeline_with_clip(runtime_client: TestClient) -> tuple[str, str, str]
     )
     assert update_response.status_code == 200
     return project_id, timeline_id, "clip-video-1"
+
+
+def _seed_contract_asset(
+    runtime_client: TestClient,
+    *,
+    asset_id: str,
+    asset_type: str,
+    name: str,
+    file_name: str,
+    duration_ms: int | None,
+) -> None:
+    tmp_path = runtime_client.workspace_tmp_path  # type: ignore[attr-defined]
+    asset_path = Path(tmp_path) / file_name
+    asset_path.write_bytes(b"contract asset")
+    now = utc_now_iso()
+    runtime_client.app.state.asset_repository.create_asset(
+        Asset(
+            id=asset_id,
+            name=name,
+            type=asset_type,
+            source="local",
+            group_id=None,
+            file_path=str(asset_path),
+            file_size_bytes=asset_path.stat().st_size,
+            duration_ms=duration_ms,
+            thumbnail_path=None,
+            thumbnail_generated_at=None,
+            tags=None,
+            project_id="project-workspace",
+            metadata_json=None,
+            created_at=now,
+            updated_at=now,
+        )
+    )
 
 
 def test_workspace_timeline_contract_returns_empty_state(
@@ -314,6 +414,7 @@ def test_workspace_clip_contract_exposes_move_and_trim_routes(
 
     assert ("/api/workspace/clips/{clip_id}/move", "POST") in routes
     assert ("/api/workspace/clips/{clip_id}/trim", "POST") in routes
+    assert ("/api/workspace/timelines/{timeline_id}/clips/insert-asset", "POST") in routes
 
 
 def test_workspace_clip_contract_moves_clip_atomically(
@@ -399,6 +500,43 @@ def test_workspace_clip_contract_replaces_clip_atomically(
         "referencedClips": 1,
     }
     assert data["saveState"]["source"] == "clip_replace"
+
+
+def test_workspace_clip_contract_inserts_asset_clip(
+    runtime_client_with_assets: TestClient,
+) -> None:
+    _, timeline_id, _ = _seed_timeline_with_clip(runtime_client_with_assets)
+    _seed_contract_asset(
+        runtime_client_with_assets,
+        asset_id="asset-contract-video",
+        asset_type="video",
+        name="合约素材.mp4",
+        file_name="contract-video.mp4",
+        duration_ms=1800,
+    )
+
+    response = runtime_client_with_assets.post(
+        f"/api/workspace/timelines/{timeline_id}/clips/insert-asset",
+        json={
+            "assetId": "asset-contract-video",
+            "targetTrackId": "track-video",
+            "startMs": 4300,
+        },
+    )
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert set(data) == {"timeline", "activeTask", "saveState", "message"}
+    timeline = data["timeline"]
+    _assert_timeline_shape(timeline)
+    inserted_clip = timeline["tracks"][0]["clips"][1]
+    assert inserted_clip["id"] == "asset-asset-contract-video-4300"
+    assert inserted_clip["sourceType"] == "asset"
+    assert inserted_clip["sourceId"] == "asset-contract-video"
+    assert inserted_clip["label"] == "合约素材.mp4"
+    assert inserted_clip["startMs"] == 4300
+    assert inserted_clip["durationMs"] == 1800
+    assert data["saveState"]["source"] == "clip_insert_asset"
 
 
 def test_workspace_clip_contract_deletes_clip_atomically(

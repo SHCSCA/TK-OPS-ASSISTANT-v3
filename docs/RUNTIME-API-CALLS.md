@@ -2,7 +2,7 @@
 
 # Runtime API 与前端调用真源
 
-**当前状态（2026-05-13）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致（186 / 186）；`workspace.timeline.assemble / voice.audio / voice.profiles.refresh / volcengine_tts2 / ai-capability secret` 已回流到本文。§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
+**当前状态（2026-05-17）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致（187 / 187）；`workspace.timeline.assemble / workspace.clip.insert_asset / voice.audio / voice.profiles.refresh / volcengine_tts2 / ai-capability secret` 已回流到本文。§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
 **接口版本**: V1（统一 JSON 信封，无独立版本号前缀）
 **唯一真源约束**: 后端路由、服务、前端 `runtime-client.ts`、Pinia store、契约测试发生变化时，必须在同一次改动中更新本文件。
 **编码约束**: 本文档必须使用 UTF-8 无 BOM 保存，所有读取、生成、校验脚本都按 UTF-8 处理，避免中文出现乱码。
@@ -95,9 +95,9 @@
 
 ## 1.5 文档-代码差异矩阵（V1）
 
-- HTTP 文档路由数（提取）：186
-- HTTP 代码路由数（去重）：186
-- HTTP 文档与代码一致：186
+- HTTP 文档路由数（提取）：187
+- HTTP 代码路由数（去重）：187
+- HTTP 文档与代码一致：187
 - HTTP 代码未写入文档（需补充）：0
 - HTTP 文档有但代码未见（需补齐）：0
 
@@ -105,7 +105,7 @@
 
 | 状态 | 数量 | 说明 |
 | --- | --- | --- |
-| 已实现并已文档化 | 186 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
+| 已实现并已文档化 | 187 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
 | 已实现但未文档化 | 0 | 本轮已补齐 `bootstrap / dashboard / settings / devices / ai-providers` 新增运行时接口登记 |
 | 文档已写但未实现 | 0 | 本轮已补齐 `/api/video-deconstruction` 文档要求的 7 个接口，并完成剩余接口登记 |
 | 字段仍可继续细化 | 若干 | 主要是高级接口的错误码、更多响应示例和边界说明 |
@@ -134,7 +134,7 @@
 ### 仍待细化的高优先模块
 
 - 脚本 / 分镜：可继续补充 `versions / restore / shots* / sync-from-script` 的失败路径示例。
-- 工作台：可继续补充 `clip move/trim/replace`、`preview`、`precheck` 的更多返回示例。
+- 工作台：可继续补充 `preview`、`precheck` 的更多返回示例；预检问题目前仍是 `string[]`，后续可演进为带 `target` 的结构化问题。
 - 配音 / 字幕 / 资产：可继续补充 `waveform / export / group batch` 的异常路径与响应样例。
 
 ### 字段层面结论
@@ -567,7 +567,8 @@
 | `GET /api/workspace/clips/{clip_id}` | 路径参数：`clip_id` | `WorkspaceClipDetailDto` | `404` | `fetchWorkspaceClip` |
 | `POST /api/workspace/clips/{clip_id}/move` | 路径参数：`clip_id`；`ClipMoveInput`：`targetTrackId`、`startMs` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `moveWorkspaceClip` |
 | `POST /api/workspace/clips/{clip_id}/trim` | 路径参数：`clip_id`；`ClipTrimInput`：`startMs?`、`durationMs?`、`inPointMs?`、`outPointMs?` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `trimWorkspaceClip` |
-| `POST /api/workspace/clips/{clip_id}/replace` | 路径参数：`clip_id`；`ClipReplaceInput`：`sourceType`、`sourceId?`、`label`、`prompt?`、`resolution?`、`editableFields[]` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `replaceWorkspaceClip` |
+| `POST /api/workspace/clips/{clip_id}/replace` | 路径参数：`clip_id`；资产替换推荐 `ClipReplaceInput`：`assetId`；兼容旧输入 `sourceType`、`sourceId?`、`label?`、`prompt?`、`resolution?`、`editableFields[]` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_replace`、`message` | `400`、`404`、`422`、`500`、`503` | `replaceWorkspaceClip`、`editing-workspace.ts:replaceSelectedClipWithAsset` |
+| `POST /api/workspace/timelines/{timeline_id}/clips/insert-asset` | 路径参数：`timeline_id`；`ClipInsertAssetInput`：`assetId`、`targetTrackId?`、`startMs?`。未传 `targetTrackId` 时按资产类型选择匹配轨道；未传 `startMs` 时插入到目标轨道末尾 | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_insert_asset`、`message` | `400`、`404`、`422`、`500`、`503` | `insertWorkspaceAssetClip`、`editing-workspace.ts:insertAssetAtPlayhead` |
 | `POST /api/workspace/clips/{clip_id}/split` | 路径参数：`clip_id`；`ClipSplitInput`：`splitAtMs`，必须位于片段内部 | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_split`、`message` | `400`、`404`、`422` | `splitWorkspaceClip`、`editing-workspace.ts:splitSelectedClip` |
 | `DELETE /api/workspace/clips/{clip_id}` | 路径参数：`clip_id` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_delete`、`message` | `400`、`404` | `deleteWorkspaceClip`、`editing-workspace.ts:deleteSelectedClip` |
 | `GET /api/workspace/timelines/{timeline_id}/preview` | 路径参数：`timeline_id` | `TimelinePreviewDto`：`status=ready`，`previewUrl` 为本地 `data:application/json` manifest | `404`、`500` | `fetchTimelinePreview` |
@@ -580,13 +581,15 @@
 - `POST /precheck` 校验轨道类型、片段时长、起始时间与片段数据格式；空轨道会返回可见问题列表。
 - `POST /clips/{clip_id}/move` 会拒绝锁定轨道、负起点以及移动后与同轨片段重叠的结果。
 - `POST /clips/{clip_id}/trim` 会拒绝负起点、裁剪后小于 500ms 以及裁剪后与同轨片段重叠的结果。
+- `POST /clips/{clip_id}/replace` 推荐传入 `assetId` 替换为资产中心素材；Runtime 会校验资产存在、类型匹配、源文件可访问，并保持原片段起止时间。
+- `POST /timelines/{timeline_id}/clips/insert-asset` 只接受真实资产中心素材；Runtime 会按资产类型落到视频/音频轨，拒绝锁定轨道、不可用源文件、类型不匹配和同轨重叠。
 - `POST /clips/{clip_id}/split` 由前端传入当前播放头时间，播放头必须位于选中片段内部。
 - `POST /timeline/assemble` 读取当前项目最新脚本、分镜、已完成配音轨和可用字幕轨，生成三条受管轨道：`managed-video-storyboard`、`managed-audio-voice`、`managed-subtitle-track`；已有手动轨道会保留，不会被覆盖。
 - `WorkspaceAssemblyStateDto.sources[]` 固定按 `script / storyboard / voice / subtitle` 返回来源状态；缺失来源会写入 `issues[]` 并返回 `status=warning`。
 - `TimelineDto.version` 不伪造整数版号，使用真实 `timeline.id + updatedAt + trackCount + clipCount` 生成 `versionToken` 作为当前时间线版本信号。
 - `TimelineDto.assetReferenceStatus` 基于真实片段 `sourceType/sourceId/status` 聚合，不编造素材可用性。
 - `WorkspaceTimelineResultDto.activeTask` 只返回当前 Runtime 进程内、且 `ownerRef` 绑定到该时间线的活跃任务，优先 `ai-workspace-command`。
-- `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`assembly`、`save`、`clip_move`、`clip_trim`、`clip_replace`、`clip_split`、`clip_delete`。
+- `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`assembly`、`save`、`clip_move`、`clip_trim`、`clip_replace`、`clip_insert_asset`、`clip_split`、`clip_delete`。
 
 ### M05 UI 资产来源说明
 
@@ -595,7 +598,9 @@
 - 基础工具栏已开放选中片段的 `左移 / 右移`、`左裁 / 右裁`、`分割` 与 `删除`。
 - 分割使用当前播放头位置；播放头必须位于选中片段内部，不再回退到片段中点。
 - 移动与裁剪均通过 Runtime 保存，Runtime 会拒绝锁定轨道、负起点、同轨重叠和小于 500ms 的裁剪结果。
-- `替换片段` 与 `加入轨道` 仍按后续阶段接入 `/api/workspace/clips/{clip_id}/replace` 和资产插入能力。
+- `加入时间线` 调用 `POST /api/workspace/timelines/{timeline_id}/clips/insert-asset`，前端传入当前播放头作为 `startMs`，Runtime 返回新时间线后由 store 定位新片段。
+- `替换片段` 调用 `POST /api/workspace/clips/{clip_id}/replace`，前端仅传 `assetId`，Runtime 负责素材类型、源文件和轨道合法性校验。
+- 播放器和属性面板通过 `workspacePreviewContext` 读取当前播放头或选中片段上下文；预检问题仍来自 Runtime `issues[]`，前端按片段/轨道 ID 或名称做定位，无法定位时给出中文阻断提示。
 
 **示例**
 
@@ -630,6 +635,64 @@
       "message": "已确认保存时间线草稿。"
     },
     "message": "已保存时间线草稿。"
+  }
+}
+```
+
+**资产入轨示例**
+
+`POST /api/workspace/timelines/timeline-1/clips/insert-asset`
+
+```json
+{
+  "assetId": "asset-warm-room-lamp",
+  "targetTrackId": "managed-video-storyboard",
+  "startMs": 8000
+}
+```
+
+```json
+{
+  "ok": true,
+  "data": {
+    "timeline": {
+      "id": "timeline-1",
+      "tracks": []
+    },
+    "saveState": {
+      "saved": true,
+      "source": "clip_insert_asset",
+      "message": "已确认保存资产入轨结果。"
+    },
+    "message": "资产已加入时间线。"
+  }
+}
+```
+
+**资产替换示例**
+
+`POST /api/workspace/clips/clip-1/replace`
+
+```json
+{
+  "assetId": "asset-video-replace"
+}
+```
+
+```json
+{
+  "ok": true,
+  "data": {
+    "timeline": {
+      "id": "timeline-1",
+      "tracks": []
+    },
+    "saveState": {
+      "saved": true,
+      "source": "clip_replace",
+      "message": "已确认保存片段素材替换。"
+    },
+    "message": "片段已替换。"
   }
 }
 ```

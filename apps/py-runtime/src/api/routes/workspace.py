@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, status
 
 from schemas.envelope import ok_response
 from schemas.workspace import (
+    ClipInsertAssetInput,
     ClipMoveInput,
     ClipReplaceInput,
     ClipSplitInput,
@@ -100,6 +101,16 @@ def replace_clip(
     request: Request,
 ) -> dict[str, object]:
     result = _svc(request).replace_clip(clip_id, payload)
+    return ok_response(_timeline_payload(result))
+
+
+@router.post("/timelines/{timeline_id}/clips/insert-asset")
+def insert_asset_clip(
+    timeline_id: str,
+    payload: ClipInsertAssetInput,
+    request: Request,
+) -> dict[str, object]:
+    result = _svc(request).insert_asset_clip(timeline_id, payload)
     return ok_response(_timeline_payload(result))
 
 
