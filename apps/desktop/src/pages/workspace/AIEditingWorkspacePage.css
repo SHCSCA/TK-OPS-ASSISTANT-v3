@@ -278,17 +278,46 @@
   }
 
   .workspace-editor {
-    grid-template-rows: minmax(0, 1fr) 260px;
+    grid-template-rows: minmax(0, 1fr) clamp(220px, 28vh, 280px);
     overflow-y: hidden;
   }
 
   .workspace-stage {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: clamp(112px, 24%, 156px) minmax(220px, 1fr) clamp(112px, 24%, 156px);
+    grid-template-rows: minmax(240px, 1fr) clamp(92px, 18vh, 128px) clamp(104px, 20vh, 148px);
+  }
+
+  .preview-panel-wrapper {
+    grid-row: 1;
+    min-height: 240px;
+  }
+
+  .stage-panel-wrapper--asset {
+    grid-row: 2;
   }
 
   .stage-panel-wrapper--inspector {
     grid-column: auto;
+    grid-row: 3;
     min-height: 0;
+  }
+
+  .preview-panel-wrapper :deep(.workspace-preview-stage) {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .preview-panel-wrapper :deep(.workspace-preview-stage__body) {
+    gap: 8px;
+    grid-template-columns: minmax(170px, 1fr) minmax(150px, 0.58fr);
+  }
+
+  .preview-panel-wrapper :deep(.workspace-preview-stage__viewer) {
+    min-height: 190px;
+    padding: 8px;
+  }
+
+  .preview-panel-wrapper :deep(.workspace-preview-stage__phone) {
+    min-height: 180px;
   }
 }

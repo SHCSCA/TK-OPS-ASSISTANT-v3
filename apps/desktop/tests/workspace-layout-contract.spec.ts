@@ -49,10 +49,13 @@ describe("workspace layout taxonomy contract", () => {
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*330px\)\s+minmax\(0,\s*1fr\);/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+clamp\(176px,\s*24vh,\s*220px\);/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*220px;/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+260px;/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+clamp\(220px,\s*28vh,\s*280px\);/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*overflow-y:\s*hidden;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-rows:\s*clamp\(112px,\s*24%,\s*156px\)\s+minmax\(220px,\s*1fr\)\s+clamp\(112px,\s*24%,\s*156px\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-rows:\s*minmax\(240px,\s*1fr\)\s+clamp\(92px,\s*18vh,\s*128px\)\s+clamp\(104px,\s*20vh,\s*148px\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.preview-panel-wrapper\s*{[\s\S]*grid-row:\s*1;/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.stage-panel-wrapper--asset\s*{[\s\S]*grid-row:\s*2;/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__phone\)\s*{[\s\S]*min-height:\s*180px;/);
     expect(css).not.toContain(".workspace-tool-bar");
     expect(css).not.toContain(".workspace-tool-bar__actions");
   });
