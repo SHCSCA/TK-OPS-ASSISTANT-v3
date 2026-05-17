@@ -44,6 +44,7 @@ import type {
   WorkspaceAICommandInput,
   WorkspaceAICommandResultDto,
   WorkspaceClipDetailDto,
+  InsertWorkspaceAssetClipInput,
   MoveWorkspaceClipInput,
   ReplaceWorkspaceClipInput,
   TimelinePreviewDto,
@@ -598,6 +599,19 @@ export async function replaceWorkspaceClip(
     body: JSON.stringify(input),
     method: "POST"
   });
+}
+
+export async function insertWorkspaceAssetClip(
+  timelineId: string,
+  input: InsertWorkspaceAssetClipInput
+): Promise<WorkspaceTimelineResultDto> {
+  return requestRuntime<WorkspaceTimelineResultDto>(
+    `/api/workspace/timelines/${timelineId}/clips/insert-asset`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
 }
 
 export async function splitWorkspaceClip(

@@ -689,6 +689,12 @@ export type MoveWorkspaceClipInput = {
   startMs: number;
 };
 
+export type InsertWorkspaceAssetClipInput = {
+  assetId: string;
+  targetTrackId?: string | null;
+  startMs?: number | null;
+};
+
 export type TrimWorkspaceClipInput = {
   startMs?: number;
   durationMs?: number;

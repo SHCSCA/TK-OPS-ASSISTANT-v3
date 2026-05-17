@@ -2,16 +2,20 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 from fastapi import HTTPException
 from pydantic import ValidationError
 
+from domain.models.asset import Asset
 from domain.models.timeline import Timeline
+from repositories.asset_repository import AssetRepository
 from repositories.timeline_repository import TimelineRepository
 from schemas.workspace import (
     AssetReferenceStatusDto,
+    ClipInsertAssetInput,
     ClipMoveInput,
     ClipReplaceInput,
     ClipSplitInput,
@@ -39,6 +43,9 @@ SUPPORTED_TRACK_KINDS = {"video", "audio", "subtitle"}
 PROCESSING_CLIP_STATUSES = {"queued", "running", "pending", "processing"}
 FAILED_CLIP_STATUSES = {"failed", "error", "missing", "invalid"}
 MIN_TRIMMED_CLIP_DURATION_MS = 500
+MIN_ASSET_CLIP_DURATION_MS = 500
+DEFAULT_ASSET_CLIP_DURATION_MS = 3000
+ASSET_TRACK_KIND_BY_TYPE = {"video": "video", "image": "video", "audio": "audio"}
 
 
 class WorkspaceService:
@@ -46,9 +53,11 @@ class WorkspaceService:
         self,
         repository: TimelineRepository,
         *,
+        asset_repository: AssetRepository | None = None,
         task_manager: TaskManager | None = None,
     ) -> None:
         self._repository = repository
+        self._asset_repository = asset_repository
         self._task_manager = task_manager or default_task_manager
 
     def get_project_timeline(self, project_id: str) -> WorkspaceTimelineResultDto:
@@ -225,10 +234,27 @@ class WorkspaceService:
     ) -> WorkspaceTimelineResultDto:
         input_data = self._normalize_payload(payload)
         timeline, tracks, track_index, clip_index, clip = self._locate_clip(clip_id)
+        source_type = str(input_data.get("sourceType") or "asset")
+        if source_type == "asset":
+            asset_id = str(input_data.get("assetId") or input_data.get("sourceId") or "")
+            replaced_clip = self._build_asset_replacement_clip(
+                tracks[track_index],
+                clip,
+                asset_id,
+            )
+            tracks[track_index]["clips"][clip_index] = replaced_clip
+            return self._save_tracks(
+                timeline,
+                tracks,
+                "片段已替换。",
+                "clip_replace",
+                "已确认保存片段素材替换。",
+            )
+
         replaced_clip = dict(clip)
-        replaced_clip["sourceType"] = str(input_data["sourceType"])
+        replaced_clip["sourceType"] = source_type
         replaced_clip["sourceId"] = input_data.get("sourceId")
-        replaced_clip["label"] = str(input_data["label"])
+        replaced_clip["label"] = str(input_data.get("label") or clip.get("label") or "未命名片段")
         replaced_clip["prompt"] = input_data.get("prompt")
         replaced_clip["resolution"] = input_data.get("resolution")
         editable_fields = input_data.get("editableFields")
@@ -241,6 +267,54 @@ class WorkspaceService:
             "片段已替换。",
             "clip_replace",
             "已确认保存片段素材替换。",
+        )
+
+    def insert_asset_clip(
+        self,
+        timeline_id: str,
+        payload: ClipInsertAssetInput | dict[str, object],
+    ) -> WorkspaceTimelineResultDto:
+        input_data = self._normalize_payload(payload)
+        timeline = self._load_timeline(timeline_id)
+        tracks = self._parse_tracks(timeline.tracks_json)
+        asset = self._load_asset(str(input_data["assetId"]))
+        target_kind = self._track_kind_for_asset(asset)
+        self._require_asset_file(asset)
+
+        target_track_index = self._resolve_asset_target_track_index(
+            tracks,
+            target_kind,
+            input_data.get("targetTrackId"),
+        )
+        target_track = tracks[target_track_index]
+        if bool(target_track.get("locked")):
+            raise HTTPException(status_code=400, detail="锁定轨道不能加入资产。")
+
+        start_ms = self._asset_insert_start(input_data, target_track)
+        duration_ms = self._resolve_asset_duration_ms(asset)
+        clip_id = self._build_asset_clip_id(tracks, asset.id, start_ms)
+        new_clip = self._build_asset_clip(
+            asset,
+            clip_id=clip_id,
+            track_id=str(target_track["id"]),
+            start_ms=start_ms,
+            duration_ms=duration_ms,
+        )
+        if self._clip_overlaps_track(new_clip, target_track, exclude_clip_id=clip_id):
+            raise HTTPException(status_code=400, detail="资产入轨后会与同轨片段重叠。")
+
+        clips = target_track.get("clips")
+        if not isinstance(clips, list):
+            clips = []
+        clips.append(new_clip)
+        target_track["clips"] = sorted(clips, key=lambda item: int(item.get("startMs") or 0))
+
+        return self._save_tracks(
+            timeline,
+            tracks,
+            "资产已加入时间线。",
+            "clip_insert_asset",
+            "已确认保存资产入轨结果。",
         )
 
     def delete_clip(self, clip_id: str) -> WorkspaceTimelineResultDto:
@@ -545,6 +619,200 @@ class WorkspaceService:
             if str(track.get("id")) == track_id:
                 return index
         return None
+
+    def _load_asset(self, asset_id: str) -> Asset:
+        if asset_id.strip() == "":
+            raise HTTPException(status_code=400, detail="资产 ID 不能为空。")
+        if self._asset_repository is None:
+            log.error("资产仓储未初始化")
+            raise HTTPException(status_code=503, detail="资产服务未就绪，无法使用资产。")
+        try:
+            asset = self._asset_repository.get_asset(asset_id)
+        except Exception as exc:
+            log.exception("读取资产失败")
+            raise HTTPException(status_code=500, detail="读取资产失败。") from exc
+        if asset is None:
+            raise HTTPException(status_code=404, detail="资产不存在。")
+        return asset
+
+    def _track_kind_for_asset(self, asset: Asset) -> str:
+        asset_type = str(asset.type or "").strip().lower()
+        target_kind = ASSET_TRACK_KIND_BY_TYPE.get(asset_type)
+        if target_kind is None:
+            raise HTTPException(status_code=400, detail="该资产类型不支持加入时间线。")
+        return target_kind
+
+    def _require_asset_file(self, asset: Asset) -> Path:
+        file_path = (asset.file_path or "").strip()
+        if file_path == "":
+            raise HTTPException(status_code=400, detail="资产缺少源文件路径，无法加入时间线。")
+        try:
+            source_path = Path(file_path)
+            if not source_path.exists() or not source_path.is_file():
+                raise HTTPException(status_code=400, detail="资产源文件不存在，无法加入时间线。")
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.exception("检查资产源文件失败")
+            raise HTTPException(status_code=400, detail="资产源文件不可用，无法加入时间线。") from exc
+        return source_path
+
+    def _resolve_asset_target_track_index(
+        self,
+        tracks: list[dict[str, object]],
+        target_kind: str,
+        target_track_id: object,
+    ) -> int:
+        requested_track_id = str(target_track_id or "").strip()
+        if requested_track_id:
+            track_index = self._find_track_index(tracks, requested_track_id)
+            if track_index is None:
+                raise HTTPException(status_code=404, detail="目标轨道不存在。")
+            track = tracks[track_index]
+            if str(track.get("kind") or "") != target_kind:
+                raise HTTPException(status_code=400, detail="资产类型与目标轨道不匹配。")
+            return track_index
+
+        for index, track in enumerate(tracks):
+            if str(track.get("kind") or "") == target_kind:
+                return index
+        raise HTTPException(status_code=404, detail="时间线缺少匹配的目标轨道。")
+
+    def _asset_insert_start(self, input_data: dict[str, object], track: dict[str, object]) -> int:
+        if input_data.get("startMs") is not None:
+            try:
+                start_ms = int(input_data["startMs"])
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(status_code=400, detail="资产入轨起点不正确。") from exc
+            if start_ms < 0:
+                raise HTTPException(status_code=400, detail="资产入轨起点不能小于 0。")
+            return start_ms
+
+        clips = track.get("clips")
+        if not isinstance(clips, list):
+            return 0
+        return max(
+            (
+                int(clip.get("startMs") or 0) + int(clip.get("durationMs") or 0)
+                for clip in clips
+                if isinstance(clip, dict)
+            ),
+            default=0,
+        )
+
+    def _resolve_asset_duration_ms(self, asset: Asset) -> int:
+        try:
+            duration_ms = int(asset.duration_ms) if asset.duration_ms is not None else DEFAULT_ASSET_CLIP_DURATION_MS
+        except (TypeError, ValueError):
+            duration_ms = DEFAULT_ASSET_CLIP_DURATION_MS
+        return max(duration_ms, MIN_ASSET_CLIP_DURATION_MS)
+
+    def _build_asset_clip_id(
+        self,
+        tracks: list[dict[str, object]],
+        asset_id: str,
+        start_ms: int,
+    ) -> str:
+        existing_ids = {str(clip.get("id")) for clip in self._iter_clips(tracks)}
+        base_id = f"asset-{asset_id}-{start_ms}"
+        if base_id not in existing_ids:
+            return base_id
+
+        suffix = 2
+        while f"{base_id}-{suffix}" in existing_ids:
+            suffix += 1
+        return f"{base_id}-{suffix}"
+
+    def _build_asset_clip(
+        self,
+        asset: Asset,
+        *,
+        clip_id: str,
+        track_id: str,
+        start_ms: int,
+        duration_ms: int,
+    ) -> dict[str, object]:
+        return {
+            "id": clip_id,
+            "trackId": track_id,
+            "sourceType": "asset",
+            "sourceId": asset.id,
+            "label": asset.name,
+            "startMs": start_ms,
+            "durationMs": duration_ms,
+            "inPointMs": 0,
+            "outPointMs": duration_ms,
+            "status": "ready",
+            "prompt": None,
+            "resolution": self._asset_resolution_payload(asset),
+            "editableFields": ["label", "startMs", "durationMs"],
+            "metadata": {
+                "sourceKind": "asset",
+                "text": asset.name,
+            },
+        }
+
+    def _build_asset_replacement_clip(
+        self,
+        track: dict[str, object],
+        clip: dict[str, object],
+        asset_id: str,
+    ) -> dict[str, object]:
+        if bool(track.get("locked")):
+            raise HTTPException(status_code=400, detail="锁定轨道不能替换片段。")
+        asset = self._load_asset(asset_id)
+        target_kind = self._track_kind_for_asset(asset)
+        self._require_asset_file(asset)
+        if str(track.get("kind") or "") != target_kind:
+            raise HTTPException(status_code=400, detail="资产类型与目标轨道不匹配。")
+
+        replaced_clip = dict(clip)
+        replaced_clip["sourceType"] = "asset"
+        replaced_clip["sourceId"] = asset.id
+        replaced_clip["label"] = asset.name
+        replaced_clip["prompt"] = None
+        replaced_clip["resolution"] = self._asset_resolution_payload(asset)
+        editable_fields: list[str] = []
+        if isinstance(replaced_clip.get("editableFields"), list):
+            editable_fields = [
+                field
+                for field in replaced_clip["editableFields"]
+                if isinstance(field, str)
+            ]
+        for field in ("label", "startMs", "durationMs"):
+            if field not in editable_fields:
+                editable_fields.append(field)
+        replaced_clip["editableFields"] = editable_fields
+        replaced_clip["status"] = "ready"
+        replaced_clip["metadata"] = {
+            "sourceKind": "asset",
+            "text": asset.name,
+        }
+        return replaced_clip
+
+    def _asset_resolution_payload(self, asset: Asset) -> dict[str, int] | None:
+        metadata_json = (asset.metadata_json or "").strip()
+        if metadata_json == "":
+            return None
+        try:
+            decoded = json.loads(metadata_json)
+        except Exception:
+            log.warning("解析资产元数据失败 asset_id=%s", asset.id, exc_info=True)
+            return None
+        if not isinstance(decoded, dict):
+            return None
+        metadata = {str(key): value for key, value in decoded.items()}
+        resolution = metadata.get("resolution")
+        if isinstance(resolution, dict):
+            metadata = {str(key): value for key, value in resolution.items()}
+        try:
+            width = int(metadata.get("width"))
+            height = int(metadata.get("height"))
+        except (TypeError, ValueError):
+            return None
+        if width <= 0 or height <= 0:
+            return None
+        return {"width": width, "height": height}
 
     def _build_split_clip_id(
         self,

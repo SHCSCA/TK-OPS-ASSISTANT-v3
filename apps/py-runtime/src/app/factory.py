@@ -277,6 +277,7 @@ def create_app() -> FastAPI:
     )
     workspace_service = WorkspaceService(
         timeline_repository,
+        asset_repository=asset_repository,
         task_manager=task_manager,
     )
     workspace_assembly_service = WorkspaceAssemblyService(
