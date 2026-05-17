@@ -330,8 +330,7 @@ function handleMovePointerDown(clip: WorkspaceTimelineClipDto, event: PointerEve
 
   draggingClipId.value = clip.id;
   activeLaneElement.value = resolveLaneElement(event);
-  const preview = timelineDrag.startMoveDrag({ clip, clientX: event.clientX, rect });
-  emit("move-preview", preview);
+  timelineDrag.startMoveDrag({ clip, clientX: event.clientX, rect });
   bindDocumentDragEvents();
 }
 
@@ -343,8 +342,7 @@ function handleTrimPointerDown(clip: WorkspaceTimelineClipDto, edge: WorkspaceTi
 
   draggingClipId.value = clip.id;
   activeLaneElement.value = resolveLaneElement(event);
-  const preview = timelineDrag.startTrimDrag({ clip, edge, clientX: event.clientX, rect });
-  emit("trim-preview", preview);
+  timelineDrag.startTrimDrag({ clip, edge, clientX: event.clientX, rect });
   bindDocumentDragEvents();
 }
 

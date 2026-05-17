@@ -7,6 +7,22 @@ import {
 } from "@/modules/workspace/useWorkspaceTimelineDrag";
 
 describe("useWorkspaceTimelineDrag", () => {
+  it("单击片段未产生位移时不返回提交载荷", () => {
+    const drag = useWorkspaceTimelineDrag({
+      durationMs: 10_000,
+      snapCandidates: []
+    });
+
+    drag.startMoveDrag({
+      clip: clip({ startMs: 1_000, durationMs: 2_000 }),
+      clientX: 1_000,
+      rect: timelineRect()
+    });
+
+    expect(drag.finishDrag()).toBeNull();
+    expect(drag.dragPreview.value).toBeNull();
+  });
+
   it("为片段移动产出预览和提交载荷", () => {
     const drag = useWorkspaceTimelineDrag({
       durationMs: 10_000,

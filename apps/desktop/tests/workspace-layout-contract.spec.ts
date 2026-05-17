@@ -108,6 +108,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(timeline).toContain('"trim-preview": [payload: WorkspaceTimelineTrimPreview]');
     expect(timeline).toContain('"trim-commit": [payload: WorkspaceTimelineTrimPreview]');
     expect(timeline).toContain('"drag-cancel": [payload: WorkspaceTimelineDragPreview]');
+    expect(timeline.match(/function handleMovePointerDown[\s\S]*?\n}/)?.[0] ?? "").not.toContain('emit("move-preview"');
+    expect(timeline.match(/function handleTrimPointerDown[\s\S]*?\n}/)?.[0] ?? "").not.toContain('emit("trim-preview"');
     expect(timeline).toContain("@pointerdown.stop=\"handleMovePointerDown(clipView.clip, $event)\"");
     expect(timeline).toContain("@pointerdown.stop=\"handleTrimPointerDown(clipView.clip, 'left', $event)\"");
     expect(timeline).toContain("@pointerdown.stop=\"handleTrimPointerDown(clipView.clip, 'right', $event)\"");
