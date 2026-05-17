@@ -22,6 +22,7 @@ describe("workspace layout taxonomy contract", () => {
   });
 
   it("keeps the M05 workbench responsive without global page max-width", () => {
+    const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
     const css = readSource("../src/pages/workspace/AIEditingWorkspacePage.css");
 
     expect(css).toMatch(
@@ -37,6 +38,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(css).toMatch(/\.workspace-timeline-area-wrapper\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;/);
     expect(css).toMatch(/\.workspace-timeline-area\s*{[\s\S]*background:\s*#0f1722;/);
     expect(css).toContain(".workspace-timeline-area :deep(.workspace-timeline-toolbar)");
+    expect(css).not.toContain(".workspace-pop");
+    expect(page).not.toContain('transition name="workspace-pop"');
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*330px\)\s+minmax\(0,\s*1fr\);/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*220px;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*auto\s+minmax\(284px,\s*38vh\);/);
@@ -184,8 +187,12 @@ describe("workspace layout taxonomy contract", () => {
   it("keeps the M05 asset rail list scrollable instead of clipping long content", () => {
     const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
     const assetRail = readSource("../src/modules/workspace/WorkspaceAssetRail.vue");
+    const handleSelectClipBlock = page.match(/function handleSelectClip[\s\S]*?\n}/)?.[0] ?? "";
 
     expect(page).toContain('@select-source-clip="handleSelectClip"');
+    expect(handleSelectClipBlock).toContain("workspaceStore.selectTimelineClip(payload)");
+    expect(handleSelectClipBlock).not.toContain("workspaceStore.selectTrack(payload.trackId)");
+    expect(handleSelectClipBlock).not.toContain("workspaceStore.selectClip(payload.clipId)");
     expect(assetRail).toContain('"select-source-clip": [payload: { clipId: string; trackId: string }];');
     expect(assetRail).toContain('@click="$emit(\'select-source-clip\', { clipId: entry.id, trackId: entry.trackId })"');
     expect(assetRail).toContain('class="workspace-asset-rail__item-card"');

@@ -302,6 +302,10 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     selectClip(clipId: string | null): void {
       this.selectedClipId = clipId;
     },
+    selectTimelineClip(payload: { clipId: string; trackId: string }): void {
+      this.selectedTrackId = payload.trackId;
+      this.selectedClipId = payload.clipId;
+    },
     focusPrecheckIssue(issue: string): boolean {
       if (!this.timeline) {
         this.blockedMessage = "当前没有可定位的时间线。";

@@ -110,6 +110,21 @@ describe("M05 AI 剪辑工作台 store", () => {
     ]);
   });
 
+  it("选择时间线片段时一次写入轨道和片段，避免清空片段中间态", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectTimelineClip({
+      trackId: "managed-video-storyboard",
+      clipId: "managed-video-storyboard-01"
+    });
+
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+  });
+
   it("删除选中片段后刷新时间线并保留受管轨道选择", async () => {
     vi.stubGlobal("fetch", createWorkspaceFetch());
 
