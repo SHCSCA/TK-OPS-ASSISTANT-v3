@@ -99,6 +99,19 @@ describe("workspace layout taxonomy contract", () => {
     expect(toolBarStatusBlock).toContain('return "选择工具 · 磁吸开启";');
     expect(toolBarStatusBlock).not.toContain("selectedClip.value");
     expect(timeline).toContain("buildTimelineRows");
+    expect(timeline).toContain("useWorkspaceTimelineDrag");
+    expect(timeline).toContain('"move-preview": [payload: WorkspaceTimelineMovePreview]');
+    expect(timeline).toContain('"move-commit": [payload: WorkspaceTimelineMovePreview]');
+    expect(timeline).toContain('"trim-preview": [payload: WorkspaceTimelineTrimPreview]');
+    expect(timeline).toContain('"trim-commit": [payload: WorkspaceTimelineTrimPreview]');
+    expect(timeline).toContain('"drag-cancel": [payload: WorkspaceTimelineDragPreview]');
+    expect(timeline).toContain("@pointerdown.stop=\"handleMovePointerDown(clipView.clip, $event)\"");
+    expect(timeline).toContain("@pointerdown.stop=\"handleTrimPointerDown(clipView.clip, 'left', $event)\"");
+    expect(timeline).toContain("@pointerdown.stop=\"handleTrimPointerDown(clipView.clip, 'right', $event)\"");
+    expect(timeline).toContain('document.addEventListener("pointermove", handleDocumentPointerMove, { passive: true })');
+    expect(timeline).toContain('document.addEventListener("pointerup", handleDocumentPointerUp, { passive: true })');
+    expect(timeline).not.toContain("useEditingWorkspaceStore");
+    expect(timeline).not.toContain("runtimeClient");
     expect(timeline).toContain("TimelineClipView");
     expect(timeline).toContain("computePlayheadPercent");
     expect(timeline).toMatch(
