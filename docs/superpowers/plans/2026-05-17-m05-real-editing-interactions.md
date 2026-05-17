@@ -71,6 +71,36 @@ Docs:
 - Modify: `CHANGELOG.md`
 - Modify: `docs/superpowers/plans/2026-05-17-m05-real-editing-interactions.md`
 
+Release metadata:
+
+- Modify: `package.json`
+- Modify via `npm run version:sync`: `apps/desktop/src-tauri/Cargo.toml`
+- Modify via `npm run version:sync`: `apps/desktop/src-tauri/tauri.conf.json`
+- Modify via `npm run version:sync`: `apps/py-runtime/pyproject.toml`
+
+## Execution Record
+
+| Task | Commit | Status |
+| --- | --- | --- |
+| Task 0 计划与设计 | `d4cfdbe` | 已提交 |
+| Task 1 时间线几何与磁吸 | `e11ac8e` | 已提交 |
+| Task 2 拖拽状态拆分 | `db45801` | 已提交 |
+| Task 3 拖拽移动保存 | `23a4e8f` | 已提交 |
+| Task 4 拖拽裁剪保存 | `5bd4756` | 已提交 |
+| Task 5 Runtime 资产入轨 | `a674ea2` | 已提交 |
+| Task 6 前端资产加入与替换 | `be2e1a2` | 已提交 |
+| Task 7 播放器、属性面板与预检定位 | `0c42ec0` | 已提交 |
+| Task 8 文档、发布号与全量验证 | 本提交 | 已验证，待提交 |
+
+## Verification Record
+
+- `npm --prefix apps/desktop run test`：53 个测试文件、242 条测试通过。
+- `pytest tests/runtime/test_workspace_service.py tests/contracts/test_workspace_runtime_contract.py -q`：36 条测试通过，保留现有 pytest 配置警告。
+- `pytest tests/contracts/test_runtime_contract_inventory.py -q`：2 条测试通过，HTTP 文档路由与代码路由一致。
+- `npm --prefix apps/desktop run build`：Vite 构建通过。
+- `npm run version:check`：发布号镜像检查通过。
+- `git diff --check`：无空白错误。
+
 ## Task 0: 计划、设计与分支基线
 
 **Files:**
@@ -426,16 +456,30 @@ git commit -m "feat: 联动 M05 播放器属性与预检定位"
 - Modify: `docs/RUNTIME-API-CALLS.md`
 - Modify: `CHANGELOG.md`
 - Modify: `docs/superpowers/plans/2026-05-17-m05-real-editing-interactions.md`
+- Modify: `package.json`
+- Modify via `npm run version:sync`: `apps/desktop/src-tauri/Cargo.toml`
+- Modify via `npm run version:sync`: `apps/desktop/src-tauri/tauri.conf.json`
+- Modify via `npm run version:sync`: `apps/py-runtime/pyproject.toml`
 
-- [ ] **Step 1: Update Runtime API docs**
+- [x] **Step 1: Update Runtime API docs**
 
 Document asset insert, drag move/trim behavior, error codes and frontend callers.
 
-- [ ] **Step 2: Update changelog**
+- [x] **Step 2: Update changelog**
 
 Add one M05 entry covering drag move, drag trim, asset insert/replace and precheck targeting.
 
-- [ ] **Step 3: Run full verification**
+- [x] **Step 3: Sync release metadata**
+
+Set the root release number for this phase and run:
+
+```powershell
+npm run version:sync
+```
+
+Expected: Tauri and Python Runtime mirrors match the root release number.
+
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -453,12 +497,12 @@ Expected:
 - Vite build: exits 0.
 - `git diff --check`: no whitespace errors.
 
-- [ ] **Step 4: Commit Task 8**
+- [x] **Step 5: Commit Task 8**
 
 Run:
 
 ```powershell
-git add docs/RUNTIME-API-CALLS.md CHANGELOG.md docs/superpowers/plans/2026-05-17-m05-real-editing-interactions.md
+git add docs/RUNTIME-API-CALLS.md CHANGELOG.md docs/superpowers/plans/2026-05-17-m05-real-editing-interactions.md package.json apps/desktop/src-tauri/Cargo.toml apps/desktop/src-tauri/tauri.conf.json apps/py-runtime/pyproject.toml
 git commit -m "docs: 更新 M05 真实编辑交互说明"
 ```
 
@@ -468,4 +512,3 @@ git commit -m "docs: 更新 M05 真实编辑交互说明"
 - 每个任务提交前必须运行该任务列出的测试和 `git diff --check`。
 - `.superpowers/` 与未确认的 V2 参考方案文档不纳入提交。
 - 子代理可以实现独立任务；主代理必须进行范围复核、测试复核和提交复核。
-
