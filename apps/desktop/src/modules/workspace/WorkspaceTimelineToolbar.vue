@@ -45,12 +45,16 @@ const props = withDefaults(defineProps<{
   canSplit?: boolean;
   canDelete?: boolean;
   canMove?: boolean;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
   canTrim?: boolean;
 }>(), {
   disabled: false,
   canSplit: false,
   canDelete: false,
   canMove: false,
+  canMoveLeft: undefined,
+  canMoveRight: undefined,
   canTrim: false
 });
 
@@ -73,8 +77,8 @@ type WorkspaceTimelineToolId =
 
 const tools = computed(() => [
   { id: "select", label: "选择", icon: "select", active: true, disabled: true },
-  { id: "move-left", label: "左移", icon: "move-left", active: false, disabled: props.disabled || !props.canMove },
-  { id: "move-right", label: "右移", icon: "move-right", active: false, disabled: props.disabled || !props.canMove },
+  { id: "move-left", label: "左移", icon: "move-left", active: false, disabled: props.disabled || !(props.canMoveLeft ?? props.canMove) },
+  { id: "move-right", label: "右移", icon: "move-right", active: false, disabled: props.disabled || !(props.canMoveRight ?? props.canMove) },
   { id: "trim-left", label: "左裁", icon: "trim-left", active: false, disabled: props.disabled || !props.canTrim },
   { id: "trim-right", label: "右裁", icon: "trim-right", active: false, disabled: props.disabled || !props.canTrim },
   { id: "split", label: "分割", icon: "split", active: false, disabled: props.disabled || !props.canSplit },

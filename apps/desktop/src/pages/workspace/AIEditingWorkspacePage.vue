@@ -184,6 +184,8 @@
             <WorkspaceTimelineToolbar
               :can-delete="canDeleteSelectedClip"
               :can-move="canMoveSelectedClip"
+              :can-move-left="canMoveSelectedClipLeft"
+              :can-move-right="canMoveSelectedClipRight"
               :can-split="canSplitSelectedClip"
               :can-trim="canTrimSelectedClip"
               :disabled="status === 'loading' || isGenerating"
@@ -233,6 +235,7 @@ import type {
   WorkspaceTimelineMovePreview,
   WorkspaceTimelineTrimPreview
 } from "@/modules/workspace/useWorkspaceTimelineDrag";
+import { evaluateTimelineClipActions } from "@/modules/workspace/workspaceTimelineActions";
 import { cleanWorkspaceText, workspaceStatusLabel } from "@/modules/workspace/workspaceTimelineViewModel";
 import { useEditingWorkspaceStore } from "@/stores/editing-workspace";
 import { useProjectStore } from "@/stores/project";
@@ -315,16 +318,28 @@ const precheckDisabled = computed(() => !timeline.value || status.value === "loa
 const generateDisabled = computed(
   () => !timeline.value || status.value === "loading" || isGenerating.value
 );
+const timelineActionState = computed(() =>
+  evaluateTimelineClipActions({
+    timeline: timeline.value,
+    selectedClipId: selectedClipId.value,
+    playheadMs: playheadMs.value,
+    stepMs: 500,
+    minDurationMs: 500
+  })
+);
 const toolBarStatus = computed(() => {
   if (!timeline.value) return "等待时间线";
+  if (selectedClip.value && !timelineActionState.value.canSplit) {
+    return `选择工具 · 磁吸开启 · ${timelineActionState.value.reason}`;
+  }
   return "选择工具 · 磁吸开启";
 });
 const canDeleteSelectedClip = computed(() => Boolean(selectedClip.value));
-const canMoveSelectedClip = computed(() => Boolean(selectedClip.value));
-const canSplitSelectedClip = computed(() => {
-  return Boolean(selectedClip.value && selectedClip.value.durationMs >= 2);
-});
-const canTrimSelectedClip = computed(() => Boolean(selectedClip.value));
+const canMoveSelectedClip = computed(() => timelineActionState.value.canMoveLeft || timelineActionState.value.canMoveRight);
+const canMoveSelectedClipLeft = computed(() => timelineActionState.value.canMoveLeft);
+const canMoveSelectedClipRight = computed(() => timelineActionState.value.canMoveRight);
+const canSplitSelectedClip = computed(() => timelineActionState.value.canSplit);
+const canTrimSelectedClip = computed(() => timelineActionState.value.canTrim);
 
 const inspectorBlockedMessage = computed(() => {
   return blockedMessage.value;

@@ -97,6 +97,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(page).toMatch(/<div\s+class="workspace-timeline-area">[\s\S]*<WorkspaceTimelineToolbar[\s\S]*<WorkspaceTimeline/);
     expect(page).toContain(':can-delete="canDeleteSelectedClip"');
     expect(page).toContain(':can-move="canMoveSelectedClip"');
+    expect(page).toContain(':can-move-left="canMoveSelectedClipLeft"');
+    expect(page).toContain(':can-move-right="canMoveSelectedClipRight"');
     expect(page).toContain(':can-split="canSplitSelectedClip"');
     expect(page).toContain(':can-trim="canTrimSelectedClip"');
     expect(page).toContain('@delete="handleDeleteSelectedClip"');
@@ -108,7 +110,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(page).toContain('@trim="handleTimelineTrim"');
     const toolBarStatusBlock = page.match(/const toolBarStatus = computed\(\(\) => \{[\s\S]*?\n\}\);/)?.[0] ?? "";
     expect(toolBarStatusBlock).toContain('return "选择工具 · 磁吸开启";');
-    expect(toolBarStatusBlock).not.toContain("selectedClip.value");
+    expect(toolBarStatusBlock).toContain("timelineActionState.value.reason");
+    expect(page).toContain("evaluateTimelineClipActions");
     expect(timeline).toContain("buildTimelineRows");
     expect(timeline).toContain("useWorkspaceTimelineDrag");
     expect(timeline).toContain('"move-preview": [payload: WorkspaceTimelineMovePreview]');

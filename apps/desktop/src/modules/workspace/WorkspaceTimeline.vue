@@ -32,12 +32,14 @@
           {{ marker.label }}
         </span>
       </div>
-      <div
-        class="workspace-timeline__playhead"
-        data-testid="workspace-playhead"
-        :style="{ left: `${playheadPercent}%` }"
-      >
-        <span>{{ playheadLabel }}</span>
+      <div class="workspace-timeline__playhead-layer">
+        <div
+          class="workspace-timeline__playhead"
+          data-testid="workspace-playhead"
+          :style="{ left: `${playheadPercent}%` }"
+        >
+          <span>{{ playheadLabel }}</span>
+        </div>
       </div>
 
       <div class="workspace-timeline__tracks scroll-area">
@@ -419,6 +421,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .workspace-timeline {
+  --workspace-track-label-width: 144px;
+
   min-height: 0;
   overflow: hidden;
   background:
@@ -529,6 +533,7 @@ onBeforeUnmount(() => {
     linear-gradient(to right, rgba(148, 163, 184, 0.16) 1px, transparent 1px),
     rgba(2, 6, 23, 0.72);
   background-size: 80px 100%;
+  margin-left: var(--workspace-track-label-width);
   min-height: 28px;
   position: relative;
 }
@@ -541,6 +546,16 @@ onBeforeUnmount(() => {
   transform: translateX(-50%);
 }
 
+.workspace-timeline__playhead-layer {
+  bottom: 0;
+  left: var(--workspace-track-label-width);
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 8;
+}
+
 .workspace-timeline__playhead {
   bottom: 0;
   position: absolute;
@@ -549,7 +564,6 @@ onBeforeUnmount(() => {
   background: #facc15;
   box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35), 0 0 18px rgba(250, 204, 21, 0.4);
   transform: translateX(-0.5px);
-  z-index: 8;
 }
 
 .workspace-timeline__playhead::before {
@@ -601,7 +615,7 @@ onBeforeUnmount(() => {
 .workspace-track {
   align-items: stretch;
   display: grid;
-  grid-template-columns: 144px minmax(0, 1fr);
+  grid-template-columns: var(--workspace-track-label-width) minmax(0, 1fr);
   border-bottom: 1px solid rgba(148, 163, 184, 0.16);
   background: rgba(15, 23, 42, 0.46);
   padding: 0;
@@ -881,8 +895,12 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 960px) {
+  .workspace-timeline {
+    --workspace-track-label-width: 112px;
+  }
+
   .workspace-track {
-    grid-template-columns: 112px minmax(0, 1fr);
+    grid-template-columns: var(--workspace-track-label-width) minmax(0, 1fr);
   }
 
   .workspace-track__label {

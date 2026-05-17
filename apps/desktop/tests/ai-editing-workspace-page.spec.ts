@@ -299,6 +299,17 @@ describe("M05 AI 剪辑工作台页面", () => {
       body: { mode: "merge_managed", timelineName: "主时间线" }
     });
 
+    wrapper.findComponent(WorkspaceTimeline).vm.$emit("select-clip", {
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard"
+    });
+    await flushPromises();
+
+    expect((wrapper.get('[data-testid="workspace-tool-move-left"]').element as HTMLButtonElement).disabled).toBe(true);
+    expect((wrapper.get('[data-testid="workspace-tool-move-right"]').element as HTMLButtonElement).disabled).toBe(false);
+    expect((wrapper.get('[data-testid="workspace-tool-split"]').element as HTMLButtonElement).disabled).toBe(true);
+    expect(wrapper.get('[data-testid="workspace-timeline-toolbar"]').text()).toContain("播放头需要位于选中片段内部");
+
     const precheckCallsBeforeInsert = calls.filter(
       (call) => call.path === "/api/workspace/timelines/timeline-1/precheck"
     ).length;
