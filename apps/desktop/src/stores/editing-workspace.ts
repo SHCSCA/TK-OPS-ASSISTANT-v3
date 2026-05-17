@@ -38,6 +38,14 @@ export type EditingWorkspaceStatus =
 
 export type EditingWorkspaceAssetStatus = "idle" | "loading" | "ready" | "error";
 
+export type EditingWorkspaceMovePreview = {
+  gesture: "move";
+  clipId: string;
+  trackId: string;
+  startMs: number;
+  durationMs: number;
+};
+
 type EditingWorkspaceState = {
   assemblyState: WorkspaceAssemblyStateDto | null;
   assetError: RuntimeRequestErrorShape | null;
@@ -339,6 +347,37 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         this.applyTimelineResult(result);
         return result.timeline;
       } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async commitMovePreview(payload: EditingWorkspaceMovePreview): Promise<WorkspaceTimelineDto | null> {
+      const originalTimeline = this.timeline;
+      const originalSelectedTrackId = this.selectedTrackId;
+      const originalSelectedClipId = this.selectedClipId;
+
+      if (!this.findClipById(payload.clipId)) {
+        this.applyInputError("请先选择要移动的片段。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+      this.selectedTrackId = payload.trackId;
+      this.selectedClipId = payload.clipId;
+
+      try {
+        const result = await moveWorkspaceClip(payload.clipId, {
+          targetTrackId: payload.trackId,
+          startMs: Math.max(0, Math.round(payload.startMs))
+        });
+        this.applyTimelineResult(result);
+        return result.timeline;
+      } catch (error) {
+        this.timeline = originalTimeline;
+        this.selectedTrackId = originalSelectedTrackId;
+        this.selectedClipId = originalSelectedClipId;
         this.applyRuntimeError(error);
         return null;
       }

@@ -182,6 +182,57 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.saveState?.source).toBe("clip_move");
   });
 
+  it("提交拖拽移动预览时通过 Runtime 保存并保留选中片段", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitMovePreview({
+      gesture: "move",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      startMs: 500,
+      durationMs: 5000
+    });
+
+    expect(timelineResult?.tracks[0].clips[0].startMs).toBe(500);
+    expect(store.status).toBe("ready");
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.saveState?.source).toBe("clip_move");
+  });
+
+  it("提交拖拽移动失败时保留原时间线并显示中文错误", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({ failMove: true }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    const originalTimeline = store.timeline;
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitMovePreview({
+      gesture: "move",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      startMs: 500,
+      durationMs: 5000
+    });
+
+    expect(timelineResult).toBeNull();
+    expect(store.status).toBe("error");
+    expect(store.timeline).toBe(originalTimeline);
+    expect(store.timeline?.tracks[0].clips[0].startMs).toBe(0);
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.error?.message).toBe("目标轨道已锁定，无法移动片段。");
+  });
+
   it("按右边缘裁剪选中片段时通过 Runtime 保存", async () => {
     vi.stubGlobal("fetch", createWorkspaceFetch());
 
@@ -284,6 +335,7 @@ function createWorkspaceFetch(
       task: Record<string, unknown> | null;
     };
     failAssets?: boolean;
+    failMove?: boolean;
     failSave?: boolean;
     timeline?: ReturnType<typeof timeline> | null;
   } = {}
@@ -364,6 +416,9 @@ function createWorkspaceFetch(
     if (path === "/api/workspace/clips/managed-video-storyboard-01/move" && method === "POST") {
       const body = JSON.parse(String(init?.body));
       expect(body).toEqual({ targetTrackId: "managed-video-storyboard", startMs: 500 });
+      if (options.failMove) {
+        return errorJsonResponse(409, "目标轨道已锁定，无法移动片段。");
+      }
       return okJsonResponse({
         timeline: timeline("timeline-1", [managedVideoTrack([
           managedVideoClip({ startMs: 500 })

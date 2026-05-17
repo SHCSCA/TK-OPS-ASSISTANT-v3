@@ -5,6 +5,7 @@ import { createMemoryHistory } from "vue-router";
 
 import App from "../src/App.vue";
 import { createAppRouter } from "../src/app/router";
+import WorkspaceTimeline from "../src/modules/workspace/WorkspaceTimeline.vue";
 import { useTaskBusStore } from "../src/stores/task-bus";
 
 describe("M05 AI 剪辑工作台页面", () => {
@@ -90,6 +91,33 @@ describe("M05 AI 剪辑工作台页面", () => {
             status: "ready",
             message: "时间线本地预检通过。",
             issues: []
+          });
+        }
+        if (path === "/api/workspace/clips/managed-video-storyboard-01/move" && method === "POST") {
+          expect(JSON.parse(String(init?.body))).toEqual({
+            targetTrackId: "managed-video-storyboard",
+            startMs: 500
+          });
+          timelineState = workspaceTimeline([
+            managedVideoTrack([managedClip(
+              "managed-video-storyboard-01",
+              "managed-video-storyboard",
+              "storyboard",
+              "S01 · 分镜画面",
+              { startMs: 500 }
+            )]),
+            managedAudioTrack(),
+            managedSubtitleTrack()
+          ]);
+          return okJsonResponse({
+            timeline: timelineState,
+            saveState: {
+              saved: true,
+              updatedAt: now(),
+              source: "clip_move",
+              message: "已确认保存片段位置变更。"
+            },
+            message: "片段已移动。"
           });
         }
         if (path === "/api/workspace/projects/project-1/ai-commands" && method === "POST") {
@@ -187,6 +215,22 @@ describe("M05 AI 剪辑工作台页面", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("时间线本地预检通过");
+
+    wrapper.findComponent(WorkspaceTimeline).vm.$emit("move-commit", {
+      gesture: "move",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      startMs: 500,
+      durationMs: 5000
+    });
+    await flushPromises();
+
+    expect(calls).toContainEqual({
+      path: "/api/workspace/clips/managed-video-storyboard-01/move",
+      method: "POST",
+      body: { targetTrackId: "managed-video-storyboard", startMs: 500 }
+    });
+    expect(wrapper.text()).toContain("已确认保存片段位置变更");
 
     const taskBusStore = useTaskBusStore(pinia);
     taskBusStore.handleIncomingMessage(JSON.stringify({
@@ -427,7 +471,9 @@ function manualVideoTrack() {
   };
 }
 
-function managedVideoTrack() {
+function managedVideoTrack(clips = [
+  managedClip("managed-video-storyboard-01", "managed-video-storyboard", "storyboard", "S01 · 分镜画面")
+]) {
   return {
     id: "managed-video-storyboard",
     kind: "video",
@@ -435,9 +481,7 @@ function managedVideoTrack() {
     orderIndex: 0,
     locked: false,
     muted: false,
-    clips: [
-      managedClip("managed-video-storyboard-01", "managed-video-storyboard", "storyboard", "S01 · 分镜画面")
-    ]
+    clips
   };
 }
 
@@ -469,7 +513,19 @@ function managedSubtitleTrack() {
   };
 }
 
-function managedClip(id: string, trackId: string, sourceType: string, label: string) {
+function managedClip(
+  id: string,
+  trackId: string,
+  sourceType: string,
+  label: string,
+  overrides: Partial<{
+    startMs: number;
+    durationMs: number;
+    inPointMs: number;
+    outPointMs: number | null;
+    status: string;
+  }> = {}
+) {
   const text = sourceType === "subtitle_track" ? "（延续字幕）" : "This lamp made me cancel my dinner plan.";
 
   return {
@@ -490,7 +546,8 @@ function managedClip(id: string, trackId: string, sourceType: string, label: str
       segmentId: "S01",
       text,
       visualPrompt: "墙灯亮起，房间从冷光转暖光。"
-    }
+    },
+    ...overrides
   };
 }
 

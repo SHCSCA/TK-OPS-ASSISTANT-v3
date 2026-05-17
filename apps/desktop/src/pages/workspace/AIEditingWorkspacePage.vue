@@ -198,7 +198,10 @@
                 :status="status"
                 :timeline="timeline"
                 :tracks="orderedTracks"
+                @drag-cancel="handleTimelineDragCancel"
                 @playhead="handleSetPlayhead"
+                @move-commit="handleTimelineMoveCommit"
+                @move-preview="handleTimelineMovePreview"
                 @select-clip="handleSelectClip"
                 @select-track="handleSelectTrack"
                 @trim="handleTimelineTrim"
@@ -213,7 +216,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onBeforeUnmount, onMounted, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
 import Button from "@/components/ui/Button/Button.vue";
@@ -223,6 +226,10 @@ import WorkspaceInspector from "@/modules/workspace/WorkspaceInspector.vue";
 import WorkspacePreviewStage from "@/modules/workspace/WorkspacePreviewStage.vue";
 import WorkspaceTimeline from "@/modules/workspace/WorkspaceTimeline.vue";
 import WorkspaceTimelineToolbar from "@/modules/workspace/WorkspaceTimelineToolbar.vue";
+import type {
+  WorkspaceTimelineDragPreview,
+  WorkspaceTimelineMovePreview
+} from "@/modules/workspace/useWorkspaceTimelineDrag";
 import { cleanWorkspaceText, workspaceStatusLabel } from "@/modules/workspace/workspaceTimelineViewModel";
 import { useEditingWorkspaceStore } from "@/stores/editing-workspace";
 import { useProjectStore } from "@/stores/project";
@@ -233,6 +240,7 @@ const projectStore = useProjectStore();
 const shellUiStore = useShellUiStore();
 const workspaceStore = useEditingWorkspaceStore();
 const taskBusStore = useTaskBusStore();
+const movePreview = ref<WorkspaceTimelineMovePreview | null>(null);
 
 const {
   assemblyState,
@@ -481,6 +489,24 @@ function handleSetPlayhead(positionMs: number): void {
 async function handleTimelineTrim(payload: { clipId: string; edge: "left" | "right"; deltaMs: number }): Promise<void> {
   workspaceStore.selectClip(payload.clipId);
   await workspaceStore.trimSelectedClip(payload.edge, payload.deltaMs);
+}
+
+function handleTimelineMovePreview(payload: WorkspaceTimelineMovePreview): void {
+  movePreview.value = payload;
+}
+
+async function handleTimelineMoveCommit(payload: WorkspaceTimelineMovePreview): Promise<void> {
+  movePreview.value = null;
+  const result = await workspaceStore.commitMovePreview(payload);
+  if (result) {
+    await workspaceStore.runPrecheck();
+  }
+}
+
+function handleTimelineDragCancel(payload: WorkspaceTimelineDragPreview): void {
+  if (payload.gesture === "move") {
+    movePreview.value = null;
+  }
 }
 
 function handleSelectTrack(trackId: string): void {
