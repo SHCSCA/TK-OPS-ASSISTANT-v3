@@ -38,6 +38,7 @@ log = logging.getLogger(__name__)
 SUPPORTED_TRACK_KINDS = {"video", "audio", "subtitle"}
 PROCESSING_CLIP_STATUSES = {"queued", "running", "pending", "processing"}
 FAILED_CLIP_STATUSES = {"failed", "error", "missing", "invalid"}
+MIN_TRIMMED_CLIP_DURATION_MS = 500
 
 
 class WorkspaceService:
@@ -158,16 +159,28 @@ class WorkspaceService:
 
         source_track = tracks[track_index]
         target_track = tracks[target_track_index]
+        if bool(source_track.get("locked")) or bool(target_track.get("locked")):
+            raise HTTPException(status_code=400, detail="锁定轨道不能移动片段。")
+
+        target_start_ms = int(input_data["startMs"])
+        if target_start_ms < 0:
+            raise HTTPException(status_code=400, detail="片段起点不能小于 0。")
 
         moved_clip = dict(clip)
         moved_clip["trackId"] = target_track["id"]
-        moved_clip["startMs"] = int(input_data["startMs"])
+        moved_clip["startMs"] = target_start_ms
+        if self._clip_overlaps_track(moved_clip, target_track, exclude_clip_id=clip_id):
+            raise HTTPException(status_code=400, detail="片段移动后会与同轨片段重叠。")
 
         if track_index == target_track_index:
             source_track["clips"][clip_index] = moved_clip
         else:
             source_track["clips"].pop(clip_index)
             target_track["clips"].append(moved_clip)
+        target_track["clips"] = sorted(
+            target_track["clips"],
+            key=lambda item: int(item.get("startMs") or 0),
+        )
 
         return self._save_tracks(
             timeline,
@@ -188,6 +201,14 @@ class WorkspaceService:
         for field in ("startMs", "durationMs", "inPointMs", "outPointMs"):
             if input_data.get(field) is not None:
                 trimmed_clip[field] = input_data[field]
+        start_ms = int(trimmed_clip.get("startMs") or 0)
+        duration_ms = int(trimmed_clip.get("durationMs") or 0)
+        if start_ms < 0:
+            raise HTTPException(status_code=400, detail="片段起点不能小于 0。")
+        if duration_ms < MIN_TRIMMED_CLIP_DURATION_MS:
+            raise HTTPException(status_code=400, detail="片段裁剪后至少需要保留 500ms。")
+        if self._clip_overlaps_track(trimmed_clip, tracks[track_index], exclude_clip_id=clip_id):
+            raise HTTPException(status_code=400, detail="片段裁剪后会与同轨片段重叠。")
         tracks[track_index]["clips"][clip_index] = trimmed_clip
         return self._save_tracks(
             timeline,
@@ -540,6 +561,32 @@ class WorkspaceService:
         while f"{base_id}-{suffix}" in existing_ids:
             suffix += 1
         return f"{base_id}-{suffix}"
+
+    def _clip_overlaps_track(
+        self,
+        clip: dict[str, object],
+        track: dict[str, object],
+        *,
+        exclude_clip_id: str,
+    ) -> bool:
+        start_ms = int(clip.get("startMs") or 0)
+        duration_ms = int(clip.get("durationMs") or 0)
+        end_ms = start_ms + duration_ms
+        clips = track.get("clips")
+        if not isinstance(clips, list):
+            return False
+
+        for other_clip in clips:
+            if not isinstance(other_clip, dict):
+                continue
+            if str(other_clip.get("id")) == exclude_clip_id:
+                continue
+            other_start_ms = int(other_clip.get("startMs") or 0)
+            other_duration_ms = int(other_clip.get("durationMs") or 0)
+            other_end_ms = other_start_ms + other_duration_ms
+            if start_ms < other_end_ms and end_ms > other_start_ms:
+                return True
+        return False
 
     def _build_version(
         self,

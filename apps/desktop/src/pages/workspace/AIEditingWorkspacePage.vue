@@ -181,20 +181,27 @@
             <div class="workspace-timeline-area">
               <WorkspaceTimelineToolbar
                 :can-delete="canDeleteSelectedClip"
+                :can-move="canMoveSelectedClip"
                 :can-split="canSplitSelectedClip"
+                :can-trim="canTrimSelectedClip"
                 :disabled="status === 'loading' || isGenerating"
                 :status-label="toolBarStatus"
                 @delete="handleDeleteSelectedClip"
+                @move="handleMoveSelectedClip"
                 @split="handleSplitSelectedClip"
+                @trim="handleTrimSelectedClip"
               />
               <WorkspaceTimeline
+                :playhead-ms="playheadMs"
                 :selected-clip-id="selectedClipId"
                 :selected-track-id="selectedTrackId"
                 :status="status"
                 :timeline="timeline"
                 :tracks="orderedTracks"
+                @playhead="handleSetPlayhead"
                 @select-clip="handleSelectClip"
                 @select-track="handleSelectTrack"
+                @trim="handleTimelineTrim"
               />
             </div>
           </div>
@@ -237,6 +244,7 @@ const {
   hasTimeline,
   lastCommandResult,
   orderedTracks,
+  playheadMs,
   precheck,
   saveState,
   selectedClip,
@@ -300,9 +308,11 @@ const toolBarStatus = computed(() => {
   return "选择工具 · 磁吸开启";
 });
 const canDeleteSelectedClip = computed(() => Boolean(selectedClip.value));
+const canMoveSelectedClip = computed(() => Boolean(selectedClip.value));
 const canSplitSelectedClip = computed(() => {
   return Boolean(selectedClip.value && selectedClip.value.durationMs >= 2);
 });
+const canTrimSelectedClip = computed(() => Boolean(selectedClip.value));
 
 const inspectorBlockedMessage = computed(() => {
   return blockedMessage.value;
@@ -454,6 +464,23 @@ async function handleDeleteSelectedClip(): Promise<void> {
 
 async function handleSplitSelectedClip(): Promise<void> {
   await workspaceStore.splitSelectedClip();
+}
+
+async function handleMoveSelectedClip(deltaMs: number): Promise<void> {
+  await workspaceStore.moveSelectedClipBy(deltaMs);
+}
+
+async function handleTrimSelectedClip(edge: "left" | "right", deltaMs: number): Promise<void> {
+  await workspaceStore.trimSelectedClip(edge, deltaMs);
+}
+
+function handleSetPlayhead(positionMs: number): void {
+  workspaceStore.setPlayheadMs(positionMs);
+}
+
+async function handleTimelineTrim(payload: { clipId: string; edge: "left" | "right"; deltaMs: number }): Promise<void> {
+  workspaceStore.selectClip(payload.clipId);
+  await workspaceStore.trimSelectedClip(payload.edge, payload.deltaMs);
 }
 
 function handleSelectTrack(trackId: string): void {

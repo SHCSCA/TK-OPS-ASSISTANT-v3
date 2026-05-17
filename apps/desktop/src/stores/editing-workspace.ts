@@ -7,9 +7,11 @@ import {
   deleteWorkspaceClip,
   fetchAssets,
   fetchWorkspaceTimeline,
+  moveWorkspaceClip,
   precheckTimeline,
   runWorkspaceAICommand,
   splitWorkspaceClip,
+  trimWorkspaceClip,
   updateWorkspaceTimeline
 } from "@/app/runtime-client";
 import type {
@@ -46,6 +48,7 @@ type EditingWorkspaceState = {
   lastCommandResult: WorkspaceAICommandResultDto | null;
   precheck: TimelinePrecheckDto | null;
   projectId: string;
+  playheadMs: number;
   saveState: WorkspaceSaveStateDto | null;
   selectedClipId: string | null;
   selectedTrackId: string | null;
@@ -64,6 +67,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     lastCommandResult: null,
     precheck: null,
     projectId: "",
+    playheadMs: 0,
     saveState: null,
     selectedClipId: null,
     selectedTrackId: null,
@@ -261,6 +265,11 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     selectClip(clipId: string | null): void {
       this.selectedClipId = clipId;
     },
+    setPlayheadMs(value: number): void {
+      const durationMs = this.resolveTimelineDurationMs();
+      const roundedValue = Number.isFinite(value) ? Math.round(value) : 0;
+      this.playheadMs = Math.min(durationMs, Math.max(0, roundedValue));
+    },
     async deleteSelectedClip(): Promise<WorkspaceTimelineDto | null> {
       if (!this.selectedClipId) {
         this.applyInputError("请先选择要删除的片段。");
@@ -290,6 +299,11 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         this.applyInputError("片段时长过短，无法分割。");
         return null;
       }
+      const clipEndMs = clip.startMs + clip.durationMs;
+      if (this.playheadMs <= clip.startMs || this.playheadMs >= clipEndMs) {
+        this.applyInputError("播放头必须位于选中片段内部才能分割。");
+        return null;
+      }
 
       this.status = "saving";
       this.error = null;
@@ -297,8 +311,60 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
 
       try {
         const result = await splitWorkspaceClip(clip.id, {
-          splitAtMs: clip.startMs + Math.floor(clip.durationMs / 2)
+          splitAtMs: this.playheadMs
         });
+        this.applyTimelineResult(result);
+        return result.timeline;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async moveSelectedClipBy(deltaMs: number): Promise<WorkspaceTimelineDto | null> {
+      const clip = this.findClipById(this.selectedClipId);
+      if (!clip) {
+        this.applyInputError("请先选择要移动的片段。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+
+      try {
+        const result = await moveWorkspaceClip(clip.id, {
+          targetTrackId: clip.trackId,
+          startMs: Math.max(0, clip.startMs + deltaMs)
+        });
+        this.applyTimelineResult(result);
+        return result.timeline;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async trimSelectedClip(edge: "left" | "right", deltaMs: number): Promise<WorkspaceTimelineDto | null> {
+      const clip = this.findClipById(this.selectedClipId);
+      if (!clip) {
+        this.applyInputError("请先选择要裁剪的片段。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+
+      try {
+        const result = await trimWorkspaceClip(
+          clip.id,
+          edge === "left"
+            ? {
+                startMs: Math.max(0, clip.startMs + deltaMs),
+                durationMs: clip.durationMs - deltaMs,
+                inPointMs: Math.max(0, clip.inPointMs + deltaMs)
+              }
+            : { durationMs: clip.durationMs + deltaMs }
+        );
         this.applyTimelineResult(result);
         return result.timeline;
       } catch (error) {
@@ -313,6 +379,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.assemblyState = result.assemblyState ?? null;
       this.selectedTrackId = this.resolveSelectedTrackId();
       this.selectedClipId = this.resolveSelectedClipId();
+      this.setPlayheadMs(this.playheadMs);
       this.status = result.timeline ? "ready" : "empty";
     },
     resolveSelectedTrackId(): string | null {
@@ -334,6 +401,12 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       if (!clipId || !this.timeline) return null;
       const clips = this.timeline.tracks.flatMap((track) => track.clips);
       return clips.find((clip) => clip.id === clipId) ?? null;
+    },
+    resolveTimelineDurationMs(): number {
+      const declaredDurationMs = Math.max(0, Math.round((this.timeline?.durationSeconds ?? 0) * 1000));
+      const clips = this.timeline?.tracks.flatMap((track) => track.clips) ?? [];
+      const clipEndMs = clips.reduce((max, clip) => Math.max(max, clip.startMs + clip.durationMs), 0);
+      return Math.max(declaredDurationMs, clipEndMs, 0);
     },
     applyInputError(message: string): void {
       this.status = "error";

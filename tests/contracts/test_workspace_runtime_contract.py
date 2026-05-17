@@ -303,6 +303,19 @@ def test_workspace_clip_contract_returns_detail_with_metadata(
     assert clip["editableFields"] == ["label", "startMs", "durationMs", "prompt"]
 
 
+def test_workspace_clip_contract_exposes_move_and_trim_routes(
+    runtime_client: TestClient,
+) -> None:
+    routes = {
+        (route.path, ",".join(sorted(route.methods)))
+        for route in runtime_client.app.routes
+        if hasattr(route, "methods")
+    }
+
+    assert ("/api/workspace/clips/{clip_id}/move", "POST") in routes
+    assert ("/api/workspace/clips/{clip_id}/trim", "POST") in routes
+
+
 def test_workspace_clip_contract_moves_clip_atomically(
     runtime_client: TestClient,
 ) -> None:

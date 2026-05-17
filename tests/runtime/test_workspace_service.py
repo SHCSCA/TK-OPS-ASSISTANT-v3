@@ -88,6 +88,31 @@ def _timeline_payload() -> list[dict[str, object]]:
     ]
 
 
+def _timeline_payload_with_neighbor_clip() -> list[dict[str, object]]:
+    tracks = _timeline_payload()
+    video_track = tracks[0]
+    clips = video_track["clips"]
+    assert isinstance(clips, list)
+    clips.append(
+        {
+            "id": "clip-video-2",
+            "trackId": "track-video-1",
+            "sourceType": "manual",
+            "sourceId": None,
+            "label": "邻近镜头",
+            "startMs": 5000,
+            "durationMs": 2000,
+            "inPointMs": 0,
+            "outPointMs": None,
+            "status": "ready",
+            "prompt": None,
+            "resolution": None,
+            "editableFields": ["label", "startMs", "durationMs"],
+        }
+    )
+    return tracks
+
+
 def _create_timeline(service: WorkspaceService) -> str:
     created = service.create_project_timeline(
         "project-workspace",
@@ -101,6 +126,25 @@ def _create_timeline(service: WorkspaceService) -> str:
             name="主时间线",
             durationSeconds=12,
             tracks=_timeline_payload(),
+        ),
+    )
+    assert updated.timeline is not None
+    return updated.timeline.id
+
+
+def _create_timeline_with_neighbor_clip(service: WorkspaceService) -> str:
+    created = service.create_project_timeline(
+        "project-workspace",
+        TimelineCreateInput(name="主时间线"),
+    )
+    assert created.timeline is not None
+
+    updated = service.update_timeline(
+        created.timeline.id,
+        TimelineUpdateInput(
+            name="主时间线",
+            durationSeconds=12,
+            tracks=_timeline_payload_with_neighbor_clip(),
         ),
     )
     assert updated.timeline is not None
@@ -222,6 +266,23 @@ def test_move_clip_updates_timeline_atomically(tmp_path: Path) -> None:
     assert result.saveState.source == "clip_move"
 
 
+def test_move_clip_rejects_overlap_with_same_track_neighbor(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path)
+    _create_timeline_with_neighbor_clip(service)
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.move_clip(
+            "clip-video-1",
+            {
+                "targetTrackId": "track-video-1",
+                "startMs": 4800,
+            },
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "片段移动后会与同轨片段重叠。"
+
+
 def test_trim_clip_updates_timeline_atomically(tmp_path: Path) -> None:
     service = _make_workspace_service(tmp_path)
     _create_timeline(service)
@@ -244,6 +305,39 @@ def test_trim_clip_updates_timeline_atomically(tmp_path: Path) -> None:
     assert clip.outPointMs == 3120
     assert result.saveState is not None
     assert result.saveState.source == "clip_trim"
+
+
+def test_trim_clip_rejects_duration_below_minimum(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path)
+    _create_timeline(service)
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.trim_clip(
+            "clip-video-1",
+            {
+                "durationMs": 200,
+            },
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "片段裁剪后至少需要保留 500ms。"
+
+
+def test_trim_clip_rejects_overlap_with_same_track_neighbor(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path)
+    _create_timeline_with_neighbor_clip(service)
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.trim_clip(
+            "clip-video-1",
+            {
+                "startMs": 0,
+                "durationMs": 5500,
+            },
+        )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "片段裁剪后会与同轨片段重叠。"
 
 
 def test_replace_clip_updates_source_metadata(tmp_path: Path) -> None:

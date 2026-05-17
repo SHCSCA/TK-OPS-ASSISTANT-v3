@@ -127,7 +127,62 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.saveState?.source).toBe("clip_delete");
   });
 
-  it("分割选中片段时以片段中点调用 Runtime 并保留左半段选中", async () => {
+  it("分割选中片段时使用当前播放头并保留左半段选中", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectClip("managed-video-storyboard-01");
+    store.setPlayheadMs(3000);
+
+    const timelineResult = await store.splitSelectedClip();
+
+    const clips = timelineResult?.tracks[0].clips ?? [];
+    expect(clips.map((clip) => clip.id)).toEqual([
+      "managed-video-storyboard-01",
+      "managed-video-storyboard-01-split-3000"
+    ]);
+    expect(clips[0].durationMs).toBe(3000);
+    expect(clips[1].startMs).toBe(3000);
+    expect(store.status).toBe("ready");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.saveState?.source).toBe("clip_split");
+  });
+
+  it("播放头不在选中片段内部时拒绝分割", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectClip("managed-video-storyboard-01");
+    store.setPlayheadMs(5000);
+
+    const result = await store.splitSelectedClip();
+
+    expect(result).toBeNull();
+    expect(store.status).toBe("error");
+    expect(store.error?.message).toBe("播放头必须位于选中片段内部才能分割。");
+  });
+
+  it("按步进移动选中片段时通过 Runtime 保存", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.moveSelectedClipBy(500);
+
+    expect(timelineResult?.tracks[0].clips[0].startMs).toBe(500);
+    expect(store.status).toBe("ready");
+    expect(store.saveState?.source).toBe("clip_move");
+  });
+
+  it("按右边缘裁剪选中片段时通过 Runtime 保存", async () => {
     vi.stubGlobal("fetch", createWorkspaceFetch());
 
     const store = useEditingWorkspaceStore();
@@ -135,18 +190,11 @@ describe("M05 AI 剪辑工作台 store", () => {
     await store.assembleTimeline("project-1");
     store.selectClip("managed-video-storyboard-01");
 
-    const timelineResult = await store.splitSelectedClip();
+    const timelineResult = await store.trimSelectedClip("right", -500);
 
-    const clips = timelineResult?.tracks[0].clips ?? [];
-    expect(clips.map((clip) => clip.id)).toEqual([
-      "managed-video-storyboard-01",
-      "managed-video-storyboard-01-split-2500"
-    ]);
-    expect(clips[0].durationMs).toBe(2500);
-    expect(clips[1].startMs).toBe(2500);
+    expect(timelineResult?.tracks[0].clips[0].durationMs).toBe(4500);
     expect(store.status).toBe("ready");
-    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
-    expect(store.saveState?.source).toBe("clip_split");
+    expect(store.saveState?.source).toBe("clip_trim");
   });
 
   it("执行时间线预检后保存真实预检结果", async () => {
@@ -313,20 +361,54 @@ function createWorkspaceFetch(
       });
     }
 
+    if (path === "/api/workspace/clips/managed-video-storyboard-01/move" && method === "POST") {
+      const body = JSON.parse(String(init?.body));
+      expect(body).toEqual({ targetTrackId: "managed-video-storyboard", startMs: 500 });
+      return okJsonResponse({
+        timeline: timeline("timeline-1", [managedVideoTrack([
+          managedVideoClip({ startMs: 500 })
+        ])]),
+        saveState: {
+          saved: true,
+          updatedAt: now(),
+          source: "clip_move",
+          message: "已确认保存片段位置变更。"
+        },
+        message: "片段已移动。"
+      });
+    }
+
+    if (path === "/api/workspace/clips/managed-video-storyboard-01/trim" && method === "POST") {
+      const body = JSON.parse(String(init?.body));
+      expect(body).toEqual({ durationMs: 4500 });
+      return okJsonResponse({
+        timeline: timeline("timeline-1", [managedVideoTrack([
+          managedVideoClip({ durationMs: 4500 })
+        ])]),
+        saveState: {
+          saved: true,
+          updatedAt: now(),
+          source: "clip_trim",
+          message: "已确认保存片段裁剪结果。"
+        },
+        message: "片段已裁剪。"
+      });
+    }
+
     if (path === "/api/workspace/clips/managed-video-storyboard-01/split" && method === "POST") {
       const body = JSON.parse(String(init?.body));
-      expect(body).toEqual({ splitAtMs: 2500 });
+      expect(body).toEqual({ splitAtMs: 3000 });
       return okJsonResponse({
         timeline: timeline("timeline-1", [managedVideoTrack([
           managedVideoClip({
-            durationMs: 2500,
-            outPointMs: 2500
+            durationMs: 3000,
+            outPointMs: 3000
           }),
           managedVideoClip({
-            id: "managed-video-storyboard-01-split-2500",
-            startMs: 2500,
-            durationMs: 2500,
-            inPointMs: 2500,
+            id: "managed-video-storyboard-01-split-3000",
+            startMs: 3000,
+            durationMs: 2000,
+            inPointMs: 3000,
             outPointMs: 5000
           })
         ])]),

@@ -690,8 +690,10 @@ export type MoveWorkspaceClipInput = {
 };
 
 export type TrimWorkspaceClipInput = {
-  inPointMs: number;
-  durationMs: number;
+  startMs?: number;
+  durationMs?: number;
+  inPointMs?: number;
+  outPointMs?: number | null;
 };
 
 export type SplitWorkspaceClipInput = {

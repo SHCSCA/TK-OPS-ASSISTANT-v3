@@ -5,6 +5,7 @@ import {
   cleanWorkspaceText,
   computePlayheadPercent,
   formatWorkspaceClipRange,
+  resolveSnapStartMs,
   workspaceStatusLabel,
   workspaceTrackMetaLabel,
   trackVisualClass
@@ -77,6 +78,18 @@ describe("workspace timeline view model", () => {
     expect(computePlayheadPercent(7500, 15000)).toBe(50);
     expect(computePlayheadPercent(20000, 15000)).toBe(100);
     expect(computePlayheadPercent(500, 0)).toBe(50);
+  });
+
+  it("从片段边界计算最近磁吸起点", () => {
+    const clips = [
+      clip({ id: "left", startMs: 0, durationMs: 3000 }),
+      clip({ id: "target", startMs: 3500, durationMs: 2000 }),
+      clip({ id: "right", startMs: 6000, durationMs: 2000 })
+    ];
+
+    expect(resolveSnapStartMs(clips, "target", 3020, 120)).toBe(3000);
+    expect(resolveSnapStartMs(clips, "target", 5980, 120)).toBe(6000);
+    expect(resolveSnapStartMs(clips, "target", 4200, 120)).toBe(4200);
   });
 
   it("片段百分比 clamp 到 0-100", () => {
