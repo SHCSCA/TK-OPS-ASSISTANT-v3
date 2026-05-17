@@ -49,7 +49,7 @@ defineProps<{ errorSummary: string }>();
 <style scoped>
 /* 面板入场 */
 .bootstrap-error__panel-enter {
-  animation: bootstrap-panel-in var(--motion-slow) var(--ease-decelerate) both;
+  animation: bootstrap-panel-in var(--bootstrap-panel-enter-duration) var(--ease-decelerate) both;
 }
 
 @keyframes bootstrap-panel-in {
@@ -65,7 +65,7 @@ defineProps<{ errorSummary: string }>();
 
 /* 错误边框呼吸 */
 .bootstrap-error__icon-wrap {
-  animation: exception-breathe var(--motion-breathe) ease-in-out infinite;
+  animation: exception-breathe var(--bootstrap-error-breathe-duration) ease-in-out infinite;
 }
 
 /* 重试按钮悬停微交互 */

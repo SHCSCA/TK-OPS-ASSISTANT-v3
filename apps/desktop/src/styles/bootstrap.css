@@ -1,5 +1,7 @@
 .bootstrap-screen {
-  align-items: center;
+  --bootstrap-dot-pulse-duration: 1800ms;
+  --bootstrap-error-breathe-duration: 4800ms;
+  --bootstrap-panel-enter-duration: 720ms;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--color-brand-primary) 10%, transparent), transparent 34%),
     linear-gradient(150deg, var(--color-bg-canvas) 0%, color-mix(in srgb, var(--color-bg-muted) 72%, var(--color-bg-surface)) 100%);
@@ -9,6 +11,7 @@
   min-height: 100vh;
   overflow: hidden;
   padding: clamp(var(--space-5), 5vw, var(--space-12));
+  place-items: center;
   position: relative;
   width: 100%;
 }
@@ -117,7 +120,7 @@
 }
 
 .bootstrap-screen__dot--loading {
-  animation: pulse-dot var(--motion-pulse) ease-in-out infinite;
+  animation: pulse-dot var(--bootstrap-dot-pulse-duration) ease-in-out infinite;
   background: var(--color-brand-primary);
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-brand-primary) 16%, transparent);
 }

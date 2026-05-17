@@ -79,4 +79,24 @@ describe("Bootstrap gate", () => {
     expect(bootstrapCss).toContain(".bootstrap-screen__panel {");
     expect(bootstrapCss).toContain(".bootstrap-error__checklist {");
   });
+
+  it("keeps bootstrap panels centered and uses slower boot animations", () => {
+    const bootstrapCss = readFileSync(join(process.cwd(), "src/styles/bootstrap.css"), "utf8");
+    const errorScreen = readFileSync(
+      join(process.cwd(), "src/bootstrap/BootstrapErrorScreen.vue"),
+      "utf8"
+    );
+    const loadingScreen = readFileSync(
+      join(process.cwd(), "src/bootstrap/BootstrapLoadingScreen.vue"),
+      "utf8"
+    );
+
+    expect(bootstrapCss).toContain("place-items: center;");
+    expect(bootstrapCss).toContain("--bootstrap-panel-enter-duration: 720ms;");
+    expect(bootstrapCss).toContain("--bootstrap-error-breathe-duration: 4800ms;");
+    expect(bootstrapCss).toContain("--bootstrap-dot-pulse-duration: 1800ms;");
+    expect(errorScreen).toContain("var(--bootstrap-panel-enter-duration)");
+    expect(errorScreen).toContain("var(--bootstrap-error-breathe-duration)");
+    expect(loadingScreen).toContain("var(--bootstrap-panel-enter-duration)");
+  });
 });
