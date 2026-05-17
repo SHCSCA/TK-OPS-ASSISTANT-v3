@@ -211,6 +211,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.error = null;
       this.projectId = pid;
       this.precheck = null;
+      this.lastCommandResult = null;
 
       try {
         const result = await assembleWorkspaceTimeline(pid, {
@@ -232,6 +233,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
 
       this.status = "saving";
       this.error = null;
+      this.lastCommandResult = null;
 
       try {
         const result = await precheckTimeline(this.timeline.id);
@@ -252,6 +254,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
 
       this.status = "saving";
       this.error = null;
+      this.lastCommandResult = null;
 
       try {
         const result = await updateWorkspaceTimeline(this.timeline.id, {
@@ -276,6 +279,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.status = "saving";
       this.error = null;
       this.projectId = pid;
+      this.precheck = null;
+      this.lastCommandResult = null;
 
       try {
         const result = await runWorkspaceAICommand(pid, {
@@ -599,6 +604,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.blockedMessage = result.timeline ? null : result.message;
       this.saveState = result.saveState ?? null;
       this.assemblyState = result.assemblyState ?? null;
+      this.lastCommandResult = null;
       this.selectedTrackId = this.resolveSelectedTrackId();
       this.selectedClipId = this.resolveSelectedClipId();
       this.setPlayheadMs(this.playheadMs);

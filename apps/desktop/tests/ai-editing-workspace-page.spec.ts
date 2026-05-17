@@ -424,6 +424,99 @@ describe("M05 AI 剪辑工作台页面", () => {
     expect(wrapper.text()).toContain("AI 剪辑命令尚未接入 Provider");
   });
 
+  it("智能粗剪提交后立即用顶部提示展示 Runtime 入队反馈", async () => {
+    const calls: Array<{ body?: unknown; method: string; path: string }> = [];
+    const timelineState = workspaceTimeline([managedVideoTrack(), managedAudioTrack(), managedSubtitleTrack()]);
+
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method, init) => {
+        calls.push({
+          path,
+          method,
+          body: init?.body ? JSON.parse(String(init.body)) : undefined
+        });
+
+        if (path === "/api/license/status") return okJsonResponse(activeLicense());
+        if (path === "/api/settings/health") return okJsonResponse(health());
+        if (path === "/api/settings/config") return okJsonResponse(initializedConfig());
+        if (path === "/api/settings/diagnostics") return okJsonResponse(initializedDiagnostics());
+        if (path === "/api/ai-providers/health") return okJsonResponse(providerHealth());
+        if (path === "/api/dashboard/summary") {
+          return okJsonResponse({
+            recentProjects: [],
+            currentProject: {
+              projectId: "project-1",
+              projectName: "短视频剪辑项目",
+              status: "active"
+            }
+          });
+        }
+        if (path === "/api/workspace/projects/project-1/timeline" && method === "GET") {
+          return okJsonResponse({
+            timeline: timelineState,
+            activeTask: null,
+            saveState: null,
+            message: "剪辑工作台已加载。"
+          });
+        }
+        if (path === "/api/assets" && method === "GET") return okJsonResponse([workspaceAsset()]);
+        if (path === "/api/workspace/timelines/timeline-1/precheck" && method === "POST") {
+          return okJsonResponse({
+            timelineId: "timeline-1",
+            status: "ready",
+            message: "时间线本地预检通过。",
+            issues: []
+          });
+        }
+        if (path === "/api/workspace/projects/project-1/ai-commands" && method === "POST") {
+          return okJsonResponse({
+            status: "queued",
+            task: {
+              id: "task-workspace-queued",
+              kind: "ai-workspace-command",
+              task_type: "ai-workspace-command",
+              taskType: "ai-workspace-command",
+              project_id: "project-1",
+              projectId: "project-1",
+              status: "queued",
+              progress: 0,
+              message: "AI 命令 magic_cut 已进入任务队列。"
+            },
+            message: "AI 命令已进入任务队列，正在通过 TaskBus 处理。"
+          });
+        }
+
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const { wrapper } = await mountApp("/workspace/editing");
+    await flushPromises();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="workspace-precheck-button"]').trigger("click");
+    await flushPromises();
+    expect(wrapper.find(".dashboard-alert").text()).toContain("时间线本地预检通过");
+
+    await wrapper.get('[data-testid="workspace-magic-cut-button"]').trigger("click");
+    await flushPromises();
+
+    expect(calls).toContainEqual({
+      path: "/api/workspace/projects/project-1/ai-commands",
+      method: "POST",
+      body: {
+        timelineId: "timeline-1",
+        capabilityId: "magic_cut",
+        parameters: {
+          selectedTrackId: "managed-video-storyboard",
+          selectedClipId: null
+        }
+      }
+    });
+    expect(wrapper.find(".dashboard-alert").text()).toContain("AI 命令已进入任务队列");
+  });
+
   it("联动播放器、属性面板和预检问题定位", async () => {
     const calls: Array<{ body?: unknown; method: string; path: string }> = [];
     const saveRequest = deferredResponse();

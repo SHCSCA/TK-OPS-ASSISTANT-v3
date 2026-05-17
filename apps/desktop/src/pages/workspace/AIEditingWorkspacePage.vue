@@ -94,6 +94,10 @@
         <span class="material-symbols-outlined">warning</span>
         <span>{{ blockedMessage }}</span>
       </div>
+      <div v-else-if="commandFeedbackMessage" class="dashboard-alert" data-tone="brand">
+        <span class="material-symbols-outlined">auto_awesome</span>
+        <span>{{ commandFeedbackMessage }}</span>
+      </div>
       <div v-else-if="precheck?.message" class="dashboard-alert" data-tone="brand">
         <span class="material-symbols-outlined">rule_settings</span>
         <span>{{ precheck.message }}</span>
@@ -281,6 +285,10 @@ const assemblyLabel = computed(() => {
 const precheckLabel = computed(() => {
   if (!precheck.value) return "未检查";
   return precheck.value.status === "ready" ? "通过" : "有问题";
+});
+const commandFeedbackMessage = computed(() => {
+  if (!lastCommandResult.value || lastCommandResult.value.status === "blocked") return "";
+  return lastCommandResult.value.message;
 });
 
 const selectionLabel = computed(() => {
