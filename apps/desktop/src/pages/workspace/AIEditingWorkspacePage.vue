@@ -142,6 +142,8 @@
                 :project-id="currentProjectId"
                 :selected-clip="selectedClip"
                 :timeline="timeline"
+                @asset-insert="handleAssetInsert"
+                @asset-replace="handleAssetReplace"
                 @select-source-clip="handleSelectClip"
                 @sync-assets="handleSyncAssets"
               />
@@ -465,6 +467,20 @@ async function handleRetry(): Promise<void> {
 async function handleSyncAssets(): Promise<void> {
   if (currentProjectId.value) {
     await workspaceStore.loadAssets(currentProjectId.value);
+  }
+}
+
+async function handleAssetInsert(assetId: string): Promise<void> {
+  const result = await workspaceStore.insertAssetAtPlayhead(assetId);
+  if (result) {
+    await workspaceStore.runPrecheck();
+  }
+}
+
+async function handleAssetReplace(assetId: string): Promise<void> {
+  const result = await workspaceStore.replaceSelectedClipWithAsset(assetId);
+  if (result) {
+    await workspaceStore.runPrecheck();
   }
 }
 

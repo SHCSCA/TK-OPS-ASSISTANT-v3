@@ -5,6 +5,7 @@ import { createMemoryHistory } from "vue-router";
 
 import App from "../src/App.vue";
 import { createAppRouter } from "../src/app/router";
+import WorkspaceAssetRail from "../src/modules/workspace/WorkspaceAssetRail.vue";
 import WorkspaceTimeline from "../src/modules/workspace/WorkspaceTimeline.vue";
 import { useTaskBusStore } from "../src/stores/task-bus";
 
@@ -91,6 +92,64 @@ describe("M05 AI 剪辑工作台页面", () => {
             status: "ready",
             message: "时间线本地预检通过。",
             issues: []
+          });
+        }
+        if (path === "/api/workspace/timelines/timeline-1/clips/insert-asset" && method === "POST") {
+          expect(JSON.parse(String(init?.body))).toEqual({
+            assetId: "asset-warm-room-lamp",
+            startMs: 0
+          });
+          timelineState = workspaceTimeline([
+            managedVideoTrack([
+              managedClip(
+                "asset-clip-warm-room-lamp",
+                "managed-video-storyboard",
+                "asset",
+                "warm-room-lamp-vertical.mp4",
+                { sourceId: "asset-warm-room-lamp" }
+              ),
+              managedClip("managed-video-storyboard-01", "managed-video-storyboard", "storyboard", "S01 · 分镜画面")
+            ]),
+            managedAudioTrack(),
+            managedSubtitleTrack()
+          ]);
+          return okJsonResponse({
+            timeline: timelineState,
+            saveState: {
+              saved: true,
+              updatedAt: now(),
+              source: "clip_insert_asset",
+              message: "已确认保存资产入轨结果。"
+            },
+            message: "资产已加入时间线。"
+          });
+        }
+        if (path === "/api/workspace/clips/managed-video-storyboard-01/replace" && method === "POST") {
+          expect(JSON.parse(String(init?.body))).toEqual({
+            assetId: "asset-warm-room-lamp"
+          });
+          timelineState = workspaceTimeline([
+            managedVideoTrack([
+              managedClip(
+                "managed-video-storyboard-01",
+                "managed-video-storyboard",
+                "asset",
+                "warm-room-lamp-vertical.mp4",
+                { sourceId: "asset-warm-room-lamp" }
+              )
+            ]),
+            managedAudioTrack(),
+            managedSubtitleTrack()
+          ]);
+          return okJsonResponse({
+            timeline: timelineState,
+            saveState: {
+              saved: true,
+              updatedAt: now(),
+              source: "clip_replace",
+              message: "已确认保存资产替换结果。"
+            },
+            message: "片段已替换。"
           });
         }
         if (path === "/api/workspace/clips/managed-video-storyboard-01/move" && method === "POST") {
@@ -230,7 +289,8 @@ describe("M05 AI 剪辑工作台页面", () => {
     expect(wrapper.text()).toContain("字幕轨");
     expect(wrapper.text()).toContain("资产");
     expect(wrapper.text()).toContain("warm-room-lamp-vertical.mp4");
-    expect(wrapper.text()).toContain("加入轨道");
+    expect(wrapper.text()).toContain("加入时间线");
+    expect(wrapper.text()).toContain("替换片段");
     expect(wrapper.text()).toContain("受管轨道");
     expect(wrapper.text()).toContain("本地预检");
     expect(calls).toContainEqual({
@@ -238,6 +298,44 @@ describe("M05 AI 剪辑工作台页面", () => {
       method: "POST",
       body: { mode: "merge_managed", timelineName: "主时间线" }
     });
+
+    const precheckCallsBeforeInsert = calls.filter(
+      (call) => call.path === "/api/workspace/timelines/timeline-1/precheck"
+    ).length;
+    wrapper.findComponent(WorkspaceAssetRail).vm.$emit("asset-insert", "asset-warm-room-lamp");
+    await flushPromises();
+
+    expect(calls).toContainEqual({
+      path: "/api/workspace/timelines/timeline-1/clips/insert-asset",
+      method: "POST",
+      body: { assetId: "asset-warm-room-lamp", startMs: 0 }
+    });
+    expect(
+      calls.filter((call) => call.path === "/api/workspace/timelines/timeline-1/precheck").length
+    ).toBeGreaterThan(precheckCallsBeforeInsert);
+    expect(wrapper.text()).toContain("已确认保存资产入轨结果");
+
+    wrapper.findComponent(WorkspaceTimeline).vm.$emit("select-clip", {
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard"
+    });
+    await flushPromises();
+
+    const precheckCallsBeforeReplace = calls.filter(
+      (call) => call.path === "/api/workspace/timelines/timeline-1/precheck"
+    ).length;
+    wrapper.findComponent(WorkspaceAssetRail).vm.$emit("asset-replace", "asset-warm-room-lamp");
+    await flushPromises();
+
+    expect(calls).toContainEqual({
+      path: "/api/workspace/clips/managed-video-storyboard-01/replace",
+      method: "POST",
+      body: { assetId: "asset-warm-room-lamp" }
+    });
+    expect(
+      calls.filter((call) => call.path === "/api/workspace/timelines/timeline-1/precheck").length
+    ).toBeGreaterThan(precheckCallsBeforeReplace);
+    expect(wrapper.text()).toContain("已确认保存资产替换结果");
 
     await wrapper.get('[data-testid="workspace-precheck-button"]').trigger("click");
     await flushPromises();
@@ -570,6 +668,7 @@ function managedClip(
     inPointMs: number;
     outPointMs: number | null;
     status: string;
+    sourceId: string | null;
   }> = {}
 ) {
   const text = sourceType === "subtitle_track" ? "（延续字幕）" : "This lamp made me cancel my dinner plan.";
@@ -578,7 +677,7 @@ function managedClip(
     id,
     trackId,
     sourceType,
-    sourceId: `${sourceType}-1`,
+    sourceId: overrides.sourceId ?? `${sourceType}-1`,
     label,
     startMs: 0,
     durationMs: 5000,

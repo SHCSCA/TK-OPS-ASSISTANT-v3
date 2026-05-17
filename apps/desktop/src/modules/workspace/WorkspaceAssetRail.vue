@@ -61,8 +61,26 @@
             <p>{{ asset.summary }}</p>
           </div>
           <div class="workspace-asset-card__meta">
-            <span class="workspace-asset-card__status">{{ asset.status }}</span>
-            <button type="button" disabled>{{ asset.primaryAction }}</button>
+            <div class="workspace-asset-card__state">
+              <span class="workspace-asset-card__status">{{ asset.status }}</span>
+              <small v-if="assetUnavailableReason(asset)">{{ assetUnavailableReason(asset) }}</small>
+            </div>
+            <div class="workspace-asset-card__actions">
+              <button
+                type="button"
+                :disabled="!canInsertAsset(asset)"
+                @click="emit('asset-insert', asset.id)"
+              >
+                加入时间线
+              </button>
+              <button
+                type="button"
+                :disabled="!canReplaceAsset(asset)"
+                @click="emit('asset-replace', asset.id)"
+              >
+                替换片段
+              </button>
+            </div>
           </div>
         </article>
       </div>
@@ -151,7 +169,9 @@ const props = defineProps<{
   timeline: WorkspaceTimelineDto | null;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
+  "asset-insert": [assetId: string];
+  "asset-replace": [assetId: string];
   "sync-assets": [];
   "select-source-clip": [payload: { clipId: string; trackId: string }];
 }>();
@@ -219,7 +239,7 @@ const summaryDescription = computed(() => {
   if (activeTab.value === "assets") {
     if (props.assetStatus === "error") return props.assetError?.message ?? "请重新同步资产。";
     if (assetCards.value.length === 0) return "无真实后端数据时不生成伪素材。";
-    return "素材卡片当前只展示状态，加入或替换动作暂不触发。";
+    return "可加入时间线，也可按轨道兼容性替换选中片段。";
   }
 
   if (!props.timeline) return "创建草稿前不生成伪素材列表。";
@@ -246,6 +266,42 @@ function thumbnailIcon(type: string): string {
   if (type === "audio") return "graphic_eq";
   if (type === "image") return "image";
   return "movie";
+}
+
+function canInsertAsset(asset: WorkspaceAssetCard): boolean {
+  return isSupportedAssetType(asset) && isAssetAvailable(asset) && Boolean(props.timeline);
+}
+
+function canReplaceAsset(asset: WorkspaceAssetCard): boolean {
+  return isAssetAvailable(asset) && isAssetCompatibleWithSelectedTrack(asset);
+}
+
+function assetUnavailableReason(asset: WorkspaceAssetCard): string {
+  if (isAssetAvailable(asset)) return "";
+  return asset.asset.availability.errorMessage || neutralUnavailableReason(asset.asset.availability.status);
+}
+
+function isAssetAvailable(asset: WorkspaceAssetCard): boolean {
+  return ["available", "ready"].includes(asset.asset.availability.status);
+}
+
+function isSupportedAssetType(asset: WorkspaceAssetCard): boolean {
+  return ["video", "image", "audio"].includes(asset.type);
+}
+
+function isAssetCompatibleWithSelectedTrack(asset: WorkspaceAssetCard): boolean {
+  if (!props.selectedClip || !props.timeline) return false;
+  const selectedTrack = props.timeline.tracks.find((track) => track.id === props.selectedClip?.trackId);
+  if (!selectedTrack) return false;
+  if (asset.type === "video" || asset.type === "image") return selectedTrack.kind === "video";
+  if (asset.type === "audio") return selectedTrack.kind === "audio";
+  return false;
+}
+
+function neutralUnavailableReason(status: string): string {
+  if (["missing", "missing_source", "missing_file"].includes(status)) return "资产当前不可用，请重新定位或重新导入。";
+  if (status === "needs_transcode") return "资产需要处理后才能使用。";
+  return "资产当前不可用，请在资产中心处理后再使用。";
 }
 
 function trackPolicy(trackId: string): string {
@@ -589,12 +645,24 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 }
 
 .workspace-asset-card__meta {
-  align-items: center;
+  align-items: start;
   display: flex;
   gap: 8px;
   grid-column: 1 / -1;
   justify-content: space-between;
   min-width: 0;
+}
+
+.workspace-asset-card__state {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.workspace-asset-card__state small {
+  color: var(--text-secondary);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .workspace-asset-card__status {
@@ -607,15 +675,29 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
   white-space: nowrap;
 }
 
+.workspace-asset-card__actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .workspace-asset-card button {
   background: var(--surface-primary);
   border: 1px solid var(--border-default);
   border-radius: 8px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   flex: 0 0 auto;
   min-height: 32px;
   padding: 0 10px;
   white-space: nowrap;
+}
+
+.workspace-asset-card button:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .source-list-move,

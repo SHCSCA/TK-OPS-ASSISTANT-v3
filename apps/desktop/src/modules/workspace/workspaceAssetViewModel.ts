@@ -73,11 +73,19 @@ function resolveAssetState(
   asset: AssetDto,
   isOnTimeline: boolean
 ): Pick<WorkspaceAssetCard, "status" | "tone" | "primaryAction"> {
-  if (asset.availability.status === "missing") {
+  if (["missing", "missing_source", "missing_file"].includes(asset.availability.status)) {
     return {
       status: "路径缺失",
       tone: "danger",
       primaryAction: asset.availability.nextAction || "重新定位"
+    };
+  }
+
+  if (!["available", "ready"].includes(asset.availability.status) && asset.availability.status !== "needs_transcode") {
+    return {
+      status: "不可用",
+      tone: "danger",
+      primaryAction: asset.availability.nextAction || "处理资产"
     };
   }
 
