@@ -61,11 +61,13 @@ type ActiveDragState =
   | {
       gesture: "move";
       clip: Required<WorkspaceTimelineDragClip>;
+      changed: boolean;
       pointerOffsetMs: number;
     }
   | {
       gesture: "trim";
       clip: Required<WorkspaceTimelineDragClip>;
+      changed: boolean;
       edge: WorkspaceTimelineTrimEdge;
     };
 
@@ -87,6 +89,7 @@ export function useWorkspaceTimelineDrag(options: WorkspaceTimelineDragOptions):
     activeDrag.value = {
       gesture: "move",
       clip,
+      changed: false,
       pointerOffsetMs: pointerMs - clip.startMs
     };
     dragPreview.value = buildMovePreview(clip, clip.startMs);
@@ -100,6 +103,7 @@ export function useWorkspaceTimelineDrag(options: WorkspaceTimelineDragOptions):
     activeDrag.value = {
       gesture: "trim",
       clip,
+      changed: false,
       edge: input.edge
     };
     dragPreview.value = buildTrimPreview(clip, input.edge, clip.startMs, clip.durationMs, clip.inPointMs);
@@ -115,17 +119,19 @@ export function useWorkspaceTimelineDrag(options: WorkspaceTimelineDragOptions):
     const pointerMs = clientXToTimelineMs(input.clientX, input.rect, getDurationMs());
 
     dragPreview.value = active.gesture === "move" ? updateMove(active, pointerMs) : updateTrim(active, pointerMs);
+    active.changed = hasPreviewChanged(active, dragPreview.value);
 
     return dragPreview.value;
   }
 
   function finishDrag(): WorkspaceTimelineDragPreview | null {
+    const active = activeDrag.value;
     const preview = dragPreview.value;
 
     activeDrag.value = null;
     dragPreview.value = null;
 
-    return preview;
+    return active?.changed ? preview : null;
   }
 
   function cancelDrag(): WorkspaceTimelineDragPreview | null {
@@ -191,6 +197,18 @@ export function useWorkspaceTimelineDrag(options: WorkspaceTimelineDragOptions):
     finishDrag,
     cancelDrag
   };
+}
+
+function hasPreviewChanged(active: ActiveDragState, preview: WorkspaceTimelineDragPreview): boolean {
+  if (preview.gesture === "move") {
+    return preview.startMs !== active.clip.startMs;
+  }
+
+  return (
+    preview.startMs !== active.clip.startMs ||
+    preview.durationMs !== active.clip.durationMs ||
+    preview.inPointMs !== active.clip.inPointMs
+  );
 }
 
 function normalizeClip(clip: WorkspaceTimelineDragClip): Required<WorkspaceTimelineDragClip> {

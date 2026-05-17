@@ -22,6 +22,7 @@ describe("workspace layout taxonomy contract", () => {
   });
 
   it("keeps the M05 workbench responsive without global page max-width", () => {
+    const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
     const css = readSource("../src/pages/workspace/AIEditingWorkspacePage.css");
 
     expect(css).toMatch(
@@ -37,6 +38,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(css).toMatch(/\.workspace-timeline-area-wrapper\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;/);
     expect(css).toMatch(/\.workspace-timeline-area\s*{[\s\S]*background:\s*#0f1722;/);
     expect(css).toContain(".workspace-timeline-area :deep(.workspace-timeline-toolbar)");
+    expect(css).not.toContain(".workspace-pop");
+    expect(page).not.toContain('transition name="workspace-pop"');
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*330px\)\s+minmax\(0,\s*1fr\);/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*220px;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*auto\s+minmax\(284px,\s*38vh\);/);
@@ -105,6 +108,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(timeline).toContain('"trim-preview": [payload: WorkspaceTimelineTrimPreview]');
     expect(timeline).toContain('"trim-commit": [payload: WorkspaceTimelineTrimPreview]');
     expect(timeline).toContain('"drag-cancel": [payload: WorkspaceTimelineDragPreview]');
+    expect(timeline.match(/function handleMovePointerDown[\s\S]*?\n}/)?.[0] ?? "").not.toContain('emit("move-preview"');
+    expect(timeline.match(/function handleTrimPointerDown[\s\S]*?\n}/)?.[0] ?? "").not.toContain('emit("trim-preview"');
     expect(timeline).toContain("@pointerdown.stop=\"handleMovePointerDown(clipView.clip, $event)\"");
     expect(timeline).toContain("@pointerdown.stop=\"handleTrimPointerDown(clipView.clip, 'left', $event)\"");
     expect(timeline).toContain("@pointerdown.stop=\"handleTrimPointerDown(clipView.clip, 'right', $event)\"");
@@ -175,6 +180,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(previewContext).toContain("buildWorkspacePreviewContext");
     expect(previewContext).toContain("cleanWorkspaceText");
     expect(previewContext).toContain("workspaceSourceTypeLabel");
+    expect(preview).not.toContain('name="preview-fade"');
+    expect(preview).not.toContain(".preview-fade");
     expect(preview).toMatch(/\.workspace-preview-stage__transport\s*{[\s\S]*grid-template-columns:/);
     expect(preview).toMatch(/\.workspace-preview-stage__transport button\s*{[\s\S]*white-space:\s*nowrap;/);
   });
@@ -182,8 +189,12 @@ describe("workspace layout taxonomy contract", () => {
   it("keeps the M05 asset rail list scrollable instead of clipping long content", () => {
     const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
     const assetRail = readSource("../src/modules/workspace/WorkspaceAssetRail.vue");
+    const handleSelectClipBlock = page.match(/function handleSelectClip[\s\S]*?\n}/)?.[0] ?? "";
 
     expect(page).toContain('@select-source-clip="handleSelectClip"');
+    expect(handleSelectClipBlock).toContain("workspaceStore.selectTimelineClip(payload)");
+    expect(handleSelectClipBlock).not.toContain("workspaceStore.selectTrack(payload.trackId)");
+    expect(handleSelectClipBlock).not.toContain("workspaceStore.selectClip(payload.clipId)");
     expect(assetRail).toContain('"select-source-clip": [payload: { clipId: string; trackId: string }];');
     expect(assetRail).toContain('@click="$emit(\'select-source-clip\', { clipId: entry.id, trackId: entry.trackId })"');
     expect(assetRail).toContain('class="workspace-asset-rail__item-card"');
@@ -196,10 +207,19 @@ describe("workspace layout taxonomy contract", () => {
     expect(assetRail).toContain('class="workspace-asset-card__status"');
     expect(assetRail).toContain("sourceEntryLabel");
     expect(assetRail).toContain("sourceEntryTime");
+    expect(assetRail).toContain('<small :title="summaryDescription">{{ summaryDescription }}</small>');
+    expect(assetRail).not.toContain('class="workspace-asset-rail__sources"');
+    expect(assetRail).not.toContain('class="workspace-asset-rail__source"');
+    expect(assetRail).not.toContain('<transition-group name="source-list"');
     expect(assetRail).toMatch(
       /\.workspace-asset-rail\s*{[\s\S]*grid-template-rows:\s*auto\s+auto\s+auto\s+auto\s+minmax\(0,\s*1fr\);/
     );
+    expect(assetRail).toMatch(/\.workspace-asset-rail\s*{[\s\S]*gap:\s*10px;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail\s*{[\s\S]*padding:\s*14px;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail\s*{[\s\S]*overflow:\s*hidden;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__summary\s*{[\s\S]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\);/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__summary\s*{[\s\S]*padding:\s*8px\s+10px;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__summary small\s*{[\s\S]*white-space:\s*nowrap;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*grid-auto-rows:\s*max-content;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*min-height:\s*0;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__list\s*{[\s\S]*overflow-y:\s*auto;/);
@@ -212,7 +232,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(assetRail).toMatch(/\.workspace-asset-rail__item-head\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__item-time\s*{[\s\S]*white-space:\s*nowrap;/);
     expect(assetRail).toMatch(/\.workspace-asset-rail__item-status\s*{[\s\S]*white-space:\s*nowrap;/);
-    expect(assetRail).toMatch(/\.workspace-asset-rail__item-main\s+p\s*{[\s\S]*-webkit-line-clamp:\s*2;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__item-card\s*{[\s\S]*padding:\s*10px\s+12px;/);
+    expect(assetRail).toMatch(/\.workspace-asset-rail__item-main\s+p\s*{[\s\S]*-webkit-line-clamp:\s*1;/);
     expect(assetRail).toMatch(
       /\.workspace-asset-card\s*{[\s\S]*grid-template-columns:\s*44px\s+minmax\(0,\s*1fr\);/
     );

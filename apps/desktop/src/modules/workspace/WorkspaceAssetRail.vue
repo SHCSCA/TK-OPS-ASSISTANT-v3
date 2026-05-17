@@ -23,9 +23,9 @@
     </div>
 
     <div class="workspace-asset-rail__summary">
-      <small>{{ activeSummaryLabel }}</small>
+      <span>{{ activeSummaryLabel }}</span>
       <strong>{{ summaryTitle }}</strong>
-      <p>{{ summaryDescription }}</p>
+      <small :title="summaryDescription">{{ summaryDescription }}</small>
     </div>
 
     <template v-if="activeTab === 'assets'">
@@ -87,18 +87,6 @@
     </template>
 
     <template v-else>
-      <div v-if="sourceCards.length" class="workspace-asset-rail__sources">
-        <article
-          v-for="source in filteredSourceCards"
-          :key="source.kind"
-          class="workspace-asset-rail__source"
-          :data-status="source.status"
-        >
-          <span>{{ sourceKindLabel(source.kind) }}</span>
-          <strong>{{ source.segmentCount }} 段</strong>
-        </article>
-      </div>
-
       <div v-if="!timeline" class="workspace-asset-rail__empty">
         还没有时间线草稿，素材区保持空态。
       </div>
@@ -106,7 +94,7 @@
         当前来源还没有落到时间线的真实片段。
       </div>
       <div v-else class="workspace-asset-rail__list scroll-area">
-        <transition-group name="source-list" tag="ul" class="workspace-asset-rail__source-list">
+        <ul class="workspace-asset-rail__source-list">
           <li
             v-for="entry in filteredSourceEntries"
             :key="entry.id"
@@ -130,7 +118,7 @@
               </div>
             </button>
           </li>
-        </transition-group>
+        </ul>
       </div>
     </template>
   </aside>
@@ -198,13 +186,6 @@ const filteredSourceEntries = computed(() =>
   sourceEntries.value.filter((entry) => entry.sourceType === activeTab.value)
 );
 
-const sourceCards = computed(() => props.assemblyState?.sources ?? []);
-
-const filteredSourceCards = computed(() => {
-  const kind = sourceKindFromTab(activeTab.value);
-  return sourceCards.value.filter((source) => source.kind === kind);
-});
-
 const assetCards = computed<WorkspaceAssetCard[]>(() =>
   buildWorkspaceAssetCards({
     projectId: props.projectId,
@@ -247,20 +228,6 @@ const summaryDescription = computed(() => {
   if (props.selectedClip) return `当前选中片段：${cleanWorkspaceText(props.selectedClip.label, "待确认片段")}`;
   return "点击时间线片段后，这里会同步显示对应来源。";
 });
-
-function sourceKindFromTab(tab: SourceTabId): string {
-  if (tab === "voice_track") return "voice";
-  if (tab === "subtitle_track") return "subtitle";
-  return tab;
-}
-
-function sourceKindLabel(kind: string): string {
-  if (kind === "script") return "脚本";
-  if (kind === "storyboard") return "分镜";
-  if (kind === "voice") return "配音";
-  if (kind === "subtitle") return "字幕";
-  return kind;
-}
 
 function thumbnailIcon(type: string): string {
   if (type === "audio") return "graphic_eq";
@@ -324,11 +291,11 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
   border-radius: 8px;
   box-shadow: var(--shadow-sm);
   display: grid;
-  gap: 14px;
+  gap: 10px;
   grid-template-rows: auto auto auto auto minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
-  padding: 18px;
+  padding: 14px;
 }
 
 .workspace-asset-rail__heading {
@@ -338,7 +305,6 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 }
 
 .workspace-asset-rail__heading p,
-.workspace-asset-rail__summary p,
 .workspace-asset-rail__item-main p,
 .workspace-asset-rail__empty p,
 .workspace-asset-rail__empty {
@@ -374,16 +340,32 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 }
 
 .workspace-asset-rail__summary {
+  align-items: center;
   background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
   border-radius: 8px;
   display: grid;
-  gap: 6px;
-  padding: 14px;
+  gap: 6px 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 8px 10px;
+}
+
+.workspace-asset-rail__summary span,
+.workspace-asset-rail__summary small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.workspace-asset-rail__summary strong,
+.workspace-asset-rail__summary small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-asset-rail__summary small {
-  color: var(--text-tertiary);
+  grid-column: 1 / -1;
 }
 
 .workspace-asset-rail__actions button {
@@ -402,30 +384,6 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 .workspace-asset-rail__actions button:disabled {
   cursor: wait;
   opacity: 0.7;
-}
-
-.workspace-asset-rail__sources {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.workspace-asset-rail__source {
-  background: var(--surface-tertiary);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  display: grid;
-  gap: 4px;
-  padding: 10px;
-}
-
-.workspace-asset-rail__source span {
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-
-.workspace-asset-rail__source[data-status="missing"] {
-  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--border-default));
 }
 
 .workspace-asset-rail__empty {
@@ -453,7 +411,7 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 
 .workspace-asset-rail__source-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-auto-rows: max-content;
   list-style: none;
   margin: 0;
@@ -490,9 +448,9 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
   color: var(--text-primary);
   cursor: pointer;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: minmax(0, 1fr);
-  padding: 14px;
+  padding: 10px 12px;
   text-align: left;
   transition: all var(--motion-fast) var(--ease-standard);
   width: 100%;
@@ -515,7 +473,7 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 
 .workspace-asset-rail__item-main {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -555,7 +513,7 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
   display: -webkit-box;
   line-height: 1.45;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
 }
 
 .workspace-asset-rail__item-status {
@@ -700,15 +658,4 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
   opacity: 0.62;
 }
 
-.source-list-move,
-.source-list-enter-active,
-.source-list-leave-active {
-  transition: all var(--motion-default) var(--ease-spring);
-}
-
-.source-list-enter-from,
-.source-list-leave-to {
-  opacity: 0;
-  transform: translateX(-8px);
-}
 </style>

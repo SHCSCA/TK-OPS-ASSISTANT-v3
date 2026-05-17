@@ -129,91 +129,89 @@
         </div>
       </div>
 
-      <transition name="workspace-pop" appear>
-        <div v-if="currentProjectId && status !== 'loading'" class="workspace-editor scroll-area">
-          <div class="workspace-stage">
-            <div class="stage-panel-wrapper stage-panel-wrapper--asset">
-              <p class="panel-label">素材池</p>
-              <WorkspaceAssetRail
-                class="stage-panel"
-                :assembly-state="assemblyState"
-                :asset-error="assetError"
-                :asset-status="assetStatus"
-                :assets="assets"
-                :project-id="currentProjectId"
-                :selected-clip="selectedClip"
-                :timeline="timeline"
-                @asset-insert="handleAssetInsert"
-                @asset-replace="handleAssetReplace"
-                @select-source-clip="handleSelectClip"
-                @sync-assets="handleSyncAssets"
-              />
-            </div>
-
-            <div class="stage-panel-wrapper preview-panel-wrapper">
-              <p class="panel-label">播放器</p>
-              <WorkspacePreviewStage
-                class="stage-panel preview-panel"
-                :preview-context="previewContext"
-                :timeline="timeline"
-              />
-            </div>
-
-            <div class="stage-panel-wrapper stage-panel-wrapper--inspector">
-              <p class="panel-label">基础属性</p>
-              <WorkspaceInspector
-                class="stage-panel"
-                :assembly-state="assemblyState"
-                :blocked-message="inspectorBlockedMessage"
-                :error-message="error?.message ?? null"
-                :last-command-result="lastCommandResult"
-                :precheck="precheck"
-                :preview-context="previewContext"
-                :save-state="saveState"
-                :selected-clip="selectedClip"
-                :selected-track="selectedTrack"
-                :status="status"
-                :timeline="timeline"
-                @focus-precheck-issue="handleFocusPrecheckIssue"
-              />
-            </div>
+      <div v-if="currentProjectId && status !== 'loading'" class="workspace-editor scroll-area">
+        <div class="workspace-stage">
+          <div class="stage-panel-wrapper stage-panel-wrapper--asset">
+            <p class="panel-label">素材池</p>
+            <WorkspaceAssetRail
+              class="stage-panel"
+              :assembly-state="assemblyState"
+              :asset-error="assetError"
+              :asset-status="assetStatus"
+              :assets="assets"
+              :project-id="currentProjectId"
+              :selected-clip="selectedClip"
+              :timeline="timeline"
+              @asset-insert="handleAssetInsert"
+              @asset-replace="handleAssetReplace"
+              @select-source-clip="handleSelectClip"
+              @sync-assets="handleSyncAssets"
+            />
           </div>
 
-          <div class="workspace-timeline-area-wrapper">
-            <p class="panel-label">时间线</p>
-            <div class="workspace-timeline-area">
-              <WorkspaceTimelineToolbar
-                :can-delete="canDeleteSelectedClip"
-                :can-move="canMoveSelectedClip"
-                :can-split="canSplitSelectedClip"
-                :can-trim="canTrimSelectedClip"
-                :disabled="status === 'loading' || isGenerating"
-                :status-label="toolBarStatus"
-                @delete="handleDeleteSelectedClip"
-                @move="handleMoveSelectedClip"
-                @split="handleSplitSelectedClip"
-                @trim="handleTrimSelectedClip"
-              />
-              <WorkspaceTimeline
-                :playhead-ms="playheadMs"
-                :selected-clip-id="selectedClipId"
-                :selected-track-id="selectedTrackId"
-                :status="status"
-                :timeline="timeline"
-                :tracks="orderedTracks"
-                @drag-cancel="handleTimelineDragCancel"
-                @playhead="handleSetPlayhead"
-                @move-commit="handleTimelineMoveCommit"
-                @move-preview="handleTimelineMovePreview"
-                @select-clip="handleSelectClip"
-                @select-track="handleSelectTrack"
-                @trim="handleTimelineTrim"
-                @trim-commit="handleTimelineTrimCommit"
-              />
-            </div>
+          <div class="stage-panel-wrapper preview-panel-wrapper">
+            <p class="panel-label">播放器</p>
+            <WorkspacePreviewStage
+              class="stage-panel preview-panel"
+              :preview-context="previewContext"
+              :timeline="timeline"
+            />
+          </div>
+
+          <div class="stage-panel-wrapper stage-panel-wrapper--inspector">
+            <p class="panel-label">基础属性</p>
+            <WorkspaceInspector
+              class="stage-panel"
+              :assembly-state="assemblyState"
+              :blocked-message="inspectorBlockedMessage"
+              :error-message="error?.message ?? null"
+              :last-command-result="lastCommandResult"
+              :precheck="precheck"
+              :preview-context="previewContext"
+              :save-state="saveState"
+              :selected-clip="selectedClip"
+              :selected-track="selectedTrack"
+              :status="status"
+              :timeline="timeline"
+              @focus-precheck-issue="handleFocusPrecheckIssue"
+            />
           </div>
         </div>
-      </transition>
+
+        <div class="workspace-timeline-area-wrapper">
+          <p class="panel-label">时间线</p>
+          <div class="workspace-timeline-area">
+            <WorkspaceTimelineToolbar
+              :can-delete="canDeleteSelectedClip"
+              :can-move="canMoveSelectedClip"
+              :can-split="canSplitSelectedClip"
+              :can-trim="canTrimSelectedClip"
+              :disabled="status === 'loading' || isGenerating"
+              :status-label="toolBarStatus"
+              @delete="handleDeleteSelectedClip"
+              @move="handleMoveSelectedClip"
+              @split="handleSplitSelectedClip"
+              @trim="handleTrimSelectedClip"
+            />
+            <WorkspaceTimeline
+              :playhead-ms="playheadMs"
+              :selected-clip-id="selectedClipId"
+              :selected-track-id="selectedTrackId"
+              :status="status"
+              :timeline="timeline"
+              :tracks="orderedTracks"
+              @drag-cancel="handleTimelineDragCancel"
+              @playhead="handleSetPlayhead"
+              @move-commit="handleTimelineMoveCommit"
+              @move-preview="handleTimelineMovePreview"
+              @select-clip="handleSelectClip"
+              @select-track="handleSelectTrack"
+              @trim="handleTimelineTrim"
+              @trim-commit="handleTimelineTrimCommit"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   </ProjectContextGuard>
 </template>
@@ -545,8 +543,7 @@ function handleSelectTrack(trackId: string): void {
 }
 
 function handleSelectClip(payload: { clipId: string; trackId: string }): void {
-  workspaceStore.selectTrack(payload.trackId);
-  workspaceStore.selectClip(payload.clipId);
+  workspaceStore.selectTimelineClip(payload);
 }
 </script>
 

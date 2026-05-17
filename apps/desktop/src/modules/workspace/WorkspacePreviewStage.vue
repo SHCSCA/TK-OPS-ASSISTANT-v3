@@ -13,22 +13,20 @@
     <div class="workspace-preview-stage__body">
       <div class="workspace-preview-stage__viewer">
         <div class="workspace-preview-stage__phone" data-testid="workspace-preview-phone" data-ratio="9:16">
-          <transition name="preview-fade" mode="out-in">
-            <div :key="headline" class="workspace-preview-stage__screen">
-              <div class="workspace-preview-stage__phone-top">
-                <span>{{ previewContext.sourceLabel }}</span>
-                <small>9:16</small>
-              </div>
-              <section class="workspace-preview-stage__content">
-                <strong>{{ headline }}</strong>
-                <p>{{ previewContext.summaryText }}</p>
-                <small class="workspace-preview-stage__time-badge">{{ previewContext.currentTimeLabel }}</small>
-              </section>
-              <div class="workspace-preview-stage__caption">
-                {{ previewContext.captionText }}
-              </div>
+          <div class="workspace-preview-stage__screen">
+            <div class="workspace-preview-stage__phone-top">
+              <span>{{ previewContext.sourceLabel }}</span>
+              <small>9:16</small>
             </div>
-          </transition>
+            <section class="workspace-preview-stage__content">
+              <strong>{{ headline }}</strong>
+              <p>{{ previewContext.summaryText }}</p>
+              <small class="workspace-preview-stage__time-badge">{{ previewContext.currentTimeLabel }}</small>
+            </section>
+            <div class="workspace-preview-stage__caption">
+              {{ previewContext.captionText }}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -380,19 +378,6 @@ const sourceTypeLabel = computed(() => {
 
 .workspace-preview-stage__transport button:not(:disabled):active {
   transform: scale(0.92);
-}
-
-.preview-fade-enter-active,
-.preview-fade-leave-active {
-  transition: opacity var(--motion-default) var(--ease-standard), transform var(--motion-default) var(--ease-spring);
-}
-.preview-fade-enter-from {
-  opacity: 0;
-  transform: scale(0.98);
-}
-.preview-fade-leave-to {
-  opacity: 0;
-  transform: scale(1.02);
 }
 
 @media (max-width: 960px) {
