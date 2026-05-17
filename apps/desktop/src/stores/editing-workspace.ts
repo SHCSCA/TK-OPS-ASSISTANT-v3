@@ -46,6 +46,16 @@ export type EditingWorkspaceMovePreview = {
   durationMs: number;
 };
 
+export type EditingWorkspaceTrimPreview = {
+  gesture: "trim";
+  clipId: string;
+  trackId: string;
+  edge: "left" | "right";
+  startMs: number;
+  durationMs: number;
+  inPointMs?: number;
+};
+
 type EditingWorkspaceState = {
   assemblyState: WorkspaceAssemblyStateDto | null;
   assetError: RuntimeRequestErrorShape | null;
@@ -372,6 +382,47 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
           targetTrackId: payload.trackId,
           startMs: Math.max(0, Math.round(payload.startMs))
         });
+        this.applyTimelineResult(result);
+        return result.timeline;
+      } catch (error) {
+        this.timeline = originalTimeline;
+        this.selectedTrackId = originalSelectedTrackId;
+        this.selectedClipId = originalSelectedClipId;
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async commitTrimPreview(payload: EditingWorkspaceTrimPreview): Promise<WorkspaceTimelineDto | null> {
+      const originalTimeline = this.timeline;
+      const originalSelectedTrackId = this.selectedTrackId;
+      const originalSelectedClipId = this.selectedClipId;
+      const clip = this.findClipById(payload.clipId);
+
+      if (!clip) {
+        this.applyInputError("请先选择要裁剪的片段。");
+        return null;
+      }
+
+      const startMs = Math.max(0, Math.round(payload.startMs));
+      const durationMs = Math.max(0, Math.round(payload.durationMs));
+      const leftDeltaMs = startMs - clip.startMs;
+      const trimInput =
+        payload.edge === "left"
+          ? {
+              startMs,
+              durationMs,
+              inPointMs: Math.max(0, Math.round(payload.inPointMs ?? clip.inPointMs + leftDeltaMs))
+            }
+          : { durationMs };
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+      this.selectedTrackId = payload.trackId;
+      this.selectedClipId = payload.clipId;
+
+      try {
+        const result = await trimWorkspaceClip(payload.clipId, trimInput);
         this.applyTimelineResult(result);
         return result.timeline;
       } catch (error) {

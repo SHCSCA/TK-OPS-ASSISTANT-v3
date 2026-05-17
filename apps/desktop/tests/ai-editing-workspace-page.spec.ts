@@ -120,6 +120,34 @@ describe("M05 AI 剪辑工作台页面", () => {
             message: "片段已移动。"
           });
         }
+        if (path === "/api/workspace/clips/managed-video-storyboard-01/trim" && method === "POST") {
+          expect(JSON.parse(String(init?.body))).toEqual({
+            startMs: 1000,
+            durationMs: 4500,
+            inPointMs: 500
+          });
+          timelineState = workspaceTimeline([
+            managedVideoTrack([managedClip(
+              "managed-video-storyboard-01",
+              "managed-video-storyboard",
+              "storyboard",
+              "S01 · 分镜画面",
+              { startMs: 1000, durationMs: 4500, inPointMs: 500 }
+            )]),
+            managedAudioTrack(),
+            managedSubtitleTrack()
+          ]);
+          return okJsonResponse({
+            timeline: timelineState,
+            saveState: {
+              saved: true,
+              updatedAt: now(),
+              source: "clip_trim",
+              message: "已确认保存片段裁剪结果。"
+            },
+            message: "片段已裁剪。"
+          });
+        }
         if (path === "/api/workspace/projects/project-1/ai-commands" && method === "POST") {
           return okJsonResponse({
             status: "blocked",
@@ -231,6 +259,24 @@ describe("M05 AI 剪辑工作台页面", () => {
       body: { targetTrackId: "managed-video-storyboard", startMs: 500 }
     });
     expect(wrapper.text()).toContain("已确认保存片段位置变更");
+
+    wrapper.findComponent(WorkspaceTimeline).vm.$emit("trim-commit", {
+      gesture: "trim",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      edge: "left",
+      startMs: 1000,
+      durationMs: 4500,
+      inPointMs: 500
+    });
+    await flushPromises();
+
+    expect(calls).toContainEqual({
+      path: "/api/workspace/clips/managed-video-storyboard-01/trim",
+      method: "POST",
+      body: { startMs: 1000, durationMs: 4500, inPointMs: 500 }
+    });
+    expect(wrapper.text()).toContain("已确认保存片段裁剪结果");
 
     const taskBusStore = useTaskBusStore(pinia);
     taskBusStore.handleIncomingMessage(JSON.stringify({

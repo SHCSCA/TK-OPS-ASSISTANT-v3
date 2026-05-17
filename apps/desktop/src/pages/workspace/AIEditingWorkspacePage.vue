@@ -205,6 +205,7 @@
                 @select-clip="handleSelectClip"
                 @select-track="handleSelectTrack"
                 @trim="handleTimelineTrim"
+                @trim-commit="handleTimelineTrimCommit"
               />
             </div>
           </div>
@@ -228,7 +229,8 @@ import WorkspaceTimeline from "@/modules/workspace/WorkspaceTimeline.vue";
 import WorkspaceTimelineToolbar from "@/modules/workspace/WorkspaceTimelineToolbar.vue";
 import type {
   WorkspaceTimelineDragPreview,
-  WorkspaceTimelineMovePreview
+  WorkspaceTimelineMovePreview,
+  WorkspaceTimelineTrimPreview
 } from "@/modules/workspace/useWorkspaceTimelineDrag";
 import { cleanWorkspaceText, workspaceStatusLabel } from "@/modules/workspace/workspaceTimelineViewModel";
 import { useEditingWorkspaceStore } from "@/stores/editing-workspace";
@@ -498,6 +500,13 @@ function handleTimelineMovePreview(payload: WorkspaceTimelineMovePreview): void 
 async function handleTimelineMoveCommit(payload: WorkspaceTimelineMovePreview): Promise<void> {
   movePreview.value = null;
   const result = await workspaceStore.commitMovePreview(payload);
+  if (result) {
+    await workspaceStore.runPrecheck();
+  }
+}
+
+async function handleTimelineTrimCommit(payload: WorkspaceTimelineTrimPreview): Promise<void> {
+  const result = await workspaceStore.commitTrimPreview(payload);
   if (result) {
     await workspaceStore.runPrecheck();
   }

@@ -233,6 +233,91 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.error?.message).toBe("目标轨道已锁定，无法移动片段。");
   });
 
+  it("提交左边缘拖拽裁剪预览时通过 Runtime 保存并保留选中片段", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitTrimPreview({
+      gesture: "trim",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      edge: "left",
+      startMs: 500,
+      durationMs: 4500,
+      inPointMs: 500
+    });
+
+    expect(timelineResult?.tracks[0].clips[0]).toMatchObject({
+      startMs: 500,
+      durationMs: 4500,
+      inPointMs: 500
+    });
+    expect(store.status).toBe("ready");
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.saveState?.source).toBe("clip_trim");
+  });
+
+  it("提交右边缘拖拽裁剪预览时只提交新时长", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch());
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitTrimPreview({
+      gesture: "trim",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      edge: "right",
+      startMs: 0,
+      durationMs: 4200,
+      inPointMs: 0
+    });
+
+    expect(timelineResult?.tracks[0].clips[0].durationMs).toBe(4200);
+    expect(store.status).toBe("ready");
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.saveState?.source).toBe("clip_trim");
+  });
+
+  it("提交拖拽裁剪失败时回滚时间线和选择并显示中文错误", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({ failTrim: true }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    const originalTimeline = store.timeline;
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitTrimPreview({
+      gesture: "trim",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      edge: "left",
+      startMs: 500,
+      durationMs: 100,
+      inPointMs: 500
+    });
+
+    expect(timelineResult).toBeNull();
+    expect(store.status).toBe("error");
+    expect(store.timeline).toBe(originalTimeline);
+    expect(store.timeline?.tracks[0].clips[0].startMs).toBe(0);
+    expect(store.selectedTrackId).toBe("managed-video-storyboard");
+    expect(store.selectedClipId).toBe("managed-video-storyboard-01");
+    expect(store.error?.message).toBe("片段裁剪后至少需要保留 500ms。");
+  });
+
   it("按右边缘裁剪选中片段时通过 Runtime 保存", async () => {
     vi.stubGlobal("fetch", createWorkspaceFetch());
 
@@ -337,6 +422,7 @@ function createWorkspaceFetch(
     failAssets?: boolean;
     failMove?: boolean;
     failSave?: boolean;
+    failTrim?: boolean;
     timeline?: ReturnType<typeof timeline> | null;
   } = {}
 ) {
@@ -435,6 +521,41 @@ function createWorkspaceFetch(
 
     if (path === "/api/workspace/clips/managed-video-storyboard-01/trim" && method === "POST") {
       const body = JSON.parse(String(init?.body));
+      if (options.failTrim) {
+        return errorJsonResponse(400, "片段裁剪后至少需要保留 500ms。");
+      }
+
+      if (body.startMs !== undefined) {
+        expect(body).toEqual({ startMs: 500, durationMs: 4500, inPointMs: 500 });
+        return okJsonResponse({
+          timeline: timeline("timeline-1", [managedVideoTrack([
+            managedVideoClip({ startMs: 500, durationMs: 4500, inPointMs: 500 })
+          ])]),
+          saveState: {
+            saved: true,
+            updatedAt: now(),
+            source: "clip_trim",
+            message: "已确认保存片段裁剪结果。"
+          },
+          message: "片段已裁剪。"
+        });
+      }
+
+      if (body.durationMs === 4200) {
+        return okJsonResponse({
+          timeline: timeline("timeline-1", [managedVideoTrack([
+            managedVideoClip({ durationMs: 4200 })
+          ])]),
+          saveState: {
+            saved: true,
+            updatedAt: now(),
+            source: "clip_trim",
+            message: "已确认保存片段裁剪结果。"
+          },
+          message: "片段已裁剪。"
+        });
+      }
+
       expect(body).toEqual({ durationMs: 4500 });
       return okJsonResponse({
         timeline: timeline("timeline-1", [managedVideoTrack([
