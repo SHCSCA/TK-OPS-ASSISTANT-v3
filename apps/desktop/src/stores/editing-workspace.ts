@@ -16,6 +16,10 @@ import {
   trimWorkspaceClip,
   updateWorkspaceTimeline
 } from "@/app/runtime-client";
+import {
+  buildWorkspacePreviewContext,
+  type WorkspacePreviewContext
+} from "@/modules/workspace/workspacePreviewContext";
 import type {
   AssetDto,
   RuntimeRequestErrorShape,
@@ -107,6 +111,19 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     selectedClip: (state) => {
       const clips = state.timeline?.tracks.flatMap((track) => track.clips) ?? [];
       return clips.find((clip) => clip.id === state.selectedClipId) ?? null;
+    },
+    previewContext: (state): WorkspacePreviewContext => {
+      const selectedTrack =
+        state.timeline?.tracks.find((track) => track.id === state.selectedTrackId) ?? null;
+      const clips = state.timeline?.tracks.flatMap((track) => track.clips) ?? [];
+      const selectedClip = clips.find((clip) => clip.id === state.selectedClipId) ?? null;
+
+      return buildWorkspacePreviewContext({
+        playheadMs: state.playheadMs,
+        selectedClip,
+        selectedTrack,
+        timeline: state.timeline
+      });
     },
     isBusy: (state): boolean => state.status === "loading" || state.status === "saving"
   },
@@ -284,6 +301,52 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     },
     selectClip(clipId: string | null): void {
       this.selectedClipId = clipId;
+    },
+    focusPrecheckIssue(issue: string): boolean {
+      if (!this.timeline) {
+        this.blockedMessage = "当前没有可定位的时间线。";
+        return false;
+      }
+
+      const normalizedIssue = issue.trim();
+      if (!normalizedIssue) {
+        this.blockedMessage = "预检问题内容为空，无法定位。";
+        return false;
+      }
+
+      const tracks = this.timeline.tracks;
+      const clips = tracks.flatMap((track) => track.clips);
+      const matchedClip = clips.find(
+        (clip) => normalizedIssue.includes(clip.id) || normalizedIssue.includes(clip.label)
+      );
+
+      if (matchedClip) {
+        this.selectedTrackId = matchedClip.trackId;
+        this.selectedClipId = matchedClip.id;
+        this.setPlayheadMs(matchedClip.startMs);
+        this.blockedMessage = null;
+        return true;
+      }
+
+      const matchedTrack = tracks.find(
+        (track) => normalizedIssue.includes(track.id) || normalizedIssue.includes(track.name)
+      );
+
+      if (matchedTrack) {
+        this.selectedTrackId = matchedTrack.id;
+        this.selectedClipId = null;
+        this.setPlayheadMs(matchedTrack.clips[0]?.startMs ?? this.playheadMs);
+        this.blockedMessage = null;
+        return true;
+      }
+
+      if (this.selectedClipId || this.selectedTrackId) {
+        this.blockedMessage = "这条预检问题没有明确片段或轨道，已保留当前选中位置。";
+        return false;
+      }
+
+      this.blockedMessage = "这条预检问题没有可定位的片段或轨道，请先在时间线中手动选择。";
+      return false;
     },
     setPlayheadMs(value: number): void {
       const durationMs = this.resolveTimelineDurationMs();

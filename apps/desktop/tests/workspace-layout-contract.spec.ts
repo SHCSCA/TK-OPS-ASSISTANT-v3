@@ -158,6 +158,7 @@ describe("workspace layout taxonomy contract", () => {
 
   it("keeps the preview phone inside the visible M05 stage", () => {
     const preview = readSource("../src/modules/workspace/WorkspacePreviewStage.vue");
+    const previewContext = readSource("../src/modules/workspace/workspacePreviewContext.ts");
 
     expect(preview).toMatch(
       /\.workspace-preview-stage\s*{[\s\S]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/
@@ -170,8 +171,10 @@ describe("workspace layout taxonomy contract", () => {
     expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*aspect-ratio:\s*9\s*\/\s*16;/);
     expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*height:\s*min\(100%,\s*500px\);/);
     expect(preview).toMatch(/\.workspace-preview-stage__phone\s*{[\s\S]*max-height:\s*500px;/);
-    expect(preview).toContain("workspaceStatusLabel");
-    expect(preview).toContain("cleanWorkspaceText");
+    expect(preview).toContain("previewContext");
+    expect(previewContext).toContain("buildWorkspacePreviewContext");
+    expect(previewContext).toContain("cleanWorkspaceText");
+    expect(previewContext).toContain("workspaceSourceTypeLabel");
     expect(preview).toMatch(/\.workspace-preview-stage__transport\s*{[\s\S]*grid-template-columns:/);
     expect(preview).toMatch(/\.workspace-preview-stage__transport button\s*{[\s\S]*white-space:\s*nowrap;/);
   });
@@ -227,5 +230,7 @@ describe("workspace layout taxonomy contract", () => {
     expect(page).toContain("shellUiStore.closeDetailPanel()");
     expect(page).not.toContain("shellUiStore.openDetailPanel()");
     expect(page).toContain("workspaceStatusLabel");
+    expect(page).toContain(':preview-context="previewContext"');
+    expect(page).toContain('@focus-precheck-issue="handleFocusPrecheckIssue"');
   });
 });

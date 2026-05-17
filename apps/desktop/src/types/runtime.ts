@@ -715,11 +715,13 @@ export type TimelinePreviewDto = {
   previewUrl: string | null;
 };
 
+export type TimelinePrecheckIssueDto = string;
+
 export type TimelinePrecheckDto = {
   timelineId?: string;
   status: string;
   message?: string;
-  issues: string[];
+  issues: TimelinePrecheckIssueDto[];
 };
 
 export type WorkspaceTimelineCreateInput = {

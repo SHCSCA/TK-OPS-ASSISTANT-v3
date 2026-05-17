@@ -40,6 +40,7 @@
             </Button>
             <Button
               variant="primary"
+              data-testid="workspace-save-button"
               :running="status === 'saving'"
               :disabled="saveDisabled"
               @click="handleSave"
@@ -153,9 +154,7 @@
               <p class="panel-label">播放器</p>
               <WorkspacePreviewStage
                 class="stage-panel preview-panel"
-                :blocked-message="blockedMessage"
-                :selected-clip="selectedClip"
-                :selected-track="selectedTrack"
+                :preview-context="previewContext"
                 :timeline="timeline"
               />
             </div>
@@ -169,11 +168,13 @@
                 :error-message="error?.message ?? null"
                 :last-command-result="lastCommandResult"
                 :precheck="precheck"
+                :preview-context="previewContext"
                 :save-state="saveState"
                 :selected-clip="selectedClip"
                 :selected-track="selectedTrack"
                 :status="status"
                 :timeline="timeline"
+                @focus-precheck-issue="handleFocusPrecheckIssue"
               />
             </div>
           </div>
@@ -258,6 +259,7 @@ const {
   orderedTracks,
   playheadMs,
   precheck,
+  previewContext,
   saveState,
   selectedClip,
   selectedClipId,
@@ -502,6 +504,10 @@ async function handleTrimSelectedClip(edge: "left" | "right", deltaMs: number): 
 
 function handleSetPlayhead(positionMs: number): void {
   workspaceStore.setPlayheadMs(positionMs);
+}
+
+function handleFocusPrecheckIssue(issue: string): void {
+  workspaceStore.focusPrecheckIssue(issue);
 }
 
 async function handleTimelineTrim(payload: { clipId: string; edge: "left" | "right"; deltaMs: number }): Promise<void> {

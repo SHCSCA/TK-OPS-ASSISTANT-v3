@@ -3,7 +3,7 @@
     <header class="workspace-preview-stage__header">
       <div>
         <strong>播放器</strong>
-        <p>{{ headerDescription }}</p>
+        <p>{{ previewContext.description }}</p>
       </div>
       <span class="workspace-preview-stage__pill">
         {{ timelineStatusLabel }}
@@ -16,15 +16,16 @@
           <transition name="preview-fade" mode="out-in">
             <div :key="headline" class="workspace-preview-stage__screen">
               <div class="workspace-preview-stage__phone-top">
-                <span>{{ sourceStatusLabel }}</span>
+                <span>{{ previewContext.sourceLabel }}</span>
                 <small>9:16</small>
               </div>
               <section class="workspace-preview-stage__content">
                 <strong>{{ headline }}</strong>
-                <p>{{ previewText }}</p>
+                <p>{{ previewContext.summaryText }}</p>
+                <small class="workspace-preview-stage__time-badge">{{ previewContext.currentTimeLabel }}</small>
               </section>
               <div class="workspace-preview-stage__caption">
-                {{ previewText }}
+                {{ previewContext.captionText }}
               </div>
             </div>
           </transition>
@@ -37,8 +38,16 @@
           <strong>{{ timeline?.name ?? "未创建" }}</strong>
         </div>
         <div class="fact-item">
-          <small>当前选择</small>
-          <strong>{{ selectionLabel }}</strong>
+          <small>当前片段</small>
+          <strong>{{ currentClipLabel }}</strong>
+        </div>
+        <div class="fact-item">
+          <small>来源类型</small>
+          <strong>{{ sourceTypeLabel }}</strong>
+        </div>
+        <div class="fact-item">
+          <small>当前时间</small>
+          <strong>{{ previewContext.currentTimeLabel }}</strong>
         </div>
         <div class="fact-item">
           <small>总时长</small>
@@ -61,13 +70,13 @@
           <span class="material-symbols-outlined">play_arrow</span>
           <span>播放</span>
         </button>
-        <time>{{ currentTimeLabel }}</time>
+        <time>{{ transportTimeLabel }}</time>
         <div class="workspace-preview-stage__progress" aria-label="预览进度条" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <span></span>
         </div>
         <time>{{ durationLabel }}</time>
       </div>
-      <p>{{ description }}</p>
+      <p>{{ previewContext.description }}</p>
     </footer>
   </main>
 </template>
@@ -75,72 +84,21 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type {
-  WorkspaceTimelineClipDto,
-  WorkspaceTimelineDto,
-  WorkspaceTimelineTrackDto
-} from "@/types/runtime";
-import {
-  cleanWorkspaceText,
-  formatWorkspaceTime,
-  workspaceSourceTypeLabel,
-  workspaceStatusLabel,
-  workspaceTrackKindLabel
-} from "./workspaceTimelineViewModel";
+import type { WorkspaceTimelineDto } from "@/types/runtime";
+import type { WorkspacePreviewContext } from "./workspacePreviewContext";
+import { formatWorkspaceTime } from "./workspaceTimelineViewModel";
 
 const props = defineProps<{
-  blockedMessage: string | null;
-  selectedClip: WorkspaceTimelineClipDto | null;
-  selectedTrack: WorkspaceTimelineTrackDto | null;
+  previewContext: WorkspacePreviewContext;
   timeline: WorkspaceTimelineDto | null;
 }>();
 
-const selectionLabel = computed(() => {
-  if (props.selectedClip) return props.selectedClip.label;
-  if (props.selectedTrack) return props.selectedTrack.name;
-  return "尚未选中片段";
-});
-
-const headerDescription = computed(() => {
-  if (!props.timeline) return "等待创建时间线草稿。";
-  if (props.selectedClip) {
-    return `${workspaceSourceTypeLabel(props.selectedClip.sourceType)} · ${formatWorkspaceTime(props.selectedClip.durationMs)}`;
-  }
-  if (props.selectedTrack) return `${workspaceTrackKindLabel(props.selectedTrack.kind)} · ${props.selectedTrack.clips.length} 个片段`;
-  return "选择时间线片段后查看画面上下文。";
-});
-
 const headline = computed(() => {
-  if (props.selectedClip) return props.selectedClip.label;
-  if (props.selectedTrack) return props.selectedTrack.name;
-  if (props.timeline) return "主播放器";
-  return "等待时间线草稿";
+  return props.previewContext.headline;
 });
 
-const previewText = computed(() => {
-  const selectedText = cleanWorkspaceText(props.selectedClip?.metadata?.text, "");
-  if (selectedText) return selectedText;
-  if (props.selectedClip?.metadata?.visualPrompt) return props.selectedClip.metadata.visualPrompt;
-  if (props.selectedClip) return sourceStatusLabel.value;
-  const firstTrackClip = props.selectedTrack?.clips[0];
-  const firstClipText = cleanWorkspaceText(firstTrackClip?.metadata?.text, "");
-  if (firstClipText) return firstClipText;
-  if (firstTrackClip?.metadata?.visualPrompt) return firstTrackClip.metadata.visualPrompt;
-  if (props.selectedTrack) return `${props.selectedTrack.name} · ${props.selectedTrack.clips.length} 个片段`;
-  return sourceStatusLabel.value;
-});
-
-const description = computed(() => {
-  if (props.selectedClip) {
-    return `${sourceStatusLabel.value} · ${workspaceStatusLabel(props.selectedClip.status)} · ${formatWorkspaceTime(props.selectedClip.durationMs)}`;
-  }
-  if (props.selectedTrack) {
-    return `${sourceStatusLabel.value} · ${workspaceTrackKindLabel(props.selectedTrack.kind)} · ${props.selectedTrack.clips.length} 个片段`;
-  }
-  if (props.timeline) {
-    return props.blockedMessage ?? "时间线已载入。";
-  }
-  return "先创建空草稿，再把真实片段、音轨和字幕落到同一条时间线。";
+const currentClipLabel = computed(() => {
+  return props.previewContext.clip ? props.previewContext.detailText : props.previewContext.summaryText;
 });
 
 const durationLabel = computed(() => {
@@ -151,13 +109,14 @@ const durationLabel = computed(() => {
 
 const trackCountLabel = computed(() => `${props.timeline?.tracks.length ?? 0} 条`);
 
-const currentTimeLabel = computed(() => formatWorkspaceTime(activeClip.value?.startMs ?? 0));
+const transportTimeLabel = computed(() => props.previewContext.currentTimeLabel.replace("当前时间：", ""));
 
-const activeClip = computed(() => props.selectedClip ?? props.selectedTrack?.clips[0] ?? props.timeline?.tracks[0]?.clips[0] ?? null);
+const timelineStatusLabel = computed(() => (props.timeline ? props.previewContext.statusLabel : "未创建草稿"));
 
-const timelineStatusLabel = computed(() => (props.timeline ? workspaceStatusLabel(props.timeline.status) : "未创建草稿"));
-
-const sourceStatusLabel = computed(() => workspaceSourceTypeLabel(activeClip.value?.sourceType ?? null));
+const sourceTypeLabel = computed(() => {
+  if (!props.previewContext.clip) return props.previewContext.sourceLabel;
+  return `${props.previewContext.sourceLabel}（${props.previewContext.sourceType}）`;
+});
 </script>
 
 <style scoped>
@@ -306,6 +265,15 @@ const sourceStatusLabel = computed(() => workspaceSourceTypeLabel(activeClip.val
   color: rgba(255, 255, 255, 0.76);
   font-size: 18px;
   line-height: 1.45;
+}
+
+.workspace-preview-stage__time-badge {
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+  padding: 5px 10px;
 }
 
 .workspace-preview-stage__caption {
