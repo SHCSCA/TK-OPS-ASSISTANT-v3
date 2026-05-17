@@ -175,6 +175,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(previewContext).toContain("buildWorkspacePreviewContext");
     expect(previewContext).toContain("cleanWorkspaceText");
     expect(previewContext).toContain("workspaceSourceTypeLabel");
+    expect(preview).not.toContain('name="preview-fade"');
+    expect(preview).not.toContain(".preview-fade");
     expect(preview).toMatch(/\.workspace-preview-stage__transport\s*{[\s\S]*grid-template-columns:/);
     expect(preview).toMatch(/\.workspace-preview-stage__transport button\s*{[\s\S]*white-space:\s*nowrap;/);
   });
@@ -197,6 +199,9 @@ describe("workspace layout taxonomy contract", () => {
     expect(assetRail).toContain("sourceEntryLabel");
     expect(assetRail).toContain("sourceEntryTime");
     expect(assetRail).toContain('<small :title="summaryDescription">{{ summaryDescription }}</small>');
+    expect(assetRail).not.toContain('class="workspace-asset-rail__sources"');
+    expect(assetRail).not.toContain('class="workspace-asset-rail__source"');
+    expect(assetRail).not.toContain('<transition-group name="source-list"');
     expect(assetRail).toMatch(
       /\.workspace-asset-rail\s*{[\s\S]*grid-template-rows:\s*auto\s+auto\s+auto\s+auto\s+minmax\(0,\s*1fr\);/
     );
