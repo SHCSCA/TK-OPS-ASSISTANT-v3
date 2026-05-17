@@ -124,6 +124,7 @@ describe("M05 工作台资产栏", () => {
     expect(wrapper.get('[data-testid="workspace-asset-tab-storyboard"]').attributes("aria-selected")).toBe("true");
     expect(wrapper.text()).toContain("S01 · 分镜画面");
     expect(wrapper.text()).not.toContain("暂无项目资产");
+    expect(wrapper.get(".workspace-asset-rail__list").classes()).toContain("workspace-asset-rail__list--sources");
 
     await wrapper.get('[data-testid="workspace-asset-tab-voice_track"]').trigger("click");
     expect(wrapper.get('[data-testid="workspace-asset-tab-voice_track"]').attributes("aria-selected")).toBe("true");

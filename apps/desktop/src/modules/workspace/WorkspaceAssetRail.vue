@@ -94,7 +94,7 @@
       <div v-else-if="filteredSourceEntries.length === 0" class="workspace-asset-rail__empty">
         当前来源还没有落到时间线的真实片段。
       </div>
-      <div v-else class="workspace-asset-rail__list scroll-area">
+      <div v-else class="workspace-asset-rail__list workspace-asset-rail__list--sources scroll-area">
         <ul class="workspace-asset-rail__source-list">
           <li
             v-for="entry in filteredSourceEntries"
@@ -412,6 +412,10 @@ function selectSourceTab(tabId: SourceTabId): void {
   min-height: 0;
   overflow-y: auto;
   padding: 0;
+}
+
+.workspace-asset-rail__list--sources {
+  grid-row: 4 / 6;
 }
 
 .workspace-asset-rail__source-list {
