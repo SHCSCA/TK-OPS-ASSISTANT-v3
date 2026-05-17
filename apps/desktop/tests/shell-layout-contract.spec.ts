@@ -112,6 +112,14 @@ describe("shell layout contract", () => {
     );
   });
 
+  it("remounts the route component when the shell route changes", () => {
+    const appShell = readSource("../src/layouts/AppShell.vue");
+
+    expect(appShell).toContain('<component :is="Component" :key="route.fullPath" />');
+    expect(appShell).not.toContain('<transition name="page-fade"');
+    expect(appShell).not.toContain('mode="out-in"');
+  });
+
   it("docks side panels on desktop so they do not cover the workspace", () => {
     const appShell = readSource("../src/layouts/AppShell.vue");
     const sidebar = readSource("../src/layouts/shell/ShellSidebar.vue");

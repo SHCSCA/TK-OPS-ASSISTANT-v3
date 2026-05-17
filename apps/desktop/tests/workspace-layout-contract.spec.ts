@@ -56,6 +56,9 @@ describe("workspace layout taxonomy contract", () => {
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.preview-panel-wrapper\s*{[\s\S]*grid-row:\s*1;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.stage-panel-wrapper--asset\s*{[\s\S]*grid-row:\s*2;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__phone\)\s*{[\s\S]*min-height:\s*180px;/);
+    expect(css).toMatch(/@media\s+\(max-height:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(340px,\s*1fr\)\s+clamp\(150px,\s*22vh,\s*190px\);/);
+    expect(css).toMatch(/@media\s+\(max-height:\s*860px\)\s*{[\s\S]*\.page-header__subtitle\s*{[\s\S]*display:\s*none;/);
+    expect(css).toMatch(/@media\s+\(max-height:\s*860px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__phone\)\s*{[\s\S]*min-height:\s*210px;/);
     expect(css).not.toContain(".workspace-tool-bar");
     expect(css).not.toContain(".workspace-tool-bar__actions");
   });

@@ -58,9 +58,7 @@
 
       <main class="app-shell__content content-host command-content-host">
         <RouterView v-slot="{ Component }">
-          <transition name="page-fade" mode="out-in">
-            <component :is="Component" />
-          </transition>
+          <component :is="Component" :key="route.fullPath" />
         </RouterView>
       </main>
 

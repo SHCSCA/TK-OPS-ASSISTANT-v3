@@ -321,3 +321,49 @@
     min-height: 180px;
   }
 }
+
+@media (max-height: 860px) {
+  .editing-workspace-page {
+    gap: var(--space-2);
+    padding-block: var(--space-3);
+  }
+
+  .page-header {
+    gap: var(--space-1);
+  }
+
+  .page-header__subtitle {
+    display: none;
+  }
+
+  .workspace-editor {
+    grid-template-rows: minmax(340px, 1fr) clamp(150px, 22vh, 190px);
+  }
+
+  .workspace-stage {
+    grid-template-columns: minmax(250px, 320px) minmax(500px, 1fr) minmax(260px, 320px);
+  }
+
+  .preview-panel-wrapper :deep(.workspace-preview-stage) {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .preview-panel-wrapper :deep(.workspace-preview-stage__body) {
+    gap: 8px;
+    grid-template-columns: minmax(230px, 1fr) minmax(190px, 240px);
+  }
+
+  .preview-panel-wrapper :deep(.workspace-preview-stage__viewer) {
+    min-height: 220px;
+    padding: 8px;
+  }
+
+  .preview-panel-wrapper :deep(.workspace-preview-stage__phone) {
+    min-height: 210px;
+  }
+
+  .preview-panel-wrapper :deep(.workspace-preview-stage__footer p) {
+    display: none;
+  }
+}
