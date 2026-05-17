@@ -90,16 +90,18 @@ Release metadata:
 | Task 5 Runtime 资产入轨 | `a674ea2` | 已提交 |
 | Task 6 前端资产加入与替换 | `be2e1a2` | 已提交 |
 | Task 7 播放器、属性面板与预检定位 | `0c42ec0` | 已提交 |
-| Task 8 文档、发布号与全量验证 | 本提交 | 已验证，待提交 |
+| Task 8 文档、发布号与全量验证 | `8b38d28` / `7c8b9f8` | 已提交 |
+| Task 9 素材栏密度与时间轴选择稳定性收口 | `5d5fea4` / `bc2b73d` / `8f12b0f` / `fcd7083` / `07c39ad` / `be037dd` | 已提交 |
 
 ## Verification Record
 
-- `npm --prefix apps/desktop run test`：53 个测试文件、242 条测试通过。
+- `npm --prefix apps/desktop run test`：53 个测试文件、245 条测试通过。
 - `pytest tests/runtime/test_workspace_service.py tests/contracts/test_workspace_runtime_contract.py -q`：36 条测试通过，保留现有 pytest 配置警告。
 - `pytest tests/contracts/test_runtime_contract_inventory.py -q`：2 条测试通过，HTTP 文档路由与代码路由一致。
 - `npm --prefix apps/desktop run build`：Vite 构建通过。
 - `npm run version:check`：发布号镜像检查通过。
 - `git diff --check`：无空白错误。
+- 2026-05-17 收口复核：真实浏览器在 `/workspace/editing` 复核时间轴选中与素材栏 Tab 切换，未复现选中态闪动或上方面板跳动。
 
 ## Task 0: 计划、设计与分支基线
 
