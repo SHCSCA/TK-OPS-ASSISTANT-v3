@@ -26,25 +26,33 @@ describe("workspace layout taxonomy contract", () => {
     const css = readSource("../src/pages/workspace/AIEditingWorkspacePage.css");
 
     expect(css).toMatch(
-      /\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(420px,\s*1fr\)\s+284px;/
+      /\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+clamp\(260px,\s*30vh,\s*320px\);/
     );
     expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*gap:\s*10px;/);
+    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*overflow-y:\s*hidden;/);
+    expect(page).toContain('class="workspace-editor"');
+    expect(page).not.toContain('class="workspace-editor scroll-area"');
     expect(css).toMatch(
       /\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(270px,\s*330px\)\s+minmax\(520px,\s*1fr\)\s+minmax\(280px,\s*340px\);/
     );
+    expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\);/);
     expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*gap:\s*10px;/);
     expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*overflow-x:\s*hidden;/);
-    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*overflow-y:\s*auto;/);
     expect(css).toMatch(/\.workspace-timeline-area-wrapper\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;/);
     expect(css).toMatch(/\.workspace-timeline-area\s*{[\s\S]*background:\s*#0f1722;/);
     expect(css).toContain(".workspace-timeline-area :deep(.workspace-timeline-toolbar)");
     expect(css).not.toContain(".workspace-pop");
     expect(page).not.toContain('transition name="workspace-pop"');
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*330px\)\s+minmax\(0,\s*1fr\);/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*220px;/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*auto\s+minmax\(284px,\s*38vh\);/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*overflow-y:\s*auto;/);
+    expect(css).toContain("contain: layout paint;");
+    expect(css).toContain("overflow-anchor: none;");
+    expect(css).not.toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*330px\)\s+minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+clamp\(176px,\s*24vh,\s*220px\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*220px;/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+260px;/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*overflow-y:\s*hidden;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-rows:\s*clamp\(112px,\s*24%,\s*156px\)\s+minmax\(220px,\s*1fr\)\s+clamp\(112px,\s*24%,\s*156px\);/);
     expect(css).not.toContain(".workspace-tool-bar");
     expect(css).not.toContain(".workspace-tool-bar__actions");
   });
@@ -197,6 +205,10 @@ describe("workspace layout taxonomy contract", () => {
     expect(handleSelectClipBlock).not.toContain("workspaceStore.selectClip(payload.clipId)");
     expect(assetRail).toContain('"select-source-clip": [payload: { clipId: string; trackId: string }];');
     expect(assetRail).toContain('@click="$emit(\'select-source-clip\', { clipId: entry.id, trackId: entry.trackId })"');
+    expect(assetRail).toContain(':data-testid="tab.testId"');
+    expect(assetRail).toContain('testId: "workspace-asset-tab-storyboard"');
+    expect(assetRail).toContain('testId: "workspace-asset-tab-voice_track"');
+    expect(assetRail).toContain('testId: "workspace-asset-tab-subtitle_track"');
     expect(assetRail).toContain('class="workspace-asset-rail__item-card"');
     expect(assetRail).toContain('class="workspace-asset-rail__source-list"');
     expect(assetRail).toContain('class="workspace-asset-rail__item-head"');

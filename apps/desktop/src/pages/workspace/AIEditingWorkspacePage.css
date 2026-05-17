@@ -128,31 +128,38 @@
 /* .spinning 及 @keyframes spin 由全局 base.css 统一定义 */
 
 .workspace-editor {
+  contain: layout paint;
   display: grid;
-  grid-template-rows: minmax(420px, 1fr) 284px;
+  grid-template-rows: minmax(0, 1fr) clamp(260px, 30vh, 320px);
   gap: 10px;
   flex: 1;
   min-height: 0;
   min-width: 0;
+  overflow-anchor: none;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
 }
 
 .workspace-stage {
+  contain: layout paint;
   display: grid;
   gap: 10px;
   grid-template-columns: minmax(270px, 330px) minmax(520px, 1fr) minmax(280px, 340px);
+  grid-template-rows: minmax(0, 1fr);
   align-items: stretch;
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
 }
 
 .stage-panel-wrapper,
 .workspace-timeline-area-wrapper {
+  contain: layout paint;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .panel-label {
@@ -183,6 +190,7 @@
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
+  max-height: 100%;
   min-height: 0;
   min-width: 0;
 }
@@ -199,6 +207,7 @@
 
 .workspace-timeline-area {
   flex: 1;
+  contain: layout paint;
   min-height: 0;
   background: #0f1722;
   border: 1px solid rgb(117 139 166 / 28%);
@@ -238,14 +247,15 @@
   border-radius: 99px;
 }
 
-@container editing-workspace (max-width: 1180px) {
+@container editing-workspace (max-width: 1040px) {
   .workspace-editor {
-    grid-template-rows: auto minmax(284px, 34vh);
-    overflow-y: auto;
+    grid-template-rows: minmax(0, 1fr) clamp(260px, 34vh, 320px);
+    overflow-y: hidden;
   }
 
   .workspace-stage {
     grid-template-columns: minmax(0, 330px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) clamp(176px, 24vh, 220px);
   }
 
   .page-header__row {
@@ -268,15 +278,17 @@
   }
 
   .workspace-editor {
-    grid-template-rows: auto minmax(284px, 38vh);
-    overflow-y: auto;
+    grid-template-rows: minmax(0, 1fr) 260px;
+    overflow-y: hidden;
   }
 
   .workspace-stage {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: clamp(112px, 24%, 156px) minmax(220px, 1fr) clamp(112px, 24%, 156px);
   }
 
   .stage-panel-wrapper--inspector {
     grid-column: auto;
+    min-height: 0;
   }
 }

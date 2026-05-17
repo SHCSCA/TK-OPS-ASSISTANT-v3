@@ -129,7 +129,7 @@
         </div>
       </div>
 
-      <div v-if="currentProjectId && status !== 'loading'" class="workspace-editor scroll-area">
+      <div v-if="currentProjectId && status !== 'loading'" class="workspace-editor">
         <div class="workspace-stage">
           <div class="stage-panel-wrapper stage-panel-wrapper--asset">
             <p class="panel-label">素材池</p>

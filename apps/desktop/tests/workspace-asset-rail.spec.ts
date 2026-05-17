@@ -83,6 +83,56 @@ describe("M05 工作台资产栏", () => {
     expect(actionButton(wrapper, "缺失素材.mp4", "加入时间线").element.disabled).toBe(true);
     expect(actionButton(wrapper, "缺失素材.mp4", "替换片段").element.disabled).toBe(true);
   });
+
+  it("来源 tab 使用稳定测试标识并能切换到真实分镜、配音和字幕片段", async () => {
+    const wrapper = mountRail({
+      assets: [],
+      timeline: timeline({
+        tracks: [
+          track("track-storyboard", "video", [
+            clip({
+              id: "clip-storyboard",
+              label: "S01 · 分镜画面",
+              sourceType: "storyboard",
+              trackId: "track-storyboard"
+            })
+          ]),
+          track("track-voice", "audio", [
+            clip({
+              id: "clip-voice",
+              label: "S01 · 配音",
+              sourceType: "voice_track",
+              trackId: "track-voice"
+            })
+          ]),
+          track("track-subtitle", "subtitle", [
+            clip({
+              id: "clip-subtitle",
+              label: "S01 · 字幕",
+              sourceType: "subtitle_track",
+              trackId: "track-subtitle"
+            })
+          ])
+        ]
+      })
+    });
+
+    expect(wrapper.get('[data-testid="workspace-asset-tab-storyboard"]').attributes("aria-selected")).toBe("false");
+    expect(wrapper.get('[data-testid="workspace-asset-tab-assets"]').attributes("aria-selected")).toBe("true");
+
+    await wrapper.get('[data-testid="workspace-asset-tab-storyboard"]').trigger("click");
+    expect(wrapper.get('[data-testid="workspace-asset-tab-storyboard"]').attributes("aria-selected")).toBe("true");
+    expect(wrapper.text()).toContain("S01 · 分镜画面");
+    expect(wrapper.text()).not.toContain("暂无项目资产");
+
+    await wrapper.get('[data-testid="workspace-asset-tab-voice_track"]').trigger("click");
+    expect(wrapper.get('[data-testid="workspace-asset-tab-voice_track"]').attributes("aria-selected")).toBe("true");
+    expect(wrapper.text()).toContain("S01 · 配音");
+
+    await wrapper.get('[data-testid="workspace-asset-tab-subtitle_track"]').trigger("click");
+    expect(wrapper.get('[data-testid="workspace-asset-tab-subtitle_track"]').attributes("aria-selected")).toBe("true");
+    expect(wrapper.text()).toContain("S01 · 字幕");
+  });
 });
 
 function mountRail(overrides: Partial<{
@@ -117,7 +167,7 @@ function actionButton(wrapper: ReturnType<typeof mount>, cardText: string, actio
   return button;
 }
 
-function timeline(): WorkspaceTimelineDto {
+function timeline(overrides: Partial<WorkspaceTimelineDto> = {}): WorkspaceTimelineDto {
   return {
     id: "timeline-1",
     projectId: "project-1",
@@ -127,11 +177,16 @@ function timeline(): WorkspaceTimelineDto {
     source: "manual",
     tracks: [track("track-video", "video"), track("track-audio", "audio")],
     createdAt: now(),
-    updatedAt: now()
+    updatedAt: now(),
+    ...overrides
   };
 }
 
-function track(id: string, kind: WorkspaceTimelineTrackDto["kind"]): WorkspaceTimelineTrackDto {
+function track(
+  id: string,
+  kind: WorkspaceTimelineTrackDto["kind"],
+  clips: WorkspaceTimelineClipDto[] = [clip({ id: `${id}-clip`, trackId: id })]
+): WorkspaceTimelineTrackDto {
   return {
     id,
     kind,
@@ -139,7 +194,7 @@ function track(id: string, kind: WorkspaceTimelineTrackDto["kind"]): WorkspaceTi
     orderIndex: kind === "audio" ? 1 : 0,
     locked: false,
     muted: false,
-    clips: [clip({ id: `${id}-clip`, trackId: id })]
+    clips
   };
 }
 

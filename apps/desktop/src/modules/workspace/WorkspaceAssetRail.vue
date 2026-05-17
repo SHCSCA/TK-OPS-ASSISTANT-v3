@@ -13,10 +13,11 @@
         v-for="tab in sourceTabs"
         :key="tab.id"
         :aria-selected="activeTab === tab.id"
-        :data-testid="tab.id === 'assets' ? 'workspace-asset-tab-assets' : undefined"
+        :data-source-tab="tab.id"
+        :data-testid="tab.testId"
         role="tab"
         type="button"
-        @click="activeTab = tab.id"
+        @click.stop="selectSourceTab(tab.id)"
       >
         {{ tab.label }}
       </button>
@@ -166,11 +167,11 @@ const emit = defineEmits<{
 
 const activeTab = ref<SourceTabId>("assets");
 
-const sourceTabs: Array<{ id: SourceTabId; label: string }> = [
-  { id: "storyboard", label: "分镜" },
-  { id: "voice_track", label: "配音" },
-  { id: "subtitle_track", label: "字幕" },
-  { id: "assets", label: "资产" }
+const sourceTabs: Array<{ id: SourceTabId; label: string; testId: string }> = [
+  { id: "storyboard", label: "分镜", testId: "workspace-asset-tab-storyboard" },
+  { id: "voice_track", label: "配音", testId: "workspace-asset-tab-voice_track" },
+  { id: "subtitle_track", label: "字幕", testId: "workspace-asset-tab-subtitle_track" },
+  { id: "assets", label: "资产", testId: "workspace-asset-tab-assets" }
 ];
 
 const sourceEntries = computed(() =>
@@ -281,6 +282,10 @@ function sourceEntryLabel(entry: WorkspaceTimelineClipDto): string {
 
 function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
   return formatWorkspaceClipRange(entry.startMs, entry.durationMs);
+}
+
+function selectSourceTab(tabId: SourceTabId): void {
+  activeTab.value = tabId;
 }
 </script>
 

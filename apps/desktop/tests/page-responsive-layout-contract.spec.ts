@@ -65,20 +65,25 @@ describe("page responsive layout contract", () => {
     expect(css).toMatch(/\.editing-workspace-page\s*{[\s\S]*overflow:\s*hidden;/);
     expect(css).toMatch(/\.editing-workspace-page\s*{[\s\S]*container-name:\s*editing-workspace;/);
     expect(css).not.toContain("height: 400px");
-    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(420px,\s*1fr\)\s+284px;/);
+    expect(css).toMatch(
+      /\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+clamp\(260px,\s*30vh,\s*320px\);/
+    );
     expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*gap:\s*10px;/);
     expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*overflow-x:\s*hidden;/);
-    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*overflow-y:\s*auto;/);
+    expect(css).toMatch(/\.workspace-editor\s*{[\s\S]*overflow-y:\s*hidden;/);
+    expect(css).toContain("overflow-anchor: none;");
     expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(270px,\s*330px\)\s+minmax\(520px,\s*1fr\)\s+minmax\(280px,\s*340px\);/);
+    expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\);/);
     expect(css).toMatch(/\.workspace-stage\s*{[\s\S]*gap:\s*10px;/);
     expect(css).toMatch(/\.workspace-timeline-area-wrapper\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;/);
     expect(css).toMatch(/\.workspace-timeline-area\s*{[\s\S]*background:\s*#0f1722;/);
     expect(css).toContain(".workspace-timeline-area :deep(.workspace-timeline-toolbar)");
     expect(css).toMatch(/\.stage-panel\s*{[\s\S]*flex:\s*1\s+1\s+auto;/);
     expect(css).toMatch(/\.stage-panel\s*{[\s\S]*min-height:\s*0;/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*330px\)\s+minmax\(0,\s*1fr\);/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*220px;/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*auto\s+minmax\(284px,\s*38vh\);[\s\S]*overflow-y:\s*auto;/);
+    expect(css).not.toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1180px\)/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*330px\)\s+minmax\(0,\s*1fr\);/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*min-height:\s*220px;/);
+    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-editor\s*{[\s\S]*grid-template-rows:\s*minmax\(0,\s*1fr\)\s+260px;[\s\S]*overflow-y:\s*hidden;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*860px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\);/);
   });
 });
