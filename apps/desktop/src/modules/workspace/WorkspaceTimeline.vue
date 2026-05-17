@@ -22,7 +22,7 @@
     </div>
     <div v-else class="workspace-timeline__body">
       <div v-if="status === 'saving'" class="ai-flow-bar" />
-      <div class="workspace-timeline__ruler">
+      <div class="workspace-timeline__ruler" @click="handleTimelinePointer">
         <span
           v-for="marker in markers"
           :key="marker.label"
@@ -32,7 +32,11 @@
           {{ marker.label }}
         </span>
       </div>
-      <div class="workspace-timeline__playhead" :style="{ left: `${playheadPercent}%` }">
+      <div
+        class="workspace-timeline__playhead"
+        data-testid="workspace-playhead"
+        :style="{ left: `${playheadPercent}%` }"
+      >
         <span>{{ playheadLabel }}</span>
       </div>
 
@@ -56,7 +60,7 @@
               </div>
             </button>
 
-            <div class="workspace-track__lane">
+            <div class="workspace-track__lane" @click="handleTimelinePointer">
               <transition-group name="clip-list">
                 <button
                   v-for="clipView in row.clips"
@@ -69,8 +73,32 @@
                   :data-status="clipView.clip.status"
                   type="button"
                   :style="clipStyle(clipView)"
-                  @click="$emit('select-clip', { clipId: clipView.id, trackId: row.id })"
+                  @click.stop="$emit('select-clip', { clipId: clipView.id, trackId: row.id })"
                 >
+                  <span
+                    v-if="clipView.id === selectedClipId"
+                    aria-label="左侧裁剪 0.5 秒"
+                    class="workspace-timeline__trim-handle workspace-timeline__trim-handle--left"
+                    data-testid="workspace-trim-left"
+                    role="button"
+                    tabindex="0"
+                    title="左侧收短 0.5 秒"
+                    @click.stop="emitTrim(clipView.id, 'left', 500)"
+                    @keydown.enter.stop.prevent="emitTrim(clipView.id, 'left', 500)"
+                    @keydown.space.stop.prevent="emitTrim(clipView.id, 'left', 500)"
+                  />
+                  <span
+                    v-if="clipView.id === selectedClipId"
+                    aria-label="右侧裁剪 0.5 秒"
+                    class="workspace-timeline__trim-handle workspace-timeline__trim-handle--right"
+                    data-testid="workspace-trim-right"
+                    role="button"
+                    tabindex="0"
+                    title="右侧收短 0.5 秒"
+                    @click.stop="emitTrim(clipView.id, 'right', -500)"
+                    @keydown.enter.stop.prevent="emitTrim(clipView.id, 'right', -500)"
+                    @keydown.space.stop.prevent="emitTrim(clipView.id, 'right', -500)"
+                  />
                   <div v-if="row.visualClass === 'video'" class="workspace-timeline__thumbnail-strip" aria-hidden="true">
                     <span v-for="index in 5" :key="index" />
                   </div>
@@ -123,14 +151,17 @@ import {
 const props = defineProps<{
   selectedClipId: string | null;
   selectedTrackId: string | null;
+  playheadMs: number;
   status: EditingWorkspaceStatus;
   timeline: WorkspaceTimelineDto | null;
   tracks: WorkspaceTimelineTrackDto[];
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
+  playhead: [positionMs: number];
   "select-clip": [payload: { clipId: string; trackId: string }];
   "select-track": [trackId: string];
+  trim: [payload: { clipId: string; edge: "left" | "right"; deltaMs: number }];
 }>();
 
 const durationMs = computed(() => {
@@ -174,9 +205,8 @@ const selectedClipTrackName = computed(() => {
   return rows.value.find((row) => row.clips.some((clipView) => clipView.id === selectedClip.value?.id))?.name ?? "未知轨道";
 });
 
-const playheadPositionMs = computed(() => selectedClip.value?.startMs ?? 0);
-const playheadPercent = computed(() => computePlayheadPercent(playheadPositionMs.value, durationMs.value));
-const playheadLabel = computed(() => formatWorkspaceTime(playheadPositionMs.value));
+const playheadPercent = computed(() => computePlayheadPercent(props.playheadMs, durationMs.value));
+const playheadLabel = computed(() => formatWorkspaceTime(props.playheadMs));
 
 const subtitle = computed(() => {
   if (!props.timeline) return "等待创建时间线草稿";
@@ -238,6 +268,21 @@ function subtitleText(clip: WorkspaceTimelineClipDto): string {
 
 function clipLabel(clip: WorkspaceTimelineClipDto): string {
   return cleanWorkspaceText(clip.label, workspaceSourceTypeLabel(clip.sourceType));
+}
+
+function handleTimelinePointer(event: MouseEvent): void {
+  const target = event.currentTarget as HTMLElement | null;
+  if (!target) return;
+
+  const rect = target.getBoundingClientRect();
+  if (rect.width <= 0) return;
+
+  const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+  emit("playhead", Math.round(durationMs.value * ratio));
+}
+
+function emitTrim(clipId: string, edge: "left" | "right", deltaMs: number): void {
+  emit("trim", { clipId, edge, deltaMs });
 }
 </script>
 
@@ -510,6 +555,27 @@ function clipLabel(clip: WorkspaceTimelineClipDto): string {
   bottom: 5px;
   transition: all var(--motion-fast) var(--ease-standard);
   cursor: pointer;
+}
+
+.workspace-timeline__trim-handle {
+  background: rgba(250, 204, 21, 0.88);
+  border: 1px solid rgba(254, 243, 199, 0.86);
+  border-radius: 99px;
+  bottom: 7px;
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.14);
+  cursor: ew-resize;
+  position: absolute;
+  top: 7px;
+  width: 7px;
+  z-index: 2;
+}
+
+.workspace-timeline__trim-handle--left {
+  left: 4px;
+}
+
+.workspace-timeline__trim-handle--right {
+  right: 4px;
 }
 
 .workspace-track--tall .workspace-clip {

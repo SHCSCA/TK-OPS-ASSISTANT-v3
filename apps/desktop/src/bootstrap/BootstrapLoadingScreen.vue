@@ -46,7 +46,7 @@
 
 /* 面板入场：从下方淡入 */
 .bootstrap-loading__panel-enter {
-  animation: bootstrap-panel-in var(--motion-slow) var(--ease-decelerate) both;
+  animation: bootstrap-panel-in var(--bootstrap-panel-enter-duration) var(--ease-decelerate) both;
 }
 
 @keyframes bootstrap-panel-in {

@@ -18,7 +18,8 @@
         :data-testid="`workspace-tool-${tool.id}`"
         :title="tool.label"
         type="button"
-        disabled
+        :disabled="tool.disabled"
+        @click="handleToolClick(tool.id)"
       >
         <span class="workspace-timeline-toolbar__icon" :data-icon="tool.icon" aria-hidden="true"></span>
         <span class="workspace-timeline-toolbar__label">{{ tool.label }}</span>
@@ -36,17 +37,76 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from "vue";
+
+const props = withDefaults(defineProps<{
   statusLabel: string;
+  disabled?: boolean;
+  canSplit?: boolean;
+  canDelete?: boolean;
+  canMove?: boolean;
+  canTrim?: boolean;
+}>(), {
+  disabled: false,
+  canSplit: false,
+  canDelete: false,
+  canMove: false,
+  canTrim: false
+});
+
+const emit = defineEmits<{
+  delete: [];
+  move: [deltaMs: number];
+  split: [];
+  trim: [edge: "left" | "right", deltaMs: number];
 }>();
 
-const tools = [
-  { id: "select", label: "选择", icon: "select", active: true },
-  { id: "move", label: "移动", icon: "move", active: false },
-  { id: "split", label: "分割", icon: "split", active: false },
-  { id: "delete", label: "删除", icon: "delete", active: false },
-  { id: "snap", label: "磁吸", icon: "snap", active: true }
-] as const;
+type WorkspaceTimelineToolId =
+  | "select"
+  | "move-left"
+  | "move-right"
+  | "trim-left"
+  | "trim-right"
+  | "split"
+  | "delete"
+  | "snap";
+
+const tools = computed(() => [
+  { id: "select", label: "选择", icon: "select", active: true, disabled: true },
+  { id: "move-left", label: "左移", icon: "move-left", active: false, disabled: props.disabled || !props.canMove },
+  { id: "move-right", label: "右移", icon: "move-right", active: false, disabled: props.disabled || !props.canMove },
+  { id: "trim-left", label: "左裁", icon: "trim-left", active: false, disabled: props.disabled || !props.canTrim },
+  { id: "trim-right", label: "右裁", icon: "trim-right", active: false, disabled: props.disabled || !props.canTrim },
+  { id: "split", label: "分割", icon: "split", active: false, disabled: props.disabled || !props.canSplit },
+  { id: "delete", label: "删除", icon: "delete", active: false, disabled: props.disabled || !props.canDelete },
+  { id: "snap", label: "磁吸", icon: "snap", active: true, disabled: true }
+] as const);
+
+function handleToolClick(toolId: WorkspaceTimelineToolId): void {
+  if (toolId === "move-left") {
+    emit("move", -500);
+    return;
+  }
+  if (toolId === "move-right") {
+    emit("move", 500);
+    return;
+  }
+  if (toolId === "trim-left") {
+    emit("trim", "left", 500);
+    return;
+  }
+  if (toolId === "trim-right") {
+    emit("trim", "right", -500);
+    return;
+  }
+  if (toolId === "split") {
+    emit("split");
+    return;
+  }
+  if (toolId === "delete") {
+    emit("delete");
+  }
+}
 </script>
 
 <style scoped>
@@ -157,24 +217,65 @@ const tools = [
   width: 2px;
 }
 
-.workspace-timeline-toolbar__icon[data-icon="move"]::before,
-.workspace-timeline-toolbar__icon[data-icon="move"]::after {
+.workspace-timeline-toolbar__icon[data-icon="move-left"]::before,
+.workspace-timeline-toolbar__icon[data-icon="move-left"]::after,
+.workspace-timeline-toolbar__icon[data-icon="move-right"]::before,
+.workspace-timeline-toolbar__icon[data-icon="move-right"]::after {
   background: currentColor;
   border-radius: 99px;
-  left: 2px;
+  left: 3px;
   top: 7px;
 }
 
-.workspace-timeline-toolbar__icon[data-icon="move"]::before {
+.workspace-timeline-toolbar__icon[data-icon="move-left"]::before,
+.workspace-timeline-toolbar__icon[data-icon="move-right"]::before {
   height: 2px;
-  width: 12px;
+  width: 10px;
 }
 
-.workspace-timeline-toolbar__icon[data-icon="move"]::after {
-  height: 12px;
+.workspace-timeline-toolbar__icon[data-icon="move-left"]::after,
+.workspace-timeline-toolbar__icon[data-icon="move-right"]::after {
+  background: transparent;
+  border: solid currentColor;
+  border-width: 0 0 2px 2px;
+  height: 6px;
+  left: 3px;
+  top: 5px;
+  transform: rotate(45deg);
+  width: 6px;
+}
+
+.workspace-timeline-toolbar__icon[data-icon="move-right"]::after {
+  border-width: 2px 2px 0 0;
   left: 7px;
-  top: 2px;
+}
+
+.workspace-timeline-toolbar__icon[data-icon="trim-left"]::before,
+.workspace-timeline-toolbar__icon[data-icon="trim-right"]::before {
+  background: currentColor;
+  border-radius: 99px;
+  height: 14px;
+  left: 4px;
+  top: 1px;
   width: 2px;
+}
+
+.workspace-timeline-toolbar__icon[data-icon="trim-left"]::after,
+.workspace-timeline-toolbar__icon[data-icon="trim-right"]::after {
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  height: 10px;
+  left: 7px;
+  top: 3px;
+  width: 6px;
+}
+
+.workspace-timeline-toolbar__icon[data-icon="trim-right"]::before {
+  left: 10px;
+}
+
+.workspace-timeline-toolbar__icon[data-icon="trim-right"]::after {
+  left: 3px;
 }
 
 .workspace-timeline-toolbar__icon[data-icon="split"]::before,

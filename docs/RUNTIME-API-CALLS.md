@@ -1,4 +1,4 @@
-> 更新日期：2026-05-15；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。M05 AI 剪辑工作台已补齐创作链路汇入、受管轨道装配、9:16 基础播放器布局、资产来源视图与本地预检状态链路。
+> 更新日期：2026-05-17；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。M05 AI 剪辑工作台已补齐创作链路汇入、受管轨道装配、9:16 基础播放器布局、资产来源视图、本地预检、播放头分割、步进移动与基础裁剪状态链路。
 
 # Runtime API 与前端调用真源
 
@@ -568,6 +568,8 @@
 | `POST /api/workspace/clips/{clip_id}/move` | 路径参数：`clip_id`；`ClipMoveInput`：`targetTrackId`、`startMs` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `moveWorkspaceClip` |
 | `POST /api/workspace/clips/{clip_id}/trim` | 路径参数：`clip_id`；`ClipTrimInput`：`startMs?`、`durationMs?`、`inPointMs?`、`outPointMs?` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `trimWorkspaceClip` |
 | `POST /api/workspace/clips/{clip_id}/replace` | 路径参数：`clip_id`；`ClipReplaceInput`：`sourceType`、`sourceId?`、`label`、`prompt?`、`resolution?`、`editableFields[]` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState`、`message` | `404`、`422` | `replaceWorkspaceClip` |
+| `POST /api/workspace/clips/{clip_id}/split` | 路径参数：`clip_id`；`ClipSplitInput`：`splitAtMs`，必须位于片段内部 | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_split`、`message` | `400`、`404`、`422` | `splitWorkspaceClip`、`editing-workspace.ts:splitSelectedClip` |
+| `DELETE /api/workspace/clips/{clip_id}` | 路径参数：`clip_id` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_delete`、`message` | `400`、`404` | `deleteWorkspaceClip`、`editing-workspace.ts:deleteSelectedClip` |
 | `GET /api/workspace/timelines/{timeline_id}/preview` | 路径参数：`timeline_id` | `TimelinePreviewDto`：`status=ready`，`previewUrl` 为本地 `data:application/json` manifest | `404`、`500` | `fetchTimelinePreview` |
 | `POST /api/workspace/timelines/{timeline_id}/precheck` | 路径参数：`timeline_id` | `TimelinePrecheckDto`：`status=ready/warning`、`issues[]` | `404`、`500` | `precheckTimeline` |
 | `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandInput`：`timelineId?`、`capabilityId`、`parameters` | `WorkspaceAICommandResultDto`；当前最小实现返回 `status=queued` 并创建真实 TaskBus 任务 | `404`、`422` | `runWorkspaceAICommand` |
@@ -576,18 +578,24 @@
 
 - `GET /preview` 不伪造渲染画面，返回基于真实轨道、片段与时长统计生成的本地 manifest。
 - `POST /precheck` 校验轨道类型、片段时长、起始时间与片段数据格式；空轨道会返回可见问题列表。
+- `POST /clips/{clip_id}/move` 会拒绝锁定轨道、负起点以及移动后与同轨片段重叠的结果。
+- `POST /clips/{clip_id}/trim` 会拒绝负起点、裁剪后小于 500ms 以及裁剪后与同轨片段重叠的结果。
+- `POST /clips/{clip_id}/split` 由前端传入当前播放头时间，播放头必须位于选中片段内部。
 - `POST /timeline/assemble` 读取当前项目最新脚本、分镜、已完成配音轨和可用字幕轨，生成三条受管轨道：`managed-video-storyboard`、`managed-audio-voice`、`managed-subtitle-track`；已有手动轨道会保留，不会被覆盖。
 - `WorkspaceAssemblyStateDto.sources[]` 固定按 `script / storyboard / voice / subtitle` 返回来源状态；缺失来源会写入 `issues[]` 并返回 `status=warning`。
 - `TimelineDto.version` 不伪造整数版号，使用真实 `timeline.id + updatedAt + trackCount + clipCount` 生成 `versionToken` 作为当前时间线版本信号。
 - `TimelineDto.assetReferenceStatus` 基于真实片段 `sourceType/sourceId/status` 聚合，不编造素材可用性。
 - `WorkspaceTimelineResultDto.activeTask` 只返回当前 Runtime 进程内、且 `ownerRef` 绑定到该时间线的活跃任务，优先 `ai-workspace-command`。
-- `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`assembly`、`save`、`clip_move`、`clip_trim`、`clip_replace`。
+- `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`assembly`、`save`、`clip_move`、`clip_trim`、`clip_replace`、`clip_split`、`clip_delete`。
 
 ### M05 UI 资产来源说明
 
 - M05 剪辑工作台素材池通过 `GET /api/assets` 读取资产中心素材，并在前端按当前项目过滤。
 - 本轮只展示资产状态，不在 UI 层直接读写本地文件。
-- `替换片段`、`加入轨道`、`分割`、`删除` 先保留为不可触发的基础工具入口，后续接入 `/api/workspace/clips/{clip_id}/replace`、`move`、`trim` 等接口。
+- 基础工具栏已开放选中片段的 `左移 / 右移`、`左裁 / 右裁`、`分割` 与 `删除`。
+- 分割使用当前播放头位置；播放头必须位于选中片段内部，不再回退到片段中点。
+- 移动与裁剪均通过 Runtime 保存，Runtime 会拒绝锁定轨道、负起点、同轨重叠和小于 500ms 的裁剪结果。
+- `替换片段` 与 `加入轨道` 仍按后续阶段接入 `/api/workspace/clips/{clip_id}/replace` 和资产插入能力。
 
 **示例**
 

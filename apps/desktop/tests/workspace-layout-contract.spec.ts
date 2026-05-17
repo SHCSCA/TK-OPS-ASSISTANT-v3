@@ -83,9 +83,18 @@ describe("workspace layout taxonomy contract", () => {
     const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
     const timeline = readSource("../src/modules/workspace/WorkspaceTimeline.vue");
 
-    expect(page).toMatch(
-      /<div\s+class="workspace-timeline-area">[\s\S]*<WorkspaceTimelineToolbar\s+:status-label="toolBarStatus"\s*\/>[\s\S]*<WorkspaceTimeline/
-    );
+    expect(page).toMatch(/<div\s+class="workspace-timeline-area">[\s\S]*<WorkspaceTimelineToolbar[\s\S]*<WorkspaceTimeline/);
+    expect(page).toContain(':can-delete="canDeleteSelectedClip"');
+    expect(page).toContain(':can-move="canMoveSelectedClip"');
+    expect(page).toContain(':can-split="canSplitSelectedClip"');
+    expect(page).toContain(':can-trim="canTrimSelectedClip"');
+    expect(page).toContain('@delete="handleDeleteSelectedClip"');
+    expect(page).toContain('@move="handleMoveSelectedClip"');
+    expect(page).toContain('@split="handleSplitSelectedClip"');
+    expect(page).toContain('@trim="handleTrimSelectedClip"');
+    expect(page).toContain(':playhead-ms="playheadMs"');
+    expect(page).toContain('@playhead="handleSetPlayhead"');
+    expect(page).toContain('@trim="handleTimelineTrim"');
     const toolBarStatusBlock = page.match(/const toolBarStatus = computed\(\(\) => \{[\s\S]*?\n\}\);/)?.[0] ?? "";
     expect(toolBarStatusBlock).toContain('return "选择工具 · 磁吸开启";');
     expect(toolBarStatusBlock).not.toContain("selectedClip.value");
@@ -96,11 +105,13 @@ describe("workspace layout taxonomy contract", () => {
       /<div\s+v-else\s+class="workspace-timeline__body">[\s\S]*<article[\s\S]*v-for="row in rows"[\s\S]*<button[\s\S]*v-for="clipView in row\.clips"/
     );
     expect(timeline).toMatch(
-      /<button[\s\S]*v-for="clipView in row\.clips"[\s\S]*:style="clipStyle\(clipView\)"[\s\S]*@click="\$emit\('select-clip',\s*\{\s*clipId:\s*clipView\.id,\s*trackId:\s*row\.id\s*\}\)"/
+      /<button[\s\S]*v-for="clipView in row\.clips"[\s\S]*:style="clipStyle\(clipView\)"[\s\S]*@click\.stop="\$emit\('select-clip',\s*\{\s*clipId:\s*clipView\.id,\s*trackId:\s*row\.id\s*\}\)"/
     );
     expect(timeline).toMatch(
-      /<div\s+class="workspace-timeline__playhead"\s+:style="\{\s*left:\s*`\$\{playheadPercent\}%`\s*\}">/
+      /<div[\s\S]*class="workspace-timeline__playhead"[\s\S]*data-testid="workspace-playhead"[\s\S]*:style="\{\s*left:\s*`\$\{playheadPercent\}%`\s*\}"/
     );
+    expect(timeline).toContain('data-testid="workspace-trim-left"');
+    expect(timeline).toContain('data-testid="workspace-trim-right"');
     expect(timeline).toMatch(
       /v-if="row\.visualClass === 'video'"[\s\S]*class="workspace-timeline__thumbnail-strip"[\s\S]*<span\s+v-for="index in 5"/
     );

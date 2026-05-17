@@ -303,6 +303,19 @@ def test_workspace_clip_contract_returns_detail_with_metadata(
     assert clip["editableFields"] == ["label", "startMs", "durationMs", "prompt"]
 
 
+def test_workspace_clip_contract_exposes_move_and_trim_routes(
+    runtime_client: TestClient,
+) -> None:
+    routes = {
+        (route.path, ",".join(sorted(route.methods)))
+        for route in runtime_client.app.routes
+        if hasattr(route, "methods")
+    }
+
+    assert ("/api/workspace/clips/{clip_id}/move", "POST") in routes
+    assert ("/api/workspace/clips/{clip_id}/trim", "POST") in routes
+
+
 def test_workspace_clip_contract_moves_clip_atomically(
     runtime_client: TestClient,
 ) -> None:
@@ -386,6 +399,44 @@ def test_workspace_clip_contract_replaces_clip_atomically(
         "referencedClips": 1,
     }
     assert data["saveState"]["source"] == "clip_replace"
+
+
+def test_workspace_clip_contract_deletes_clip_atomically(
+    runtime_client: TestClient,
+) -> None:
+    _, _, clip_id = _seed_timeline_with_clip(runtime_client)
+
+    response = runtime_client.delete(f"/api/workspace/clips/{clip_id}")
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    timeline = data["timeline"]
+    assert timeline["tracks"][0]["clips"] == []
+    assert timeline["version"]["clipCount"] == 0
+    assert data["saveState"]["source"] == "clip_delete"
+
+
+def test_workspace_clip_contract_splits_clip_atomically(
+    runtime_client: TestClient,
+) -> None:
+    _, _, clip_id = _seed_timeline_with_clip(runtime_client)
+
+    response = runtime_client.post(
+        f"/api/workspace/clips/{clip_id}/split",
+        json={"splitAtMs": 1800},
+    )
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    clips = data["timeline"]["tracks"][0]["clips"]
+    assert [clip["id"] for clip in clips] == ["clip-video-1", "clip-video-1-split-1800"]
+    assert clips[0]["durationMs"] == 1800
+    assert clips[0]["outPointMs"] == 1800
+    assert clips[1]["startMs"] == 1800
+    assert clips[1]["durationMs"] == 2400
+    assert clips[1]["inPointMs"] == 1800
+    assert clips[1]["outPointMs"] == 4200
+    assert data["saveState"]["source"] == "clip_split"
 
 
 def test_workspace_timeline_preview_returns_local_summary_from_real_timeline(

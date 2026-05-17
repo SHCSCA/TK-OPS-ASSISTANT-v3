@@ -161,6 +161,10 @@ class ClipTrimInput(BaseModel):
     outPointMs: int | None = Field(default=None, ge=0)
 
 
+class ClipSplitInput(BaseModel):
+    splitAtMs: int = Field(ge=0)
+
+
 class ClipReplaceInput(BaseModel):
     sourceType: str
     sourceId: str | None = None

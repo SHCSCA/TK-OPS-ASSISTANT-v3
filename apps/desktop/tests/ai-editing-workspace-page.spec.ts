@@ -136,7 +136,10 @@ describe("M05 AI 剪辑工作台页面", () => {
     expect((aiSuggestionDetails.element as HTMLDetailsElement).open).toBe(false);
     const timelineToolbar = wrapper.get('[data-testid="workspace-timeline-toolbar"]');
     expect(timelineToolbar.text()).toContain("选择");
-    expect(timelineToolbar.text()).toContain("移动");
+    expect(timelineToolbar.text()).toContain("左移");
+    expect(timelineToolbar.text()).toContain("右移");
+    expect(timelineToolbar.text()).toContain("左裁");
+    expect(timelineToolbar.text()).toContain("右裁");
     expect(timelineToolbar.text()).toContain("分割");
     expect(timelineToolbar.text()).toContain("删除");
     expect(timelineToolbar.text()).toContain("磁吸");

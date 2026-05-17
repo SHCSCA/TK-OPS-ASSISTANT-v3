@@ -96,6 +96,25 @@ export function computePlayheadPercent(positionMs: number, durationMs: number): 
   return safePercent(positionMs, durationMs);
 }
 
+export function resolveSnapStartMs(
+  clips: WorkspaceTimelineClipDto[],
+  movingClipId: string,
+  desiredStartMs: number,
+  thresholdMs = 120
+): number {
+  const desired = Math.max(0, Math.round(desiredStartMs));
+  const candidates = clips
+    .filter((clip) => clip.id !== movingClipId)
+    .flatMap((clip) => [clip.startMs, clip.startMs + clip.durationMs]);
+  const nearest = candidates
+    .map((candidate) => ({ candidate, distance: Math.abs(candidate - desired) }))
+    .sort((left, right) => left.distance - right.distance)[0];
+
+  if (!nearest || nearest.distance > thresholdMs) return desired;
+
+  return nearest.candidate;
+}
+
 export function workspaceStatusLabel(status: string | null | undefined): string {
   if (!status) return "未选择";
 
