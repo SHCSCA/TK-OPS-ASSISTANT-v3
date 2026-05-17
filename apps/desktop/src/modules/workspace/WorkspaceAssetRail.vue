@@ -23,9 +23,9 @@
     </div>
 
     <div class="workspace-asset-rail__summary">
-      <small>{{ activeSummaryLabel }}</small>
+      <span>{{ activeSummaryLabel }}</span>
       <strong>{{ summaryTitle }}</strong>
-      <p>{{ summaryDescription }}</p>
+      <small :title="summaryDescription">{{ summaryDescription }}</small>
     </div>
 
     <template v-if="activeTab === 'assets'">
@@ -324,11 +324,11 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
   border-radius: 8px;
   box-shadow: var(--shadow-sm);
   display: grid;
-  gap: 14px;
+  gap: 10px;
   grid-template-rows: auto auto auto auto minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
-  padding: 18px;
+  padding: 14px;
 }
 
 .workspace-asset-rail__heading {
@@ -338,7 +338,6 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 }
 
 .workspace-asset-rail__heading p,
-.workspace-asset-rail__summary p,
 .workspace-asset-rail__item-main p,
 .workspace-asset-rail__empty p,
 .workspace-asset-rail__empty {
@@ -374,16 +373,32 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 }
 
 .workspace-asset-rail__summary {
+  align-items: center;
   background: var(--surface-tertiary);
   border: 1px solid var(--border-default);
   border-radius: 8px;
   display: grid;
-  gap: 6px;
-  padding: 14px;
+  gap: 6px 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 8px 10px;
+}
+
+.workspace-asset-rail__summary span,
+.workspace-asset-rail__summary small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.workspace-asset-rail__summary strong,
+.workspace-asset-rail__summary small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workspace-asset-rail__summary small {
-  color: var(--text-tertiary);
+  grid-column: 1 / -1;
 }
 
 .workspace-asset-rail__actions button {
@@ -453,7 +468,7 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 
 .workspace-asset-rail__source-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-auto-rows: max-content;
   list-style: none;
   margin: 0;
@@ -490,9 +505,9 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
   color: var(--text-primary);
   cursor: pointer;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   grid-template-columns: minmax(0, 1fr);
-  padding: 14px;
+  padding: 10px 12px;
   text-align: left;
   transition: all var(--motion-fast) var(--ease-standard);
   width: 100%;
@@ -515,7 +530,7 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 
 .workspace-asset-rail__item-main {
   display: grid;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -555,7 +570,7 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
   display: -webkit-box;
   line-height: 1.45;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
 }
 
 .workspace-asset-rail__item-status {
