@@ -4,6 +4,8 @@ import type {
   WorkspaceTimelineTrackKind
 } from "@/types/runtime";
 
+import { buildSnapCandidates, resolveTimelineSnap } from "./workspaceTimelineSnap";
+
 export type TimelineClipJoinClass = "single" | "start" | "middle" | "end";
 
 export type TimelineTrackVisualClass = "video" | "voice" | "bgm" | "subtitle";
@@ -102,17 +104,13 @@ export function resolveSnapStartMs(
   desiredStartMs: number,
   thresholdMs = 120
 ): number {
-  const desired = Math.max(0, Math.round(desiredStartMs));
-  const candidates = clips
-    .filter((clip) => clip.id !== movingClipId)
-    .flatMap((clip) => [clip.startMs, clip.startMs + clip.durationMs]);
-  const nearest = candidates
-    .map((candidate) => ({ candidate, distance: Math.abs(candidate - desired) }))
-    .sort((left, right) => left.distance - right.distance)[0];
-
-  if (!nearest || nearest.distance > thresholdMs) return desired;
-
-  return nearest.candidate;
+  return resolveTimelineSnap(
+    desiredStartMs,
+    buildSnapCandidates(clips, {
+      movingClipId
+    }),
+    thresholdMs
+  );
 }
 
 export function workspaceStatusLabel(status: string | null | undefined): string {

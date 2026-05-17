@@ -92,6 +92,17 @@ describe("workspace timeline view model", () => {
     expect(resolveSnapStartMs(clips, "target", 4200, 120)).toBe(4200);
   });
 
+  it("兼容磁吸入口会排除正在移动的片段边界", () => {
+    const clips = [
+      clip({ id: "left", startMs: 0, durationMs: 3000 }),
+      clip({ id: "target", startMs: 3500, durationMs: 2000 }),
+      clip({ id: "right", startMs: 6000, durationMs: 2000 })
+    ];
+
+    expect(resolveSnapStartMs(clips, "target", 3520, 120)).toBe(3520);
+    expect(resolveSnapStartMs(clips, "target", Number.NaN, 120)).toBe(0);
+  });
+
   it("片段百分比 clamp 到 0-100", () => {
     const [row] = buildTimelineRows(
       [
