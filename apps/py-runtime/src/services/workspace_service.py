@@ -14,6 +14,7 @@ from ai.providers.errors import ProviderHTTPException
 from domain.models.asset import Asset
 from domain.models.timeline import Timeline
 from repositories.asset_repository import AssetRepository
+from repositories.magic_cut_repository import MagicCutSuggestionRepository
 from repositories.timeline_repository import TimelineRepository
 from schemas.workspace import (
     AssetReferenceStatusDto,
@@ -22,6 +23,10 @@ from schemas.workspace import (
     ClipReplaceInput,
     ClipSplitInput,
     ClipTrimInput,
+    MagicCutSuggestionApplyInput,
+    MagicCutSuggestionApplyResultDto,
+    MagicCutSuggestionDismissResultDto,
+    MagicCutSuggestionDraftDto,
     TimelineClipDto,
     TimelineCreateInput,
     TimelineDto,
@@ -43,9 +48,12 @@ from services.ai_text_generation_service import (
     normalize_text_generation_readiness_message,
 )
 from services.magic_cut import (
-    apply_magic_cut_operations,
     parse_magic_cut_operations,
     serialize_timeline_for_ai,
+)
+from services.magic_cut_suggestion_service import (
+    FAILED_PARSE_MESSAGE,
+    MagicCutSuggestionService,
 )
 from services.task_manager import TaskInfo, TaskManager, task_manager as default_task_manager
 from services.timeline_preview_media import TimelinePreviewMediaResolver
@@ -92,12 +100,17 @@ class WorkspaceService:
         asset_repository: AssetRepository | None = None,
         task_manager: TaskManager | None = None,
         ai_text_generation_service: AITextGenerationService | None = None,
+        magic_cut_suggestion_service: MagicCutSuggestionService | None = None,
     ) -> None:
         self._repository = repository
         self._asset_repository = asset_repository
         self._preview_media_resolver = TimelinePreviewMediaResolver(asset_repository)
         self._task_manager = task_manager or default_task_manager
         self._ai_text_generation_service = ai_text_generation_service
+        self._magic_cut_suggestion_service = magic_cut_suggestion_service or MagicCutSuggestionService(
+            MagicCutSuggestionRepository(session_factory=repository.session_factory),
+            repository,
+        )
 
     def get_project_timeline(self, project_id: str) -> WorkspaceTimelineResultDto:
         try:
@@ -560,25 +573,42 @@ class WorkspaceService:
                 operations, summary = parse_magic_cut_operations(result.text)
 
                 if not operations:
-                    await progress_callback(100, summary)
-                    return
-
-                await progress_callback(75, f"正在应用 {len(operations)} 个剪辑操作...")
-                try:
-                    applied, failed, op_message = apply_magic_cut_operations(
-                        self, timeline.id, operations,
-                    )
-                    if applied == 0 and failed > 0:
-                        log.warning("智能粗剪操作全部失败: %s", op_message)
+                    try:
+                        self._magic_cut_suggestion_service.create_failed_parse(
+                            project_id,
+                            timeline,
+                            summary,
+                            None,
+                        )
+                    except Exception as exc:
+                        log.exception("智能粗剪建议生成失败")
                         await progress_callback(0, MAGIC_CUT_OPERATION_FAILURE_MESSAGE)
-                        raise RuntimeError(MAGIC_CUT_OPERATION_FAILURE_MESSAGE)
-                    await progress_callback(100, f"智能粗剪完成。{op_message}")
-                except Exception:
-                    log.exception("智能粗剪应用操作失败")
+                        raise RuntimeError(MAGIC_CUT_OPERATION_FAILURE_MESSAGE) from exc
+                    await progress_callback(100, FAILED_PARSE_MESSAGE)
+                    return FAILED_PARSE_MESSAGE
+
+                await progress_callback(75, f"正在保存 {len(operations)} 条智能粗剪建议...")
+                try:
+                    suggestion = self._magic_cut_suggestion_service.create_from_operations(
+                        project_id,
+                        timeline,
+                        operations,
+                        summary,
+                        None,
+                    )
+                    if suggestion.status == "failed_parse":
+                        await progress_callback(100, FAILED_PARSE_MESSAGE)
+                        return FAILED_PARSE_MESSAGE
+                    final_message = f"已生成 {len(suggestion.operations)} 条智能粗剪建议，等待审阅。"
+                    await progress_callback(100, final_message)
+                    return final_message
+                except Exception as exc:
+                    log.exception("智能粗剪建议生成失败")
                     await progress_callback(0, MAGIC_CUT_OPERATION_FAILURE_MESSAGE)
-                    raise RuntimeError(MAGIC_CUT_OPERATION_FAILURE_MESSAGE)
+                    raise RuntimeError(MAGIC_CUT_OPERATION_FAILURE_MESSAGE) from exc
             else:
                 await progress_callback(55, f"正在分析时间线：{timeline.id}")
+            return None
 
         try:
             task = self._task_manager.submit(
@@ -611,6 +641,39 @@ class WorkspaceService:
             status=task.status,
             task=task_data,
             message="AI 命令已进入任务队列，正在通过 TaskBus 处理。",
+        )
+
+    def get_latest_magic_cut_suggestion(
+        self,
+        project_id: str,
+        timeline_id: str,
+    ) -> MagicCutSuggestionDraftDto | None:
+        return self._magic_cut_suggestion_service.latest(project_id, timeline_id)
+
+    def apply_magic_cut_suggestion(
+        self,
+        suggestion_id: str,
+        payload: MagicCutSuggestionApplyInput,
+    ) -> MagicCutSuggestionApplyResultDto:
+        suggestion, timeline, applied_count = self._magic_cut_suggestion_service.apply(
+            suggestion_id,
+            payload.operationIds,
+            payload.confirmTimelineVersionToken,
+            self,
+        )
+        return MagicCutSuggestionApplyResultDto(
+            suggestion=suggestion,
+            timeline=self._to_dto(timeline),
+            appliedCount=applied_count,
+            failedCount=0,
+            message=f"已应用 {applied_count} 条智能粗剪建议。",
+        )
+
+    def dismiss_magic_cut_suggestion(self, suggestion_id: str) -> MagicCutSuggestionDismissResultDto:
+        suggestion = self._magic_cut_suggestion_service.dismiss(suggestion_id)
+        return MagicCutSuggestionDismissResultDto(
+            suggestion=suggestion,
+            message="已忽略本次智能粗剪建议，时间线未修改。",
         )
 
     def _build_timeline_result(

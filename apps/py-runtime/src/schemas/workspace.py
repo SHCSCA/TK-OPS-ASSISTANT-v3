@@ -236,3 +236,49 @@ class WorkspaceAICommandResultDto(BaseModel):
     status: str
     task: dict[str, object] | None = None
     message: str
+
+
+class MagicCutSuggestionOperationDto(BaseModel):
+    id: str
+    action: str
+    clipId: str
+    trackId: str | None = None
+    targetTrackId: str | None = None
+    originalStartMs: int | None = None
+    originalDurationMs: int | None = None
+    suggestedStartMs: int | None = None
+    suggestedDurationMs: int | None = None
+    splitAtMs: int | None = None
+    reason: str
+    risk: str | None = None
+
+
+class MagicCutSuggestionDraftDto(BaseModel):
+    id: str
+    projectId: str
+    timelineId: str
+    timelineVersionToken: str
+    status: str
+    summary: str
+    operations: list[MagicCutSuggestionOperationDto] = Field(default_factory=list)
+    createdAt: str
+    updatedAt: str
+    appliedAt: str | None = None
+
+
+class MagicCutSuggestionApplyInput(BaseModel):
+    operationIds: list[str] = Field(default_factory=list)
+    confirmTimelineVersionToken: str
+
+
+class MagicCutSuggestionApplyResultDto(BaseModel):
+    suggestion: MagicCutSuggestionDraftDto
+    timeline: TimelineDto
+    appliedCount: int
+    failedCount: int
+    message: str
+
+
+class MagicCutSuggestionDismissResultDto(BaseModel):
+    suggestion: MagicCutSuggestionDraftDto
+    message: str

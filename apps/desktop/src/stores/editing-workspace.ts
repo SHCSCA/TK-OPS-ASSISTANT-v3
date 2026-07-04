@@ -2,10 +2,13 @@ import { defineStore } from "pinia";
 
 import {
   RuntimeRequestError,
+  applyMagicCutSuggestion as applyRuntimeMagicCutSuggestion,
   assembleWorkspaceTimeline,
   createWorkspaceTimeline,
   deleteWorkspaceClip,
+  dismissMagicCutSuggestion as dismissRuntimeMagicCutSuggestion,
   fetchAssets,
+  fetchLatestMagicCutSuggestion,
   fetchTimelinePreview,
   fetchWorkspaceTimeline,
   insertWorkspaceAssetClip,
@@ -30,6 +33,8 @@ import {
 } from "@/modules/workspace/workspaceTimelineHistory";
 import type {
   AssetDto,
+  MagicCutSuggestionApplyResultDto,
+  MagicCutSuggestionDraftDto,
   RuntimeRequestErrorShape,
   TimelinePrecheckDto,
   TimelinePrecheckIssueDetailDto,
@@ -54,6 +59,8 @@ export type EditingWorkspaceStatus =
   | "error";
 
 export type EditingWorkspaceAssetStatus = "idle" | "loading" | "ready" | "error";
+
+export type MagicCutSuggestionStatus = "idle" | "loading" | "ready" | "applying" | "error";
 
 export type EditingWorkspaceMovePreview = {
   gesture: "move";
@@ -81,6 +88,9 @@ type EditingWorkspaceState = {
   blockedMessage: string | null;
   error: RuntimeRequestErrorShape | null;
   lastCommandResult: WorkspaceAICommandResultDto | null;
+  magicCutSuggestion: MagicCutSuggestionDraftDto | null;
+  magicCutSuggestionError: RuntimeRequestErrorShape | null;
+  magicCutSuggestionStatus: MagicCutSuggestionStatus;
   precheck: TimelinePrecheckDto | null;
   preview: TimelinePreviewDto | null;
   previewError: RuntimeRequestErrorShape | null;
@@ -105,6 +115,9 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     blockedMessage: null,
     error: null,
     lastCommandResult: null,
+    magicCutSuggestion: null,
+    magicCutSuggestionError: null,
+    magicCutSuggestionStatus: "idle",
     precheck: null,
     preview: null,
     previewError: null,
@@ -158,6 +171,9 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.error = null;
       this.projectId = projectId;
       this.lastCommandResult = null;
+      this.magicCutSuggestion = null;
+      this.magicCutSuggestionStatus = "idle";
+      this.magicCutSuggestionError = null;
       this.precheck = null;
       this.preview = null;
       this.previewError = null;
@@ -243,6 +259,9 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.projectId = pid;
       this.precheck = null;
       this.lastCommandResult = null;
+      this.magicCutSuggestion = null;
+      this.magicCutSuggestionStatus = "idle";
+      this.magicCutSuggestionError = null;
 
       try {
         const result = await assembleWorkspaceTimeline(pid, {
@@ -314,6 +333,9 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.projectId = pid;
       this.precheck = null;
       this.lastCommandResult = null;
+      this.magicCutSuggestion = null;
+      this.magicCutSuggestionStatus = "idle";
+      this.magicCutSuggestionError = null;
 
       try {
         const result = await runWorkspaceAICommand(pid, {
@@ -385,23 +407,105 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.lastCommandResult = commandResult;
       if (task.status !== "succeeded" || !this.projectId) return;
 
-      await this.load(this.projectId);
-      if (this.status === "error") {
+      const suggestion = await this.loadMagicCutSuggestion();
+      this.lastCommandResult = {
+        ...commandResult,
+        message: suggestion
+          ? commandResult.message
+          : appendCommandTerminalSuggestionLoadFailedMessage(commandResult.message)
+      };
+    },
+    async loadMagicCutSuggestion(): Promise<MagicCutSuggestionDraftDto | null> {
+      if (!this.projectId || !this.timeline) {
+        this.magicCutSuggestion = null;
+        this.magicCutSuggestionStatus = "idle";
+        this.magicCutSuggestionError = null;
+        return null;
+      }
+
+      this.magicCutSuggestionStatus = "loading";
+      this.magicCutSuggestionError = null;
+
+      try {
+        const suggestion = await fetchLatestMagicCutSuggestion(this.projectId, this.timeline.id);
+        this.magicCutSuggestion = suggestion;
+        this.magicCutSuggestionStatus = "ready";
+        return suggestion;
+      } catch (error) {
+        this.magicCutSuggestionStatus = "error";
+        this.magicCutSuggestionError = toRuntimeErrorShape(
+          error,
+          "智能粗剪建议读取失败，请稍后重试。"
+        );
+        return null;
+      }
+    },
+    async applyMagicCutSuggestion(operationIds: string[]): Promise<MagicCutSuggestionApplyResultDto | null> {
+      if (!this.magicCutSuggestion) {
+        this.applyMagicCutSuggestionError("当前没有可应用的智能粗剪建议。");
+        return null;
+      }
+
+      this.magicCutSuggestionStatus = "applying";
+      this.magicCutSuggestionError = null;
+
+      try {
+        const result = await applyRuntimeMagicCutSuggestion(this.magicCutSuggestion.id, {
+          operationIds,
+          confirmTimelineVersionToken: this.magicCutSuggestion.timelineVersionToken
+        });
+        this.magicCutSuggestion = result.suggestion;
+        this.magicCutSuggestionStatus = "ready";
+        this.applyTimelineResult({
+          timeline: result.timeline,
+          message: result.message
+        });
+        await this.refreshTimelinePreview();
+        const precheckResult = await this.runPrecheck();
         this.lastCommandResult = {
-          ...commandResult,
-          message: appendCommandTerminalRefreshFailedMessage(commandResult.message)
+          status: "succeeded",
+          task: null,
+          message: precheckResult === null
+            ? `${result.message} 预检未完成，请手动重试。`
+            : `已应用 ${result.appliedCount} 条智能粗剪建议，时间线本地预检通过。`
         };
+        return result;
+      } catch (error) {
+        this.magicCutSuggestionStatus = "error";
+        this.magicCutSuggestionError = toRuntimeErrorShape(
+          error,
+          "应用失败，已保留原时间线。"
+        );
+        return null;
+      }
+    },
+    async dismissMagicCutSuggestion(): Promise<void> {
+      if (!this.magicCutSuggestion) {
+        this.magicCutSuggestion = null;
+        this.magicCutSuggestionStatus = "ready";
+        this.magicCutSuggestionError = null;
         return;
       }
 
-      const precheckResult = await this.runPrecheck();
-      this.lastCommandResult = {
-        ...commandResult,
-        message:
-          precheckResult === null
-            ? appendCommandTerminalPrecheckFailedMessage(commandResult.message)
-            : appendCommandTerminalRefreshMessage(commandResult.message)
-      };
+      this.magicCutSuggestionStatus = "applying";
+      this.magicCutSuggestionError = null;
+
+      try {
+        const result = await dismissRuntimeMagicCutSuggestion(this.magicCutSuggestion.id);
+        this.magicCutSuggestion = null;
+        this.magicCutSuggestionStatus = "ready";
+        this.lastCommandResult = {
+          status: "succeeded",
+          task: null,
+          message: result.message
+        };
+      } catch (error) {
+        this.magicCutSuggestionStatus = "error";
+        this.magicCutSuggestionError = toRuntimeErrorShape(
+          error,
+          "智能粗剪建议忽略失败，请稍后重试。"
+        );
+      }
     },
     selectTrack(trackId: string | null): void {
       this.selectedTrackId = trackId;
@@ -1011,6 +1115,15 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         requestId: runtimeError.requestId,
         status: runtimeError.status
       };
+    },
+    applyMagicCutSuggestionError(message: string): void {
+      this.magicCutSuggestionStatus = "error";
+      this.magicCutSuggestionError = {
+        details: null,
+        message,
+        requestId: "",
+        status: 0
+      };
     }
   }
 });
@@ -1037,24 +1150,8 @@ function buildMagicCutUnavailableMessage(message: string): string {
   return message.startsWith("智能粗剪暂不可用：") ? message : `智能粗剪暂不可用：${message}`;
 }
 
-function appendCommandTerminalRefreshMessage(message: string): string {
-  const suffix = "时间线已刷新，预检已完成。";
-  const normalizedMessage = message.trim() || "AI 命令状态已更新。";
-  if (normalizedMessage.includes(suffix)) return normalizedMessage;
-  const separator = normalizedMessage.endsWith("。") ? " " : "。 ";
-  return `${normalizedMessage}${separator}${suffix}`;
-}
-
-function appendCommandTerminalRefreshFailedMessage(message: string): string {
-  const suffix = "时间线刷新失败。";
-  const normalizedMessage = message.trim() || "AI 命令状态已更新。";
-  if (normalizedMessage.includes(suffix)) return normalizedMessage;
-  const separator = normalizedMessage.endsWith("。") ? " " : "。 ";
-  return `${normalizedMessage}${separator}${suffix}`;
-}
-
-function appendCommandTerminalPrecheckFailedMessage(message: string): string {
-  const suffix = "时间线已刷新，预检失败。";
+function appendCommandTerminalSuggestionLoadFailedMessage(message: string): string {
+  const suffix = "建议读取失败，请手动重新读取。";
   const normalizedMessage = message.trim() || "AI 命令状态已更新。";
   if (normalizedMessage.includes(suffix)) return normalizedMessage;
   const separator = normalizedMessage.endsWith("。") ? " " : "。 ";
@@ -1063,6 +1160,20 @@ function appendCommandTerminalPrecheckFailedMessage(message: string): string {
 
 function resolveRuntimeErrorSuffixSeparator(message: string): string {
   return /[。！？.!?]$/.test(message) ? "" : "。";
+}
+
+function toRuntimeErrorShape(error: unknown, fallbackMessage: string): RuntimeRequestErrorShape {
+  const runtimeError =
+    error instanceof RuntimeRequestError
+      ? error
+      : new RuntimeRequestError(fallbackMessage);
+  return {
+    details: runtimeError.details,
+    errorCode: runtimeError.errorCode || undefined,
+    message: runtimeError.message,
+    requestId: runtimeError.requestId,
+    status: runtimeError.status
+  };
 }
 
 export function isMagicCutRecoveryMessage(message: string): boolean {

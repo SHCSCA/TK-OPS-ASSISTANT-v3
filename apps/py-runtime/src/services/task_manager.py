@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 TaskStatus = str
 ProgressCallback = Callable[[int, str], Awaitable[None]]
-TaskCoroFactory = Callable[[ProgressCallback], Awaitable[None]]
+TaskCoroFactory = Callable[[ProgressCallback], Awaitable[str | None]]
 
 
 def _utc_now() -> str:
@@ -121,12 +121,12 @@ class TaskManager:
                 )
                 await ws_manager.broadcast(self.to_event(task_info, "task.progress"))
 
-            await coro_factory(progress_callback)
+            final_message = await coro_factory(progress_callback)
             self._update(
                 task_info,
                 status="succeeded",
                 progress=100,
-                message="任务已完成",
+                message=final_message if final_message else "任务已完成",
             )
             await ws_manager.broadcast(self.to_event(task_info, "task.completed"))
         except asyncio.CancelledError:

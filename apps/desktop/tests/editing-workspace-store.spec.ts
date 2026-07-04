@@ -1067,7 +1067,7 @@ describe("M05 AI 剪辑工作台 store", () => {
     });
   });
 
-  it("智能粗剪任务成功后刷新时间线并自动完成预检", async () => {
+  it("智能粗剪任务成功后只加载建议草稿，不刷新为 AI 修改结果", async () => {
     const fetchMock = createWorkspaceFetch();
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1081,7 +1081,7 @@ describe("M05 AI 剪辑工作台 store", () => {
       project_id: "project-1",
       status: "succeeded",
       progress: 100,
-      message: "智能粗剪完成。",
+      message: "已生成 1 条智能粗剪建议，等待审阅。",
       created_at: now(),
       updated_at: now()
     });
@@ -1091,63 +1091,107 @@ describe("M05 AI 剪辑工作台 store", () => {
       path: new URL(String(url)).pathname
     }));
 
-    expect(calls.some((call) => call.path === "/api/workspace/projects/project-1/timeline")).toBe(true);
-    expect(calls.some((call) => call.path === "/api/workspace/timelines/timeline-1/preview")).toBe(true);
-    expect(calls.some((call) => call.path === "/api/workspace/timelines/timeline-1/precheck")).toBe(true);
-    expect(store.precheck?.message).toBe("时间线本地预检通过。");
-    expect(store.lastCommandResult?.message).toContain("时间线已刷新，预检已完成");
-  });
-
-  it("智能粗剪成功但自动预检失败时保留错误反馈", async () => {
-    vi.stubGlobal("fetch", createWorkspaceFetch({ failPrecheck: true }));
-
-    const store = useEditingWorkspaceStore();
-    await store.load("project-1");
-
-    await store.applyCommandTerminalTask({
-      id: "task-workspace-1",
-      task_type: "ai-workspace-command",
-      project_id: "project-1",
-      status: "succeeded",
-      progress: 100,
-      message: "智能粗剪完成。",
-      created_at: now(),
-      updated_at: now()
-    });
-
-    expect(store.status).toBe("error");
-    expect(store.error?.message).toBe("时间线预检失败，请稍后重试。");
+    expect(calls).toEqual([
+      {
+        method: "GET",
+        path: "/api/workspace/projects/project-1/magic-cut-suggestions/latest"
+      }
+    ]);
+    expect(store.magicCutSuggestion?.id).toBe("suggestion-1");
+    expect(store.magicCutSuggestionStatus).toBe("ready");
     expect(store.precheck).toBeNull();
-    expect(store.lastCommandResult?.message).toContain("时间线已刷新，预检失败");
-    expect(store.lastCommandResult?.message).not.toContain("预检已完成");
+    expect(store.lastCommandResult?.message).toBe("已生成 1 条智能粗剪建议，等待审阅。");
   });
 
-  it("智能粗剪成功但时间线刷新失败时保留刷新错误反馈", async () => {
-    const fetchMock = createWorkspaceFetch({ failLoad: true });
+  it("应用智能粗剪建议后刷新预览和预检并显示应用结果", async () => {
+    const fetchMock = createWorkspaceFetch();
     vi.stubGlobal("fetch", fetchMock);
 
     const store = useEditingWorkspaceStore();
-    store.projectId = "project-1";
+    await store.load("project-1");
+    await store.loadMagicCutSuggestion();
+    fetchMock.mockClear();
 
-    await store.applyCommandTerminalTask({
-      id: "task-workspace-1",
-      task_type: "ai-workspace-command",
-      project_id: "project-1",
-      status: "succeeded",
-      progress: 100,
-      message: "智能粗剪完成。",
-      created_at: now(),
-      updated_at: now()
+    const result = await store.applyMagicCutSuggestion(["operation-trim-1"]);
+
+    const calls = fetchMock.mock.calls.map(([url, init]) => ({
+      body: init?.body ? JSON.parse(String(init.body)) : undefined,
+      method: init?.method ?? "GET",
+      path: new URL(String(url)).pathname
+    }));
+
+    expect(result?.appliedCount).toBe(1);
+    expect(store.timeline?.tracks[0].clips[0].durationMs).toBe(3000);
+    expect(store.magicCutSuggestion?.status).toBe("applied");
+    expect(store.magicCutSuggestionStatus).toBe("ready");
+    expect(store.lastCommandResult?.message).toBe("已应用 1 条智能粗剪建议，时间线本地预检通过。");
+    expect(store.precheck?.message).toBe("时间线本地预检通过。");
+    expect(calls).toEqual([
+      {
+        path: "/api/workspace/magic-cut-suggestions/suggestion-1/apply",
+        method: "POST",
+        body: {
+          operationIds: ["operation-trim-1"],
+          confirmTimelineVersionToken: "sha256:timeline-token"
+        }
+      },
+      {
+        path: "/api/workspace/timelines/timeline-1/preview",
+        method: "GET",
+        body: undefined
+      },
+      {
+        path: "/api/workspace/timelines/timeline-1/precheck",
+        method: "POST",
+        body: undefined
+      }
+    ]);
+  });
+
+  it("忽略智能粗剪建议后清空建议区并保留时间线", async () => {
+    const fetchMock = createWorkspaceFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.loadMagicCutSuggestion();
+    const originalTimeline = store.timeline;
+
+    await store.dismissMagicCutSuggestion();
+
+    expect(store.timeline).toBe(originalTimeline);
+    expect(store.magicCutSuggestion).toBeNull();
+    expect(store.magicCutSuggestionStatus).toBe("ready");
+    expect(store.lastCommandResult?.message).toBe("已忽略本次智能粗剪建议，时间线未修改。");
+  });
+
+  it("应用过期智能粗剪建议时显示 Runtime 中文错误并保留草稿", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({ failMagicCutApplyStale: true }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.loadMagicCutSuggestion();
+    const result = await store.applyMagicCutSuggestion(["operation-trim-1"]);
+
+    expect(result).toBeNull();
+    expect(store.magicCutSuggestion?.id).toBe("suggestion-1");
+    expect(store.magicCutSuggestionStatus).toBe("error");
+    expect(store.magicCutSuggestionError).toMatchObject({
+      message: "时间线已变化，请重新生成智能粗剪建议。",
+      status: 409
     });
+  });
 
-    expect(store.status).toBe("error");
-    expect(store.error?.message).toBe("时间线刷新失败，请稍后重试。");
-    expect(store.precheck).toBeNull();
-    expect(store.lastCommandResult?.message).toContain("时间线刷新失败");
-    expect(store.lastCommandResult?.message).not.toContain("预检已完成");
-    expect(
-      fetchMock.mock.calls.some(([url]) => new URL(String(url)).pathname === "/api/workspace/timelines/timeline-1/precheck")
-    ).toBe(false);
+  it("failed_parse 智能粗剪草稿保持可见但不能应用", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({ magicCutSuggestion: failedParseSuggestion() }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    const suggestion = await store.loadMagicCutSuggestion();
+
+    expect(suggestion?.status).toBe("failed_parse");
+    expect(store.magicCutSuggestionStatus).toBe("ready");
+    expect(store.magicCutSuggestion?.operations).toEqual([]);
   });
 
   it("智能粗剪非成功终态只记录结果不刷新时间线", async () => {
@@ -1218,6 +1262,7 @@ function createWorkspaceFetch(
     failAssets?: boolean;
     failInsert?: boolean;
     failLoad?: boolean;
+    failMagicCutApplyStale?: boolean;
     failMove?: boolean;
     failMoveMessage?: string;
     failMoveOnCall?: number;
@@ -1226,6 +1271,7 @@ function createWorkspaceFetch(
     failSave?: boolean;
     failSaveOnPatchCall?: number;
     failTrim?: boolean;
+    magicCutSuggestion?: ReturnType<typeof magicCutSuggestion> | ReturnType<typeof failedParseSuggestion> | null;
     preview?: ReturnType<typeof timelinePreview>;
     timeline?: ReturnType<typeof timeline> | null;
   } = {}
@@ -1484,6 +1530,52 @@ function createWorkspaceFetch(
       });
     }
 
+    if (path === "/api/workspace/projects/project-1/magic-cut-suggestions/latest?timelineId=timeline-1" && method === "GET") {
+      return okJsonResponse(options.magicCutSuggestion === undefined ? magicCutSuggestion() : options.magicCutSuggestion);
+    }
+
+    if (path === "/api/workspace/magic-cut-suggestions/suggestion-1/apply" && method === "POST") {
+      const body = JSON.parse(String(init?.body));
+      expect(body).toEqual({
+        operationIds: ["operation-trim-1"],
+        confirmTimelineVersionToken: "sha256:timeline-token"
+      });
+      if (options.failMagicCutApplyStale) {
+        return errorJsonResponse(
+          409,
+          "时间线已变化，请重新生成智能粗剪建议。",
+          "req-magic-cut-stale",
+          "workspace.magic_cut_timeline_changed"
+        );
+      }
+      return okJsonResponse({
+        suggestion: {
+          ...magicCutSuggestion(),
+          status: "applied",
+          appliedAt: now(),
+          updatedAt: now()
+        },
+        timeline: timeline("timeline-1", [managedVideoTrack([
+          managedVideoClip({ durationMs: 3000, outPointMs: 3000 })
+        ])]),
+        appliedCount: 1,
+        failedCount: 0,
+        message: "已应用 1 条智能粗剪建议。"
+      });
+    }
+
+    if (path === "/api/workspace/magic-cut-suggestions/suggestion-1/dismiss" && method === "POST") {
+      return okJsonResponse({
+        suggestion: {
+          ...magicCutSuggestion(),
+          status: "dismissed",
+          operations: [],
+          updatedAt: now()
+        },
+        message: "已忽略本次智能粗剪建议，时间线未修改。"
+      });
+    }
+
     if (path === "/api/tasks/task-workspace-1/cancel" && method === "POST") {
       return okJsonResponse({
         task_id: "task-workspace-1",
@@ -1530,6 +1622,46 @@ function timeline(id = "timeline-1", tracks: unknown[] = []) {
     tracks,
     createdAt: now(),
     updatedAt: now()
+  };
+}
+
+function magicCutSuggestion() {
+  return {
+    id: "suggestion-1",
+    projectId: "project-1",
+    timelineId: "timeline-1",
+    timelineVersionToken: "sha256:timeline-token",
+    status: "pending_review",
+    summary: "建议压缩开场停顿。",
+    operations: [
+      {
+        id: "operation-trim-1",
+        action: "trim",
+        clipId: "managed-video-storyboard-01",
+        trackId: "managed-video-storyboard",
+        targetTrackId: null,
+        originalStartMs: 0,
+        originalDurationMs: 5000,
+        suggestedStartMs: 0,
+        suggestedDurationMs: 3000,
+        splitAtMs: null,
+        reason: "开场停顿过长。",
+        risk: null
+      }
+    ],
+    createdAt: now(),
+    updatedAt: now(),
+    appliedAt: null
+  };
+}
+
+function failedParseSuggestion() {
+  return {
+    ...magicCutSuggestion(),
+    id: "suggestion-failed-parse",
+    status: "failed_parse",
+    summary: "AI 返回内容无法生成建议，请重新生成",
+    operations: []
   };
 }
 

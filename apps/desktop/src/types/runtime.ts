@@ -831,6 +831,47 @@ export type WorkspaceAICommandResultDto = {
   message: string;
 };
 
+export type MagicCutSuggestionOperationDto = {
+  id: string;
+  action: string;
+  clipId: string;
+  trackId?: string | null;
+  targetTrackId?: string | null;
+  originalStartMs?: number | null;
+  originalDurationMs?: number | null;
+  suggestedStartMs?: number | null;
+  suggestedDurationMs?: number | null;
+  splitAtMs?: number | null;
+  reason: string;
+  risk?: string | null;
+};
+
+export type MagicCutSuggestionDraftDto = {
+  id: string;
+  projectId: string;
+  timelineId: string;
+  timelineVersionToken: string;
+  status: string;
+  summary: string;
+  operations: MagicCutSuggestionOperationDto[];
+  createdAt: string;
+  updatedAt: string;
+  appliedAt: string | null;
+};
+
+export type MagicCutSuggestionApplyInput = {
+  operationIds: string[];
+  confirmTimelineVersionToken: string;
+};
+
+export type MagicCutSuggestionApplyResultDto = {
+  suggestion: MagicCutSuggestionDraftDto;
+  timeline: WorkspaceTimelineDto;
+  appliedCount: number;
+  failedCount: number;
+  message: string;
+};
+
 export type VoiceTrackStatus =
   | "blocked"
   | "ready"

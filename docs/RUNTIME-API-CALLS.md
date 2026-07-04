@@ -2,7 +2,7 @@
 
 # Runtime API 与前端调用真源
 
-**当前状态（2026-05-17）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致（187 / 187）；`workspace.timeline.assemble / workspace.clip.insert_asset / voice.audio / voice.profiles.refresh / volcengine_tts2 / ai-capability secret` 已回流到本文。§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
+**当前状态（2026-07-04）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致（190 / 190）；`workspace.timeline.assemble / workspace.clip.insert_asset / workspace.magic_cut_suggestions / voice.audio / voice.profiles.refresh / volcengine_tts2 / ai-capability secret` 已回流到本文。§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
 **接口版本**: V1（统一 JSON 信封，无独立版本号前缀）
 **唯一真源约束**: 后端路由、服务、前端 `runtime-client.ts`、Pinia store、契约测试发生变化时，必须在同一次改动中更新本文件。
 **编码约束**: 本文档必须使用 UTF-8 无 BOM 保存，所有读取、生成、校验脚本都按 UTF-8 处理，避免中文出现乱码。
@@ -77,6 +77,11 @@
 | `browser_instance.devtools_unreachable` | 浏览器调试端口不可达 | 适用于浏览器实例健康检查和真实进程边界验证 |
 | `browser_instance.stop_failed` | 浏览器进程停止失败 | 适用于浏览器实例停止 |
 | `workspace.ai_command_precheck_failed` | AI 工作台命令配置预检失败 | 适用于智能粗剪 Provider 未配置、能力停用、密钥缺失或模型不支持 |
+| `workspace.magic_cut_suggestion_not_found` | 智能粗剪建议不存在 | 适用于读取、应用或忽略不存在的建议草稿 |
+| `workspace.magic_cut_timeline_changed` | 时间线已变化 | 当前时间线版本 token 与建议草稿 token 不一致 |
+| `workspace.magic_cut_apply_failed` | 智能粗剪建议应用失败 | 任一选中操作失败，Runtime 已保留原时间线 |
+| `workspace.magic_cut_suggestion_not_reviewable` | 建议不可审阅 | 建议草稿已应用、已忽略或为 `failed_parse` |
+| `workspace.magic_cut_invalid_operation` | 智能粗剪建议内容无效 | `operationIds` 重复、不存在或建议操作不可执行 |
 
 ### 1.3 模块索引
 
@@ -106,9 +111,9 @@
 
 ## 1.5 文档-代码差异矩阵（V1）
 
-- HTTP 文档路由数（提取）：187
-- HTTP 代码路由数（去重）：187
-- HTTP 文档与代码一致：187
+- HTTP 文档路由数（提取）：190
+- HTTP 代码路由数（去重）：190
+- HTTP 文档与代码一致：190
 - HTTP 代码未写入文档（需补充）：0
 - HTTP 文档有但代码未见（需补齐）：0
 
@@ -116,7 +121,7 @@
 
 | 状态 | 数量 | 说明 |
 | --- | --- | --- |
-| 已实现并已文档化 | 187 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
+| 已实现并已文档化 | 190 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
 | 已实现但未文档化 | 0 | 本轮已补齐 `bootstrap / dashboard / settings / devices / ai-providers` 新增运行时接口登记 |
 | 文档已写但未实现 | 0 | 本轮已补齐 `/api/video-deconstruction` 文档要求的 7 个接口，并完成剩余接口登记 |
 | 字段仍可继续细化 | 若干 | 主要是高级接口的错误码、更多响应示例和边界说明 |
@@ -136,6 +141,9 @@
 - 已补登记 `/api/video-deconstruction/videos/{video_id}/stages/{stage_id}/rerun`
 - 已补登记 `/api/voice/providers/{provider_id}/profiles/refresh`
 - 已补登记 `/api/workspace/projects/{project_id}/timeline/assemble`
+- 已补登记 `/api/workspace/projects/{project_id}/magic-cut-suggestions/latest`
+- 已补登记 `/api/workspace/magic-cut-suggestions/{suggestion_id}/apply`
+- 已补登记 `/api/workspace/magic-cut-suggestions/{suggestion_id}/dismiss`
 - 已补登记 `GET /api/bootstrap/readiness`
 - 已补登记 `DELETE /api/dashboard/projects/{project_id}`
 - 已补登记 `GET /api/settings/diagnostics/media`
@@ -585,7 +593,10 @@
 | `DELETE /api/workspace/clips/{clip_id}` | 路径参数：`clip_id` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_delete`、`message` | `400`、`404` | `deleteWorkspaceClip`、`editing-workspace.ts:deleteSelectedClip` |
 | `GET /api/workspace/timelines/{timeline_id}/preview` | 路径参数：`timeline_id`；查询参数：`clipId?` | `TimelinePreviewDto`：`timelineId`、`status=ready/structure_only/unavailable`、`message`、`previewUrl`、`previewMode=manifest/media/unavailable`、`media?`、`error?` | `404`、`500`；业务错误码见下方 `preview.*` | `fetchTimelinePreview` |
 | `POST /api/workspace/timelines/{timeline_id}/precheck` | 路径参数：`timeline_id` | `TimelinePrecheckDto`：`status=ready/warning`、`issues[]`、`issueDetails[]` | `404`、`500` | `precheckTimeline` |
-| `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandInput`：`timelineId?`、`capabilityId`、`parameters` | `WorkspaceAICommandResultDto`；预检通过后返回 `status=queued` 并创建真实 TaskBus 任务；`magic_cut` 配置预检失败时返回错误信封 | `400(workspace.ai_command_precheck_failed)`、`404`、`422` | `runWorkspaceAICommand` |
+| `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandInput`：`timelineId?`、`capabilityId`、`parameters` | `WorkspaceAICommandResultDto`；预检通过后返回 `status=queued` 并创建真实 TaskBus 任务；`capabilityId=magic_cut` 时生成建议草稿，不直接修改时间线 | `400(workspace.ai_command_precheck_failed)`、`404`、`422` | `runWorkspaceAICommand` |
+| `GET /api/workspace/projects/{project_id}/magic-cut-suggestions/latest` | 路径参数：`project_id`；查询参数：`timelineId` | `MagicCutSuggestionDraftDto \| null`：最新智能粗剪建议草稿，包含 `timelineVersionToken`、`status`、`operations[]` | `404`、`500` | `fetchLatestMagicCutSuggestion`、`editing-workspace.ts:loadMagicCutSuggestion` |
+| `POST /api/workspace/magic-cut-suggestions/{suggestion_id}/apply` | 路径参数：`suggestion_id`；`MagicCutSuggestionApplyInput`：`operationIds[]`、`confirmTimelineVersionToken`；`operationIds=[]` 表示应用全部建议 | `MagicCutSuggestionApplyResultDto`：`suggestion`、`timeline`、`appliedCount`、`failedCount=0`、`message` | `400(workspace.magic_cut_invalid_operation)`、`404(workspace.magic_cut_suggestion_not_found)`、`409(workspace.magic_cut_timeline_changed / workspace.magic_cut_apply_failed / workspace.magic_cut_suggestion_not_reviewable)` | `applyMagicCutSuggestion`、`editing-workspace.ts:applyMagicCutSuggestion` |
+| `POST /api/workspace/magic-cut-suggestions/{suggestion_id}/dismiss` | 路径参数：`suggestion_id` | `MagicCutSuggestionDismissResultDto`：`suggestion.status=dismissed`、`message` | `404(workspace.magic_cut_suggestion_not_found)` | `dismissMagicCutSuggestion`、`editing-workspace.ts:dismissMagicCutSuggestion` |
 
 **当前实现说明**
 
@@ -596,6 +607,11 @@
 - `previewMode=unavailable` 表示时间线引用了真实媒体资产但当前不可播放，例如资产服务不可用、资产记录缺失或源文件路径不可用；Runtime 仍保留 `previewUrl` manifest 供前端展示结构摘要，并返回中文 `error.message` 与重试入口。
 - `POST /precheck` 校验轨道类型、片段时长、起始时间与片段数据格式；空轨道会返回可见问题列表。`issues[]` 保持旧字符串契约，`issueDetails[]` 提供可定位的 `timeline / track / clip` 结构化问题。
 - `POST /ai-commands` 对 `magic_cut` 会先执行 AI 能力配置预检；Provider 未配置、能力停用、密钥缺失或模型不支持时直接返回 `400` 错误信封，前端展示中文阻断提示，不创建后台任务。
+- `capabilityId=magic_cut` 的任务成功后只写入 `magic_cut_suggestion_drafts` 建议草稿，任务完成消息为“已生成 N 条智能粗剪建议，等待审阅。”，不会在生成阶段修改 `Timeline.tracks_json`。
+- `failed_parse` 建议草稿会持久化为空 `operations[]`，latest 接口仍返回该草稿；前端显示“AI 返回内容无法生成建议，请重新生成”，不展示应用按钮。
+- `POST /magic-cut-suggestions/{suggestion_id}/apply` 会同时校验请求 token、草稿 token 与当前时间线 token；不一致时返回 `409` 和 `workspace.magic_cut_timeline_changed`。
+- 建议应用是原子语义：提交的 `operationIds` 要么全部应用成功，要么恢复应用前的时间线快照并返回 `workspace.magic_cut_apply_failed`；成功响应中 `failedCount` 固定为 `0`。
+- `POST /magic-cut-suggestions/{suggestion_id}/dismiss` 只把草稿状态改为 `dismissed`，不修改时间线。
 - `POST /clips/{clip_id}/move` 会拒绝锁定轨道、负起点以及移动后与同轨片段重叠的结果。
 - `POST /clips/{clip_id}/trim` 会拒绝负起点、裁剪后小于 500ms 以及裁剪后与同轨片段重叠的结果。
 - `POST /clips/{clip_id}/replace` 推荐传入 `assetId` 替换为资产中心素材；Runtime 会校验资产存在、类型匹配、源文件可访问，并保持原片段起止时间。
@@ -607,6 +623,137 @@
 - `TimelineDto.assetReferenceStatus` 基于真实片段 `sourceType/sourceId/status` 聚合，不编造素材可用性。
 - `WorkspaceTimelineResultDto.activeTask` 只返回当前 Runtime 进程内、且 `ownerRef` 绑定到该时间线的活跃任务，优先 `ai-workspace-command`。
 - `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`assembly`、`save`、`clip_move`、`clip_trim`、`clip_replace`、`clip_insert_asset`、`clip_split`、`clip_delete`。
+
+### M05 智能粗剪建议审阅契约
+
+**最新建议接口**：`GET /api/workspace/projects/{project_id}/magic-cut-suggestions/latest?timelineId={timeline_id}`
+
+**应用建议接口**：`POST /api/workspace/magic-cut-suggestions/{suggestion_id}/apply`
+
+**忽略建议接口**：`POST /api/workspace/magic-cut-suggestions/{suggestion_id}/dismiss`
+
+**核心 DTO**
+
+| DTO | 字段 |
+| --- | --- |
+| `MagicCutSuggestionDraftDto` | `id`、`projectId`、`timelineId`、`timelineVersionToken`、`status`、`summary`、`operations[]`、`createdAt`、`updatedAt`、`appliedAt` |
+| `MagicCutSuggestionOperationDto` | `id`、`action`、`clipId`、`trackId?`、`targetTrackId?`、`originalStartMs?`、`originalDurationMs?`、`suggestedStartMs?`、`suggestedDurationMs?`、`splitAtMs?`、`reason`、`risk?` |
+| `MagicCutSuggestionApplyInput` | `operationIds[]`、`confirmTimelineVersionToken` |
+| `MagicCutSuggestionApplyResultDto` | `suggestion`、`timeline`、`appliedCount`、`failedCount`、`message` |
+
+**建议状态**
+
+| 状态 | 说明 |
+| --- | --- |
+| `pending_review` | AI 已生成建议，等待用户审阅确认 |
+| `applied` | 用户已应用本草稿，时间线已由 Runtime 返回最新版本 |
+| `dismissed` | 用户已忽略本草稿，时间线未修改 |
+| `failed_parse` | AI 返回内容无法生成可审阅建议，`operations[]` 为空 |
+
+**latest 响应示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "id": "suggestion-123",
+    "projectId": "project-1",
+    "timelineId": "timeline-1",
+    "timelineVersionToken": "sha256:0f4c9d2a8c7b6e5d4f3a29180766554433221100ffeeddccbbaa998877665544",
+    "status": "pending_review",
+    "summary": "建议压缩开场停顿。",
+    "operations": [
+      {
+        "id": "suggestion-trim-clip-1-1",
+        "action": "trim",
+        "clipId": "clip-1",
+        "trackId": "managed-video-storyboard",
+        "targetTrackId": null,
+        "originalStartMs": 0,
+        "originalDurationMs": 4200,
+        "suggestedStartMs": 0,
+        "suggestedDurationMs": 3000,
+        "splitAtMs": null,
+        "reason": "开场停顿过长。",
+        "risk": null
+      }
+    ],
+    "createdAt": "2026-07-04T10:00:00Z",
+    "updatedAt": "2026-07-04T10:00:00Z",
+    "appliedAt": null
+  }
+}
+```
+
+**apply 请求示例**
+
+```json
+{
+  "operationIds": ["suggestion-trim-clip-1-1"],
+  "confirmTimelineVersionToken": "sha256:0f4c9d2a8c7b6e5d4f3a29180766554433221100ffeeddccbbaa998877665544"
+}
+```
+
+**apply 成功示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "suggestion": {
+      "id": "suggestion-123",
+      "projectId": "project-1",
+      "timelineId": "timeline-1",
+      "timelineVersionToken": "sha256:0f4c9d2a8c7b6e5d4f3a29180766554433221100ffeeddccbbaa998877665544",
+      "status": "applied",
+      "summary": "建议压缩开场停顿。",
+      "operations": [
+        {
+          "id": "suggestion-trim-clip-1-1",
+          "action": "trim",
+          "clipId": "clip-1",
+          "trackId": "managed-video-storyboard",
+          "targetTrackId": null,
+          "originalStartMs": 0,
+          "originalDurationMs": 4200,
+          "suggestedStartMs": 0,
+          "suggestedDurationMs": 3000,
+          "splitAtMs": null,
+          "reason": "开场停顿过长。",
+          "risk": null
+        }
+      ],
+      "createdAt": "2026-07-04T10:00:00Z",
+      "updatedAt": "2026-07-04T10:01:00Z",
+      "appliedAt": "2026-07-04T10:01:00Z"
+    },
+    "timeline": {
+      "id": "timeline-1",
+      "projectId": "project-1",
+      "name": "主时间线",
+      "status": "ready",
+      "durationSeconds": 25,
+      "source": "manual",
+      "tracks": [],
+      "createdAt": "2026-07-04T09:00:00Z",
+      "updatedAt": "2026-07-04T10:01:00Z"
+    },
+    "appliedCount": 1,
+    "failedCount": 0,
+    "message": "已应用 1 条智能粗剪建议。"
+  }
+}
+```
+
+**错误码**
+
+| `error_code` | HTTP | 中文提示 |
+| --- | ---: | --- |
+| `workspace.magic_cut_suggestion_not_found` | 404 | 智能粗剪建议不存在，请重新生成。 |
+| `workspace.magic_cut_timeline_changed` | 409 | 时间线已变化，请重新生成智能粗剪建议。 |
+| `workspace.magic_cut_apply_failed` | 409 | 应用失败，已保留原时间线。 |
+| `workspace.magic_cut_suggestion_not_reviewable` | 409 | 当前建议已处理，请重新生成。 |
+| `workspace.magic_cut_invalid_operation` | 400 | 智能粗剪建议内容无效，请重新生成。 |
 
 ### M05 预览接口契约
 

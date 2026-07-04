@@ -12,6 +12,7 @@ from schemas.workspace import (
     ClipReplaceInput,
     ClipSplitInput,
     ClipTrimInput,
+    MagicCutSuggestionApplyInput,
     TimelineCreateInput,
     TimelineUpdateInput,
     WorkspaceAICommandInput,
@@ -178,4 +179,33 @@ async def run_ai_command(
             detail=result.message,
             error_code="workspace.ai_command_precheck_failed",
         )
+    return ok_response(result.model_dump(mode="json"))
+
+
+@router.get("/projects/{project_id}/magic-cut-suggestions/latest")
+def get_latest_magic_cut_suggestion(
+    project_id: str,
+    request: Request,
+    timeline_id: str = Query(alias="timelineId"),
+) -> dict[str, object]:
+    result = _svc(request).get_latest_magic_cut_suggestion(project_id, timeline_id)
+    return ok_response(None if result is None else result.model_dump(mode="json"))
+
+
+@router.post("/magic-cut-suggestions/{suggestion_id}/apply")
+def apply_magic_cut_suggestion(
+    suggestion_id: str,
+    payload: MagicCutSuggestionApplyInput,
+    request: Request,
+) -> dict[str, object]:
+    result = _svc(request).apply_magic_cut_suggestion(suggestion_id, payload)
+    return ok_response(result.model_dump(mode="json"))
+
+
+@router.post("/magic-cut-suggestions/{suggestion_id}/dismiss")
+def dismiss_magic_cut_suggestion(
+    suggestion_id: str,
+    request: Request,
+) -> dict[str, object]:
+    result = _svc(request).dismiss_magic_cut_suggestion(suggestion_id)
     return ok_response(result.model_dump(mode="json"))

@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   RuntimeRequestError,
   createWorkspaceTimeline,
+  applyMagicCutSuggestion,
+  dismissMagicCutSuggestion,
+  fetchLatestMagicCutSuggestion,
   fetchTimelinePreview,
   fetchWorkspaceTimeline,
   insertWorkspaceAssetClip,
@@ -192,6 +195,83 @@ describe("M05 AI 剪辑工作台 Runtime client 契约", () => {
     ]);
   });
 
+  it("智能粗剪建议接口使用 Runtime adapter 和审阅门禁路径", async () => {
+    const calls: Array<{ body?: unknown; method: string; path: string }> = [];
+    const fetchMock = createRouteAwareFetch((path, method, init) => {
+      calls.push({
+        path,
+        method,
+        body: init?.body ? JSON.parse(String(init.body)) : undefined
+      });
+
+      if (
+        path === "/api/workspace/projects/project-1/magic-cut-suggestions/latest?timelineId=timeline-1" &&
+        method === "GET"
+      ) {
+        return okJsonResponse(magicCutSuggestion());
+      }
+
+      if (path === "/api/workspace/magic-cut-suggestions/suggestion-1/apply" && method === "POST") {
+        return okJsonResponse({
+          suggestion: {
+            ...magicCutSuggestion(),
+            status: "applied",
+            appliedAt: now()
+          },
+          timeline: workspaceTimeline("timeline-1"),
+          appliedCount: 1,
+          failedCount: 0,
+          message: "已应用 1 条智能粗剪建议。"
+        });
+      }
+
+      if (path === "/api/workspace/magic-cut-suggestions/suggestion-1/dismiss" && method === "POST") {
+        return okJsonResponse({
+          suggestion: {
+            ...magicCutSuggestion(),
+            status: "dismissed",
+            operations: []
+          },
+          message: "已忽略本次智能粗剪建议，时间线未修改。"
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const latest = await fetchLatestMagicCutSuggestion("project-1", "timeline-1");
+    const applied = await applyMagicCutSuggestion("suggestion-1", {
+      operationIds: ["operation-trim-1"],
+      confirmTimelineVersionToken: "sha256:timeline-token"
+    });
+    const dismissed = await dismissMagicCutSuggestion("suggestion-1");
+
+    expect(latest?.id).toBe("suggestion-1");
+    expect(applied.appliedCount).toBe(1);
+    expect(dismissed.message).toBe("已忽略本次智能粗剪建议，时间线未修改。");
+    expect(calls).toEqual([
+      {
+        path: "/api/workspace/projects/project-1/magic-cut-suggestions/latest?timelineId=timeline-1",
+        method: "GET",
+        body: undefined
+      },
+      {
+        path: "/api/workspace/magic-cut-suggestions/suggestion-1/apply",
+        method: "POST",
+        body: {
+          operationIds: ["operation-trim-1"],
+          confirmTimelineVersionToken: "sha256:timeline-token"
+        }
+      },
+      {
+        path: "/api/workspace/magic-cut-suggestions/suggestion-1/dismiss",
+        method: "POST",
+        body: undefined
+      }
+    ]);
+  });
+
   it("把 Runtime 错误信封转换为可见中文错误", async () => {
     vi.stubGlobal(
       "fetch",
@@ -223,5 +303,35 @@ function workspaceTimeline(id = "timeline-1", name = "AI 剪辑草稿") {
     tracks: [],
     createdAt: now(),
     updatedAt: now()
+  };
+}
+
+function magicCutSuggestion() {
+  return {
+    id: "suggestion-1",
+    projectId: "project-1",
+    timelineId: "timeline-1",
+    timelineVersionToken: "sha256:timeline-token",
+    status: "pending_review",
+    summary: "建议压缩开场停顿。",
+    operations: [
+      {
+        id: "operation-trim-1",
+        action: "trim",
+        clipId: "clip-video-1",
+        trackId: "track-video",
+        targetTrackId: null,
+        originalStartMs: 0,
+        originalDurationMs: 4200,
+        suggestedStartMs: 0,
+        suggestedDurationMs: 3000,
+        splitAtMs: null,
+        reason: "开场停顿过长。",
+        risk: null
+      }
+    ],
+    createdAt: now(),
+    updatedAt: now(),
+    appliedAt: null
   };
 }

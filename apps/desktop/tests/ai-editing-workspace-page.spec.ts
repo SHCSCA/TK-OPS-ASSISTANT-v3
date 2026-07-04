@@ -1382,7 +1382,7 @@ describe("M05 AI 剪辑工作台页面", () => {
     expect(wrapper.text()).not.toContain("智能粗剪暂不可用：当前 AI 能力已停用。");
   });
 
-  it("从 TaskBus 恢复的智能粗剪终态会保留反馈并在成功后刷新时间线", async () => {
+  it("从 TaskBus 恢复的智能粗剪终态会保留反馈并在成功后读取建议", async () => {
     const { calls, pinia, wrapper } = await mountEditingWorkspaceWithTimeline();
     const taskBusStore = useTaskBusStore(pinia);
 
@@ -1413,8 +1413,8 @@ describe("M05 AI 剪辑工作台页面", () => {
     expect(wrapper.get('[data-testid="workspace-command-feedback"]').text()).toContain("智能粗剪失败");
     expect(wrapper.get('[data-testid="workspace-command-feedback"]').text()).toContain("Provider 响应超时，请稍后重试。");
 
-    const timelineLoadCountBeforeSuccess = calls.filter(
-      (call) => call.path === "/api/workspace/projects/project-1/timeline" && call.method === "GET"
+    const suggestionLoadCountBeforeSuccess = calls.filter(
+      (call) => call.path === "/api/workspace/projects/project-1/magic-cut-suggestions/latest?timelineId=timeline-1" && call.method === "GET"
     ).length;
     taskBusStore.handleIncomingMessage(JSON.stringify({
       schema_version: 1,
@@ -1424,7 +1424,7 @@ describe("M05 AI 剪辑工作台页面", () => {
       projectId: "project-1",
       status: "running",
       progress: 72,
-      message: "正在应用智能粗剪结果。"
+      message: "正在生成智能粗剪建议。"
     }));
     await flushPromises();
     taskBusStore.handleIncomingMessage(JSON.stringify({
@@ -1435,16 +1435,20 @@ describe("M05 AI 剪辑工作台页面", () => {
       projectId: "project-1",
       status: "succeeded",
       progress: 100,
-      message: "智能粗剪已完成，时间线已刷新。"
+      message: "已生成 1 条智能粗剪建议，等待审阅。"
     }));
     await flushPromises();
     await flushPromises();
 
     expect(
+      calls.filter((call) => call.path === "/api/workspace/projects/project-1/magic-cut-suggestions/latest?timelineId=timeline-1" && call.method === "GET").length
+    ).toBeGreaterThan(suggestionLoadCountBeforeSuccess);
+    expect(
       calls.filter((call) => call.path === "/api/workspace/projects/project-1/timeline" && call.method === "GET").length
-    ).toBeGreaterThan(timelineLoadCountBeforeSuccess);
-    expect(wrapper.get('[data-testid="workspace-command-feedback"]').text()).toContain("智能粗剪完成");
-    expect(wrapper.get('[data-testid="workspace-command-feedback"]').text()).toContain("时间线已刷新");
+    ).toBe(1);
+    expect(wrapper.get('[data-testid="workspace-command-feedback"]').text()).toContain("智能粗剪建议已生成");
+    expect(wrapper.get('[data-testid="workspace-command-feedback"]').text()).toContain("等待审阅");
+    expect(wrapper.text()).toContain("AI 粗剪建议 · 1 条待审阅");
   });
 
   it("联动播放器、属性面板和预检问题定位", async () => {
@@ -1865,6 +1869,9 @@ async function mountEditingWorkspaceWithTimeline() {
           issues: []
         });
       }
+      if (path === "/api/workspace/projects/project-1/magic-cut-suggestions/latest?timelineId=timeline-1" && method === "GET") {
+        return okJsonResponse(magicCutSuggestion());
+      }
 
       throw new Error(`Unhandled request: ${method} ${path}`);
     })
@@ -2140,6 +2147,36 @@ function workspaceAsset() {
     },
     createdAt: now(),
     updatedAt: now()
+  };
+}
+
+function magicCutSuggestion() {
+  return {
+    id: "suggestion-1",
+    projectId: "project-1",
+    timelineId: "timeline-1",
+    timelineVersionToken: "sha256:timeline-token",
+    status: "pending_review",
+    summary: "建议压缩开场停顿。",
+    operations: [
+      {
+        id: "operation-trim-1",
+        action: "trim",
+        clipId: "managed-video-storyboard-01",
+        trackId: "managed-video-storyboard",
+        targetTrackId: null,
+        originalStartMs: 0,
+        originalDurationMs: 5000,
+        suggestedStartMs: 0,
+        suggestedDurationMs: 3000,
+        splitAtMs: null,
+        reason: "开场停顿过长。",
+        risk: null
+      }
+    ],
+    createdAt: now(),
+    updatedAt: now(),
+    appliedAt: null
   };
 }
 

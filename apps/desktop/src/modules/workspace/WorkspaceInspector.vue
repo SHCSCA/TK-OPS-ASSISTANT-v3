@@ -127,7 +127,16 @@
         <span>AI 粗剪建议</span>
         <em>默认折叠</em>
       </summary>
-      <p>{{ aiSuggestionDescription }}</p>
+      <WorkspaceMagicCutSuggestions
+        :error-message="magicCutSuggestionErrorMessage"
+        :status="magicCutSuggestionStatus"
+        :suggestion="magicCutSuggestion"
+        @apply="(operationIds) => emit('apply-magic-cut-suggestion', operationIds)"
+        @dismiss="emit('dismiss-magic-cut-suggestion')"
+        @focus="(payload) => emit('focus-magic-cut-suggestion', payload)"
+        @reload="emit('reload-magic-cut-suggestion')"
+        @regenerate="emit('regenerate-magic-cut-suggestion')"
+      />
     </details>
 
     <section v-if="assemblyState" class="workspace-inspector__card">
@@ -151,6 +160,7 @@ import type { EditingWorkspaceStatus } from "@/stores/editing-workspace";
 import type {
   TimelinePrecheckDto,
   TimelinePrecheckIssueDetailDto,
+  MagicCutSuggestionDraftDto,
   WorkspaceAICommandResultDto,
   WorkspaceAssemblyStateDto,
   WorkspaceSaveStateDto,
@@ -160,14 +170,18 @@ import type {
 } from "@/types/runtime";
 import type { WorkspacePreviewContext } from "./workspacePreviewContext";
 import WorkspaceInspectorClipActions from "./WorkspaceInspectorClipActions.vue";
+import WorkspaceMagicCutSuggestions from "./WorkspaceMagicCutSuggestions.vue";
 import { resolveWorkspaceExportReadiness } from "./workspaceExportReadiness";
 import { workspaceStatusLabel } from "./workspaceTimelineViewModel";
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   assemblyState: WorkspaceAssemblyStateDto | null;
   blockedMessage: string | null;
   errorMessage: string | null;
   lastCommandResult: WorkspaceAICommandResultDto | null;
+  magicCutSuggestion?: MagicCutSuggestionDraftDto | null;
+  magicCutSuggestionErrorMessage?: string | null;
+  magicCutSuggestionStatus?: "idle" | "loading" | "ready" | "applying" | "error";
   precheck: TimelinePrecheckDto | null;
   previewContext: WorkspacePreviewContext;
   saveState: WorkspaceSaveStateDto | null;
@@ -175,10 +189,19 @@ const props = defineProps<{
   selectedTrack: WorkspaceTimelineTrackDto | null;
   status: EditingWorkspaceStatus;
   timeline: WorkspaceTimelineDto | null;
-}>();
+}>(), {
+  magicCutSuggestion: null,
+  magicCutSuggestionErrorMessage: null,
+  magicCutSuggestionStatus: "idle"
+});
 
 const emit = defineEmits<{
   "focus-precheck-issue": [issue: TimelinePrecheckIssueDetailDto | string];
+  "apply-magic-cut-suggestion": [operationIds: string[]];
+  "dismiss-magic-cut-suggestion": [];
+  "focus-magic-cut-suggestion": [payload: { clipId: string; trackId?: string | null }];
+  "reload-magic-cut-suggestion": [];
+  "regenerate-magic-cut-suggestion": [];
   "request-export": [];
   "seek-clip-start": [];
 }>();
@@ -257,10 +280,6 @@ const sourceDescription = computed(() => {
     return "该片段来自资产中心素材，可在后续功能中替换或在资产中心处理。";
   }
   return `该片段来自${sourceKindLabel(clipSourceKind.value)}。`;
-});
-
-const aiSuggestionDescription = computed(() => {
-  return props.lastCommandResult?.message ?? "暂无可应用建议。AI 建议必须经确认后才会修改时间线。";
 });
 
 const precheckTitle = computed(() => {

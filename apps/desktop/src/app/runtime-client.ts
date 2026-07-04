@@ -23,6 +23,9 @@ import type {
   LicenseStatus,
   LogFilter,
   LogPageDto,
+  MagicCutSuggestionApplyInput,
+  MagicCutSuggestionApplyResultDto,
+  MagicCutSuggestionDraftDto,
   MediaDiagnostics,
   RuntimeDiagnostics,
   RuntimeEnvelope,
@@ -705,6 +708,39 @@ export async function runWorkspaceAICommand(
     `/api/workspace/projects/${projectId}/ai-commands`,
     {
       body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
+}
+
+export async function fetchLatestMagicCutSuggestion(
+  projectId: string,
+  timelineId: string
+): Promise<MagicCutSuggestionDraftDto | null> {
+  return requestRuntime<MagicCutSuggestionDraftDto | null>(
+    `/api/workspace/projects/${projectId}/magic-cut-suggestions/latest?timelineId=${encodeURIComponent(timelineId)}`
+  );
+}
+
+export async function applyMagicCutSuggestion(
+  suggestionId: string,
+  input: MagicCutSuggestionApplyInput
+): Promise<MagicCutSuggestionApplyResultDto> {
+  return requestRuntime<MagicCutSuggestionApplyResultDto>(
+    `/api/workspace/magic-cut-suggestions/${suggestionId}/apply`,
+    {
+      body: JSON.stringify(input),
+      method: "POST"
+    }
+  );
+}
+
+export async function dismissMagicCutSuggestion(
+  suggestionId: string
+): Promise<{ suggestion: MagicCutSuggestionDraftDto; message: string }> {
+  return requestRuntime<{ suggestion: MagicCutSuggestionDraftDto; message: string }>(
+    `/api/workspace/magic-cut-suggestions/${suggestionId}/dismiss`,
+    {
       method: "POST"
     }
   );

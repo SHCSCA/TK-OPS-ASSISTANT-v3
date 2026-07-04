@@ -260,6 +260,20 @@ def _seed_timeline_with_clip(runtime_client: TestClient) -> tuple[str, str, str]
     return project_id, timeline_id, "clip-video-1"
 
 
+def _create_magic_cut_suggestion(runtime_client: TestClient):
+    project_id, timeline_id, _ = _seed_timeline_with_clip(runtime_client)
+    workspace_service = runtime_client.app.state.workspace_service
+    timeline = workspace_service._load_timeline(timeline_id)
+    suggestion = workspace_service._magic_cut_suggestion_service.create_from_operations(
+        project_id,
+        timeline,
+        [{"action": "trim", "clipId": "clip-video-1", "startMs": 0, "durationMs": 3000}],
+        "建议压缩开场。",
+        None,
+    )
+    return project_id, timeline_id, suggestion
+
+
 def _seed_contract_asset(
     runtime_client: TestClient,
     *,
@@ -1008,6 +1022,149 @@ def test_workspace_magic_cut_without_ready_ai_service_returns_error_envelope(
     assert payload["ok"] is False
     assert payload["error"] == "智能粗剪 Provider 未配置，请先选择可用文本模型。"
     assert payload["error_code"] == "workspace.ai_command_precheck_failed"
+
+
+def test_workspace_latest_magic_cut_suggestion_returns_null_when_empty(
+    runtime_client: TestClient,
+) -> None:
+    project_id, timeline_id, _ = _seed_timeline_with_clip(runtime_client)
+
+    response = runtime_client.get(
+        f"/api/workspace/projects/{project_id}/magic-cut-suggestions/latest",
+        params={"timelineId": timeline_id},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "data": None}
+
+
+def test_workspace_magic_cut_suggestion_apply_contract(
+    runtime_client: TestClient,
+) -> None:
+    project_id, timeline_id, suggestion = _create_magic_cut_suggestion(runtime_client)
+
+    latest_response = runtime_client.get(
+        f"/api/workspace/projects/{project_id}/magic-cut-suggestions/latest",
+        params={"timelineId": timeline_id},
+    )
+    latest = _assert_ok(latest_response.json())
+    assert latest["id"] == suggestion.id
+    assert latest["status"] == "pending_review"
+    assert latest["operations"][0]["id"] == "suggestion-trim-clip-video-1-1"
+
+    response = runtime_client.post(
+        f"/api/workspace/magic-cut-suggestions/{suggestion.id}/apply",
+        json={
+            "operationIds": [],
+            "confirmTimelineVersionToken": suggestion.timelineVersionToken,
+        },
+    )
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert set(data) == {"suggestion", "timeline", "appliedCount", "failedCount", "message"}
+    assert data["suggestion"]["status"] == "applied"
+    assert data["appliedCount"] == 1
+    assert data["failedCount"] == 0
+    assert data["timeline"]["tracks"][0]["clips"][0]["durationMs"] == 3000
+
+
+def test_workspace_magic_cut_suggestion_dismiss_contract(
+    runtime_client: TestClient,
+) -> None:
+    _, _, suggestion = _create_magic_cut_suggestion(runtime_client)
+
+    response = runtime_client.post(
+        f"/api/workspace/magic-cut-suggestions/{suggestion.id}/dismiss",
+    )
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["suggestion"]["status"] == "dismissed"
+    assert data["message"] == "已忽略本次智能粗剪建议，时间线未修改。"
+
+
+def test_workspace_magic_cut_suggestion_error_code_envelope(
+    runtime_client: TestClient,
+) -> None:
+    _, _, suggestion = _create_magic_cut_suggestion(runtime_client)
+
+    response = runtime_client.post(
+        f"/api/workspace/magic-cut-suggestions/{suggestion.id}/apply",
+        json={
+            "operationIds": ["missing-operation"],
+            "confirmTimelineVersionToken": suggestion.timelineVersionToken,
+        },
+    )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"] == "智能粗剪建议内容无效，请重新生成。"
+    assert payload["error_code"] == "workspace.magic_cut_invalid_operation"
+
+
+def test_workspace_magic_cut_suggestion_stale_token_error_code(
+    runtime_client: TestClient,
+) -> None:
+    _, timeline_id, suggestion = _create_magic_cut_suggestion(runtime_client)
+    runtime_client.patch(
+        f"/api/workspace/timelines/{timeline_id}",
+        json={
+            "name": "主时间线",
+            "durationSeconds": 13,
+            "tracks": [
+                {
+                    "id": "track-video",
+                    "kind": "video",
+                    "name": "主画面",
+                    "orderIndex": 0,
+                    "locked": False,
+                    "muted": False,
+                    "clips": [
+                        {
+                            "id": "clip-video-1",
+                            "trackId": "track-video",
+                            "sourceType": "manual",
+                            "sourceId": None,
+                            "label": "开场镜头",
+                            "startMs": 0,
+                            "durationMs": 4200,
+                            "inPointMs": 0,
+                            "outPointMs": None,
+                            "status": "ready",
+                            "prompt": "开场钩子",
+                            "resolution": {"width": 1920, "height": 1080},
+                            "editableFields": ["label", "startMs", "durationMs", "prompt"],
+                        }
+                    ],
+                },
+                {
+                    "id": "track-audio",
+                    "kind": "audio",
+                    "name": "配音",
+                    "orderIndex": 1,
+                    "locked": False,
+                    "muted": False,
+                    "clips": [],
+                },
+            ],
+        },
+    )
+
+    response = runtime_client.post(
+        f"/api/workspace/magic-cut-suggestions/{suggestion.id}/apply",
+        json={
+            "operationIds": [],
+            "confirmTimelineVersionToken": suggestion.timelineVersionToken,
+        },
+    )
+
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"] == "时间线已变化，请重新生成智能粗剪建议。"
+    assert payload["error_code"] == "workspace.magic_cut_timeline_changed"
 
 
 def test_workspace_ai_command_precheck_failure_returns_error_envelope(

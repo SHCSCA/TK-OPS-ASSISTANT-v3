@@ -82,6 +82,47 @@ describe("WorkspaceCommandFeedback", () => {
     expect(wrapper.find('[data-testid="workspace-command-cancel-button"]').exists()).toBe(false);
   });
 
+  it("智能粗剪成功反馈表达建议已生成而不是已应用", () => {
+    const result: WorkspaceAICommandResultDto = {
+      status: "succeeded",
+      task: taskInfo({
+        id: "task-magic-cut-4",
+        status: "succeeded",
+        progress: 100,
+        message: "已生成 2 条智能粗剪建议，等待审阅。"
+      }),
+      message: "已生成 2 条智能粗剪建议，等待审阅。"
+    };
+
+    const wrapper = mount(WorkspaceCommandFeedbackBar, {
+      props: {
+        activeTask: null,
+        lastCommandResult: result
+      }
+    });
+
+    expect(wrapper.text()).toContain("智能粗剪建议已生成");
+    expect(wrapper.text()).toContain("已生成 2 条智能粗剪建议，等待审阅。");
+    expect(wrapper.text()).not.toContain("已应用");
+    expect(wrapper.text()).not.toContain("智能粗剪完成并保存");
+  });
+
+  it("成功反馈为空时引导查看 AI 建议", () => {
+    const wrapper = mount(WorkspaceCommandFeedbackBar, {
+      props: {
+        activeTask: null,
+        lastCommandResult: {
+          status: "succeeded",
+          task: null,
+          message: ""
+        }
+      }
+    });
+
+    expect(wrapper.text()).toContain("智能粗剪建议已生成");
+    expect(wrapper.text()).toContain("查看 AI 建议");
+  });
+
   it("排队结果缺少任务 id 时不显示无效取消入口", () => {
     const wrapper = mount(WorkspaceCommandFeedbackBar, {
       props: {

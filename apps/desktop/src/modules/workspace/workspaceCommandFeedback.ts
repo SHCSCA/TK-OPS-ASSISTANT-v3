@@ -59,7 +59,7 @@ function buildResultFeedback(result: WorkspaceAICommandResultDto): WorkspaceComm
     failed: "智能粗剪失败",
     queued: "智能粗剪排队中",
     running: "智能粗剪处理中",
-    succeeded: "智能粗剪完成"
+    succeeded: "智能粗剪建议已生成"
   };
   const toneByStatus: Record<Exclude<WorkspaceAICommandResultDto["status"], "blocked">, FeedbackTone> = {
     cancelled: "warning",
@@ -81,7 +81,7 @@ function buildResultFeedback(result: WorkspaceAICommandResultDto): WorkspaceComm
   return {
     canCancel: Boolean(taskId) && (result.status === "queued" || result.status === "running"),
     canRetry: result.status === "failed" || result.status === "cancelled",
-    detail: result.message || task?.message || "AI 命令状态已更新。",
+    detail: result.message || task?.message || (result.status === "succeeded" ? "查看 AI 建议" : "AI 命令状态已更新。"),
     icon: iconByStatus[result.status],
     progress,
     showProgress: result.status === "queued" || result.status === "running",

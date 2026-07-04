@@ -45,6 +45,7 @@ def initialize_domain_schema(engine: Engine) -> None:
     _repair_legacy_browser_instance_schema(engine)
     _repair_legacy_execution_binding_schema(engine)
     _repair_legacy_automation_schema(engine)
+    _repair_magic_cut_suggestion_schema(engine)
 
 
 def _repair_legacy_project_schema(engine: Engine) -> None:
@@ -669,6 +670,48 @@ def _repair_legacy_automation_schema(engine: Engine) -> None:
     with engine.begin() as connection:
         if _ensure_table_columns(connection, "automation_tasks", required_columns) is None:
             return
+
+
+def _repair_magic_cut_suggestion_schema(engine: Engine) -> None:
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS magic_cut_suggestion_drafts (
+                    id VARCHAR PRIMARY KEY,
+                    project_id VARCHAR NOT NULL,
+                    timeline_id VARCHAR NOT NULL,
+                    ai_job_id VARCHAR,
+                    status VARCHAR NOT NULL,
+                    summary TEXT NOT NULL,
+                    operations_json TEXT NOT NULL,
+                    timeline_version_token TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    applied_at TEXT,
+                    FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                    FOREIGN KEY(timeline_id) REFERENCES timelines(id) ON DELETE CASCADE,
+                    FOREIGN KEY(ai_job_id) REFERENCES ai_job_records(id) ON DELETE SET NULL
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS idx_magic_cut_suggestions_project_timeline
+                ON magic_cut_suggestion_drafts(project_id, timeline_id, created_at)
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS idx_magic_cut_suggestions_status
+                ON magic_cut_suggestion_drafts(status)
+                """
+            )
+        )
 
 
 def _ensure_table_columns(

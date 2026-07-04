@@ -515,6 +515,35 @@ describe("workspace layout taxonomy contract", () => {
     expect(page).toContain('@focus-precheck-issue="handleFocusPrecheckIssue"');
   });
 
+  it("wires magic cut suggestions through store, page and inspector without Runtime fetch in components", () => {
+    const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
+    const inspector = readSource("../src/modules/workspace/WorkspaceInspector.vue");
+    const suggestions = readSource("../src/modules/workspace/WorkspaceMagicCutSuggestions.vue");
+
+    expect(page).toContain(":magic-cut-suggestion=\"magicCutSuggestion\"");
+    expect(page).toContain(":magic-cut-suggestion-status=\"magicCutSuggestionStatus\"");
+    expect(page).toContain('@apply-magic-cut-suggestion="handleApplyMagicCutSuggestion"');
+    expect(page).toContain('@dismiss-magic-cut-suggestion="handleDismissMagicCutSuggestion"');
+    expect(page).toContain('@focus-magic-cut-suggestion="handleFocusMagicCutSuggestion"');
+    expect(page).toContain('@reload-magic-cut-suggestion="handleReloadMagicCutSuggestion"');
+    expect(page).toContain('@regenerate-magic-cut-suggestion="handleMagicCut"');
+    expect(page).toContain("workspaceStore.applyMagicCutSuggestion(operationIds)");
+    expect(page).toContain("workspaceStore.dismissMagicCutSuggestion()");
+    expect(page).toContain("workspaceStore.loadMagicCutSuggestion()");
+    expect(inspector).toContain('import WorkspaceMagicCutSuggestions from "./WorkspaceMagicCutSuggestions.vue";');
+    expect(inspector).toContain("<WorkspaceMagicCutSuggestions");
+    expect(inspector).not.toContain("fetch(");
+    expect(inspector).not.toContain("requestRuntime");
+    expect(suggestions).not.toContain("fetch(");
+    expect(suggestions).not.toContain("requestRuntime");
+    expect(suggestions).toContain('data-testid="magic-cut-regenerate"');
+    expect(suggestions).toContain('data-testid="magic-cut-operation-list"');
+    expect(suggestions).toContain('data-testid="magic-cut-bulk-actions"');
+    expect(suggestions).toMatch(/\.workspace-magic-cut-suggestions__actions\s*{[\s\S]*flex-wrap:\s*wrap;/);
+    expect(suggestions).toMatch(/\.workspace-magic-cut-suggestions__list\s*{[\s\S]*overflow-y:\s*auto;/);
+    expect(suggestions).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*420px\)/);
+  });
+
   it("uses current magic_cut delivery wording in the AI action bar", () => {
     const aiActions = readSource("../src/modules/workspace/WorkspaceAIActions.vue");
     const noteBlock = aiActions.match(/const note = computed\(\(\) => \{[\s\S]*?\n\}\);/)?.[0] ?? "";

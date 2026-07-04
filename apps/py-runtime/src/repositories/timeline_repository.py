@@ -12,6 +12,10 @@ class TimelineRepository:
     def __init__(self, *, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
 
+    @property
+    def session_factory(self) -> sessionmaker[Session]:
+        return self._session_factory
+
     def list_all(self) -> list[Timeline]:
         with self._session_factory() as session:
             timelines = session.scalars(
@@ -77,6 +81,29 @@ class TimelineRepository:
             timeline.duration_seconds = duration_seconds
             timeline.tracks_json = tracks_json
             timeline.updated_at = utc_now_iso()
+            session.commit()
+            session.refresh(timeline)
+            session.expunge(timeline)
+            return timeline
+
+    def restore_snapshot(
+        self,
+        timeline_id: str,
+        *,
+        tracks_json: str,
+        duration_seconds: float | None,
+        status: str,
+        updated_at: str,
+    ) -> Timeline | None:
+        with self._session_factory() as session:
+            timeline = session.get(Timeline, timeline_id)
+            if timeline is None:
+                return None
+
+            timeline.tracks_json = tracks_json
+            timeline.duration_seconds = duration_seconds
+            timeline.status = status
+            timeline.updated_at = updated_at
             session.commit()
             session.refresh(timeline)
             session.expunge(timeline)

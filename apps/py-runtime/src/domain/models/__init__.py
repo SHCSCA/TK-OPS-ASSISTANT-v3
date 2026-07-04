@@ -19,6 +19,7 @@ from domain.models.device_workspace import (
 )
 from domain.models.imported_video import ImportedVideo
 from domain.models.license import LicenseGrant
+from domain.models.magic_cut import MagicCutSuggestionDraft
 from domain.models.project import Project
 from domain.models.prompt_template import PromptTemplate
 from domain.models.publishing import PublishPlan, PublishReceipt
@@ -57,6 +58,7 @@ __all__ = [
     'ExportProfile',
     'ImportedVideo',
     'LicenseGrant',
+    'MagicCutSuggestionDraft',
     'Project',
     'PromptTemplate',
     'PublishPlan',

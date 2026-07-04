@@ -10,12 +10,14 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import HTTPException
 
+from common.http_errors import RuntimeHTTPException
 from common.time import utc_now_iso
 from domain.models import Asset, Base, Project
 from persistence.engine import create_runtime_engine, create_session_factory
 from repositories.asset_repository import AssetRepository
 from repositories.timeline_repository import TimelineRepository
 from schemas.workspace import (
+    MagicCutSuggestionApplyInput,
     TimelineCreateInput,
     TimelineUpdateInput,
     WorkspaceAICommandInput,
@@ -1319,7 +1321,7 @@ def test_run_magic_cut_returns_blocked_before_task_when_model_unsupported(
     assert result.message == "当前模型不支持智能粗剪所需的文本生成能力，请更换模型。"
 
 
-def test_run_magic_cut_applies_ai_operations_and_persists_timeline(
+def test_run_magic_cut_creates_suggestion_without_changing_timeline(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1373,6 +1375,10 @@ def test_run_magic_cut_applies_ai_operations_and_persists_timeline(
     monkeypatch.setattr(task_manager_module.ws_manager, "broadcast", broadcast)
 
     async def _wait_for_success() -> None:
+        before = service.get_project_timeline("project-workspace")
+        assert before.timeline is not None
+        before_tracks = before.timeline.model_dump(mode="json")["tracks"]
+
         result = service.run_ai_command(
             "project-workspace",
             WorkspaceAICommandInput(
@@ -1394,27 +1400,204 @@ def test_run_magic_cut_applies_ai_operations_and_persists_timeline(
         task = service._task_manager.get(result.task["id"])  # type: ignore[attr-defined]
         assert task is not None
         assert task.status == "succeeded"
+        assert task.message == "已生成 2 条智能粗剪建议，等待审阅。"
 
         refreshed = service.get_project_timeline("project-workspace")
         assert refreshed.timeline is not None
-        video_track = next(track for track in refreshed.timeline.tracks if track.id == "track-video-1")
-
-        assert [clip.id for clip in video_track.clips] == [
-            "clip-video-1",
-            "clip-video-2",
-        ]
-        assert [(clip.startMs, clip.durationMs, clip.inPointMs, clip.outPointMs) for clip in video_track.clips] == [
-            (0, 3000, 0, None),
-            (3000, 2000, 0, None),
-        ]
-        assert video_track.clips[0].startMs + video_track.clips[0].durationMs == video_track.clips[1].startMs
+        assert refreshed.timeline.model_dump(mode="json")["tracks"] == before_tracks
         assert refreshed.timeline.version is not None
         assert refreshed.timeline.version.clipCount == 2
         assert refreshed.activeTask is None
         assert ai_service.calls[0][2]["project_id"] == "project-workspace"
+        suggestion = service.get_latest_magic_cut_suggestion("project-workspace", timeline_id)
+        assert suggestion is not None
+        assert suggestion.status == "pending_review"
+        assert suggestion.timelineVersionToken.startswith("sha256:")
+        assert [operation.id for operation in suggestion.operations] == [
+            "suggestion-trim-clip-video-1-1",
+            "suggestion-move-clip-video-2-2",
+        ]
         assert "task.completed" in [call.args[0]["type"] for call in broadcast.await_args_list]
 
     asyncio.run(_wait_for_success())
+
+
+def test_apply_magic_cut_suggestion_changes_timeline_after_review(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path, task_manager=TaskManager())
+    timeline_id = _create_timeline_with_neighbor_clip(service)
+    timeline = service._load_timeline(timeline_id)  # noqa: SLF001
+    suggestion = service._magic_cut_suggestion_service.create_from_operations(  # noqa: SLF001
+        "project-workspace",
+        timeline,
+        [
+            {"action": "trim", "clipId": "clip-video-1", "startMs": 0, "durationMs": 3000},
+            {"action": "move", "clipId": "clip-video-2", "targetTrackId": "track-video-1", "startMs": 3000},
+        ],
+        "建议压缩开场并消除空隙。",
+        None,
+    )
+
+    result = service.apply_magic_cut_suggestion(
+        suggestion.id,
+        MagicCutSuggestionApplyInput(
+            operationIds=[],
+            confirmTimelineVersionToken=suggestion.timelineVersionToken,
+        ),
+    )
+
+    assert result.appliedCount == 2
+    assert result.failedCount == 0
+    assert result.suggestion.status == "applied"
+    video_track = next(track for track in result.timeline.tracks if track.id == "track-video-1")
+    assert [(clip.id, clip.startMs, clip.durationMs) for clip in video_track.clips] == [
+        ("clip-video-1", 0, 3000),
+        ("clip-video-2", 3000, 2000),
+    ]
+
+
+def test_apply_magic_cut_suggestion_rejects_stale_timeline_token(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path, task_manager=TaskManager())
+    timeline_id = _create_timeline(service)
+    timeline = service._load_timeline(timeline_id)  # noqa: SLF001
+    suggestion = service._magic_cut_suggestion_service.create_from_operations(  # noqa: SLF001
+        "project-workspace",
+        timeline,
+        [{"action": "trim", "clipId": "clip-video-1", "startMs": 0, "durationMs": 3000}],
+        "建议压缩开场。",
+        None,
+    )
+    before = service.get_project_timeline("project-workspace").timeline
+    assert before is not None
+
+    service.update_timeline(
+        timeline_id,
+        TimelineUpdateInput(name="主时间线", durationSeconds=13, tracks=_timeline_payload()),
+    )
+
+    with pytest.raises(RuntimeHTTPException) as exc_info:
+        service.apply_magic_cut_suggestion(
+            suggestion.id,
+            MagicCutSuggestionApplyInput(
+                operationIds=[],
+                confirmTimelineVersionToken=suggestion.timelineVersionToken,
+            ),
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.error_code == "workspace.magic_cut_timeline_changed"
+    after = service.get_project_timeline("project-workspace").timeline
+    assert after is not None
+    assert after.tracks[0].clips[0].durationMs == 4200
+
+
+def test_dismiss_magic_cut_suggestion_does_not_change_timeline(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path, task_manager=TaskManager())
+    timeline_id = _create_timeline(service)
+    timeline = service._load_timeline(timeline_id)  # noqa: SLF001
+    before_tracks = timeline.tracks_json
+    suggestion = service._magic_cut_suggestion_service.create_from_operations(  # noqa: SLF001
+        "project-workspace",
+        timeline,
+        [{"action": "delete", "clipId": "clip-video-1"}],
+        "建议删除冗余片段。",
+        None,
+    )
+
+    result = service.dismiss_magic_cut_suggestion(suggestion.id)
+
+    assert result.suggestion.status == "dismissed"
+    assert result.message == "已忽略本次智能粗剪建议，时间线未修改。"
+    assert service._load_timeline(timeline_id).tracks_json == before_tracks  # noqa: SLF001
+
+
+def test_apply_magic_cut_suggestion_rolls_back_when_operation_fails(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path, task_manager=TaskManager())
+    timeline_id = _create_timeline_with_neighbor_clip(service)
+    timeline = service._load_timeline(timeline_id)  # noqa: SLF001
+    before_tracks_json = timeline.tracks_json
+    before_updated_at = timeline.updated_at
+    suggestion = service._magic_cut_suggestion_service.create_from_operations(  # noqa: SLF001
+        "project-workspace",
+        timeline,
+        [
+            {"action": "trim", "clipId": "clip-video-1", "startMs": 0, "durationMs": 3000},
+            {"action": "move", "clipId": "clip-video-2", "targetTrackId": "track-video-1", "startMs": 2500},
+        ],
+        "第二条建议会造成重叠。",
+        None,
+    )
+
+    with pytest.raises(RuntimeHTTPException) as exc_info:
+        service.apply_magic_cut_suggestion(
+            suggestion.id,
+            MagicCutSuggestionApplyInput(
+                operationIds=[],
+                confirmTimelineVersionToken=suggestion.timelineVersionToken,
+            ),
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.error_code == "workspace.magic_cut_apply_failed"
+    restored = service._load_timeline(timeline_id)  # noqa: SLF001
+    assert restored.tracks_json == before_tracks_json
+    assert restored.updated_at == before_updated_at
+
+
+def test_failed_parse_magic_cut_suggestion_is_latest_and_not_reviewable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailedParseMagicCutService:
+        def validate_text_generation_ready(self, capability_id: str) -> None:
+            assert capability_id == "magic_cut"
+
+        def generate_text(self, capability_id: str, variables: dict[str, str], **kwargs: object):
+            assert capability_id == "magic_cut"
+
+            class Result:
+                text = "这不是 JSON"
+
+            return Result()
+
+    service = _make_workspace_service(
+        tmp_path,
+        task_manager=TaskManager(),
+        ai_text_generation_service=FailedParseMagicCutService(),
+    )
+    timeline_id = _create_timeline(service)
+    monkeypatch.setattr(task_manager_module.ws_manager, "broadcast", AsyncMock())
+
+    async def _wait_for_failed_parse() -> None:
+        result = service.run_ai_command(
+            "project-workspace",
+            WorkspaceAICommandInput(
+                timelineId=timeline_id,
+                capabilityId="magic_cut",
+                parameters={},
+            ),
+        )
+        assert result.task is not None
+        for _ in range(100):
+            task = service._task_manager.get(result.task["id"])  # type: ignore[attr-defined]
+            if task is not None and task.status == "succeeded":
+                break
+            await asyncio.sleep(0.01)
+
+        suggestion = service.get_latest_magic_cut_suggestion("project-workspace", timeline_id)
+        assert suggestion is not None
+        assert suggestion.status == "failed_parse"
+        assert suggestion.operations == []
+        with pytest.raises(RuntimeHTTPException) as exc_info:
+            service.apply_magic_cut_suggestion(
+                suggestion.id,
+                MagicCutSuggestionApplyInput(
+                    operationIds=[],
+                    confirmTimelineVersionToken=suggestion.timelineVersionToken,
+                ),
+            )
+        assert exc_info.value.error_code == "workspace.magic_cut_suggestion_not_reviewable"
+
+    asyncio.run(_wait_for_failed_parse())
 
 
 def test_magic_cut_operations_are_scoped_to_requested_timeline(tmp_path: Path) -> None:
@@ -1473,7 +1656,7 @@ def test_magic_cut_operations_are_scoped_to_requested_timeline(tmp_path: Path) -
     assert decoy_after[0]["clips"][0]["durationMs"] == 4200
 
 
-def test_run_magic_cut_fails_when_all_operations_fail(
+def test_run_magic_cut_creates_failed_parse_when_operations_are_not_reviewable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1511,7 +1694,7 @@ def test_run_magic_cut_fails_when_all_operations_fail(
     broadcast = AsyncMock()
     monkeypatch.setattr(task_manager_module.ws_manager, "broadcast", broadcast)
 
-    async def _wait_for_failure() -> None:
+    async def _wait_for_failed_parse() -> None:
         result = service.run_ai_command(
             "project-workspace",
             WorkspaceAICommandInput(
@@ -1526,15 +1709,15 @@ def test_run_magic_cut_fails_when_all_operations_fail(
 
         for _ in range(100):
             task = service._task_manager.get(result.task["id"])  # type: ignore[attr-defined]
-            if task is not None and task.status == "failed":
+            if task is not None and task.status == "succeeded":
                 break
             await asyncio.sleep(0.01)
 
         task = service._task_manager.get(result.task["id"])  # type: ignore[attr-defined]
         assert task is not None
-        assert task.status == "failed"
-        assert task.message == "智能粗剪执行失败，请查看日志后重试。"
-        assert "task.failed" in [call.args[0]["type"] for call in broadcast.await_args_list]
+        assert task.status == "succeeded"
+        assert task.message == "AI 返回内容无法生成建议，请重新生成。"
+        assert "task.completed" in [call.args[0]["type"] for call in broadcast.await_args_list]
 
         refreshed = service.get_project_timeline("project-workspace")
         assert refreshed.timeline is not None
@@ -1542,8 +1725,12 @@ def test_run_magic_cut_fails_when_all_operations_fail(
         assert [(clip.id, clip.startMs, clip.durationMs) for clip in video_track.clips] == [
             ("clip-video-1", 0, 4200)
         ]
+        suggestion = service.get_latest_magic_cut_suggestion("project-workspace", timeline_id)
+        assert suggestion is not None
+        assert suggestion.status == "failed_parse"
+        assert suggestion.operations == []
 
-    asyncio.run(_wait_for_failure())
+    asyncio.run(_wait_for_failed_parse())
 
 
 def test_run_magic_cut_masks_unknown_provider_failure_in_task_message(

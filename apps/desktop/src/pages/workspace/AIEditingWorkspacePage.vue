@@ -262,6 +262,9 @@
               :blocked-message="inspectorBlockedMessage"
               :error-message="error?.message ?? null"
               :last-command-result="lastCommandResult"
+              :magic-cut-suggestion="magicCutSuggestion"
+              :magic-cut-suggestion-error-message="magicCutSuggestionError?.message ?? null"
+              :magic-cut-suggestion-status="magicCutSuggestionStatus"
               :precheck="precheck"
               :preview-context="previewContext"
               :save-state="saveState"
@@ -269,7 +272,12 @@
               :selected-track="selectedTrack"
               :status="status"
               :timeline="timeline"
+              @apply-magic-cut-suggestion="handleApplyMagicCutSuggestion"
+              @dismiss-magic-cut-suggestion="handleDismissMagicCutSuggestion"
+              @focus-magic-cut-suggestion="handleFocusMagicCutSuggestion"
               @focus-precheck-issue="handleFocusPrecheckIssue"
+              @reload-magic-cut-suggestion="handleReloadMagicCutSuggestion"
+              @regenerate-magic-cut-suggestion="handleMagicCut"
               @request-export="handleOpenRenderExport"
               @seek-clip-start="selectedClip && handleSetPlayhead(selectedClip.startMs)"
             />
@@ -332,6 +340,9 @@ const {
   error,
   hasTimeline,
   lastCommandResult,
+  magicCutSuggestion,
+  magicCutSuggestionError,
+  magicCutSuggestionStatus,
   orderedTracks,
   playheadMs,
   precheck,
@@ -494,6 +505,39 @@ async function handleReloadAICapabilities(): Promise<void> {
   await aiCapabilityStore.load();
   if (magicCutReadiness.value.available && isMagicCutRecoveryMessage(blockedMessage.value ?? "")) {
     workspaceStore.clearMagicCutBlockedMessage(blockedMessage.value ?? undefined);
+  }
+}
+
+async function handleApplyMagicCutSuggestion(operationIds: string[]): Promise<void> {
+  await workspaceStore.applyMagicCutSuggestion(operationIds);
+}
+
+async function handleDismissMagicCutSuggestion(): Promise<void> {
+  await workspaceStore.dismissMagicCutSuggestion();
+}
+
+async function handleReloadMagicCutSuggestion(): Promise<void> {
+  await workspaceStore.loadMagicCutSuggestion();
+}
+
+function handleFocusMagicCutSuggestion(payload: { clipId: string; trackId?: string | null }): void {
+  const clip = workspaceStore.findClipById(payload.clipId);
+  if (clip) {
+    workspaceStore.selectTimelineClip({
+      clipId: clip.id,
+      trackId: payload.trackId || clip.trackId
+    });
+    handleSetPlayhead(clip.startMs);
+    return;
+  }
+
+  if (payload.trackId) {
+    workspaceStore.selectTimelineClip({
+      clipId: payload.clipId,
+      trackId: payload.trackId
+    });
+  } else {
+    workspaceStore.selectClip(payload.clipId);
   }
 }
 
