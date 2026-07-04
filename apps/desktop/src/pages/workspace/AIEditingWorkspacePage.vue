@@ -190,6 +190,7 @@
               :timeline="timeline"
               :is-playing="isPlaying"
               :play-progress="playProgress"
+              :playhead-ms="playheadMs"
               @play="handlePlay"
               @pause="handlePause"
               @seek="handleSetPlayhead"

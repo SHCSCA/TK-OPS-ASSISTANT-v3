@@ -84,6 +84,7 @@ type EditingWorkspaceState = {
   precheck: TimelinePrecheckDto | null;
   preview: TimelinePreviewDto | null;
   previewError: RuntimeRequestErrorShape | null;
+  previewRequestId: number;
   projectId: string;
   playheadMs: number;
   saveState: WorkspaceSaveStateDto | null;
@@ -107,6 +108,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     precheck: null,
     preview: null,
     previewError: null,
+    previewRequestId: 0,
     projectId: "",
     playheadMs: 0,
     saveState: null,
@@ -890,12 +892,16 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
 
       const timelineId = this.timeline.id;
       const selectedClipId = this.selectedClipId;
+      const requestId = this.previewRequestId + 1;
+      this.previewRequestId = requestId;
       const isCurrentPreviewRequest = () =>
-        this.timeline?.id === timelineId && this.selectedClipId === selectedClipId;
+        this.previewRequestId === requestId
+        && this.timeline?.id === timelineId
+        && this.selectedClipId === selectedClipId;
 
       try {
         const preview = await fetchTimelinePreview(timelineId, { clipId: selectedClipId });
-        if (!isCurrentPreviewRequest()) return preview;
+        if (!isCurrentPreviewRequest()) return null;
         this.preview = preview;
         this.previewError = null;
         return preview;
@@ -996,7 +1002,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
           ? error
           : new RuntimeRequestError("AI 剪辑工作台请求失败");
       const message = suffix && !runtimeError.message.endsWith(suffix)
-        ? `${runtimeError.message}${suffix}`
+        ? `${runtimeError.message}${resolveRuntimeErrorSuffixSeparator(runtimeError.message)}${suffix}`
         : runtimeError.message;
       this.status = "error";
       this.error = {
@@ -1053,6 +1059,10 @@ function appendCommandTerminalPrecheckFailedMessage(message: string): string {
   if (normalizedMessage.includes(suffix)) return normalizedMessage;
   const separator = normalizedMessage.endsWith("。") ? " " : "。 ";
   return `${normalizedMessage}${separator}${suffix}`;
+}
+
+function resolveRuntimeErrorSuffixSeparator(message: string): string {
+  return /[。！？.!?]$/.test(message) ? "" : "。";
 }
 
 export function isMagicCutRecoveryMessage(message: string): boolean {

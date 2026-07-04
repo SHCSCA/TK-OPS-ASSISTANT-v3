@@ -160,6 +160,48 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.previewError).toBeNull();
   });
 
+  it("同一时间线和片段的旧预览不能覆盖较新的预览", async () => {
+    const previewRequests: Array<{
+      clipId: string | null;
+      resolve: (response: ReturnType<typeof okJsonResponse>) => void;
+    }> = [];
+    vi.stubGlobal("fetch", createRouteAwareFetch((path, method) => {
+      if (path.startsWith("/api/workspace/timelines/timeline-1/preview") && method === "GET") {
+        return new Promise((resolve) => {
+          previewRequests.push({
+            clipId: new URL(`http://runtime${path}`).searchParams.get("clipId"),
+            resolve
+          });
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    }, { fallbackUnhandledTimelinePreview: false }));
+
+    const store = useEditingWorkspaceStore();
+    store.timeline = timeline("timeline-1", [videoTrack([assetClip()])]);
+    store.selectClip("asset-clip-1");
+
+    const staleRefresh = store.refreshTimelinePreview();
+    store.timeline = {
+      ...store.timeline,
+      tracks: [videoTrack([{ ...assetClip(), durationMs: 6000 }])]
+    };
+    const currentRefresh = store.refreshTimelinePreview();
+
+    expect(previewRequests.map((request) => request.clipId)).toEqual(["asset-clip-1", "asset-clip-1"]);
+
+    previewRequests[1].resolve(okJsonResponse(timelinePreview({ previewUrl: "data:current-preview" })));
+    await currentRefresh;
+
+    previewRequests[0].resolve(okJsonResponse(timelinePreview({ previewUrl: "data:stale-preview" })));
+    const staleResult = await staleRefresh;
+
+    expect(staleResult).toBeNull();
+    expect(store.preview?.previewUrl).toBe("data:current-preview");
+    expect(store.previewError).toBeNull();
+  });
+
   it("创建时间线草稿后进入 ready 并保存真实时间线", async () => {
     vi.stubGlobal("fetch", createWorkspaceFetch({ timeline: null }));
 
@@ -568,6 +610,27 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.selectedTrackId).toBe("managed-video-storyboard");
     expect(store.selectedClipId).toBe("managed-video-storyboard-01");
     expect(store.error?.message).toBe("目标轨道已锁定，无法移动片段。已恢复到操作前时间线。");
+  });
+
+  it("回滚错误消息缺少句尾标点时不会和恢复提示粘连", async () => {
+    vi.stubGlobal("fetch", createWorkspaceFetch({ failMoveMessage: "目标轨道已锁定" }));
+
+    const store = useEditingWorkspaceStore();
+    await store.load("project-1");
+    await store.assembleTimeline("project-1");
+    store.selectTrack("managed-video-storyboard");
+    store.selectClip("managed-video-storyboard-01");
+
+    const timelineResult = await store.commitMovePreview({
+      gesture: "move",
+      clipId: "managed-video-storyboard-01",
+      trackId: "managed-video-storyboard",
+      startMs: 500,
+      durationMs: 5000
+    });
+
+    expect(timelineResult).toBeNull();
+    expect(store.error?.message).toBe("目标轨道已锁定。已恢复到操作前时间线。");
   });
 
   it("提交左边缘拖拽裁剪预览时通过 Runtime 保存并保留选中片段", async () => {
@@ -1156,6 +1219,7 @@ function createWorkspaceFetch(
     failInsert?: boolean;
     failLoad?: boolean;
     failMove?: boolean;
+    failMoveMessage?: string;
     failMoveOnCall?: number;
     failPrecheck?: boolean;
     failReplace?: boolean;
@@ -1254,8 +1318,8 @@ function createWorkspaceFetch(
       moveCallCount += 1;
       const body = JSON.parse(String(init?.body));
       expect(body).toEqual({ targetTrackId: "managed-video-storyboard", startMs: 500 });
-      if (options.failMove || options.failMoveOnCall === moveCallCount) {
-        return errorJsonResponse(409, "目标轨道已锁定，无法移动片段。");
+      if (options.failMove || options.failMoveMessage || options.failMoveOnCall === moveCallCount) {
+        return errorJsonResponse(409, options.failMoveMessage ?? "目标轨道已锁定，无法移动片段。");
       }
       return okJsonResponse({
         timeline: timeline("timeline-1", [managedVideoTrack([

@@ -190,6 +190,7 @@ const props = defineProps<{
   timeline: WorkspaceTimelineDto | null;
   isPlaying?: boolean;
   playProgress?: number;
+  playheadMs?: number;
 }>();
 
 const previewRatio = ref<"9:16" | "16:9">("9:16");
@@ -219,7 +220,12 @@ const durationMs = computed(() => {
   return Math.max(0, Math.round(seconds * 1000));
 });
 
-const currentPlayheadMs = computed(() => Math.round((safePlayProgress.value / 100) * durationMs.value));
+const currentPlayheadMs = computed(() => {
+  if (props.playheadMs !== undefined && Number.isFinite(props.playheadMs)) {
+    return Math.min(durationMs.value, Math.max(0, Math.round(props.playheadMs)));
+  }
+  return Math.round((safePlayProgress.value / 100) * durationMs.value);
+});
 
 const emit = defineEmits<{
   play: [];

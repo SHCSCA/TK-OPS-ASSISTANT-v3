@@ -166,6 +166,38 @@ describe("M05 预览舞台", () => {
     expect(wrapper.emitted("seek")).toEqual([[6500]]);
   });
 
+  it("长时间线 scrubber 使用真实播放头毫秒值", async () => {
+    const timeline = workspaceTimeline([managedVideoTrack()]);
+    timeline.durationSeconds = 600;
+    const track = timeline.tracks[0];
+    const clip = track.clips[0];
+    const previewContext = buildWorkspacePreviewContext({
+      playheadMs: 2000,
+      timelinePreview: null,
+      timelinePreviewErrorMessage: null,
+      selectedClip: clip,
+      selectedTrack: track,
+      timeline
+    });
+
+    const wrapper = mount(WorkspacePreviewStage, {
+      props: {
+        previewContext,
+        timeline,
+        playProgress: 0,
+        playheadMs: 2000
+      }
+    });
+
+    const scrubber = wrapper.get('[data-testid="workspace-preview-scrubber"]');
+
+    expect((scrubber.element as HTMLInputElement).value).toBe("2000");
+
+    await scrubber.setValue("6500");
+
+    expect(wrapper.emitted("seek")).toEqual([[6500]]);
+  });
+
   it("结构预览展示 Runtime 清单里的轨道和片段摘要", () => {
     const timeline = workspaceTimeline([managedVideoTrack(), managedAudioTrack()]);
     const track = timeline.tracks[0];
