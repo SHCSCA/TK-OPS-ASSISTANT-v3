@@ -177,6 +177,7 @@
               :timeline="timeline"
               @asset-insert="handleAssetInsert"
               @asset-replace="handleAssetReplace"
+              @open-asset-library="handleOpenAssetLibrary"
               @select-source-clip="handleSelectClip"
               @sync-assets="handleSyncAssets"
             />
@@ -376,6 +377,7 @@ const {
   handleFocusPrecheckIssue,
   handleMoveSelectedClip,
   handleOpenAISettings,
+  handleOpenAssetLibrary,
   handleOpenRenderExport,
   handleOpenTtsSettings,
   handleOpenVoiceStudio,

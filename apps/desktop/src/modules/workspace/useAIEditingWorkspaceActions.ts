@@ -118,6 +118,13 @@ export function useAIEditingWorkspaceActions(options: UseAIEditingWorkspaceActio
     if (exportRoute) void router.push(exportRoute);
   }
 
+  function handleOpenAssetLibrary(): void {
+    void router.push({
+      path: "/assets/library",
+      query: { from: "workspace" }
+    });
+  }
+
   async function handleRetry(): Promise<void> {
     if (options.currentProjectId.value) {
       await options.workspaceStore.load(options.currentProjectId.value);
@@ -246,6 +253,7 @@ export function useAIEditingWorkspaceActions(options: UseAIEditingWorkspaceActio
     handleFocusPrecheckIssue,
     handleMoveSelectedClip,
     handleOpenAISettings,
+    handleOpenAssetLibrary,
     handleOpenRenderExport,
     handleOpenTtsSettings,
     handleOpenVoiceStudio,

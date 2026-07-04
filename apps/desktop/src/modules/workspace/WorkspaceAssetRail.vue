@@ -79,6 +79,7 @@
               <div class="workspace-asset-card__state">
                 <span class="workspace-asset-card__status">{{ asset.status }}</span>
                 <small v-if="assetUnavailableReason(asset)">{{ assetUnavailableReason(asset) }}</small>
+                <small v-if="assetRecoveryHint(asset)">{{ assetRecoveryHint(asset) }}</small>
               </div>
               <div class="workspace-asset-card__actions">
                 <button
@@ -181,6 +182,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   "asset-insert": [assetId: string];
   "asset-replace": [assetId: string];
+  "open-asset-library": [];
   "sync-assets": [];
   "select-source-clip": [payload: { clipId: string; trackId: string }];
 }>();
@@ -286,6 +288,10 @@ function isPrimaryActionDisabled(asset: WorkspaceAssetCard): boolean {
 
 function handlePrimaryAssetAction(asset: WorkspaceAssetCard): void {
   if (isPrimaryActionDisabled(asset)) return;
+  if (asset.primaryAction === "去资产中心") {
+    emit("open-asset-library");
+    return;
+  }
   if (isRecoverableAsset(asset)) {
     emit("sync-assets");
     return;
@@ -300,6 +306,17 @@ function handlePrimaryAssetAction(asset: WorkspaceAssetCard): void {
 function assetUnavailableReason(asset: WorkspaceAssetCard): string {
   if (isAssetAvailable(asset)) return "";
   return asset.asset.availability.errorMessage || neutralUnavailableReason(asset.asset.availability.status);
+}
+
+function assetRecoveryHint(asset: WorkspaceAssetCard): string {
+  const status = asset.asset.availability.status;
+  if (["missing", "missing_source", "missing_file"].includes(status)) {
+    return "在资产中心重新导入或修复路径后，再回到工作台同步资产。";
+  }
+  if (status === "needs_transcode") {
+    return "先在资产中心处理或转码后，再回到工作台同步资产并入轨。";
+  }
+  return "";
 }
 
 function isAssetAvailable(asset: WorkspaceAssetCard): boolean {

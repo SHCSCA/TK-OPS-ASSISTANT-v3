@@ -603,6 +603,20 @@ describe("M05 AI 剪辑工作台页面", () => {
     expect(wrapper.find('[data-testid="workspace-sync-recovery"]').exists()).toBe(false);
   });
 
+  it("资产栏请求打开资产中心时使用既有资产中心路由", async () => {
+    const { wrapper, router } = await mountEditingWorkspaceWithTimeline();
+
+    const routerPush = vi.spyOn(router, "push");
+    wrapper.findComponent(WorkspaceAssetRail).vm.$emit("open-asset-library");
+    expect(routerPush).toHaveBeenCalledWith({
+      path: "/assets/library",
+      query: { from: "workspace" }
+    });
+    await routerPush.mock.results[0]?.value;
+
+    expect(router.currentRoute.value.path).toBe("/assets/library");
+  });
+
   it("缺少创作来源且时间线为 0 轨时展示恢复路径并可重新同步", async () => {
     const calls: Array<{ body?: unknown; method: string; path: string }> = [];
     const timelineState = workspaceTimeline([]);

@@ -107,7 +107,7 @@ function resolveAssetState(
     return {
       status: "路径缺失",
       tone: "danger",
-      primaryAction: "重新检查"
+      primaryAction: "去资产中心"
     };
   }
 
@@ -123,7 +123,7 @@ function resolveAssetState(
     return {
       status: "需转码",
       tone: "warning",
-      primaryAction: "重新检查"
+      primaryAction: "去资产中心"
     };
   }
 

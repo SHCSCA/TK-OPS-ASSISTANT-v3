@@ -93,7 +93,7 @@ describe("workspace asset view model", () => {
     });
   });
 
-  it("把缺失素材显示为路径缺失并使用重新检查操作", () => {
+  it("把缺失素材显示为路径缺失并引导去资产中心", () => {
     const cards = buildWorkspaceAssetCards({
       projectId: "project-1",
       assets: [
@@ -110,11 +110,11 @@ describe("workspace asset view model", () => {
     expect(cards[0]).toMatchObject({
       status: "路径缺失",
       tone: "danger",
-      primaryAction: "重新检查"
+      primaryAction: "去资产中心"
     });
   });
 
-  it("缺失素材存在 nextAction 时仍使用统一重新检查操作", () => {
+  it("缺失素材存在 nextAction 时仍使用统一资产中心恢复入口", () => {
     const cards = buildWorkspaceAssetCards({
       projectId: "project-1",
       assets: [
@@ -131,11 +131,11 @@ describe("workspace asset view model", () => {
     expect(cards[0]).toMatchObject({
       status: "路径缺失",
       tone: "danger",
-      primaryAction: "重新检查"
+      primaryAction: "去资产中心"
     });
   });
 
-  it("把需转码素材显示为需转码并提供检查操作", () => {
+  it("把需转码素材显示为需转码并引导去资产中心", () => {
     const cards = buildWorkspaceAssetCards({
       projectId: "project-1",
       assets: [
@@ -151,7 +151,7 @@ describe("workspace asset view model", () => {
     expect(cards[0]).toMatchObject({
       status: "需转码",
       tone: "warning",
-      primaryAction: "重新检查"
+      primaryAction: "去资产中心"
     });
   });
 

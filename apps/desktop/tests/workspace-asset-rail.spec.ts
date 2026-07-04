@@ -63,7 +63,7 @@ describe("M05 工作台资产栏", () => {
     expect(wrapper.emitted("asset-insert")).toEqual([["asset-video"]]);
   });
 
-  it("需转码资产显示检查主操作且不会触发入轨或替换", async () => {
+  it("需转码资产显示资产中心恢复主操作且不会触发入轨或替换", async () => {
     const wrapper = mountRail({
       assets: [
         asset({
@@ -80,18 +80,20 @@ describe("M05 工作台资产栏", () => {
       selectedClip: clip({ id: "clip-video", trackId: "track-video" })
     });
 
-    const primaryButton = actionButton(wrapper, "需转码素材.mov", "重新检查");
+    expect(wrapper.text()).toContain("先在资产中心处理或转码后，再回到工作台同步资产并入轨。");
+    const primaryButton = actionButton(wrapper, "需转码素材.mov", "去资产中心");
     expect(primaryButton.element.disabled).toBe(false);
     expect(actionButton(wrapper, "需转码素材.mov", "替换片段").element.disabled).toBe(true);
 
     await primaryButton.trigger("click");
 
-    expect(wrapper.emitted("sync-assets")).toEqual([[]]);
+    expect(wrapper.emitted("open-asset-library")).toEqual([[]]);
+    expect(wrapper.emitted("sync-assets")).toBeUndefined();
     expect(wrapper.emitted("asset-insert")).toBeUndefined();
     expect(wrapper.emitted("asset-replace")).toBeUndefined();
   });
 
-  it("路径缺失资产只提示重新检查状态而不承诺重新定位", async () => {
+  it("路径缺失资产引导去资产中心修复路径而不承诺工作台内重新定位", async () => {
     const wrapper = mountRail({
       assets: [
         asset({
@@ -109,13 +111,15 @@ describe("M05 工作台资产栏", () => {
     });
 
     expect(wrapper.text()).not.toContain("重新定位");
-    const primaryButton = actionButton(wrapper, "路径缺失素材.mp4", "重新检查");
+    expect(wrapper.text()).toContain("在资产中心重新导入或修复路径后，再回到工作台同步资产。");
+    const primaryButton = actionButton(wrapper, "路径缺失素材.mp4", "去资产中心");
     expect(primaryButton.element.disabled).toBe(false);
     expect(actionButton(wrapper, "路径缺失素材.mp4", "替换片段").element.disabled).toBe(true);
 
     await primaryButton.trigger("click");
 
-    expect(wrapper.emitted("sync-assets")).toEqual([[]]);
+    expect(wrapper.emitted("open-asset-library")).toEqual([[]]);
+    expect(wrapper.emitted("sync-assets")).toBeUndefined();
     expect(wrapper.emitted("asset-insert")).toBeUndefined();
     expect(wrapper.emitted("asset-replace")).toBeUndefined();
   });
@@ -212,7 +216,7 @@ describe("M05 工作台资产栏", () => {
 
     expect(wrapper.text()).toContain("资产文件已丢失，请重新导入。");
     expect(wrapper.text()).not.toContain("重新定位");
-    expect(actionButton(wrapper, "缺失素材.mp4", "重新检查").element.disabled).toBe(false);
+    expect(actionButton(wrapper, "缺失素材.mp4", "去资产中心").element.disabled).toBe(false);
     expect(actionButton(wrapper, "缺失素材.mp4", "替换片段").element.disabled).toBe(true);
   });
 
