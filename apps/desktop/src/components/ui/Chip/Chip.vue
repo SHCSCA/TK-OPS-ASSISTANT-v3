@@ -106,6 +106,16 @@ defineEmits<{
   border-color: currentColor;
 }
 
+.ui-chip.is-clickable:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+
+.ui-chip.is-clickable:active {
+  transform: scale(0.96);
+  transition-duration: var(--motion-haptic);
+}
+
 /* 图标 */
 .ui-chip__icon {
   align-items: center;

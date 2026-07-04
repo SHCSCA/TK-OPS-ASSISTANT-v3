@@ -65,7 +65,7 @@ defineProps<{ errorSummary: string }>();
 
 /* 错误边框呼吸 */
 .bootstrap-error__icon-wrap {
-  animation: exception-breathe var(--bootstrap-error-breathe-duration) ease-in-out infinite;
+  animation: exception-breathe var(--motion-breathe) ease-in-out infinite;
 }
 
 /* 重试按钮悬停微交互 */

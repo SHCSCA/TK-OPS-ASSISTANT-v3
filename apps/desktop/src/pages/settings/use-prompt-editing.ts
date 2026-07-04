@@ -9,7 +9,8 @@ const PROMPT_VARIABLES: Record<string, string[]> = {
   storyboard_generation: ["script"],
   tts_generation: ["text", "voice_id"],
   subtitle_alignment: ["text", "audio_url"],
-  video_transcription: ["media_file"]
+  video_transcription: ["media_file"],
+  magic_cut: ["timeline_context", "instruction"]
 };
 
 /** 能力 ID → 中文标签 */
@@ -21,6 +22,7 @@ const CAPABILITY_LABELS: Record<string, string> = {
   subtitle_alignment: "字幕对齐",
   video_transcription: "视频解析",
   video_generation: "视频生成",
+  magic_cut: "智能粗剪",
   asset_analysis: "素材/视频分析"
 };
 

@@ -59,6 +59,10 @@
 | `provider.model.capability_required` | AI Provider 模型能力声明缺失 | 适用于 `PUT /api/ai-providers/{provider_id}/models/{model_id}` |
 | `media.ffprobe_unavailable` | ffprobe 不可用 | 适用于 `/api/settings/diagnostics/media` 与视频拆解链路 |
 | `media.ffprobe_incompatible` | ffprobe 版本或输出不兼容 | 适用于 `/api/settings/diagnostics/media` 与视频拆解链路 |
+| `media.ffmpeg_unavailable` | FFmpeg 不可用 | 适用于 `/api/settings/diagnostics/media` 与渲染任务 |
+| `media.ffmpeg_configured_path_missing` | 已配置的 FFmpeg 路径不存在 | 适用于 `/api/settings/config` 后的媒体诊断和渲染任务 |
+| `media.ffmpeg_timeout` | FFmpeg 执行超时 | 适用于渲染任务 |
+| `media.ffmpeg_failed` | FFmpeg 执行失败 | 适用于渲染任务 |
 | `account.status_inactive` | 账号当前未启用 | 适用于账号发布校验 |
 | `account.username_missing` | 账号缺少用户名 | 适用于账号发布校验 |
 | `account.authorization_expired` | 账号授权已过期 | 适用于账号发布校验 |
@@ -66,6 +70,13 @@
 | `workspace.root_path_missing` | 工作区根目录不存在 | 适用于工作区环境校验与健康检查 |
 | `workspace.root_path_invalid` | 工作区根路径不是目录 | 适用于工作区环境校验与健康检查 |
 | `workspace.browser_instance_error` | 工作区下存在异常浏览器实例 | 适用于工作区环境校验与健康检查 |
+| `browser_instance.profile_missing` | 浏览器 profile 目录不存在 | 适用于浏览器实例启动与健康检查 |
+| `browser_instance.executable_missing` | 浏览器可执行文件不存在或未配置 | 适用于浏览器实例真实进程启动 |
+| `browser_instance.launch_failed` | 浏览器进程启动失败 | 适用于浏览器实例真实进程启动 |
+| `browser_instance.process_missing` | 已登记进程不存在或已退出 | 适用于浏览器实例健康检查 |
+| `browser_instance.devtools_unreachable` | 浏览器调试端口不可达 | 适用于浏览器实例健康检查和真实进程边界验证 |
+| `browser_instance.stop_failed` | 浏览器进程停止失败 | 适用于浏览器实例停止 |
+| `workspace.ai_command_precheck_failed` | AI 工作台命令配置预检失败 | 适用于智能粗剪 Provider 未配置、能力停用、密钥缺失或模型不支持 |
 
 ### 1.3 模块索引
 
@@ -134,7 +145,7 @@
 ### 仍待细化的高优先模块
 
 - 脚本 / 分镜：可继续补充 `versions / restore / shots* / sync-from-script` 的失败路径示例。
-- 工作台：可继续补充 `preview`、`precheck` 的更多返回示例；预检问题目前仍是 `string[]`，后续可演进为带 `target` 的结构化问题。
+- 工作台：可继续补充 `preview`、`precheck` 的更多返回示例；预检已保留 `issues: string[]` 并新增 `issueDetails[]` 结构化定位问题。
 - 配音 / 字幕 / 资产：可继续补充 `waveform / export / group batch` 的异常路径与响应样例。
 
 ### 字段层面结论
@@ -557,6 +568,7 @@
   - `saveState`：`saved`、`updatedAt`、`source`、`message`
   - `assemblyState`：仅 `POST /timeline/assemble` 返回，包含 `status`、`sources[]`、`issues[]`
 - `TimelineClipDto.metadata` 新增：`sourceKind`、`sourceRevision`、`segmentIndex`、`segmentId`、`text`、`visualPrompt`，用于前端播放器、素材池和基础属性面板展示真实来源。
+- `TimelinePrecheckDto.issueDetails[]` 新增：结构化问题定位，字段包含 `id`、`severity`、`message`、`targetType`、`targetId`、`trackId?`、`clipId?`、`suggestion?`、`actionLabel?`；旧字段 `issues[]` 继续返回问题中文文案列表。
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
@@ -571,14 +583,18 @@
 | `POST /api/workspace/timelines/{timeline_id}/clips/insert-asset` | 路径参数：`timeline_id`；`ClipInsertAssetInput`：`assetId`、`targetTrackId?`、`startMs?`。未传 `targetTrackId` 时按资产类型选择匹配轨道；未传 `startMs` 时插入到目标轨道末尾 | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_insert_asset`、`message` | `400`、`404`、`422`、`500`、`503` | `insertWorkspaceAssetClip`、`editing-workspace.ts:insertAssetAtPlayhead` |
 | `POST /api/workspace/clips/{clip_id}/split` | 路径参数：`clip_id`；`ClipSplitInput`：`splitAtMs`，必须位于片段内部 | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_split`、`message` | `400`、`404`、`422` | `splitWorkspaceClip`、`editing-workspace.ts:splitSelectedClip` |
 | `DELETE /api/workspace/clips/{clip_id}` | 路径参数：`clip_id` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_delete`、`message` | `400`、`404` | `deleteWorkspaceClip`、`editing-workspace.ts:deleteSelectedClip` |
-| `GET /api/workspace/timelines/{timeline_id}/preview` | 路径参数：`timeline_id` | `TimelinePreviewDto`：`status=ready`，`previewUrl` 为本地 `data:application/json` manifest | `404`、`500` | `fetchTimelinePreview` |
-| `POST /api/workspace/timelines/{timeline_id}/precheck` | 路径参数：`timeline_id` | `TimelinePrecheckDto`：`status=ready/warning`、`issues[]` | `404`、`500` | `precheckTimeline` |
-| `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandInput`：`timelineId?`、`capabilityId`、`parameters` | `WorkspaceAICommandResultDto`；当前最小实现返回 `status=queued` 并创建真实 TaskBus 任务 | `404`、`422` | `runWorkspaceAICommand` |
+| `GET /api/workspace/timelines/{timeline_id}/preview` | 路径参数：`timeline_id` | `TimelinePreviewDto`：`timelineId`、`status=ready/structure_only/unavailable`、`message`、`previewUrl`、`previewMode=manifest/media/unavailable`、`media?`、`error?` | `404`、`500`；业务错误码见下方 `preview.*` | `fetchTimelinePreview` |
+| `POST /api/workspace/timelines/{timeline_id}/precheck` | 路径参数：`timeline_id` | `TimelinePrecheckDto`：`status=ready/warning`、`issues[]`、`issueDetails[]` | `404`、`500` | `precheckTimeline` |
+| `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandInput`：`timelineId?`、`capabilityId`、`parameters` | `WorkspaceAICommandResultDto`；预检通过后返回 `status=queued` 并创建真实 TaskBus 任务；`magic_cut` 配置预检失败时返回错误信封 | `400(workspace.ai_command_precheck_failed)`、`404`、`422` | `runWorkspaceAICommand` |
 
 **当前实现说明**
 
-- `GET /preview` 不伪造渲染画面，返回基于真实轨道、片段与时长统计生成的本地 manifest。
-- `POST /precheck` 校验轨道类型、片段时长、起始时间与片段数据格式；空轨道会返回可见问题列表。
+- `GET /preview` 不伪造渲染画面，返回基于真实轨道、片段与时长统计生成的本地 manifest。`previewUrl` 不是视频或音频播放地址，前端不得把它传给 `<video>` / `<audio>`；真实媒体预览必须等待 Runtime 显式返回 `previewMode=media` 与 `media.url`。
+- `previewMode=manifest` 表示仅结构预览；时间线没有可播放视频/音频资产时不是错误，`error=null`。
+- `previewMode=media` 表示 Runtime 已从资产中心真实文件生成媒体访问 URL；`media.mimeType` 来自资产文件后缀，`media.durationMs` 来自资产 `duration_ms` 字段，不读取片段 metadata。
+- `previewMode=unavailable` 表示时间线引用了真实媒体资产但当前不可播放，例如资产服务不可用、资产记录缺失或源文件路径不可用；Runtime 仍保留 `previewUrl` manifest 供前端展示结构摘要，并返回中文 `error.message` 与重试入口。
+- `POST /precheck` 校验轨道类型、片段时长、起始时间与片段数据格式；空轨道会返回可见问题列表。`issues[]` 保持旧字符串契约，`issueDetails[]` 提供可定位的 `timeline / track / clip` 结构化问题。
+- `POST /ai-commands` 对 `magic_cut` 会先执行 AI 能力配置预检；Provider 未配置、能力停用、密钥缺失或模型不支持时直接返回 `400` 错误信封，前端展示中文阻断提示，不创建后台任务。
 - `POST /clips/{clip_id}/move` 会拒绝锁定轨道、负起点以及移动后与同轨片段重叠的结果。
 - `POST /clips/{clip_id}/trim` 会拒绝负起点、裁剪后小于 500ms 以及裁剪后与同轨片段重叠的结果。
 - `POST /clips/{clip_id}/replace` 推荐传入 `assetId` 替换为资产中心素材；Runtime 会校验资产存在、类型匹配、源文件可访问，并保持原片段起止时间。
@@ -591,6 +607,102 @@
 - `WorkspaceTimelineResultDto.activeTask` 只返回当前 Runtime 进程内、且 `ownerRef` 绑定到该时间线的活跃任务，优先 `ai-workspace-command`。
 - `WorkspaceTimelineResultDto.saveState.source` 当前取值：`load`、`create`、`assembly`、`save`、`clip_move`、`clip_trim`、`clip_replace`、`clip_insert_asset`、`clip_split`、`clip_delete`。
 
+### M05 预览接口契约
+
+**接口地址**：`GET /api/workspace/timelines/{timeline_id}/preview`
+
+**请求参数**
+
+| 参数 | 位置 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- | --- |
+| `timeline_id` | path | string | 是 | 时间线 ID |
+
+**返回字段**
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `timelineId` | string | 当前时间线 ID |
+| `status` | `ready \| structure_only \| unavailable` | 预览状态 |
+| `message` | string | 可直接展示的中文状态说明 |
+| `previewUrl` | string \| null | `data:application/json` manifest；`media/unavailable` 模式也会保留结构清单 |
+| `previewMode` | `manifest \| media \| unavailable` | 前端渲染模式 |
+| `media.kind` | `video \| audio` | 真实媒体类型，仅 `media` 模式返回 |
+| `media.url` | string | Runtime 资产媒体代理地址，禁止返回本地绝对路径或 `file://` |
+| `media.source` | string | 媒体来源，例如 `asset:asset-video-1` |
+| `media.mimeType` | string | 从真实资产文件后缀推导的 MIME |
+| `media.durationMs` | number \| null | 从资产 `duration_ms` 字段读取的时长 |
+| `media.expiresAt` | string \| null | 媒体访问过期时间，当前可为 `null` |
+| `error.code` | string | `preview.*` 业务错误码，仅不可用时返回 |
+| `error.message` | string | 中文可见错误，前端用于错误提示与重试 |
+
+**预览错误码**
+
+| `error.code` | 语义 | 前端处理 |
+| --- | --- | --- |
+| `preview.asset_repository_unavailable` | 时间线引用了资产，但资产服务未就绪 | 显示中文错误，保留结构预览与重试入口 |
+| `preview.asset_file_missing` | 资产记录存在但源文件路径缺失、文件不存在或不可读取 | 显示中文错误，保留结构预览与重试入口 |
+
+**manifest 示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "timelineId": "timeline-1",
+    "status": "structure_only",
+    "message": "时间线本地预览已生成，当前没有可播放媒体，仅展示轨道与片段摘要。",
+    "previewUrl": "data:application/json;charset=utf-8,%7B%22timelineId%22%3A%22timeline-1%22%2C%22trackCount%22%3A2%2C%22clipCount%22%3A1%2C%22tracks%22%3A%5B%5D%7D",
+    "previewMode": "manifest",
+    "media": null,
+    "error": null
+  }
+}
+```
+
+**media 示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "timelineId": "timeline-1",
+    "status": "ready",
+    "message": "时间线真实媒体预览已准备。",
+    "previewUrl": "data:application/json;charset=utf-8,%7B%22timelineId%22%3A%22timeline-1%22%7D",
+    "previewMode": "media",
+    "media": {
+      "kind": "video",
+      "url": "/api/assets/asset-video-1/media?token=preview-token",
+      "source": "asset:asset-video-1",
+      "mimeType": "video/mp4",
+      "durationMs": 1800,
+      "expiresAt": null
+    },
+    "error": null
+  }
+}
+```
+
+**unavailable 示例**
+
+```json
+{
+  "ok": true,
+  "data": {
+    "timelineId": "timeline-1",
+    "status": "unavailable",
+    "message": "时间线包含资产片段，但源文件不可用，已保留结构预览。",
+    "previewUrl": "data:application/json;charset=utf-8,%7B%22timelineId%22%3A%22timeline-1%22%2C%22clipCount%22%3A1%7D",
+    "previewMode": "unavailable",
+    "media": null,
+    "error": {
+      "code": "preview.asset_file_missing",
+      "message": "时间线包含资产片段，但源文件不可用，已保留结构预览。"
+    }
+  }
+}
+```
+
 ### M05 UI 资产来源说明
 
 - M05 剪辑工作台素材池通过 `GET /api/assets` 读取资产中心素材，并在前端按当前项目过滤。
@@ -600,7 +712,7 @@
 - 移动与裁剪均通过 Runtime 保存，Runtime 会拒绝锁定轨道、负起点、同轨重叠和小于 500ms 的裁剪结果。
 - `加入时间线` 调用 `POST /api/workspace/timelines/{timeline_id}/clips/insert-asset`，前端传入当前播放头作为 `startMs`，Runtime 返回新时间线后由 store 定位新片段。
 - `替换片段` 调用 `POST /api/workspace/clips/{clip_id}/replace`，前端仅传 `assetId`，Runtime 负责素材类型、源文件和轨道合法性校验。
-- 播放器和属性面板通过 `workspacePreviewContext` 读取当前播放头或选中片段上下文；预检问题仍来自 Runtime `issues[]`，前端按片段/轨道 ID 或名称做定位，无法定位时给出中文阻断提示。
+- 播放器和属性面板通过 `workspacePreviewContext` 读取当前播放头或选中片段上下文；预检问题优先消费 Runtime `issueDetails[]` 的 `clipId / trackId / targetType` 做定位，旧前端仍可继续读取 `issues[]` 文案。
 
 **示例**
 
@@ -1246,6 +1358,7 @@ waveform 缺少音频：
 | `POST /api/assets/batch-delete` | `BatchDeleteAssetsInput`：`assetIds[]` | `{"deletedCount": number}` | `422`、`500` | 当前前端未直接调用 |
 | `POST /api/assets/batch-move-group` | `BatchMoveGroupInput`：`assetIds[]`、`groupId?` | `{"movedCount": number, "groupId": string \| null}` | `404`、`422`、`500` | 当前前端未直接调用 |
 | `GET /api/assets/{asset_id}` | 路径参数：`asset_id` | `AssetDto` | `404` | `fetchAsset` |
+| `GET /api/assets/{asset_id}/media` | 路径参数：`asset_id`；查询参数：`token?` | 本地媒体文件响应，用于时间线预览和资产预览播放 | `403`、`404`、`500` | `fetchTimelinePreview` 间接消费 |
 | `PATCH /api/assets/{asset_id}` | `AssetUpdateInput`：`name?`、`tags?`、`metadataJson?` | `AssetDto` | `400`、`404`、`422`、`500` | `updateAsset` |
 | `DELETE /api/assets/{asset_id}` | 路径参数：`asset_id` | 删除结果对象 | `404`、`409`、`500` | `deleteAsset` |
 | `GET /api/assets/{asset_id}/references` | 路径参数：`asset_id` | `AssetReferenceDto[]` | `404` | `fetchAssetReferences` |
@@ -1460,12 +1573,12 @@ waveform 缺少音频：
 | `DELETE /api/devices/workspaces/{ws_id}` | 路径参数：`ws_id` | 删除结果对象 | `404` | `deleteDeviceWorkspace` |
 | `POST /api/devices/workspaces/{ws_id}/health-check` | 无；执行一次真实工作区环境校验并记录最新结果 | `HealthCheckResultDto`：`workspace_id`、`status`、`checked_at`、`errorCode`、`errorMessage`、`nextAction`、`environmentStatus`、`bindingSummary` | `404` | `checkDeviceWorkspaceHealth` |
 | `GET /api/devices/workspaces/{ws_id}/logs` | 查询参数：`since?` | `DeviceWorkspaceLogDto[]` | `404` | `fetchWorkspaceLogs` |
-| `GET /api/devices/workspaces/{ws_id}/browser-instances` | 路径参数：`ws_id`；列出工作区下的真实浏览器实例 | `BrowserInstanceDto[]` | `404` | `fetchBrowserInstances` |
-| `POST /api/devices/workspaces/{ws_id}/browser-instances` | 路径参数：`ws_id`；`BrowserInstanceCreateInput`：`name`、`profilePath` | `BrowserInstanceDto` | `404`、`422` | `createBrowserInstance` |
-| `GET /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}` | 路径参数：`ws_id`、`instance_id` | `BrowserInstanceDto` | `404` | 当前前端未直接调用 |
-| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/start` | 路径参数：`ws_id`、`instance_id`；启动浏览器实例并广播状态变更 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | `startBrowserInstance` |
-| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/stop` | 路径参数：`ws_id`、`instance_id`；停止浏览器实例并广播状态变更 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | `stopBrowserInstance` |
-| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/health-check` | 路径参数：`ws_id`、`instance_id`；检查 profile 目录与实例状态 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`browserInstance` | `404` | `checkBrowserInstanceHealth` |
+| `GET /api/devices/workspaces/{ws_id}/browser-instances` | 路径参数：`ws_id`；列出工作区下的真实浏览器实例 | `BrowserInstanceDto[]`；每项包含 `processId / debugPort / runtimeMode / launchSupported / runtimeEvidence` | `404` | `fetchBrowserInstances` |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances` | 路径参数：`ws_id`；`BrowserInstanceCreateInput`：`name`、`profilePath` | `BrowserInstanceDto`；新实例默认不伪造运行中状态 | `404`、`422` | `createBrowserInstance` |
+| `GET /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}` | 路径参数：`ws_id`、`instance_id` | `BrowserInstanceDto`；包含最新进程边界字段 | `404` | 当前前端未直接调用 |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/start` | 路径参数：`ws_id`、`instance_id`；读取 `settings.config.browser.executablePath` 后启动本地浏览器进程并广播状态变更 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`operation`、`processBoundaryVerified`、`processSummary`、`browserInstance` | `404`、`browser_instance.profile_missing`、`browser_instance.executable_missing`、`browser_instance.launch_failed` | `startBrowserInstance` |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/stop` | 路径参数：`ws_id`、`instance_id`；停止已登记 PID 对应的浏览器进程并广播状态变更 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`operation`、`processBoundaryVerified`、`processSummary`、`browserInstance` | `404`、`browser_instance.stop_failed` | `stopBrowserInstance` |
+| `POST /api/devices/workspaces/{ws_id}/browser-instances/{instance_id}/health-check` | 路径参数：`ws_id`、`instance_id`；检查 profile 目录、PID 存活与调试端口证据 | `BrowserInstanceWriteResultDto`：`saved`、`updatedAt`、`versionOrRevision`、`objectSummary`、`operation`、`processBoundaryVerified`、`processSummary`、`browserInstance` | `404`、`browser_instance.profile_missing`、`browser_instance.process_missing`、`browser_instance.devtools_unreachable` | `checkBrowserInstanceHealth` |
 | `GET /api/devices/browser-instances` | 无；当前是 `workspaces` 列表兼容别名 | `DeviceWorkspaceDto[]` | `500` | 当前前端未直接调用 |
 | `POST /api/devices/browser-instances` | `DeviceWorkspaceCreateInput`；当前是创建工作区兼容别名 | `DeviceWorkspaceDto` | `422` | `createLegacyDeviceWorkspaceViaBrowserAlias` |
 | `GET /api/devices/browser-instances/{ws_id}` | 路径参数：`ws_id`；当前是工作区详情兼容别名 | `DeviceWorkspaceDto` | `404` | 当前前端未直接调用 |
@@ -1481,6 +1594,7 @@ waveform 缺少音频：
 **当前差异**
 
 - 已修复：前端 `BrowserInstanceDto` / `AccountBindingDto` 已对齐当前 M11 后端 schema，浏览器实例列表、创建、启动、停止与实例健康检查均走工作区嵌套路由。
+- 已修复：浏览器实例启动不再只写状态；Runtime 会记录 `processId`、`debugPort`、`runtimeEvidence`，且缺少可执行文件或 profile 时返回可见错误状态。
 - 已修复：`fetchWorkspaceLogs` 使用后端实际支持的 `since?` 查询参数，`fetchExecutionBindings` 不再附带无效查询参数。
 - 已修复：旧 `device_workspaces` / `execution_bindings` 表会在 Runtime 启动时重建到当前 schema，补齐 `last_used_at / updated_at`，并移除会阻断插入的旧 NOT NULL 列。
 - `health-check` 现在会直接返回中文可读的错误原因与下一步动作，前端不需要再自行猜测“根目录不存在”或“环境异常”的文案。
@@ -1575,9 +1689,9 @@ waveform 缺少音频：
   - `position`：只有真实处于 `queued` 时返回序号，否则返回 `null`
   - `activeRunId`：当前活跃运行实例 ID
 - `AutomationTaskDto.latestResult`
-  - `status`：`idle | queued | running | succeeded | failed | cancelled`
+  - `status`：`idle | queued | running | blocked | succeeded | failed | cancelled`
   - `summary`：最近一次运行摘要，默认取最近日志的最后一行
-  - `errorCode / errorMessage`：仅在失败或取消时返回
+  - `errorCode / errorMessage`：失败、阻断或取消时返回；无真实执行器时使用 `automation.executor_missing`
 - `AutomationTaskDto.retry`
   - `canRetry`：是否允许当前任务直接重试
   - `errorCode`：重试阻断原因，当前覆盖 `automation.task_disabled`、`automation.binding_required`、`automation.config_missing`、`automation.task_already_running`
@@ -1591,6 +1705,7 @@ waveform 缺少音频：
 
 - 当前自动化中心保留原有路由，不新增新路由；本轮主要补齐的是任务实例生命周期契约。
 - `409` 不再是空泛冲突：必须伴随明确 `error_code` 返回，供前端直接区分“任务停用 / 正在运行 / 缺少绑定 / 缺少配置”。
+- 当前尚未接入真实动作执行器时，自动化运行只能完成执行前检查，并以 `blocked + automation.executor_missing` 暴露人工处理或执行器接入边界。
 
 **示例**
 
@@ -1650,7 +1765,7 @@ waveform 缺少音频：
 | `PATCH /api/publishing/plans/{plan_id}` | `PublishPlanUpdateInput`：`title?`、`account_name?`、`status?`、`scheduled_at?` | `PublishPlanDto` | `404`、`422` | `updatePublishPlan` |
 | `DELETE /api/publishing/plans/{plan_id}` | 路径参数：`plan_id` | 删除结果对象 | `404` | `deletePublishPlan` |
 | `POST /api/publishing/plans/{plan_id}/precheck` | 无；执行一次真实发布预检并广播结果 | `PrecheckResultDto`：`plan_id`、`items[]`、`conflicts[]`、`has_errors`、`blocking_count`、`readiness`、`checked_at` | `404` | `runPublishingPrecheck` |
-| `POST /api/publishing/plans/{plan_id}/submit` | 无；提交发布并写入最新回执摘要 | `SubmitPlanResultDto`：`plan_id`、`status`、`submitted_at`、`message`、`receipt_status`、`error_code`、`error_message`、`next_action`、`receipt` | `404`、`409 publishing.precheck_failed` | `submitPublishPlan` |
+| `POST /api/publishing/plans/{plan_id}/submit` | 无；执行发布预检并生成人工发布交接 | `SubmitPlanResultDto`：`plan_id`、`status`、`submitted_at`、`message`、`receipt_status`、`error_code`、`error_message`、`next_action`、`receipt`；真实平台执行器未接入时返回 `manual_required` | `404`、`409 publishing.precheck_failed` | `submitPublishPlan` |
 | `POST /api/publishing/plans/{plan_id}/cancel` | 无 | `PublishPlanDto` | `404` | `cancelPublishPlan` |
 | `GET /api/publishing/plans/{plan_id}/receipts` | 路径参数：`plan_id` | `PublishReceiptDto[]` | `404` | `fetchPublishReceipts` |
 | `GET /api/publishing/plans/{plan_id}/receipt` | 路径参数：`plan_id` | `PublishReceiptDto` | `404 publishing.receipt_not_found` | `fetchPublishReceipt` |
@@ -1681,7 +1796,7 @@ waveform 缺少音频：
   "data": {
     "id": "plan-1",
     "title": "晚间发布排期",
-    "status": "submitted",
+    "status": "manual_required",
     "precheck_summary": {
       "status": "ready",
       "checked_at": "2026-04-21T10:20:00Z",
@@ -1704,14 +1819,14 @@ waveform 缺少音频：
     },
     "latest_receipt": {
       "id": "receipt-1",
-      "status": "receipt_pending",
-      "stage": "receipt",
-      "summary": "已提交平台，等待平台回执。",
+      "status": "manual_required",
+      "stage": "manual_handoff",
+      "summary": "发布前检查已通过，当前需要人工在 TikTok 或绑定浏览器工作区完成提交。",
       "error_code": null,
       "error_message": null,
       "next_action": {
-        "key": "refresh-receipt",
-        "label": "刷新回执"
+        "key": "manual-publish",
+        "label": "前往人工发布"
       },
       "received_at": "2026-04-21T10:20:00Z",
       "is_final": false
@@ -1732,9 +1847,10 @@ waveform 缺少音频：
   - `stage`：阶段摘要，当前覆盖 `queued / rendering / exporting / completed / failed / cancelled`
   - `output`：输出文件探测结果，包含 `path / exists / size_bytes / last_checked_at / can_open`
   - `failure`：失败或异常输出语义，包含 `error_code / error_message / next_action / retryable`
+- `POST /api/renders/tasks` 会创建任务并触发最小本地渲染；有效 M05 交接可传入 `timeline_id` 绑定来源时间线；成功时写入 `output_path`、`progress=100` 和 `completed` 状态，FFmpeg 缺失或输出校验失败时返回 `failed` 任务 DTO。
 - 当前渲染链路会广播 2 类事件：
   - `render.progress`：进度更新事件
-  - `render.status.changed`：状态、阶段、输出与失败信息变更事件
+  - `render.status.changed`：状态、顶层 `errorCode`、阶段、输出与失败信息变更事件
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
@@ -1742,10 +1858,10 @@ waveform 缺少音频：
 | `POST /api/renders/profiles` | `ExportProfileCreateInput`：`name`、`format?`、`resolution?`、`fps?`、`video_bitrate?`、`audio_policy?`、`subtitle_policy?`、`config_json?` | `ExportProfileDto` | `400`、`422` | `createExportProfile` |
 | `GET /api/renders/templates` | 无；当前后端直接复用 profile 列表作为模板来源 | `ExportProfileDto[]` | `500` | `listRenderTemplates` |
 | `GET /api/renders/resource-usage` | 无 | `RenderResourceUsageDto`：`cpu`、`gpu`、`disk`、`collectedAt` | `500` | `fetchRenderResourceUsage` |
-| `GET /api/renders/tasks` | 查询参数：`status?` | `RenderTaskDto[]`；每项包含 `stage / output / failure` | `500` | `fetchRenderTasks` |
-| `POST /api/renders/tasks` | `RenderTaskCreateInput`：`project_id?`、`project_name?`、`preset?`、`format?` | `RenderTaskDto` | `422` | `createRenderTask` |
-| `GET /api/renders/tasks/{task_id}` | 路径参数：`task_id` | `RenderTaskDto` | `404` | `fetchRenderTask` |
-| `PATCH /api/renders/tasks/{task_id}` | `RenderTaskUpdateInput`：`preset?`、`format?`、`status?`、`progress?`、`output_path?`、`error_message?` | `RenderTaskDto` | `404`、`422` | `updateRenderTask` |
+| `GET /api/renders/tasks` | 查询参数：`status?` | `RenderTaskDto[]`；每项包含 `timeline_id / stage / output / failure` | `500` | `fetchRenderTasks` |
+| `POST /api/renders/tasks` | `RenderTaskCreateInput`：`project_id?`、`project_name?`、`timeline_id?`、`preset?`、`format?`；`timeline_id` 仅表示来自 M05 的来源时间线绑定，不代表本接口执行完整时间线合成 | `RenderTaskDto`：包含 `timeline_id` | `409 render.timeline_project_missing`、`409 render.timeline_not_found`、`409 render.timeline_project_mismatch`、`422` | `createRenderTask` |
+| `GET /api/renders/tasks/{task_id}` | 路径参数：`task_id` | `RenderTaskDto`：包含 `timeline_id` | `404` | `fetchRenderTask` |
+| `PATCH /api/renders/tasks/{task_id}` | `RenderTaskUpdateInput`：`preset?`、`format?`、`status?`、`progress?`、`output_path?`、`error_code?`、`error_message?` | `RenderTaskDto` | `404`、`422` | `updateRenderTask` |
 | `DELETE /api/renders/tasks/{task_id}` | 路径参数：`task_id` | 删除结果对象 | `404` | `deleteRenderTask` |
 | `POST /api/renders/tasks/{task_id}/cancel` | 路径参数：`task_id` | `CancelRenderResultDto`：`task_id`、`status`、`message` | `404`、`409 render.task_not_cancellable` | `cancelRenderTask` |
 | `POST /api/renders/tasks/{task_id}/retry` | 路径参数：`task_id`；仅允许 `failed / cancelled` 任务重试 | `RenderTaskDto` | `404`、`409 render.task_not_retryable` | `retryRenderTask` |
@@ -1761,11 +1877,31 @@ waveform 缺少音频：
 | --- | --- | --- |
 | `render.task_not_cancellable` | 当前任务不可取消 | 只有 `queued / rendering` 状态允许取消 |
 | `render.task_not_retryable` | 当前任务不可重试 | 只有 `failed / cancelled` 状态允许重试 |
+| `render.timeline_project_missing` | 时间线缺少项目上下文 | `POST /api/renders/tasks` 传入 `timeline_id` 但未传入 `project_id` |
+| `render.timeline_not_found` | 时间线不存在 | `POST /api/renders/tasks` 传入的 `timeline_id` 在 Runtime 中不存在 |
+| `render.timeline_project_mismatch` | 时间线不属于当前项目 | `POST /api/renders/tasks` 传入的 `timeline_id` 所属项目与 `project_id` 不一致 |
+| `media.ffmpeg_unavailable` | FFmpeg 不可用 | 创建或重试渲染任务时未检测到 FFmpeg |
+| `media.ffmpeg_timeout` | FFmpeg 超时 | 最小渲染执行超过 Runtime 超时 |
+| `media.ffmpeg_failed` | FFmpeg 执行失败 | FFmpeg 返回非零状态或未知执行错误 |
 | `render.task_failed` | 渲染任务执行失败 | `status=failed` 时出现在 `failure` |
 | `render.task_cancelled` | 渲染任务已取消 | `status=cancelled` 时出现在 `failure` |
 | `render.output_not_found` | 输出文件不存在 | `status=completed` 但 `output.path` 对应文件不存在 |
 
 **示例**
+
+创建请求：
+
+```json
+{
+  "project_id": "project-1",
+  "project_name": "夏季穿搭合集",
+  "timeline_id": "timeline-1",
+  "preset": "1080p",
+  "format": "mp4"
+}
+```
+
+成功返回：
 
 ```json
 {
@@ -1774,11 +1910,13 @@ waveform 缺少音频：
     "id": "render-task-1",
     "project_id": "project-1",
     "project_name": "夏季穿搭合集",
+    "timeline_id": "timeline-1",
     "preset": "1080p",
     "format": "mp4",
     "status": "completed",
     "progress": 100,
     "output_path": "D:/tkops/output/project-1/final.mp4",
+    "error_code": null,
     "error_message": null,
     "stage": {
       "code": "completed",
@@ -1868,10 +2006,10 @@ waveform 缺少音频：
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/settings/health` | 无 | `RuntimeHealthSnapshotDto`：`runtime`、`aiProvider`、`renderQueue`、`publishingQueue`、`taskBus`、`license`、`lastSyncAt` | `500` | `fetchRuntimeHealth` |
-| `GET /api/settings/config` | 无 | `AppSettingsDto`：`runtime`、`paths`、`logging`、`ai`、`revision` | `500` | `fetchRuntimeConfig` |
-| `PUT /api/settings/config` | `AppSettingsUpdateInput`：`runtime.mode/workspaceRoot`、`paths.cacheDir/exportDir/logDir`、`logging.level`、`ai.provider/model/voice/subtitleMode`；成功后广播 `config.changed` | `AppSettingsDto` | `422`、`500` | `updateRuntimeConfig` |
+| `GET /api/settings/config` | 无 | `AppSettingsDto`：`runtime`、`paths`、`logging`、`ai`、`media.ffprobePath/ffmpegPath`、`browser.executablePath`、`revision` | `500` | `fetchRuntimeConfig` |
+| `PUT /api/settings/config` | `AppSettingsUpdateInput`：`runtime.mode/workspaceRoot`、`paths.cacheDir/exportDir/logDir`、`logging.level`、`ai.provider/model/voice/subtitleMode`、`media.ffprobePath/ffmpegPath`、`browser.executablePath`；成功后广播 `config.changed` | `AppSettingsDto` | `422`、`500` | `updateRuntimeConfig` |
 | `GET /api/settings/diagnostics` | 无 | `RuntimeDiagnosticsDto`：`databasePath`、`logDir`、`revision`、`mode`、`healthStatus` | `500` | `fetchRuntimeDiagnostics` |
-| `GET /api/settings/diagnostics/media` | 无；读取 ffprobe 可用性、路径、版本与最近检查时间 | `RuntimeMediaDiagnosticsDto`：`ffprobe.status`、`ffprobe.path`、`ffprobe.version`、`ffprobe.errorCode`、`ffprobe.errorMessage`、`checkedAt` | `500`；ffprobe 异常时返回 `media.ffprobe_unavailable` 或 `media.ffprobe_incompatible` | 当前前端未直接调用 |
+| `GET /api/settings/diagnostics/media` | 无；读取 FFprobe/FFmpeg 可用性、路径、版本与最近检查时间 | `RuntimeMediaDiagnosticsDto`：`ffprobe.*`、`ffmpeg.*`、`checkedAt`；每个媒体工具对象包含 `status/path/source/version/errorCode/errorMessage` | `500`；工具异常时返回 `media.ffprobe_*` 或 `media.ffmpeg_*` 语义 | 当前前端未直接调用 |
 | `GET /api/settings/logs` | 查询参数：`kind?`、`since?`、`level?`、`limit?`；当前从 `runtime.jsonl` 读取结构化日志 | `RuntimeLogPageDto`：`items[]`、`nextCursor` | `422`、`500` | `fetchRuntimeLogs` |
 | `POST /api/settings/diagnostics/export` | 无；生成当前 settings / health / diagnostics / runtime.jsonl 的诊断包 | `DiagnosticsBundleDto`：`bundlePath`、`createdAt`、`entries[]` | `500` | `exportDiagnosticsBundle` |
 

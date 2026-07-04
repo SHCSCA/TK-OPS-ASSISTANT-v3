@@ -350,10 +350,14 @@ Sidebar
 
 | Token | 值 | 用途 |
 | --- | --- | --- |
-| `motion.fast` | `160ms` | Hover、状态切换 |
-| `motion.base` | `220ms` | 面板开合、列表切换 |
-| `motion.slow` | `320ms` | 抽屉、模态、页面级过渡 |
-| `motion.easing` | `cubic-bezier(0.2, 0.8, 0.2, 1)` | 默认缓动 |
+| `motion.haptic` | `100ms` | 按压反馈（click/active/press） |
+| `motion.instant` | `180ms` | Hover、状态切换 |
+| `motion.content` | `350ms` | 面板开合、列表、内容切换 |
+| `motion.scene` | `600ms` | 抽屉、模态、页面级布局过渡 |
+| `motion.celebration` | `1000ms` | 完成反馈（badge/toast/progress） |
+| `motion.easing` | `cubic-bezier(0.4, 0.0, 0.2, 1)` | 默认缓动 |
+
+旧 token 名 `motion.fast`/`motion.base`/`motion.slow` 作为向后兼容别名保留，分别指向 `instant`/`content`/`scene`。
 
 ## 8. 主题系统
 

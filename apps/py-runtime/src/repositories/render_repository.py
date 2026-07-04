@@ -94,6 +94,7 @@ class RenderRepository:
             now = utc_now()
             task.status = "queued"
             task.progress = 0
+            task.error_code = None
             task.error_message = None
             task.output_path = None
             task.started_at = None

@@ -23,6 +23,7 @@ from schemas.settings import (
     ConfigChangedEventDto,
     AIProviderHealthDto,
     DiagnosticsBundleDto,
+    FfmpegDiagnosticsDto,
     FfprobeDiagnosticsDto,
     LicenseHealthDto,
     MediaDiagnosticsDto,
@@ -36,9 +37,10 @@ from schemas.settings import (
     RuntimeLogPageDto,
     TaskBusHealthDto,
 )
+from media.ffmpeg import get_ffmpeg_availability
 from services.ffprobe import get_ffprobe_availability
 from services.license_service import LicenseService
-from services.media_tool_resolver import configure_ffprobe_path
+from services.media_tool_resolver import configure_ffmpeg_path, configure_ffprobe_path
 from services.task_manager import TaskManager
 from services.ws_manager import ws_manager
 
@@ -175,6 +177,7 @@ class SettingsService:
 
     def get_media_diagnostics(self) -> MediaDiagnosticsDto:
         ffprobe = get_ffprobe_availability()
+        ffmpeg = get_ffmpeg_availability()
         return MediaDiagnosticsDto(
             ffprobe=FfprobeDiagnosticsDto(
                 status=ffprobe.status,
@@ -183,6 +186,14 @@ class SettingsService:
                 version=ffprobe.version,
                 errorCode=ffprobe.error_code,
                 errorMessage=ffprobe.error_message,
+            ),
+            ffmpeg=FfmpegDiagnosticsDto(
+                status=ffmpeg.status,
+                path=ffmpeg.path,
+                source=ffmpeg.source,
+                version=ffmpeg.version,
+                errorCode=ffmpeg.error_code,
+                errorMessage=ffmpeg.error_message,
             ),
             checkedAt=_utc_now_iso(),
         )
@@ -221,6 +232,7 @@ class SettingsService:
                 impact="异常、任务和审计日志需要写入该目录。",
             ),
             self._build_ffprobe_diagnostic_item(),
+            self._build_ffmpeg_diagnostic_item(settings),
             self._build_ai_provider_diagnostic_item(settings),
             self._build_video_transcription_diagnostic_item(),
             RuntimeDiagnosticItemDto(
@@ -343,6 +355,38 @@ class SettingsService:
             summary="未检测到 FFprobe，视频元数据将使用基础降级解析。",
             impact="视频时长、分辨率、编码格式识别可能不完整。",
             detail=ffprobe.error_message,
+            actionLabel="准备媒体工具",
+            actionTarget="settings.media_tools.prepare",
+        )
+
+    def _build_ffmpeg_diagnostic_item(self, settings: AppSettingsDto) -> RuntimeDiagnosticItemDto:
+        ffmpeg = get_ffmpeg_availability()
+        if ffmpeg.status == "ready":
+            status = "ready"
+        elif settings.media.ffmpegPath.strip():
+            status = "failed"
+        else:
+            status = "warning"
+        if ffmpeg.status == "ready":
+            return RuntimeDiagnosticItemDto(
+                id="media.ffmpeg",
+                label="FFmpeg 渲染工具",
+                group="媒体工具",
+                status="ready",
+                summary="已检测到 FFmpeg。",
+                impact="可执行本地最小渲染和后续转码导出。",
+                detail=f"来源：{ffmpeg.source}；路径：{ffmpeg.path}；版本：{ffmpeg.version or '未知'}",
+                actionLabel="重新检测",
+                actionTarget="settings.diagnostics.rescan",
+            )
+        return RuntimeDiagnosticItemDto(
+            id="media.ffmpeg",
+            label="FFmpeg 渲染工具",
+            group="媒体工具",
+            status=status,
+            summary="未检测到 FFmpeg，渲染任务会进入可重试失败状态。",
+            impact="无法生成本地渲染输出文件。",
+            detail=ffmpeg.error_message,
             actionLabel="准备媒体工具",
             actionTarget="settings.media_tools.prepare",
         )
@@ -527,7 +571,7 @@ class SettingsService:
         previous: dict[str, Any] | None,
         current: dict[str, Any],
     ) -> list[str]:
-        keys = ("runtime", "paths", "logging", "ai", "media")
+        keys = ("runtime", "paths", "logging", "ai", "media", "browser")
         if previous is None:
             return list(keys)
         return [key for key in keys if previous.get(key) != current.get(key)]
@@ -833,13 +877,20 @@ class SettingsService:
                     "voice": "alloy",
                     "subtitleMode": "balanced",
                 },
-                "media": {"ffprobePath": ""},
+                "media": {"ffprobePath": "", "ffmpegPath": ""},
+                "browser": {"executablePath": ""},
             }
         )
 
     def _to_settings_dto(self, stored: StoredSystemConfig) -> AppSettingsDto:
         document = dict(stored.document)
-        document.setdefault("media", {"ffprobePath": ""})
+        media = dict(document.get("media") or {})
+        media.setdefault("ffprobePath", "")
+        media.setdefault("ffmpegPath", "")
+        document["media"] = media
+        browser = dict(document.get("browser") or {})
+        browser.setdefault("executablePath", "")
+        document["browser"] = browser
         return AppSettingsDto.model_validate(
             {
                 "revision": stored.revision,
@@ -849,6 +900,7 @@ class SettingsService:
 
     def _sync_media_tool_config(self, settings: AppSettingsDto) -> None:
         configure_ffprobe_path(settings.media.ffprobePath)
+        configure_ffmpeg_path(settings.media.ffmpegPath)
 
     def _ensure_runtime_directories(self, settings: AppSettingsDto) -> None:
         for directory in (

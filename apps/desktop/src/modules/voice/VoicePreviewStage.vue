@@ -485,7 +485,7 @@ function seekToSegmentStart(): void {
 }
 
 .wave-container--busy .wave-bar {
-  animation: wave-pulse 1s ease-in-out infinite;
+  animation: wave-pulse var(--motion-pulse) ease-in-out infinite;
 }
 
 .wave-placeholder {

@@ -1,6 +1,4 @@
 .bootstrap-screen {
-  --bootstrap-dot-pulse-duration: 1800ms;
-  --bootstrap-error-breathe-duration: 4800ms;
   --bootstrap-panel-enter-duration: 720ms;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--color-brand-primary) 10%, transparent), transparent 34%),
@@ -120,7 +118,7 @@
 }
 
 .bootstrap-screen__dot--loading {
-  animation: pulse-dot var(--bootstrap-dot-pulse-duration) ease-in-out infinite;
+  animation: pulse-dot var(--motion-pulse) ease-in-out infinite;
   background: var(--color-brand-primary);
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-brand-primary) 16%, transparent);
 }

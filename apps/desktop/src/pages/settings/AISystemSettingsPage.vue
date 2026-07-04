@@ -141,7 +141,9 @@ import {
   formatDateOnly,
   formatErrorSummary,
   openDirectoryPath,
+  pickBrowserExecutablePath,
   pickDirectoryPath,
+  pickFfmpegPath,
   pickFfprobePath,
   runtimeStatusLabel as getRuntimeStatusLabel,
   sectionCopy,
@@ -174,7 +176,6 @@ type ProviderSecretDraft = {
 const providerDrafts = reactive<Record<string, ProviderSecretDraft>>({});
 const providerHealthModelDrafts = reactive<Record<string, string>>({});
 const localBanner = ref<{ message: string; tone: "blocked" | "error" | "ready" } | null>(null);
-const SUPPORTED_PROVIDER_IDS = new Set(["openai", "deepseek", "volcengine", "volcengine_tts"]);
 
 const isDisabled = computed(() => store.status === "saving" || settings.value === null);
 const isCapabilityDisabled = computed(
@@ -431,6 +432,7 @@ async function handleSave(): Promise<void> {
 
 async function handleSaveCapabilities(): Promise<void> {
   await capabilityStore.saveCapabilities(capabilityForms.value.map((item) => ({ ...item })));
+  await store.refresh();
 }
 
 async function handleSaveProviderSecret(): Promise<void> {
@@ -521,12 +523,20 @@ async function handlePickDirectory(field: DirectoryField): Promise<void> {
 async function handlePickFile(field: FileField): Promise<void> {
   localBanner.value = null;
   try {
-    if (field !== "media.ffprobePath") {
-      return;
-    }
-    const selected = await pickFfprobePath(form.media.ffprobePath);
+    const selected =
+      field === "browser.executablePath"
+        ? await pickBrowserExecutablePath(form.browser.executablePath)
+        : field === "media.ffmpegPath"
+          ? await pickFfmpegPath(form.media.ffmpegPath)
+          : await pickFfprobePath(form.media.ffprobePath);
     if (selected) {
-      form.media.ffprobePath = selected;
+      if (field === "media.ffmpegPath") {
+        form.media.ffmpegPath = selected;
+      } else if (field === "browser.executablePath") {
+        form.browser.executablePath = selected;
+      } else {
+        form.media.ffprobePath = selected;
+      }
     }
   } catch (error) {
     localBanner.value = {
@@ -736,7 +746,6 @@ function ensureProviderDraft(providerId: string, fallbackBaseUrl = ""): Provider
 
 function isTemporarilyHiddenProvider(provider: AIProviderCatalogItem): boolean {
   return (
-    !SUPPORTED_PROVIDER_IDS.has(provider.provider) ||
     provider.kind === "custom" ||
     provider.region === "custom" ||
     provider.category === "custom" ||

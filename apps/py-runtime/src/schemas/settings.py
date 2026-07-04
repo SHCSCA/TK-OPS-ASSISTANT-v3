@@ -81,6 +81,11 @@ class AISettingsSection(BaseModel):
 
 class MediaSettingsSection(BaseModel):
     ffprobePath: str = ""
+    ffmpegPath: str = ""
+
+
+class BrowserSettingsSection(BaseModel):
+    executablePath: str = ""
 
 
 class AppSettingsUpdateInput(BaseModel):
@@ -89,6 +94,7 @@ class AppSettingsUpdateInput(BaseModel):
     logging: LoggingSettingsSection
     ai: AISettingsSection
     media: MediaSettingsSection = Field(default_factory=MediaSettingsSection)
+    browser: BrowserSettingsSection = Field(default_factory=BrowserSettingsSection)
 
 
 class AppSettingsDto(AppSettingsUpdateInput):
@@ -126,6 +132,15 @@ class FfprobeDiagnosticsDto(BaseModel):
     errorMessage: str | None = None
 
 
+class FfmpegDiagnosticsDto(BaseModel):
+    status: str
+    path: str | None = None
+    source: str | None = None
+    version: str | None = None
+    errorCode: str | None = None
+    errorMessage: str | None = None
+
+
 class RuntimeDiagnosticItemDto(BaseModel):
     id: str
     label: str
@@ -140,6 +155,7 @@ class RuntimeDiagnosticItemDto(BaseModel):
 
 class MediaDiagnosticsDto(BaseModel):
     ffprobe: FfprobeDiagnosticsDto
+    ffmpeg: FfmpegDiagnosticsDto
     checkedAt: str
 
 

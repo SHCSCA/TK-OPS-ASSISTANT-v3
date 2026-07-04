@@ -107,6 +107,9 @@ describe("Script topic center", () => {
         return okJsonResponse(cloneValue(scriptDocument));
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
 
@@ -208,6 +211,9 @@ describe("Script topic center", () => {
         return okJsonResponse({ ...cloneValue(scriptDocument), submittedTopic: body.topic });
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
 
@@ -320,6 +326,9 @@ describe("Script topic center", () => {
         return okJsonResponse(cloneValue(scriptDocument));
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
 

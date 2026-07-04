@@ -100,7 +100,12 @@ function resolvePreviewUrl(path: string) {
   }
 }
 
-watch(() => props.asset.id, () => {
+watch(() => [
+  props.asset.id,
+  props.asset.type,
+  props.asset.filePath,
+  props.asset.thumbnailPath
+], () => {
   const path = previewKind.value === "image" && props.asset.thumbnailPath ? props.asset.thumbnailPath : props.asset.filePath;
   previewUrl.value = resolvePreviewUrl(path || "");
 }, { immediate: true });
@@ -164,7 +169,7 @@ async function playPreview(event: MouseEvent) {
   try {
     await video.play();
   } catch {
-    // ignore
+    // 悬停预览失败不阻断资产浏览。
   }
 }
 

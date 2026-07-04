@@ -31,11 +31,22 @@
             <div class="step-title">1. Runtime 健康检查</div>
             <div class="step-status">{{ getLabel(runtimeState) }}</div>
           </div>
-          <div v-if="activeStep === 'runtime' || runtimeState === 'failed'" class="step-body">
+          <div v-if="showRuntimePanel" class="step-body">
             <p v-if="runtimeState === 'detecting' || runtimeState === 're-detecting'" class="step-desc">
               正在检查本地 Python Runtime、健康状态与基础依赖。
             </p>
-            <div v-else-if="runtimeState === 'failed'" class="step-error-area">
+            <ul v-if="runtimeSelfCheckItems.length > 0" class="init-checklist" data-testid="runtime-selfcheck-list">
+              <li v-for="item in runtimeSelfCheckItems" :key="item.key">
+                <span class="material-symbols-outlined" :class="readinessIconClass(item.status)">
+                  {{ readinessIcon(item.status) }}
+                </span>
+                <span>
+                  {{ item.label }}：{{ item.detail }}
+                  <span v-if="item.errorCode" class="text-warning text-xs">（{{ item.errorCode }}）</span>
+                </span>
+              </li>
+            </ul>
+            <div v-if="runtimeState === 'failed'" class="step-error-area">
               <div class="error-box">
                 <span class="material-symbols-outlined error-icon">warning</span>
                 <div class="error-content">
@@ -109,10 +120,24 @@
                 </div>
               </div>
 
+              <div v-if="readinessBlockers.length > 0" class="readiness-blockers" data-testid="bootstrap-blockers">
+                <div v-for="blocker in readinessBlockers" :key="blocker.key" class="error-box">
+                  <span class="material-symbols-outlined error-icon">warning</span>
+                  <div class="error-content">
+                    <span class="error-text">{{ blocker.blockedReason }}</span>
+                    <span class="error-meta">
+                      影响对象：{{ blocker.affectedTarget }}；下一步：{{ blocker.nextStep }}
+                      <template v-if="readinessRequestId">；请求号：{{ readinessRequestId }}</template>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div class="step-actions">
                 <Button
                   variant="primary"
                   size="sm"
+                  data-testid="license-activate"
                   :running="licenseStore.status === 'submitting'"
                   :disabled="activateDisabled"
                   @click="handleActivate"
@@ -128,6 +153,13 @@
                   刷新授权状态
                 </Button>
               </div>
+              <p
+                v-if="readinessBlockers.length > 0"
+                class="readiness-source-hint"
+                data-testid="readiness-source-hint"
+              >
+                当前阻断项来自 Runtime readiness 报告，请按上方下一步处理。
+              </p>
             </div>
           </div>
         </article>
@@ -156,13 +188,51 @@
                   </span>
                 </li>
               </ul>
+              <ul v-if="readinessItems.length > 0" class="init-checklist" data-testid="bootstrap-readiness-list">
+                <li v-for="item in readinessItems" :key="item.key">
+                  <span class="material-symbols-outlined" :class="readinessIconClass(item.status)">
+                    {{ readinessIcon(item.status) }}
+                  </span>
+                  <span>
+                    {{ item.label }}：{{ item.detail }}
+                    <span v-if="item.nextStep" class="text-warning text-xs">下一步：{{ item.nextStep }}</span>
+                  </span>
+                </li>
+              </ul>
+              <div v-if="readinessBlockers.length > 0" class="readiness-blockers" data-testid="bootstrap-blockers">
+                <div v-for="blocker in readinessBlockers" :key="blocker.key" class="error-box">
+                  <span class="material-symbols-outlined error-icon">warning</span>
+                  <div class="error-content">
+                    <span class="error-text">{{ blocker.blockedReason }}</span>
+                    <span class="error-meta">
+                      影响对象：{{ blocker.affectedTarget }}；下一步：{{ blocker.nextStep }}
+                      <template v-if="readinessRequestId">；请求号：{{ readinessRequestId }}</template>
+                    </span>
+                  </div>
+                </div>
+              </div>
               <div class="step-actions">
                 <Button variant="primary" size="sm" @click="goToSettings">继续初始化</Button>
-                <Button variant="ghost" size="sm" @click="retryInit">重新检测配置</Button>
+                <Button data-testid="bootstrap-retry-init" variant="ghost" size="sm" @click="retryInit">重新检测配置</Button>
               </div>
+              <p
+                v-if="readinessBlockers.length > 0"
+                class="readiness-source-hint"
+                data-testid="readiness-source-hint"
+              >
+                当前阻断项来自 Runtime readiness 报告，请按上方下一步处理。
+              </p>
             </div>
             <div v-else-if="setupState === 'ready'" class="step-success">
               <p class="step-desc text-success">目录、Provider 与运行环境已就绪，可以进入创作总览。</p>
+              <ul v-if="readinessItems.length > 0" class="init-checklist" data-testid="bootstrap-readiness-list">
+                <li v-for="item in readinessItems" :key="item.key">
+                  <span class="material-symbols-outlined" :class="readinessIconClass(item.status)">
+                    {{ readinessIcon(item.status) }}
+                  </span>
+                  <span>{{ item.label }}：{{ item.detail }}</span>
+                </li>
+              </ul>
             </div>
             <div v-else-if="setupState === 'error'" class="step-error-area">
               <div class="error-box">
@@ -173,7 +243,7 @@
                 </div>
               </div>
               <div class="step-actions">
-                <Button variant="primary" size="sm" @click="retryInit">重新检测配置</Button>
+                <Button data-testid="bootstrap-retry-init" variant="primary" size="sm" @click="retryInit">重新检测配置</Button>
               </div>
             </div>
             <p v-else class="step-desc">等待前置步骤完成后再初始化目录与 Provider。</p>
@@ -225,12 +295,11 @@ const isLicenseRetrying = ref(false);
 const isInitRetrying = ref(false);
 
 onMounted(() => {
-  if (bootstrapStore.phase === "boot_loading") {
-    void bootstrapStore.load();
-  }
+  void runInitialBootstrapCheck();
 });
 
 const isFullyInitialized = computed(() => hasCompletedBootstrapInitialization(configBusStore.settings));
+const isBootstrapReadinessClear = computed(() => configBusStore.bootstrapReadiness?.canContinue ?? isFullyInitialized.value);
 
 const runtimeState = computed<WizardStepState>(() => {
   if (configBusStore.runtimeStatus === "loading") {
@@ -269,7 +338,7 @@ const initState = computed<WizardStepState>(() => {
   if (configBusStore.status === "error") {
     return "failed";
   }
-  return isFullyInitialized.value ? "success" : "failed";
+  return isFullyInitialized.value && isBootstrapReadinessClear.value ? "success" : "failed";
 });
 
 const setupState = computed<SetupState>(() => {
@@ -285,7 +354,7 @@ const setupState = computed<SetupState>(() => {
   if (!licenseStore.active) {
     return "blocked";
   }
-  if (!isFullyInitialized.value) {
+  if (!isFullyInitialized.value || !isBootstrapReadinessClear.value) {
     return "empty";
   }
   return "ready";
@@ -345,6 +414,14 @@ const stateDescription = computed(() => {
 
 const showLicensePanel = computed(() => {
   return activeStep.value === "license" || setupState.value === "ready" || setupState.value === "blocked";
+});
+
+const showRuntimePanel = computed(() => {
+  return (
+    activeStep.value === "runtime" ||
+    runtimeState.value === "failed" ||
+    runtimeSelfCheckItems.value.length > 0
+  );
 });
 
 const showInitPanel = computed(() => {
@@ -448,6 +525,26 @@ function isSpinning(state: WizardStepState) {
   return state === "detecting" || state === "re-detecting";
 }
 
+async function runInitialBootstrapCheck() {
+  if (bootstrapStore.phase === "boot_loading") {
+    await bootstrapStore.load();
+  }
+
+  if (shouldRunInitialRuntimeSelfCheck()) {
+    await configBusStore.initializeBootstrap();
+    bootstrapStore.syncPhase();
+  }
+}
+
+function shouldRunInitialRuntimeSelfCheck() {
+  return (
+    configBusStore.runtimeStatus === "online" &&
+    configBusStore.status !== "loading" &&
+    configBusStore.status !== "error" &&
+    !configBusStore.runtimeSelfCheckReport
+  );
+}
+
 function retryRuntime() {
   isRuntimeRetrying.value = true;
   void bootstrapStore.retry().finally(() => {
@@ -467,7 +564,7 @@ async function retryLicense() {
 async function retryInit() {
   isInitRetrying.value = true;
   try {
-    await configBusStore.load();
+    await configBusStore.initializeBootstrap();
   } finally {
     isInitRetrying.value = false;
   }
@@ -496,6 +593,8 @@ async function handleActivate() {
 
   if (success) {
     activationCode.value = "";
+    await configBusStore.initializeBootstrap();
+    bootstrapStore.syncPhase();
     triggerBurst();
   }
 }
@@ -513,6 +612,23 @@ function goToSettings() {
 
 function finishSetup() {
   void router.push("/dashboard");
+}
+
+const runtimeSelfCheckItems = computed(() => configBusStore.runtimeSelfCheckReport?.items ?? []);
+const readinessItems = computed(() => configBusStore.bootstrapReadiness?.items ?? []);
+const readinessBlockers = computed(() => configBusStore.bootstrapReadiness?.blockers ?? []);
+const readinessRequestId = computed(() => configBusStore.bootstrapReadiness?.requestId || "");
+
+function readinessIcon(status: string): string {
+  if (status === "ok" || status === "ready") return "check_circle";
+  if (status === "warning") return "warning";
+  return "error";
+}
+
+function readinessIconClass(status: string): string {
+  if (status === "ok" || status === "ready") return "text-success";
+  if (status === "warning") return "text-warning";
+  return "text-warning";
 }
 </script>
 

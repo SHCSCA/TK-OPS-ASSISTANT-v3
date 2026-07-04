@@ -265,16 +265,12 @@ const statusLabel = computed(() => {
   border-top-color: var(--color-brand-primary);
   border-radius: 50%;
   margin: 0 auto var(--space-2);
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  animation: spin var(--motion-spin) linear infinite;
 }
 
 .voice-list-enter-active,
 .voice-list-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: opacity var(--motion-instant) var(--ease-standard), transform var(--motion-instant) var(--ease-standard);
 }
 
 .voice-list-enter-from,

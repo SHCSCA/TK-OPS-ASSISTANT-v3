@@ -14,6 +14,8 @@ const runtimeStartupTimeoutMs = 30_000;
 const runtimePollIntervalMs = 500;
 const smokeExitAfterReady = process.env.TK_OPS_APP_DEV_EXIT_AFTER_READY === "1";
 const nodeCommand = process.execPath;
+const tauriReadyPatterns = [/Running\s+`target[\\/]+debug[\\/]+tk-ops-desktop(?:\.exe)?`/i];
+const ansiPattern = /\u001b\[[0-?]*[ -/]*[@-~]/g;
 
 let runtimeProcess = null;
 let tauriProcess = null;
@@ -21,6 +23,9 @@ let shuttingDown = false;
 let runtimeReady = false;
 let reuseRuntime = false;
 let reuseFrontendDevServer = false;
+let tauriDevReady = false;
+let tauriOutputBuffer = "";
+let resolveTauriDevReady = null;
 
 function info(message) {
   console.log(`[app:dev] ${message}`);
@@ -236,6 +241,78 @@ async function waitForUrlReady(url, timeoutMs, failureMessage) {
   throw new Error(failureMessage);
 }
 
+function markTauriDevReady() {
+  if (tauriDevReady) {
+    return;
+  }
+
+  tauriDevReady = true;
+  info("Tauri 桌面进程已启动。");
+
+  if (resolveTauriDevReady) {
+    resolveTauriDevReady();
+    resolveTauriDevReady = null;
+  }
+}
+
+function observeTauriOutput(text) {
+  tauriOutputBuffer = `${tauriOutputBuffer}${stripAnsiCodes(text)}`.slice(-4_000);
+
+  if (tauriReadyPatterns.some((pattern) => pattern.test(tauriOutputBuffer))) {
+    markTauriDevReady();
+  }
+}
+
+function stripAnsiCodes(text) {
+  return text.replace(ansiPattern, "");
+}
+
+function attachTauriOutputWatchers(child) {
+  child.stdout?.on("data", (chunk) => {
+    const text = chunk.toString();
+    process.stdout.write(text);
+    observeTauriOutput(text);
+  });
+
+  child.stderr?.on("data", (chunk) => {
+    const text = chunk.toString();
+    process.stderr.write(text);
+    observeTauriOutput(text);
+  });
+}
+
+function waitForTauriDevReady(timeoutMs) {
+  if (tauriDevReady) {
+    return Promise.resolve();
+  }
+
+  if (!tauriProcess || tauriProcess.exitCode !== null) {
+    return Promise.reject(new Error("Tauri 桌面应用在桌面进程启动前已退出。"));
+  }
+
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      tauriProcess?.off("exit", handleExit);
+      resolveTauriDevReady = null;
+      reject(new Error("Smoke 模式等待 Tauri 桌面进程启动超时，请检查 Rust/Tauri 构建输出。"));
+    }, timeoutMs);
+
+    const handleExit = () => {
+      clearTimeout(timer);
+      resolveTauriDevReady = null;
+      reject(new Error("Tauri 桌面应用在桌面进程启动前已退出。"));
+    };
+
+    resolveTauriDevReady = () => {
+      clearTimeout(timer);
+      tauriProcess?.off("exit", handleExit);
+      resolve();
+    };
+
+    tauriProcess?.once("exit", handleExit);
+  });
+}
+
 function waitForChildExit(child) {
   return new Promise((resolve) => {
     if (!child || child.exitCode !== null) {
@@ -358,10 +435,11 @@ async function run() {
 
   tauriProcess = spawnNpm(tauriArgs, {
     cwd: rootDir,
-    stdio: "inherit",
+    stdio: ["inherit", "pipe", "pipe"],
     windowsHide: false,
   });
   attachCommonChildHandlers(tauriProcess, "Tauri 桌面应用");
+  attachTauriOutputWatchers(tauriProcess);
 
   tauriProcess.once("exit", (code, signal) => {
     if (shuttingDown) {
@@ -384,7 +462,8 @@ async function run() {
       runtimeStartupTimeoutMs,
       "Smoke 模式等待桌面前端开发服务器超时，请确认 1420 端口未被占用，且 Vite 能正常启动。",
     );
-    info("Smoke 模式已确认 Runtime 与桌面前端都已就绪，3 秒后自动关闭桌面应用和 Runtime。");
+    await waitForTauriDevReady(runtimeStartupTimeoutMs);
+    info("Smoke 模式已确认 Runtime、桌面前端与 Tauri 桌面进程已就绪，3 秒后自动关闭桌面应用和 Runtime。");
     setTimeout(() => {
       void shutdown(0);
     }, 3_000);

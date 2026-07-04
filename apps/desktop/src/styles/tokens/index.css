@@ -1,4 +1,5 @@
 /* apps/desktop/src/styles/tokens/index.css */
 @import './colors.css';
 @import './typography.css';
+@import './motion.css';
 @import './spacing.css';

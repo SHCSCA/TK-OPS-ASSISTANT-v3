@@ -98,6 +98,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import {
+  filterModelsBySupport,
+  findSupportedModelOption,
+  isModelAllowedBySupport
+} from "@/modules/settings/capabilityModelSupport";
 import type {
   AICapabilityConfig,
   AICapabilitySupportItem,
@@ -172,9 +177,33 @@ const modelOptions = computed(() => {
     return [];
   }
 
+  const providerId = props.capability.provider;
   const loadedModels = props.modelCatalogByProvider[props.capability.provider] ?? [];
+  const supportModels = props.supportItem?.models ?? [];
   if (loadedModels.length > 0) {
-    return loadedModels;
+    const models = filterModelsBySupport(providerId, loadedModels, supportModels);
+    const currentModelId = props.capability.model;
+    const currentSupport = findSupportedModelOption(providerId, currentModelId, supportModels);
+    if (
+      currentSupport &&
+      !models.some((item) => item.modelId === currentModelId)
+    ) {
+      return [
+        {
+          provider: providerId,
+          modelId: currentModelId,
+          displayName: `${currentModelId}（已绑定）`,
+          capabilityTypes: currentSupport.capabilityTypes,
+          inputModalities: ["text"],
+          outputModalities: ["text"],
+          contextWindow: null,
+          defaultFor: [],
+          enabled: true
+        },
+        ...models
+      ];
+    }
+    return models;
   }
   return props.supportItem?.models.filter((item) => item.provider === props.capability?.provider) ?? [];
 });
@@ -207,7 +236,12 @@ watch(
     }
     if (modelOptions.value.length > 0) {
       const hasModel = modelOptions.value.some((item) => item.modelId === props.capability?.model);
-      if (!hasModel) {
+      const currentModelAllowed = isModelAllowedBySupport(
+        props.capability.provider,
+        props.capability.model,
+        props.supportItem?.models ?? []
+      );
+      if (!props.capability.model || (!hasModel && !currentModelAllowed)) {
         props.capability.model = modelOptions.value[0].modelId;
       }
     }

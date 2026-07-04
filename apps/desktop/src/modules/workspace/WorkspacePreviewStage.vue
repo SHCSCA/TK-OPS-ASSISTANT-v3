@@ -2,101 +2,195 @@
   <main class="workspace-preview-stage" aria-label="预览舞台">
     <header class="workspace-preview-stage__header">
       <div>
-        <strong>播放器</strong>
-        <p>{{ previewContext.description }}</p>
+        <strong>{{ previewContext.truthLabel }}</strong>
+        <p>{{ previewContext.truthDescription }}</p>
+        <div
+          v-if="previewContext.previewMode !== 'media'"
+          class="workspace-preview-stage__compact-status"
+          data-testid="workspace-preview-compact-status"
+        >
+          <span>播放头</span>
+          <time>{{ transportTimeLabel }}</time>
+          <div
+            class="workspace-preview-stage__compact-progress"
+            aria-label="紧凑预览进度条"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-valuenow="safePlayProgress"
+          >
+            <span :style="{ width: safePlayProgress + '%' }"></span>
+          </div>
+          <time>{{ durationLabel }}</time>
+        </div>
       </div>
-      <span class="workspace-preview-stage__pill">
-        {{ timelineStatusLabel }}
-      </span>
+      <div class="workspace-preview-stage__header-actions">
+        <div class="workspace-preview-stage__ratio-switch" aria-label="预览画幅">
+          <button
+            data-testid="workspace-preview-ratio-9-16"
+            type="button"
+            :aria-pressed="String(previewRatio === '9:16')"
+            @click="previewRatio = '9:16'"
+          >
+            9:16
+          </button>
+          <button
+            data-testid="workspace-preview-ratio-16-9"
+            type="button"
+            :aria-pressed="String(previewRatio === '16:9')"
+            @click="previewRatio = '16:9'"
+          >
+            16:9
+          </button>
+        </div>
+        <span class="workspace-preview-stage__pill">
+          {{ timelineStatusLabel }}
+        </span>
+      </div>
     </header>
 
     <div class="workspace-preview-stage__body">
       <div class="workspace-preview-stage__viewer">
-        <div class="workspace-preview-stage__phone" data-testid="workspace-preview-phone" data-ratio="9:16">
+        <div
+          class="workspace-preview-stage__canvas"
+          data-testid="workspace-preview-canvas"
+          :data-ratio="previewRatio"
+          aria-label="预览画布"
+        >
           <div class="workspace-preview-stage__screen">
-            <div class="workspace-preview-stage__phone-top">
-              <span>{{ previewContext.sourceLabel }}</span>
-              <small>9:16</small>
+            <div class="workspace-preview-stage__canvas-meta">
+              <span data-testid="workspace-preview-truth">{{ previewContext.truthLabel }}</span>
+              <small>{{ previewRatio }}</small>
             </div>
-            <section class="workspace-preview-stage__content">
+            <video
+              v-if="previewContext.previewMode === 'media' && previewContext.mediaKind === 'video' && previewContext.mediaUrl"
+              class="workspace-preview-stage__video"
+              controls
+              data-testid="workspace-preview-video"
+              :src="previewContext.mediaUrl"
+            />
+            <section v-else class="workspace-preview-stage__content">
               <strong>{{ headline }}</strong>
               <p>{{ previewContext.summaryText }}</p>
               <small class="workspace-preview-stage__time-badge">{{ previewContext.currentTimeLabel }}</small>
             </section>
+            <div class="workspace-preview-stage__safe-area" aria-hidden="true"></div>
             <div class="workspace-preview-stage__caption">
               {{ previewContext.captionText }}
             </div>
           </div>
         </div>
       </div>
-
-      <aside class="workspace-preview-stage__facts scroll-area">
-        <div class="fact-item">
-          <small>时间线</small>
-          <strong>{{ timeline?.name ?? "未创建" }}</strong>
-        </div>
-        <div class="fact-item">
-          <small>当前片段</small>
-          <strong>{{ currentClipLabel }}</strong>
-        </div>
-        <div class="fact-item">
-          <small>来源类型</small>
-          <strong>{{ sourceTypeLabel }}</strong>
-        </div>
-        <div class="fact-item">
-          <small>当前时间</small>
-          <strong>{{ previewContext.currentTimeLabel }}</strong>
-        </div>
-        <div class="fact-item">
-          <small>总时长</small>
-          <strong>{{ durationLabel }}</strong>
-        </div>
-        <div class="fact-item">
-          <small>轨道数</small>
-          <strong>{{ trackCountLabel }}</strong>
-        </div>
-      </aside>
     </div>
 
     <footer class="workspace-preview-stage__footer">
-      <div class="workspace-preview-stage__transport" data-testid="workspace-preview-transport">
+      <div
+        v-if="previewContext.previewMode !== 'media'"
+        class="workspace-preview-stage__transport"
+        data-testid="workspace-preview-transport"
+      >
         <button type="button" disabled>
-          <span class="material-symbols-outlined">skip_previous</span>
+          <span class="material-symbols-outlined" aria-hidden="true">skip_previous</span>
           <span>上一段</span>
         </button>
-        <button type="button" disabled>
-          <span class="material-symbols-outlined">play_arrow</span>
-          <span>播放</span>
+        <button type="button" @click="$emit(isPlaying ? 'pause' : 'play')">
+          <span class="material-symbols-outlined" aria-hidden="true">{{ isPlaying ? 'pause' : 'play_arrow' }}</span>
+          <span>{{ isPlaying ? '暂停' : '播放' }}</span>
         </button>
         <time>{{ transportTimeLabel }}</time>
-        <div class="workspace-preview-stage__progress" aria-label="预览进度条" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <span></span>
+        <div
+          class="workspace-preview-stage__progress"
+          aria-label="预览进度条"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-valuenow="safePlayProgress"
+        >
+          <span :style="{ width: safePlayProgress + '%' }"></span>
         </div>
         <time>{{ durationLabel }}</time>
       </div>
-      <p>{{ previewContext.description }}</p>
+      <div
+        v-else
+        class="workspace-preview-stage__media-note"
+        data-testid="workspace-preview-media-note"
+      >
+        可播放素材使用播放器控件检查；画幅切换只调整监看比例。{{ previewContext.mediaInfoText ? ` ${previewContext.mediaInfoText}` : "" }}
+      </div>
+      <p>{{ previewContext.previewMode === "media" ? previewContext.description : "按时间线播放头检查分镜、配音和字幕节奏。" }}</p>
+      <section
+        v-if="previewContext.previewMode !== 'media' && previewContext.manifestSummary"
+        class="workspace-preview-stage__manifest-summary"
+        data-testid="workspace-preview-manifest-summary"
+      >
+        <strong>{{ previewContext.manifestSummary.summaryText }}</strong>
+        <div class="workspace-preview-stage__manifest-tracks">
+          <div
+            v-for="track in previewContext.manifestSummary.tracks"
+            :key="track.id"
+            class="workspace-preview-stage__manifest-track"
+            data-testid="workspace-preview-manifest-track"
+          >
+            <span>{{ track.name }}</span> <span>{{ track.kindLabel }}</span> <span>{{ track.clipCountLabel }}</span> <time>{{ track.durationLabel }}</time>
+          </div>
+        </div>
+      </section>
+      <section
+        v-if="previewContext.runtimePreviewErrorMessage"
+        class="workspace-preview-stage__runtime-error"
+        data-testid="workspace-preview-runtime-error"
+        role="status"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">sync_problem</span>
+        <div>
+          <strong>{{ previewContext.previewMode === "unavailable" ? "媒体预览不可用" : "Runtime 预览同步失败" }}</strong>
+          <p>{{ previewContext.runtimePreviewErrorMessage }}</p>
+        </div>
+        <button type="button" data-testid="workspace-preview-retry" @click="$emit('retry-preview')">
+          <span class="material-symbols-outlined" aria-hidden="true">refresh</span>
+          <span>重新同步预览</span>
+        </button>
+      </section>
+      <div
+        v-if="previewContext.previewMode === 'media' && previewContext.mediaKind === 'audio' && previewContext.mediaUrl"
+        class="workspace-preview-stage__audio"
+        data-testid="workspace-preview-audio-panel"
+      >
+        <span class="material-symbols-outlined">graphic_eq</span>
+        <div>
+          <strong>音频素材预览</strong>
+          <p>{{ previewContext.description }}</p>
+        </div>
+        <audio controls data-testid="workspace-preview-audio" :src="previewContext.mediaUrl" />
+      </div>
     </footer>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 
 import type { WorkspaceTimelineDto } from "@/types/runtime";
 import type { WorkspacePreviewContext } from "./workspacePreviewContext";
 import { formatWorkspaceTime } from "./workspaceTimelineViewModel";
 
+defineEmits<{
+  play: [];
+  pause: [];
+  "retry-preview": [];
+}>();
+
 const props = defineProps<{
   previewContext: WorkspacePreviewContext;
   timeline: WorkspaceTimelineDto | null;
+  isPlaying?: boolean;
+  playProgress?: number;
 }>();
+
+const previewRatio = ref<"9:16" | "16:9">("16:9");
 
 const headline = computed(() => {
   return props.previewContext.headline;
-});
-
-const currentClipLabel = computed(() => {
-  return props.previewContext.clip ? props.previewContext.detailText : props.previewContext.summaryText;
 });
 
 const durationLabel = computed(() => {
@@ -105,297 +199,16 @@ const durationLabel = computed(() => {
   return formatWorkspaceTime(seconds * 1000);
 });
 
-const trackCountLabel = computed(() => `${props.timeline?.tracks.length ?? 0} 条`);
-
 const transportTimeLabel = computed(() => props.previewContext.currentTimeLabel.replace("当前时间：", ""));
 
 const timelineStatusLabel = computed(() => (props.timeline ? props.previewContext.statusLabel : "未创建草稿"));
 
-const sourceTypeLabel = computed(() => {
-  if (!props.previewContext.clip) return props.previewContext.sourceLabel;
-  return `${props.previewContext.sourceLabel}（${props.previewContext.sourceType}）`;
+const safePlayProgress = computed(() => {
+  const progress = props.playProgress ?? 0;
+  if (!Number.isFinite(progress)) return 0;
+  return Math.min(100, Math.max(0, progress));
 });
+
 </script>
 
-<style scoped>
-.workspace-preview-stage {
-  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  box-shadow: var(--shadow-sm);
-  display: grid;
-  gap: 12px;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  min-height: 0;
-  overflow: hidden;
-  padding: 14px;
-}
-
-.workspace-preview-stage__header,
-.workspace-preview-stage__body,
-.workspace-preview-stage__footer {
-  align-items: center;
-  display: flex;
-  gap: 14px;
-  justify-content: space-between;
-}
-
-.workspace-preview-stage__header p,
-.workspace-preview-stage__screen p,
-.workspace-preview-stage__footer p {
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.workspace-preview-stage__pill,
-.workspace-preview-stage__facts small {
-  color: var(--text-tertiary);
-}
-
-.workspace-preview-stage__pill {
-  background: color-mix(in srgb, var(--surface-tertiary) 94%, transparent);
-  border: 1px solid var(--border-default);
-  border-radius: 999px;
-  font-size: 12px;
-  padding: 6px 12px;
-}
-
-.workspace-preview-stage__body {
-  align-items: stretch;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(270px, 430px) minmax(220px, 290px);
-  min-height: 0;
-  justify-content: center;
-}
-
-.workspace-preview-stage__viewer {
-  align-items: center;
-  background:
-    radial-gradient(circle at 50% 10%, color-mix(in srgb, var(--accent-primary) 22%, transparent), transparent 34%),
-    linear-gradient(180deg, var(--surface-tertiary), color-mix(in srgb, var(--surface-primary) 72%, #000 28%));
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  display: flex;
-  justify-content: center;
-  min-height: 0;
-  overflow: hidden;
-  padding: 14px;
-}
-
-.workspace-preview-stage__phone {
-  aspect-ratio: 9 / 16;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 28%),
-    linear-gradient(160deg, #11161d 0%, #05070a 48%, #17120f 100%);
-  border: 8px solid #080a0d;
-  border-radius: 30px;
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.36), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  display: grid;
-  height: min(100%, 500px);
-  max-height: 500px;
-  min-height: 0;
-  overflow: hidden;
-  width: auto;
-}
-
-.workspace-preview-stage__screen {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  text-align: center;
-  color: #ffffff;
-  min-width: 0;
-  padding: 18px;
-  position: relative;
-}
-
-.workspace-preview-stage__screen::before {
-  background: rgba(255, 255, 255, 0.82);
-  border-radius: 999px;
-  content: "";
-  height: 4px;
-  left: 50%;
-  position: absolute;
-  top: 10px;
-  transform: translateX(-50%);
-  width: 42px;
-}
-
-.workspace-preview-stage__phone-top {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  padding-top: 8px;
-}
-
-.workspace-preview-stage__phone-top span,
-.workspace-preview-stage__phone-top small {
-  background: rgba(0, 0, 0, 0.34);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 12px;
-  padding: 5px 8px;
-}
-
-.workspace-preview-stage__content {
-  align-content: center;
-  display: grid;
-  gap: 12px;
-  justify-items: center;
-  min-width: 0;
-}
-
-.workspace-preview-stage__screen strong,
-.workspace-preview-stage__screen p,
-.workspace-preview-stage__caption {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-
-.workspace-preview-stage__screen strong {
-  font-size: 22px;
-  line-height: 1.25;
-}
-
-.workspace-preview-stage__screen p {
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 18px;
-  line-height: 1.45;
-}
-
-.workspace-preview-stage__time-badge {
-  background: rgba(0, 0, 0, 0.38);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 12px;
-  padding: 5px 10px;
-}
-
-.workspace-preview-stage__caption {
-  align-self: end;
-  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.68));
-  border-radius: 8px;
-  color: #ffffff;
-  font-size: 18px;
-  line-height: 1.45;
-  padding: 18px 10px 10px;
-}
-
-.workspace-preview-stage__facts {
-  align-content: start;
-  background: var(--surface-tertiary);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  display: grid;
-  gap: 12px;
-  max-height: 100%;
-  min-height: 0;
-  min-width: 220px;
-  padding: 16px;
-}
-
-.workspace-preview-stage__facts div {
-  display: grid;
-  gap: 4px;
-}
-
-.workspace-preview-stage__footer {
-  align-items: stretch;
-  display: grid;
-  gap: 8px;
-}
-
-.workspace-preview-stage__footer p {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.scroll-area {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-strong) transparent;
-}
-
-.scroll-area::-webkit-scrollbar {
-  width: 4px;
-}
-.scroll-area::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
-  border-radius: 99px;
-}
-
-.workspace-preview-stage__transport button {
-  align-items: center;
-  background: transparent;
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  color: var(--text-secondary);
-  display: inline-flex;
-  gap: 6px;
-  height: 34px;
-  justify-content: center;
-  min-width: 70px;
-  padding: 0 10px;
-  transition: transform var(--motion-fast) var(--ease-standard);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.workspace-preview-stage__transport {
-  align-items: center;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: auto auto auto minmax(80px, 1fr) auto;
-}
-
-.workspace-preview-stage__transport time {
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-  min-width: 44px;
-}
-
-.workspace-preview-stage__progress {
-  background: color-mix(in srgb, var(--surface-tertiary) 88%, transparent);
-  border: 1px solid var(--border-default);
-  border-radius: 999px;
-  height: 8px;
-  min-width: 120px;
-  overflow: hidden;
-  width: min(24vw, 220px);
-}
-
-.workspace-preview-stage__progress span {
-  background: var(--accent-primary);
-  display: block;
-  height: 100%;
-  width: 0%;
-}
-
-.workspace-preview-stage__transport button:not(:disabled):active {
-  transform: scale(0.92);
-}
-
-@media (max-width: 960px) {
-  .workspace-preview-stage__footer {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .workspace-preview-stage__body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .workspace-preview-stage__viewer {
-    min-height: 420px;
-  }
-
-  .workspace-preview-stage__facts {
-    min-width: 0;
-  }
-}
-</style>
+<style scoped src="./WorkspacePreviewStage.css"></style>

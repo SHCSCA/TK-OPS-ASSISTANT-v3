@@ -13,8 +13,8 @@
   min-width: 0;
 }
 .text-mono { font-family: var(--font-mono) !important; }
-.spinning { animation: spin var(--motion-spin) linear infinite; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
+.spinning { animation: spin var(--motion-spinner) linear infinite; }
+:root[data-reduced-motion="true"] .spinning { animation-play-state: paused; }
 
 /* --- Global Feedback Components (V2 Standard) --- */
 
@@ -166,7 +166,7 @@
   gap: var(--space-2);
   min-height: 164px;
   padding: var(--space-4);
-  transition: border-color 180ms ease, transform 180ms ease;
+  transition: border-color var(--motion-instant) var(--ease-standard), transform var(--motion-instant) var(--ease-spring);
 }
 
 .chain-step:hover {

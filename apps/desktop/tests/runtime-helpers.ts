@@ -17,13 +17,14 @@ export function okJsonResponse(data: unknown, status = 200) {
   };
 }
 
-export function errorJsonResponse(status: number, error: string, requestId = "req-runtime") {
+export function errorJsonResponse(status: number, error: string, requestId = "req-runtime", errorCode = "") {
   return {
     ok: false,
     status,
     json: async () => ({
       ok: false,
       error,
+      error_code: errorCode,
       requestId
     })
   };
@@ -116,7 +117,11 @@ export const runtimeFixtures = {
       subtitleMode: "balanced"
     },
     media: {
-      ffprobePath: ""
+      ffprobePath: "",
+      ffmpegPath: ""
+    },
+    browser: {
+      executablePath: ""
     }
   },
   diagnostics: {
@@ -147,7 +152,11 @@ export const runtimeFixtures = {
       subtitleMode: "balanced"
     },
     media: {
-      ffprobePath: ""
+      ffprobePath: "",
+      ffmpegPath: ""
+    },
+    browser: {
+      executablePath: ""
     }
   },
   initializedDiagnostics: {
@@ -181,6 +190,129 @@ export const runtimeFixtures = {
         detail: "online",
         actionLabel: "重新检测",
         actionTarget: "settings.diagnostics.rescan"
+      }
+    ]
+  },
+  bootstrapReadiness: {
+    status: "ready",
+    canContinue: true,
+    checkedAt: "2026-04-11T10:00:00Z",
+    items: [
+      {
+        key: "license",
+        label: "许可证校验",
+        status: "ok",
+        detail: "许可证已激活，当前设备可继续使用。",
+        errorCode: null,
+        blockedReason: null,
+        affectedTarget: "许可证",
+        nextStep: null,
+        action: null,
+        checkedAt: "2026-04-11T10:00:00Z"
+      },
+      {
+        key: "directories",
+        label: "目录初始化",
+        status: "ok",
+        detail: "已检查 8 个关键目录，均可读写。",
+        errorCode: null,
+        blockedReason: null,
+        affectedTarget: "本地目录",
+        nextStep: null,
+        action: null,
+        checkedAt: "2026-04-11T10:00:00Z"
+      }
+    ],
+    blockers: []
+  },
+  blockedBootstrapReadiness: {
+    status: "blocked",
+    canContinue: false,
+    checkedAt: "2026-04-11T10:00:00Z",
+    items: [
+      {
+        key: "license",
+        label: "许可证校验",
+        status: "error",
+        detail: "许可证尚未激活，当前无法继续进入产品。",
+        errorCode: "license.not_activated",
+        blockedReason: "当前设备还没有可用许可证。",
+        affectedTarget: "许可证",
+        nextStep: "请输入有效激活码并完成许可证激活。",
+        action: {
+          key: "open-license-activation",
+          label: "前往激活"
+        },
+        checkedAt: "2026-04-11T10:00:00Z"
+      }
+    ],
+    blockers: [
+      {
+        key: "license",
+        errorCode: "license.not_activated",
+        blockedReason: "当前设备还没有可用许可证。",
+        affectedTarget: "许可证",
+        nextStep: "请输入有效激活码并完成许可证激活。",
+        action: {
+          key: "open-license-activation",
+          label: "前往激活"
+        }
+      }
+    ]
+  },
+  bootstrapDirectoryReport: {
+    rootDir: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data",
+    databasePath: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/runtime.db",
+    status: "ok",
+    checkedAt: "2026-04-11T10:00:00Z",
+    directories: [
+      {
+        key: "projects",
+        label: "项目目录",
+        path: "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/projects",
+        exists: true,
+        writable: true,
+        status: "ok",
+        message: "目录已就绪"
+      }
+    ]
+  },
+  runtimeSelfCheckReport: {
+    status: "ok",
+    runtimeVersion: "0.1.1",
+    checkedAt: "2026-04-11T10:00:00Z",
+    items: [
+      {
+        key: "port",
+        label: "端口检查",
+        status: "ok",
+        detail: "端口 8000 已处于监听状态",
+        errorCode: null,
+        checkedAt: "2026-04-11T10:00:00Z"
+      },
+      {
+        key: "database",
+        label: "数据库检查",
+        status: "ok",
+        detail: "数据库连接可用",
+        errorCode: null,
+        checkedAt: "2026-04-11T10:00:00Z"
+      },
+      {
+        key: "dependencies",
+        label: "依赖检查",
+        status: "ok",
+        detail: "运行模式 development，核心服务已加载",
+        errorCode: null,
+        checkedAt: "2026-04-11T10:00:00Z"
+      },
+      {
+        key: "directories",
+        label: "目录状态",
+        status: "ok",
+        detail: "已检查 8 个目录。",
+        errorCode: null,
+        checkedAt: "2026-04-11T10:00:00Z"
       }
     ]
   },
@@ -438,7 +570,9 @@ export const runtimeFixtures = {
 };
 
 type RouteAwareFetchOptions = {
+  fallbackUnhandledBootstrapReadiness?: boolean;
   fallbackUnhandledProviderHealth?: boolean;
+  fallbackUnhandledTimelinePreview?: boolean;
 };
 
 function isUnhandledProviderHealthRequest(path: string, method: string, error: unknown): boolean {
@@ -450,11 +584,31 @@ function isUnhandledProviderHealthRequest(path: string, method: string, error: u
   );
 }
 
+function isUnhandledBootstrapReadinessRequest(path: string, method: string, error: unknown): boolean {
+  return (
+    method === "GET" &&
+    path === "/api/bootstrap/readiness" &&
+    error instanceof Error &&
+    error.message.startsWith("Unhandled request")
+  );
+}
+
+function isUnhandledTimelinePreviewRequest(path: string, method: string, error: unknown): boolean {
+  return (
+    method === "GET" &&
+    /^\/api\/workspace\/timelines\/[^/]+\/preview$/.test(path) &&
+    error instanceof Error &&
+    error.message.startsWith("Unhandled request")
+  );
+}
+
 export function createRouteAwareFetch(
   resolver: (path: string, method: string, init?: RequestInit) => unknown,
   options: RouteAwareFetchOptions = {}
 ) {
+  const fallbackUnhandledBootstrapReadiness = options.fallbackUnhandledBootstrapReadiness ?? false;
   const fallbackUnhandledProviderHealth = options.fallbackUnhandledProviderHealth ?? true;
+  const fallbackUnhandledTimelinePreview = options.fallbackUnhandledTimelinePreview ?? true;
 
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const requestUrl = new URL(String(input));
@@ -465,6 +619,20 @@ export function createRouteAwareFetch(
     } catch (error) {
       if (fallbackUnhandledProviderHealth && isUnhandledProviderHealthRequest(path, method, error)) {
         return okJsonResponse(runtimeFixtures.providerHealth);
+      }
+      if (fallbackUnhandledBootstrapReadiness && isUnhandledBootstrapReadinessRequest(path, method, error)) {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
+      if (fallbackUnhandledTimelinePreview && isUnhandledTimelinePreviewRequest(path, method, error)) {
+        return okJsonResponse({
+          timelineId: path.split("/")[4] ?? "timeline-1",
+          status: "ready",
+          message: "时间线本地预览已生成，包含真实轨道与片段摘要。",
+          previewUrl: "data:application/json;charset=utf-8,%7B%22timelineId%22%3A%22timeline-1%22%7D",
+          previewMode: "manifest",
+          media: null,
+          error: null
+        });
       }
       throw error;
     }

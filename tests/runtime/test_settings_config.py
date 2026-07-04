@@ -29,7 +29,7 @@ def test_settings_config_returns_default_document(
         "voice": "alloy",
         "subtitleMode": "balanced",
     }
-    assert payload["data"]["media"] == {"ffprobePath": ""}
+    assert payload["data"]["media"] == {"ffprobePath": "", "ffmpegPath": ""}
 
 
 def test_settings_config_update_persists_across_app_recreation(
@@ -56,6 +56,7 @@ def test_settings_config_update_persists_across_app_recreation(
         },
         "media": {
             "ffprobePath": str(runtime_data_dir / "tools" / "ffprobe.exe"),
+            "ffmpegPath": str(runtime_data_dir / "tools" / "ffmpeg.exe"),
         },
     }
 
@@ -70,6 +71,7 @@ def test_settings_config_update_persists_across_app_recreation(
     assert written["data"]["logging"]["level"] == "DEBUG"
     assert written["data"]["ai"]["model"] == "gpt-5.4-mini"
     assert written["data"]["media"]["ffprobePath"].endswith("ffprobe.exe")
+    assert written["data"]["media"]["ffmpegPath"].endswith("ffmpeg.exe")
 
     from app.factory import create_app
 
@@ -85,6 +87,7 @@ def test_settings_config_update_persists_across_app_recreation(
     assert payload["data"]["paths"]["logDir"] == str(runtime_data_dir / "logs-next")
     assert payload["data"]["ai"]["voice"] == "nova"
     assert payload["data"]["media"]["ffprobePath"].endswith("ffprobe.exe")
+    assert payload["data"]["media"]["ffmpegPath"].endswith("ffmpeg.exe")
 
 
 def test_settings_config_update_broadcasts_config_changed_event(
@@ -123,7 +126,10 @@ def test_settings_config_update_broadcasts_config_changed_event(
                     "voice": "alloy",
                     "subtitleMode": "balanced",
                 },
-                "media": {"ffprobePath": str(runtime_data_dir / "ffprobe.exe")},
+                "media": {
+                    "ffprobePath": str(runtime_data_dir / "ffprobe.exe"),
+                    "ffmpegPath": str(runtime_data_dir / "ffmpeg.exe"),
+                },
             },
         )
     finally:
@@ -205,7 +211,7 @@ def test_settings_update_writes_structured_audit_log(
                 "voice": "alloy",
                 "subtitleMode": "balanced",
             },
-            "media": {"ffprobePath": ""},
+            "media": {"ffprobePath": "", "ffmpegPath": ""},
         },
     )
 

@@ -182,11 +182,40 @@ class ClipReplaceInput(BaseModel):
     editableFields: list[str] = Field(default_factory=list)
 
 
+class TimelinePreviewMediaDto(BaseModel):
+    kind: str
+    url: str
+    source: str
+    mimeType: str
+    durationMs: int | None = Field(default=None, ge=0)
+    expiresAt: str | None = None
+
+
+class TimelinePreviewErrorDto(BaseModel):
+    code: str
+    message: str
+
+
 class TimelinePreviewDto(BaseModel):
     timelineId: str
     status: str
     message: str
     previewUrl: str | None = None
+    previewMode: str = "manifest"
+    media: TimelinePreviewMediaDto | None = None
+    error: TimelinePreviewErrorDto | None = None
+
+
+class TimelinePrecheckIssueDto(BaseModel):
+    id: str
+    severity: str = "warning"
+    message: str
+    targetType: str
+    targetId: str | None = None
+    trackId: str | None = None
+    clipId: str | None = None
+    suggestion: str | None = None
+    actionLabel: str | None = None
 
 
 class TimelinePrecheckDto(BaseModel):
@@ -194,6 +223,7 @@ class TimelinePrecheckDto(BaseModel):
     status: str
     message: str
     issues: list[str] = Field(default_factory=list)
+    issueDetails: list[TimelinePrecheckIssueDto] = Field(default_factory=list)
 
 
 class WorkspaceAICommandInput(BaseModel):

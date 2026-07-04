@@ -11,6 +11,14 @@ export type TimelineClipJoinClass = "single" | "start" | "middle" | "end";
 export type TimelineTrackVisualClass = "video" | "voice" | "bgm" | "subtitle";
 
 export type TimelineRowHeightClass = "tall" | "medium" | "compact";
+export type TimelineTrackSyncStatus = "empty" | "overflow" | "short" | "synced";
+
+export type ManagedTrackSyncSummary = {
+  managedCount: number;
+  targetDurationMs: number;
+  unsyncedCount: number;
+  visible: boolean;
+};
 
 export type TimelineClipView = {
   id: string;
@@ -31,6 +39,14 @@ export type TimelineRowView = {
   muted: boolean;
   heightClass: TimelineRowHeightClass;
   visualClass: TimelineTrackVisualClass;
+  isManagedAITrack: boolean;
+  syncEndPercent: number;
+  syncGapLeftPercent: number;
+  syncGapWidthPercent: number;
+  syncTargetPercent: number;
+  syncGapMs: number;
+  syncLabel: string;
+  syncStatus: TimelineTrackSyncStatus;
   clips: TimelineClipView[];
   track: WorkspaceTimelineTrackDto;
 };
@@ -61,11 +77,21 @@ const STATUS_LABELS: Record<string, string> = {
   succeeded: "已完成"
 };
 
-export function buildTimelineRows(tracks: WorkspaceTimelineTrackDto[], durationMs: number): TimelineRowView[] {
+export function buildTimelineRows(
+  tracks: WorkspaceTimelineTrackDto[],
+  viewportDurationMs: number,
+  syncTargetDurationMs = viewportDurationMs
+): TimelineRowView[] {
   return [...tracks]
     .sort((left, right) => left.orderIndex - right.orderIndex)
     .map((track) => {
       const clips = [...track.clips].sort((left, right) => left.startMs - right.startMs);
+      const trackEndMs = clips.reduce((max, clip) => Math.max(max, clip.startMs + clip.durationMs), 0);
+      const isManagedTrack = isManagedAITrack(track);
+      const syncState = buildTrackSyncState(track, trackEndMs, syncTargetDurationMs, isManagedTrack);
+      const syncEndPercent = safePercent(trackEndMs, viewportDurationMs);
+      const syncTargetPercent = safePercent(syncTargetDurationMs, viewportDurationMs);
+      const syncGapLeftPercent = safePercent(Math.min(trackEndMs, syncTargetDurationMs), viewportDurationMs);
 
       return {
         id: track.id,
@@ -76,15 +102,23 @@ export function buildTimelineRows(tracks: WorkspaceTimelineTrackDto[], durationM
         muted: track.muted,
         heightClass: trackHeightClass(track.kind),
         visualClass: trackVisualClass(track.kind, track.name),
+        isManagedAITrack: isManagedTrack,
+        syncEndPercent,
+        syncGapLeftPercent,
+        syncGapWidthPercent: clippedWidthPercent(Math.max(0, syncTargetDurationMs - trackEndMs), viewportDurationMs, syncGapLeftPercent),
+        syncTargetPercent,
+        syncGapMs: syncState.gapMs,
+        syncLabel: syncState.label,
+        syncStatus: syncState.status,
         clips: clips.map((clip, index) => {
-          const leftPercent = safePercent(clip.startMs, durationMs);
+          const leftPercent = safePercent(clip.startMs, viewportDurationMs);
 
           return {
             id: clip.id,
             trackId: clip.trackId,
             label: clip.label,
             leftPercent,
-            widthPercent: clippedWidthPercent(clip.durationMs, durationMs, leftPercent),
+            widthPercent: clippedWidthPercent(clip.durationMs, viewportDurationMs, leftPercent),
             joinClass: clipJoinClass(clips, index),
             clip
           };
@@ -92,6 +126,71 @@ export function buildTimelineRows(tracks: WorkspaceTimelineTrackDto[], durationM
         track
       };
     });
+}
+
+export function summarizeManagedTrackSync(
+  tracks: WorkspaceTimelineTrackDto[],
+  fallbackDurationMs: number,
+  targetDurationMs?: number
+): ManagedTrackSyncSummary {
+  const managedTracks = tracks.filter(isManagedAITrack);
+  const managedTrackEnds = managedTracks.map(trackEndMs);
+  const managedTargetDurationMs = managedTrackEnds.reduce((max, value) => Math.max(max, value), 0);
+  const explicitTargetDurationMs = normalizeOptionalDuration(targetDurationMs);
+  const resolvedTargetDurationMs = resolveManagedTargetDuration(
+    managedTracks,
+    managedTargetDurationMs,
+    fallbackDurationMs,
+    explicitTargetDurationMs
+  );
+  const rows = buildTimelineRows(
+    tracks,
+    Math.max(normalizeDuration(fallbackDurationMs), resolvedTargetDurationMs),
+    resolvedTargetDurationMs
+  );
+  const managedRows = rows.filter((row) => row.isManagedAITrack);
+
+  return {
+    managedCount: managedRows.length,
+    targetDurationMs: resolvedTargetDurationMs,
+    unsyncedCount: managedRows.filter((row) => row.syncStatus !== "synced").length,
+    visible: managedRows.length > 0
+  };
+}
+
+function buildTrackSyncState(
+  track: WorkspaceTimelineTrackDto,
+  trackEndMs: number,
+  durationMs: number,
+  isManagedTrack = isManagedAITrack(track)
+): { gapMs: number; label: string; status: TimelineTrackSyncStatus } {
+  if (!isManagedTrack) {
+    return { gapMs: 0, label: "手动轨道", status: "synced" };
+  }
+
+  if (track.clips.length === 0) {
+    return { gapMs: durationMs, label: "待生成", status: "empty" };
+  }
+
+  const normalizedDuration = normalizeDuration(durationMs);
+  const gapMs = Math.round(normalizedDuration - trackEndMs);
+  if (Math.abs(gapMs) <= 250) {
+    return { gapMs: 0, label: "统一结束", status: "synced" };
+  }
+
+  if (gapMs > 0) {
+    return { gapMs, label: `需同步 ${formatWorkspaceTime(gapMs)}`, status: "short" };
+  }
+
+  return { gapMs, label: `超出 ${formatWorkspaceTime(Math.abs(gapMs))}`, status: "overflow" };
+}
+
+function isManagedAITrack(track: WorkspaceTimelineTrackDto): boolean {
+  return track.id.startsWith("managed-");
+}
+
+function trackEndMs(track: WorkspaceTimelineTrackDto): number {
+  return track.clips.reduce((max, clip) => Math.max(max, clip.startMs + clip.durationMs), 0);
 }
 
 export function computePlayheadPercent(positionMs: number, durationMs: number): number {
@@ -146,7 +245,7 @@ export function workspaceTrackKindLabel(kind: WorkspaceTimelineTrackKind): strin
 }
 
 export function workspaceTrackPolicyLabel(trackId: string): string {
-  return trackId.startsWith("managed-") ? "受管轨道" : "手动轨道";
+  return trackId.startsWith("managed-") ? "AI 受管轨道" : "手动轨道";
 }
 
 export function workspaceSourceTypeLabel(sourceType: string | null | undefined): string {
@@ -235,6 +334,44 @@ function normalizeDuration(durationMs: number): number {
   if (!Number.isFinite(durationMs)) return 1000;
 
   return Math.max(1000, durationMs);
+}
+
+function normalizeOptionalDuration(durationMs: number | null | undefined): number | null {
+  if (!Number.isFinite(durationMs) || (durationMs ?? 0) <= 0) return null;
+
+  return normalizeDuration(durationMs as number);
+}
+
+function resolveManagedTargetDuration(
+  managedTracks: WorkspaceTimelineTrackDto[],
+  managedTargetDurationMs: number,
+  fallbackDurationMs: number,
+  explicitTargetDurationMs: number | null
+): number {
+  if (explicitTargetDurationMs !== null) {
+    return explicitTargetDurationMs;
+  }
+
+  const commonGeneratedEndMs = resolveCommonGeneratedManagedEnd(managedTracks);
+
+  if (commonGeneratedEndMs !== null) {
+    return commonGeneratedEndMs;
+  }
+
+  return managedTargetDurationMs || normalizeDuration(fallbackDurationMs);
+}
+
+function resolveCommonGeneratedManagedEnd(managedTracks: WorkspaceTimelineTrackDto[]): number | null {
+  const requiredKinds = new Set<WorkspaceTimelineTrackKind>(["video", "audio", "subtitle"]);
+  const existingKinds = new Set(managedTracks.map((track) => track.kind));
+
+  if ([...requiredKinds].some((kind) => !existingKinds.has(kind))) return null;
+  if (managedTracks.some((track) => track.clips.length === 0)) return null;
+
+  const [firstEnd, ...otherEnds] = managedTracks.map(trackEndMs);
+  if (!firstEnd || !otherEnds.every((value) => Math.abs(value - firstEnd) <= 250)) return null;
+
+  return firstEnd;
 }
 
 function safePercent(value: number, durationMs: number): number {

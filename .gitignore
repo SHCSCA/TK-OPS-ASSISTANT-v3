@@ -48,3 +48,9 @@ apps/desktop/tool/ffmpeg-*/
 
 # Playwright local artifacts
 .playwright-cli/
+
+# Local verification artifacts
+.superpowers/
+output/
+test-results/
+__debug_caps.py

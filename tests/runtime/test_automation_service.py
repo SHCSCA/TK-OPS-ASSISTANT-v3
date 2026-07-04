@@ -138,7 +138,7 @@ def test_pause_and_resume_toggle_enabled_state(tmp_path: Path) -> None:
     assert resumed.retry.errorCode is None
 
 
-def test_trigger_task_creates_queued_run_and_completed_result(tmp_path: Path) -> None:
+def test_trigger_task_blocks_when_action_executor_is_missing(tmp_path: Path) -> None:
     service, task_manager = _make_service(tmp_path)
     task = service.create_task(
         AutomationTaskCreateInput(
@@ -156,12 +156,17 @@ def test_trigger_task_creates_queued_run_and_completed_result(tmp_path: Path) ->
     task_manager.run(trigger_result.run_id)
 
     fetched = service.get_task(task.id)
-    assert fetched.latestResult.status == "succeeded"
-    assert fetched.latestResult.summary == "自动化任务执行完成，本次运行已生成执行回执摘要。"
+    assert fetched.latestResult.status == "blocked"
+    assert fetched.latestResult.errorCode == "automation.executor_missing"
+    assert fetched.latestResult.errorMessage == "自动化执行器尚未接入，本次只完成执行前检查。"
+    assert fetched.latestResult.summary == "自动化执行器尚未接入，本次只完成执行前检查。"
     runs = service.list_runs(task.id)
     assert len(runs) == 1
-    assert runs[0].status == "succeeded"
-    assert runs[0].resultSummary == "自动化任务执行完成，本次运行已生成执行回执摘要。"
+    assert runs[0].status == "blocked"
+    assert runs[0].errorCode == "automation.executor_missing"
+    assert runs[0].errorMessage == "自动化执行器尚未接入，本次只完成执行前检查。"
+    assert runs[0].nextAction == "请先接入对应自动化执行器，或改为人工处理该任务。"
+    assert runs[0].resultSummary == "自动化执行器尚未接入，本次只完成执行前检查。"
 
 
 def test_trigger_task_returns_binding_required_when_binding_missing(tmp_path: Path) -> None:

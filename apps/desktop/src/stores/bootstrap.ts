@@ -69,6 +69,7 @@ export const useBootstrapStore = defineStore("bootstrap", {
       const configBusStore = useConfigBusStore();
       const licenseStore = useLicenseStore();
       const hasSettings = Boolean(configBusStore.settings);
+      const readinessAllowsEntry = configBusStore.bootstrapReadiness?.canContinue === true;
 
       if (
         configBusStore.runtimeStatus === "loading" ||
@@ -102,7 +103,7 @@ export const useBootstrapStore = defineStore("bootstrap", {
         return;
       }
 
-      if (!hasCompletedBootstrapInitialization(configBusStore.settings)) {
+      if (!hasCompletedBootstrapInitialization(configBusStore.settings) || !readinessAllowsEntry) {
         this.phase = "initialization_required";
         return;
       }
@@ -111,4 +112,3 @@ export const useBootstrapStore = defineStore("bootstrap", {
     }
   }
 });
-

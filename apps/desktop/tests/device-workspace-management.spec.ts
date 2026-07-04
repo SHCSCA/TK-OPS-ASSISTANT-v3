@@ -48,6 +48,8 @@ describe("设备与工作区管理页面体验", () => {
     expect(shellUiStore.detailContext.sections.some((section) => section.title === "执行绑定")).toBe(true);
     expect(wrapper.text()).toContain("默认浏览器");
     expect(wrapper.text()).toContain("Data/Profile-01");
+    expect(wrapper.text()).toContain("PID：24680");
+    expect(wrapper.text()).toContain("调试端口：59444");
   });
 
   it("通过工作区嵌套路由创建真实浏览器实例", async () => {
@@ -93,6 +95,41 @@ describe("设备与工作区管理页面体验", () => {
       }
     });
     expect(wrapper.text()).toContain("默认浏览器");
+  });
+
+  it("通过 Runtime 嵌套路由启动浏览器实例并刷新进程证据", async () => {
+    const calls: Array<{ method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method) => {
+        calls.push({ path, method });
+        if (path === "/api/devices/workspaces" && method === "GET") {
+          return okJsonResponse([workspaceFixture()]);
+        }
+        if (path === "/api/devices/workspaces/ws-1/browser-instances" && method === "GET") {
+          return okJsonResponse([browserInstanceFixture({ status: "stopped", processId: null, debugPort: null })]);
+        }
+        if (path === "/api/devices/workspaces/ws-1/browser-instances/browser-1/start" && method === "POST") {
+          return okJsonResponse(browserWriteResultFixture(browserInstanceFixture({ status: "running" })));
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const { wrapper } = mountDevicePage();
+    await flushPromises();
+
+    await wrapper.get('[data-testid="workspace-card-ws-1"]').trigger("click");
+    await flushPromises();
+    await wrapper.get(".ic-actions button").trigger("click");
+    await flushPromises();
+
+    expect(calls).toContainEqual({
+      path: "/api/devices/workspaces/ws-1/browser-instances/browser-1/start",
+      method: "POST"
+    });
+    expect(wrapper.text()).toContain("运行中");
+    expect(wrapper.text()).toContain("PID：24680");
   });
 
   it("当 Runtime 没有工作区时显示 empty 与 blocked 说明", async () => {
@@ -169,19 +206,50 @@ function workspaceFixture() {
   };
 }
 
-function browserInstanceFixture() {
+function browserInstanceFixture(overrides: Record<string, unknown> = {}) {
   return {
     id: "browser-1",
     workspaceId: "ws-1",
     name: "默认浏览器",
     profilePath: "Data/Profile-01",
     status: "ready",
+    processId: 24680,
+    debugPort: 59444,
+    debugHost: "127.0.0.1",
+    runtimeMode: "local_process",
+    launchSupported: true,
+    runtimeEvidence: {
+      processId: 24680,
+      debugPort: 59444,
+      devtoolsReachable: true
+    },
     lastCheckedAt: now(),
     lastStartedAt: null,
     lastStoppedAt: null,
     errorCode: null,
     errorMessage: null,
     createdAt: now(),
-    updatedAt: now()
+    updatedAt: now(),
+    ...overrides
+  };
+}
+
+function browserWriteResultFixture(browserInstance = browserInstanceFixture()) {
+  return {
+    saved: true,
+    updatedAt: now(),
+    versionOrRevision: browserInstance.updatedAt,
+    objectSummary: {
+      id: browserInstance.id,
+      name: browserInstance.name
+    },
+    operation: "start",
+    processBoundaryVerified: true,
+    processSummary: {
+      alive: browserInstance.status === "running",
+      processId: browserInstance.processId,
+      debugPort: browserInstance.debugPort
+    },
+    browserInstance
   };
 }

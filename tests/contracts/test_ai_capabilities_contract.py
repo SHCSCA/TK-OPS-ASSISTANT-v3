@@ -79,6 +79,7 @@ def test_ai_capability_mutations_broadcast_changed_events(
         "video_transcription",
         "video_generation",
         "asset_analysis",
+        "magic_cut",
     }
 
 
@@ -98,7 +99,7 @@ def test_ai_capability_settings_contract_uses_settings_prefix_and_expected_shape
         'scope',
         'diagnosticSummary',
     }
-    assert len(payload['data']['capabilities']) == 8
+    assert len(payload['data']['capabilities']) == 9
     assert len(payload['data']['providers']) == 4
     assert set(payload['data']['capabilities'][0]) == {
         'capabilityId',
@@ -298,7 +299,7 @@ def test_ai_capability_support_matrix_contract_maps_capabilities_to_models(
     assert set(payload) == {'ok', 'data'}
     assert payload['ok'] is True
     assert set(payload['data']) == {'capabilities'}
-    assert len(payload['data']['capabilities']) == 8
+    assert len(payload['data']['capabilities']) == 9
 
     script_generation = next(
         item
@@ -311,6 +312,54 @@ def test_ai_capability_support_matrix_contract_maps_capabilities_to_models(
         item['provider'] == 'openai' and item['modelId'] == 'gpt-5.4'
         for item in script_generation['models']
     )
+
+    video_transcription = next(
+        item
+        for item in payload['data']['capabilities']
+        if item['capabilityId'] == 'video_transcription'
+    )
+    assert 'volcengine' in video_transcription['providers']
+    assert any(
+        item['provider'] == 'volcengine'
+        and item['modelId'] in {'doubao-seed-2.0-pro', 'doubao-seed-1-6-vision-250815'}
+        for item in video_transcription['models']
+    )
+
+    magic_cut = next(
+        item
+        for item in payload['data']['capabilities']
+        if item['capabilityId'] == 'magic_cut'
+    )
+    assert any(
+        item['provider'] in {'deepseek', 'volcengine'}
+        and 'text_generation' in item['capabilityTypes']
+        for item in magic_cut['models']
+    )
+    assert all(
+        'video_generation' not in item['capabilityTypes']
+        for item in magic_cut['models']
+    )
+
+
+def test_ai_capability_defaults_contract_keeps_magic_cut_as_text_agent(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get('/api/settings/ai-capabilities')
+
+    assert response.status_code == 200
+    capabilities = {
+        item['capabilityId']: item
+        for item in response.json()['data']['capabilities']
+    }
+    assert capabilities['video_transcription']['provider'] == 'volcengine'
+    assert capabilities['video_transcription']['model'] == 'doubao-seed-2.0-pro'
+    assert (capabilities['magic_cut']['provider'], capabilities['magic_cut']['model']) in {
+        ('deepseek', 'deepseek-chat'),
+        ('volcengine', 'doubao-seed-1.6'),
+    }
+    assert capabilities['magic_cut']['agentRole'] == 'TikTok 智能粗剪 Agent'
+    assert '剪辑操作' in capabilities['magic_cut']['systemPrompt']
+    assert '输出纯 JSON' in capabilities['magic_cut']['userPromptTemplate']
 
 
 def test_unknown_ai_provider_uses_chinese_error_envelope(

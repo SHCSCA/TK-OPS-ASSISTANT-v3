@@ -72,11 +72,14 @@ def test_media_diagnostics_contract_uses_settings_prefix_and_expected_shape(
     payload = response.json()
     assert set(payload) == {"ok", "data"}
     assert payload["ok"] is True
-    assert set(payload["data"]) == {"ffprobe", "checkedAt"}
-    assert set(payload["data"]["ffprobe"]) == {
+    assert set(payload["data"]) == {"ffprobe", "ffmpeg", "checkedAt"}
+    expected_tool_fields = {
         "status",
         "path",
+        "source",
         "version",
         "errorCode",
         "errorMessage",
     }
+    assert set(payload["data"]["ffprobe"]) == expected_tool_fields
+    assert set(payload["data"]["ffmpeg"]) == expected_tool_fields

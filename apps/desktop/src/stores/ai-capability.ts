@@ -179,7 +179,11 @@ export const useAIStore = defineStore("ai-capability", {
           model: item.model
         }));
         await saveAICapabilitySettings(bindings);
-        await this.reloadSettings();
+        await Promise.all([
+          this.reloadSettings(),
+          this.reloadSupportMatrix(),
+          this.reloadProviderCatalog()
+        ]);
         this.status = "ready";
       } catch (error) {
         this.applyRuntimeError(error);

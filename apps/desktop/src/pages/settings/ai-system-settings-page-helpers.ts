@@ -8,7 +8,7 @@ export type DirectoryField =
   | "paths.cacheDir"
   | "paths.exportDir"
   | "paths.logDir";
-export type FileField = "media.ffprobePath";
+export type FileField = "media.ffprobePath" | "media.ffmpegPath" | "browser.executablePath";
 
 export const capabilityLabels: Record<string, string> = {
   script_generation: "脚本生成",
@@ -18,6 +18,7 @@ export const capabilityLabels: Record<string, string> = {
   subtitle_alignment: "字幕对齐",
   video_transcription: "视频解析",
   video_generation: "视频生成",
+  magic_cut: "智能粗剪",
   asset_analysis: "资产分析"
 };
 
@@ -108,7 +109,11 @@ export function createEmptySettingsInput(): AppSettingsUpdateInput {
       subtitleMode: ""
     },
     media: {
-      ffprobePath: ""
+      ffprobePath: "",
+      ffmpegPath: ""
+    },
+    browser: {
+      executablePath: ""
     }
   };
 }
@@ -134,7 +139,11 @@ export function settingsToInput(source: AppSettings): AppSettingsUpdateInput {
       subtitleMode: source.ai.subtitleMode
     },
     media: {
-      ffprobePath: source.media?.ffprobePath ?? ""
+      ffprobePath: source.media?.ffprobePath ?? "",
+      ffmpegPath: source.media?.ffmpegPath ?? ""
+    },
+    browser: {
+      executablePath: source.browser?.executablePath ?? ""
     }
   };
 }
@@ -151,6 +160,8 @@ export function applySettingsToForm(target: AppSettingsUpdateInput, source: AppS
   target.ai.voice = source.ai.voice;
   target.ai.subtitleMode = source.ai.subtitleMode;
   target.media.ffprobePath = source.media?.ffprobePath ?? "";
+  target.media.ffmpegPath = source.media?.ffmpegPath ?? "";
+  target.browser.executablePath = source.browser?.executablePath ?? "";
 }
 
 export function cloneSettingsInput(source: AppSettingsUpdateInput): AppSettingsUpdateInput {
@@ -174,9 +185,28 @@ export function cloneSettingsInput(source: AppSettingsUpdateInput): AppSettingsU
       subtitleMode: source.ai.subtitleMode
     },
     media: {
-      ffprobePath: source.media.ffprobePath
+      ffprobePath: source.media.ffprobePath,
+      ffmpegPath: source.media.ffmpegPath
+    },
+    browser: {
+      executablePath: source.browser?.executablePath ?? ""
     }
   };
+}
+
+export async function pickBrowserExecutablePath(currentValue: string): Promise<string> {
+  try {
+    const dialog = await import("@tauri-apps/plugin-dialog");
+    const selected = await dialog.open({
+      defaultPath: currentValue || undefined,
+      directory: false,
+      filters: [{ extensions: ["exe"], name: "Browser" }],
+      multiple: false
+    });
+    return typeof selected === "string" ? selected : "";
+  } catch {
+    throw new Error("当前环境无法打开浏览器文件选择器，请在 TK-OPS 桌面应用中重试。");
+  }
 }
 
 export function serializeSettings(input: AppSettingsUpdateInput): string {
@@ -233,6 +263,21 @@ export async function pickFfprobePath(currentValue: string): Promise<string> {
     return typeof selected === "string" ? selected : "";
   } catch {
     throw new Error("当前环境无法打开 FFprobe 文件选择器，请在 TK-OPS 桌面应用中重试。");
+  }
+}
+
+export async function pickFfmpegPath(currentValue: string): Promise<string> {
+  try {
+    const dialog = await import("@tauri-apps/plugin-dialog");
+    const selected = await dialog.open({
+      defaultPath: currentValue || undefined,
+      directory: false,
+      filters: [{ extensions: ["exe"], name: "FFmpeg" }],
+      multiple: false
+    });
+    return typeof selected === "string" ? selected : "";
+  } catch {
+    throw new Error("当前环境无法打开 FFmpeg 文件选择器，请在 TK-OPS 桌面应用中重试。");
   }
 }
 

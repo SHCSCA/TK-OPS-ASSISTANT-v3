@@ -207,7 +207,7 @@ function formatCheckedTime(val: string) {
 .status-dot.ready { background: var(--color-success); box-shadow: 0 0 8px var(--color-success); }
 .status-dot.misconfigured { background: var(--color-warning); }
 .status-dot.offline { background: var(--color-danger); }
-.status-dot.testing { background: var(--color-info); animation: pulse 1.2s infinite; }
+.status-dot.testing { background: var(--color-info); animation: pulse var(--motion-pulse) infinite; }
 
 @keyframes pulse {
   0% { opacity: 1; }

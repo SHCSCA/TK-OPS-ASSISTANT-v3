@@ -343,7 +343,7 @@ function handleCreateVoice() {
   height: 12px;
   background: var(--color-brand-primary);
   border-radius: 99px;
-  animation: wave 1s ease-in-out infinite;
+  animation: wave var(--motion-pulse) ease-in-out infinite;
 }
 
 @keyframes wave {

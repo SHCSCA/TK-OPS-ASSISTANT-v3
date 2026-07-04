@@ -91,7 +91,7 @@ const timeGreeting = computed(() => {
   background: var(--gradient-aurora);
   filter: blur(60px);
   opacity: 0.8;
-  animation: aurora-rotate 20s linear infinite;
+  animation: aurora-rotate var(--motion-rotate-med) linear infinite;
   pointer-events: none;
   z-index: 0;
   /* Make sure the orb colors are solid to contrast with white backgrounds */

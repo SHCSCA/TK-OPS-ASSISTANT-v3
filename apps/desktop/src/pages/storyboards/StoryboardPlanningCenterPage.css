@@ -256,7 +256,6 @@
 .board-card {
   position: relative;
   background: var(--color-bg-surface);
-  --motion-flow: 2.4s;
 }
 
 .ai-flow-bar {

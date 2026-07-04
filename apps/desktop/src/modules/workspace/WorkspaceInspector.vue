@@ -8,12 +8,23 @@
       </div>
     </div>
 
-    <div v-if="errorMessage" class="workspace-inspector__message workspace-inspector__message--error">
-      {{ errorMessage }}
-    </div>
-    <div v-else-if="blockedMessage" class="workspace-inspector__message workspace-inspector__message--warning">
-      {{ blockedMessage }}
-    </div>
+    <transition name="msg-fade">
+      <div v-if="errorMessage" key="error" class="workspace-inspector__message workspace-inspector__message--error">
+        {{ errorMessage }}
+      </div>
+      <div v-else-if="blockedMessage" key="blocked" class="workspace-inspector__message workspace-inspector__message--warning">
+        {{ blockedMessage }}
+      </div>
+    </transition>
+
+    <WorkspaceInspectorClipActions
+      :precheck="precheck"
+      :preview-context="previewContext"
+      :save-state="saveState"
+      :selected-clip="selectedClip"
+      :timeline="timeline"
+      @seek-clip-start="emit('seek-clip-start')"
+    />
 
     <section class="workspace-inspector__section">
       <h3>片段信息</h3>
@@ -78,13 +89,37 @@
       <h3>预检提醒</h3>
       <strong>{{ precheckTitle }}</strong>
       <p>{{ precheckDescription }}</p>
-      <ul v-if="precheckIssues.length > 0" class="workspace-inspector__issue-list">
-        <li v-for="issue in precheckIssues" :key="issue">
+      <TransitionGroup v-if="precheckIssues.length > 0" tag="ul" name="issue-slide" class="workspace-inspector__issue-list">
+        <li v-for="(issue, index) in precheckIssues" :key="precheckIssueKey(issue, index)">
+          <div class="workspace-inspector__issue-content">
+            <strong>{{ precheckIssueMessage(issue) }}</strong>
+            <span v-if="precheckIssueTargetLabel(issue)">{{ precheckIssueTargetLabel(issue) }}</span>
+            <p v-if="precheckIssueSuggestion(issue)">{{ precheckIssueSuggestion(issue) }}</p>
+          </div>
           <button type="button" data-testid="workspace-precheck-issue" @click="emit('focus-precheck-issue', issue)">
-            {{ issue }}
+            {{ precheckIssueActionLabel(issue) }}
           </button>
         </li>
-      </ul>
+      </TransitionGroup>
+    </section>
+
+    <section
+      class="workspace-inspector__card workspace-inspector__card--export"
+      data-testid="workspace-export-readiness"
+    >
+      <small>导出就绪</small>
+      <strong>{{ exportReadiness.title }}</strong>
+      <p>{{ exportReadiness.description }}</p>
+      <button
+        class="workspace-inspector__export-action"
+        data-testid="workspace-export-readiness-action"
+        :disabled="!canRequestExport"
+        type="button"
+        @click="handleRequestExport"
+      >
+        <span class="material-symbols-outlined">output</span>
+        送往渲染与导出中心
+      </button>
     </section>
 
     <details class="workspace-inspector__details" data-testid="workspace-ai-suggestion-details">
@@ -115,6 +150,7 @@ import { computed } from "vue";
 import type { EditingWorkspaceStatus } from "@/stores/editing-workspace";
 import type {
   TimelinePrecheckDto,
+  TimelinePrecheckIssueDetailDto,
   WorkspaceAICommandResultDto,
   WorkspaceAssemblyStateDto,
   WorkspaceSaveStateDto,
@@ -123,6 +159,8 @@ import type {
   WorkspaceTimelineTrackDto
 } from "@/types/runtime";
 import type { WorkspacePreviewContext } from "./workspacePreviewContext";
+import WorkspaceInspectorClipActions from "./WorkspaceInspectorClipActions.vue";
+import { resolveWorkspaceExportReadiness } from "./workspaceExportReadiness";
 import { workspaceStatusLabel } from "./workspaceTimelineViewModel";
 
 const props = defineProps<{
@@ -140,7 +178,9 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  "focus-precheck-issue": [issue: string];
+  "focus-precheck-issue": [issue: TimelinePrecheckIssueDetailDto | string];
+  "request-export": [];
+  "seek-clip-start": [];
 }>();
 
 const statusLabel = computed(() => {
@@ -214,7 +254,7 @@ const clipSourceKind = computed(() => {
 const sourceDescription = computed(() => {
   if (!props.selectedClip) return "选中片段后显示资产中心或创作链路来源。";
   if (clipSourceKind.value === "asset") {
-    return "该片段来自资产中心素材，可在后续功能中替换或重新定位。";
+    return "该片段来自资产中心素材，可在后续功能中替换或在资产中心处理。";
   }
   return `该片段来自${sourceKindLabel(clipSourceKind.value)}。`;
 });
@@ -230,11 +270,26 @@ const precheckTitle = computed(() => {
 
 const precheckDescription = computed(() => {
   if (!props.precheck) return "点击本地预检后显示时间线检查结果。";
-  if (props.precheck.issues.length === 0) return props.precheck.message ?? "时间线本地预检通过。";
+  if (precheckIssueCount.value === 0) return props.precheck.message ?? "时间线本地预检通过。";
   return props.precheck.message ?? "预检发现需要处理的问题。";
 });
 
-const precheckIssues = computed(() => props.precheck?.issues ?? []);
+const precheckIssues = computed<Array<TimelinePrecheckIssueDetailDto | string>>(() => {
+  const detailIssues = props.precheck?.issueDetails ?? [];
+  return detailIssues.length > 0 ? detailIssues : props.precheck?.issues ?? [];
+});
+
+const precheckIssueCount = computed(() => precheckIssues.value.length);
+
+const exportReadiness = computed(() => {
+  return resolveWorkspaceExportReadiness({
+    issueCount: precheckIssueCount.value,
+    precheck: props.precheck,
+    saveState: props.saveState,
+    timeline: props.timeline
+  });
+});
+const canRequestExport = computed(() => exportReadiness.value.canRequestExport);
 
 const assemblySummary = computed(() => {
   if (!props.assemblyState) return "";
@@ -263,163 +318,52 @@ function formatMs(value: number): string {
   const seconds = (totalSeconds % 60).toString().padStart(2, "0");
   return `${minutes}:${seconds}`;
 }
+
+function precheckIssueKey(issue: TimelinePrecheckIssueDetailDto | string, index: number): string {
+  if (typeof issue === "string") return `legacy-${index}-${issue}`;
+  return [
+    issue.id ?? "detail",
+    issue.code ?? "no-code",
+    issue.targetId ?? issue.clipId ?? issue.trackId ?? "no-target",
+    index
+  ].join("-");
+}
+
+function precheckIssueMessage(issue: TimelinePrecheckIssueDetailDto | string): string {
+  return typeof issue === "string" ? issue : issue.message;
+}
+
+function precheckIssueSuggestion(issue: TimelinePrecheckIssueDetailDto | string): string {
+  if (typeof issue === "string") return "";
+  return issue.suggestion?.trim() ?? "";
+}
+
+function precheckIssueTargetLabel(issue: TimelinePrecheckIssueDetailDto | string): string {
+  if (typeof issue === "string") return "";
+  const targetLabel = issue.targetLabel?.trim() || issue.targetId?.trim() || issue.clipId?.trim() || issue.trackId?.trim();
+  const targetTypeLabel = precheckIssueTargetTypeLabel(issue);
+  if (!targetLabel) return targetTypeLabel ? `${targetTypeLabel}：未标明对象` : "";
+  return targetTypeLabel ? `${targetTypeLabel}：${targetLabel}` : targetLabel;
+}
+
+function precheckIssueTargetTypeLabel(issue: TimelinePrecheckIssueDetailDto): string {
+  const targetType = issue.targetType?.trim();
+  if (targetType === "clip" || issue.clipId) return "片段";
+  if (targetType === "track" || issue.trackId) return "轨道";
+  if (targetType === "timeline") return "时间线";
+  if (targetType === "asset") return "素材";
+  return targetType ? "对象" : "";
+}
+
+function precheckIssueActionLabel(issue: TimelinePrecheckIssueDetailDto | string): string {
+  if (typeof issue === "string") return issue;
+  return issue.actionLabel?.trim() || "定位问题";
+}
+
+function handleRequestExport(): void {
+  if (!canRequestExport.value) return;
+  emit("request-export");
+}
 </script>
 
-<style scoped>
-.workspace-inspector {
-  background: color-mix(in srgb, var(--surface-secondary) 92%, transparent);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  box-shadow: var(--shadow-sm);
-  display: grid;
-  gap: 14px;
-  min-height: 0;
-  overflow: auto;
-  padding: 18px;
-}
-
-.workspace-inspector__heading {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-}
-
-.workspace-inspector__heading p,
-.workspace-inspector__message,
-.workspace-inspector__card p,
-.workspace-inspector__section p,
-.workspace-inspector__details p {
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.workspace-inspector__message,
-.workspace-inspector__card,
-.workspace-inspector__section,
-.workspace-inspector__details {
-  background: var(--surface-tertiary);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-}
-
-.workspace-inspector__message--error {
-  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--border-default));
-  color: var(--color-danger);
-}
-
-.workspace-inspector__message--warning {
-  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--border-default));
-  color: var(--color-warning);
-}
-
-.workspace-inspector__card small {
-  color: var(--text-tertiary);
-}
-
-.workspace-inspector__section h3 {
-  font-size: 14px;
-  margin: 0;
-}
-
-.workspace-inspector__section strong {
-  color: var(--text-primary);
-}
-
-.workspace-inspector__issue-list {
-  display: grid;
-  gap: 8px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.workspace-inspector__issue-list button {
-  background: color-mix(in srgb, var(--surface-secondary) 86%, transparent);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  color: var(--text-primary);
-  cursor: pointer;
-  line-height: 1.45;
-  padding: 8px 10px;
-  text-align: left;
-  width: 100%;
-}
-
-.workspace-inspector__issue-list button:hover {
-  border-color: color-mix(in srgb, var(--accent-primary) 38%, var(--border-default));
-}
-
-.workspace-inspector__facts {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-}
-
-.workspace-inspector__facts--compact {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.scroll-area {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-strong) transparent;
-}
-
-.scroll-area::-webkit-scrollbar {
-  width: 4px;
-}
-.scroll-area::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
-  border-radius: 99px;
-}
-
-.workspace-inspector__facts div {
-  display: grid;
-  gap: 4px;
-}
-
-.workspace-inspector__facts dt {
-  color: var(--text-tertiary);
-  font-size: 12px;
-}
-
-.workspace-inspector__facts dd {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-}
-
-.workspace-inspector__facts dd span {
-  color: var(--text-secondary);
-}
-
-.workspace-inspector__details summary {
-  align-items: center;
-  cursor: pointer;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.workspace-inspector__details summary::marker {
-  color: var(--text-tertiary);
-}
-
-.workspace-inspector__details em {
-  background: color-mix(in srgb, var(--surface-secondary) 86%, transparent);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  color: var(--text-tertiary);
-  font-size: 12px;
-  font-style: normal;
-  padding: 2px 8px;
-}
-
-.workspace-inspector__details p {
-  padding-top: 8px;
-}
-</style>
+<style scoped src="./WorkspaceInspector.css"></style>

@@ -44,7 +44,16 @@ def test_config_contract_uses_settings_prefix_and_expected_document_shape(
     payload = response.json()
     assert set(payload) == {"ok", "data"}
     assert payload["ok"] is True
-    assert set(payload["data"]) == {"revision", "scope", "runtime", "paths", "logging", "ai", "media"}
+    assert set(payload["data"]) == {
+        "revision",
+        "scope",
+        "runtime",
+        "paths",
+        "logging",
+        "ai",
+        "media",
+        "browser",
+    }
     assert set(payload["data"]["runtime"]) == {"mode", "workspaceRoot"}
     assert set(payload["data"]["paths"]) == {"cacheDir", "exportDir", "logDir"}
     assert set(payload["data"]["logging"]) == {"level"}
@@ -54,7 +63,9 @@ def test_config_contract_uses_settings_prefix_and_expected_document_shape(
         "voice",
         "subtitleMode",
     }
-    assert set(payload["data"]["media"]) == {"ffprobePath"}
+    assert set(payload["data"]["media"]) == {"ffprobePath", "ffmpegPath"}
+    assert set(payload["data"]["browser"]) == {"executablePath"}
+    assert payload["data"]["browser"]["executablePath"] == ""
 
 
 def test_diagnostics_contract_exposes_non_sensitive_fields_only(

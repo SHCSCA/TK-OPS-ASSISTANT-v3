@@ -25,12 +25,55 @@
         <span class="workspace-timeline-toolbar__label">{{ tool.label }}</span>
       </button>
 
-      <div class="workspace-timeline-toolbar__zoom" aria-label="缩放视觉状态">
-        <span class="workspace-timeline-toolbar__zoom-mark">-</span>
-        <span class="workspace-timeline-toolbar__zoom-track">
-          <span class="workspace-timeline-toolbar__zoom-fill"></span>
+      <div
+        class="workspace-timeline-toolbar__zoom"
+        :class="{ 'workspace-timeline-toolbar__zoom--disabled': props.disabled }"
+        data-testid="workspace-timeline-zoom"
+        aria-label="时间线视图缩放状态"
+        :aria-disabled="props.disabled || undefined"
+      >
+        <button
+          class="workspace-timeline-toolbar__zoom-button"
+          data-testid="workspace-timeline-zoom-out"
+          title="缩小时间线"
+          type="button"
+          :disabled="props.disabled || !previousZoomPercent"
+          @click="handleZoomOut"
+        >
+          <span aria-hidden="true">-</span>
+        </button>
+        <input
+          class="workspace-timeline-toolbar__zoom-slider"
+          data-testid="workspace-timeline-zoom-slider"
+          aria-label="时间线缩放比例"
+          list="workspace-timeline-zoom-steps"
+          max="300"
+          min="50"
+          type="range"
+          :disabled="props.disabled"
+          :value="safeZoomPercent"
+          @input="handleZoomSlider"
+        >
+        <datalist id="workspace-timeline-zoom-steps">
+          <option v-for="step in zoomSteps" :key="step" :value="step" />
+        </datalist>
+        <button
+          class="workspace-timeline-toolbar__zoom-button"
+          data-testid="workspace-timeline-zoom-in"
+          title="放大时间线"
+          type="button"
+          :disabled="props.disabled || !nextZoomPercent"
+          @click="handleZoomIn"
+        >
+          <span aria-hidden="true">+</span>
+        </button>
+        <span
+          class="workspace-timeline-toolbar__zoom-mark"
+          data-testid="workspace-timeline-zoom-value"
+          data-default-label="100%"
+        >
+          {{ safeZoomPercent }}%
         </span>
-        <span class="workspace-timeline-toolbar__zoom-mark">+</span>
       </div>
     </div>
   </section>
@@ -38,6 +81,12 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+
+import {
+  TIMELINE_ZOOM_STEPS,
+  normalizeTimelineZoomPercent,
+  type TimelineZoomPercent
+} from "./workspaceTimelineGeometry";
 
 const props = withDefaults(defineProps<{
   statusLabel: string;
@@ -48,6 +97,9 @@ const props = withDefaults(defineProps<{
   canMoveLeft?: boolean;
   canMoveRight?: boolean;
   canTrim?: boolean;
+  canRedo?: boolean;
+  canUndo?: boolean;
+  zoomPercent?: number;
 }>(), {
   disabled: false,
   canSplit: false,
@@ -55,7 +107,10 @@ const props = withDefaults(defineProps<{
   canMove: false,
   canMoveLeft: undefined,
   canMoveRight: undefined,
-  canTrim: false
+  canTrim: false,
+  canRedo: false,
+  canUndo: false,
+  zoomPercent: 100
 });
 
 const emit = defineEmits<{
@@ -63,10 +118,15 @@ const emit = defineEmits<{
   move: [deltaMs: number];
   split: [];
   trim: [edge: "left" | "right", deltaMs: number];
+  redo: [];
+  undo: [];
+  "zoom-change": [zoomPercent: TimelineZoomPercent];
 }>();
 
 type WorkspaceTimelineToolId =
   | "select"
+  | "undo"
+  | "redo"
   | "move-left"
   | "move-right"
   | "trim-left"
@@ -77,6 +137,8 @@ type WorkspaceTimelineToolId =
 
 const tools = computed(() => [
   { id: "select", label: "选择", icon: "select", active: true, disabled: true },
+  { id: "undo", label: "撤销", icon: "undo", active: false, disabled: props.disabled || !props.canUndo },
+  { id: "redo", label: "重做", icon: "redo", active: false, disabled: props.disabled || !props.canRedo },
   { id: "move-left", label: "左移", icon: "move-left", active: false, disabled: props.disabled || !(props.canMoveLeft ?? props.canMove) },
   { id: "move-right", label: "右移", icon: "move-right", active: false, disabled: props.disabled || !(props.canMoveRight ?? props.canMove) },
   { id: "trim-left", label: "左裁", icon: "trim-left", active: false, disabled: props.disabled || !props.canTrim },
@@ -86,7 +148,27 @@ const tools = computed(() => [
   { id: "snap", label: "磁吸", icon: "snap", active: true, disabled: true }
 ] as const);
 
+const zoomSteps = TIMELINE_ZOOM_STEPS;
+const safeZoomPercent = computed(() => normalizeTimelineZoomPercent(props.zoomPercent));
+const currentZoomIndex = computed(() => zoomSteps.indexOf(safeZoomPercent.value));
+const previousZoomPercent = computed(() => {
+  const previous = zoomSteps[currentZoomIndex.value - 1];
+  return previous ?? null;
+});
+const nextZoomPercent = computed(() => {
+  const next = zoomSteps[currentZoomIndex.value + 1];
+  return next ?? null;
+});
+
 function handleToolClick(toolId: WorkspaceTimelineToolId): void {
+  if (toolId === "undo") {
+    emit("undo");
+    return;
+  }
+  if (toolId === "redo") {
+    emit("redo");
+    return;
+  }
   if (toolId === "move-left") {
     emit("move", -500);
     return;
@@ -110,6 +192,21 @@ function handleToolClick(toolId: WorkspaceTimelineToolId): void {
   if (toolId === "delete") {
     emit("delete");
   }
+}
+
+function handleZoomOut(): void {
+  if (previousZoomPercent.value) emit("zoom-change", previousZoomPercent.value);
+}
+
+function handleZoomIn(): void {
+  if (nextZoomPercent.value) emit("zoom-change", nextZoomPercent.value);
+}
+
+function handleZoomSlider(event: Event): void {
+  const target = event.target as HTMLInputElement | null;
+  const value = Number(target?.value);
+
+  emit("zoom-change", normalizeTimelineZoomPercent(value));
 }
 </script>
 
@@ -224,7 +321,9 @@ function handleToolClick(toolId: WorkspaceTimelineToolId): void {
 .workspace-timeline-toolbar__icon[data-icon="move-left"]::before,
 .workspace-timeline-toolbar__icon[data-icon="move-left"]::after,
 .workspace-timeline-toolbar__icon[data-icon="move-right"]::before,
-.workspace-timeline-toolbar__icon[data-icon="move-right"]::after {
+.workspace-timeline-toolbar__icon[data-icon="move-right"]::after,
+.workspace-timeline-toolbar__icon[data-icon="undo"]::after,
+.workspace-timeline-toolbar__icon[data-icon="redo"]::after {
   background: currentColor;
   border-radius: 99px;
   left: 3px;
@@ -252,6 +351,46 @@ function handleToolClick(toolId: WorkspaceTimelineToolId): void {
 .workspace-timeline-toolbar__icon[data-icon="move-right"]::after {
   border-width: 2px 2px 0 0;
   left: 7px;
+}
+
+.workspace-timeline-toolbar__icon[data-icon="undo"]::before,
+.workspace-timeline-toolbar__icon[data-icon="redo"]::before {
+  border: 2px solid currentColor;
+  border-left-color: transparent;
+  border-radius: 999px;
+  height: 10px;
+  left: 3px;
+  top: 3px;
+  transform: rotate(-35deg);
+  width: 10px;
+}
+
+.workspace-timeline-toolbar__icon[data-icon="undo"]::after {
+  background: transparent;
+  border: solid currentColor;
+  border-width: 0 0 2px 2px;
+  height: 5px;
+  left: 2px;
+  top: 4px;
+  transform: rotate(45deg);
+  width: 5px;
+}
+
+.workspace-timeline-toolbar__icon[data-icon="redo"]::before {
+  border-left-color: currentColor;
+  border-right-color: transparent;
+  transform: rotate(35deg);
+}
+
+.workspace-timeline-toolbar__icon[data-icon="redo"]::after {
+  background: transparent;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  height: 5px;
+  left: 9px;
+  top: 4px;
+  transform: rotate(-45deg);
+  width: 5px;
 }
 
 .workspace-timeline-toolbar__icon[data-icon="trim-left"]::before,
@@ -348,39 +487,74 @@ function handleToolClick(toolId: WorkspaceTimelineToolId): void {
   border: 1px solid rgb(219 231 247 / 10%);
   border-radius: 8px;
   display: inline-flex;
-  gap: 8px;
+  gap: 6px;
   height: 30px;
-  padding: 0 10px;
+  padding: 0 8px;
+}
+
+.workspace-timeline-toolbar__zoom--disabled {
+  opacity: 0.74;
+}
+
+.workspace-timeline-toolbar__zoom-button {
+  align-items: center;
+  background: rgb(255 255 255 / 7%);
+  border: 1px solid rgb(219 231 247 / 12%);
+  border-radius: 6px;
+  color: rgb(219 231 247 / 78%);
+  display: inline-flex;
+  height: 22px;
+  justify-content: center;
+  padding: 0;
+  width: 22px;
+}
+
+.workspace-timeline-toolbar__zoom-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
 }
 
 .workspace-timeline-toolbar__zoom-mark {
   color: rgb(219 231 247 / 58%);
   font: var(--font-body-sm);
+  white-space: nowrap;
 }
 
-.workspace-timeline-toolbar__zoom-track {
-  background: rgb(219 231 247 / 16%);
-  border-radius: 99px;
-  display: inline-flex;
-  height: 4px;
-  overflow: hidden;
-  width: 62px;
+.workspace-timeline-toolbar__zoom-slider {
+  accent-color: #62b7ff;
+  cursor: pointer;
+  height: 22px;
+  width: 92px;
 }
 
-.workspace-timeline-toolbar__zoom-fill {
-  background: linear-gradient(90deg, #62b7ff, #9ed2ff);
-  border-radius: inherit;
-  width: 58%;
+.workspace-timeline-toolbar__zoom-slider:disabled {
+  cursor: not-allowed;
 }
 
-@container editing-workspace (max-width: 860px) {
+@container editing-workspace (max-width: 1160px) {
   .workspace-timeline-toolbar {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: center;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: auto minmax(0, 1fr);
+    overflow: hidden;
+    padding: 6px 10px;
+  }
+
+  .workspace-timeline-toolbar__status span {
+    display: none;
   }
 
   .workspace-timeline-toolbar__tools {
+    flex-wrap: nowrap;
     justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .workspace-timeline-toolbar__button,
+  .workspace-timeline-toolbar__zoom {
+    flex: 0 0 auto;
   }
 }
 </style>

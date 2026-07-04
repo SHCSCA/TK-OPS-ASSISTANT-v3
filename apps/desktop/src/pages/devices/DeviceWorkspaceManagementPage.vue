@@ -157,11 +157,43 @@
               <div v-else-if="deviceWorkspacesStore.browserInstances.length === 0" class="detail-empty">当前工作区还没有浏览器实例，页面不会伪造实例或假在线状态。</div>
               <div v-else class="instance-list">
                 <div v-for="instance in deviceWorkspacesStore.browserInstances" :key="instance.id" class="instance-card">
-                  <div class="ic-info">
-                    <strong>{{ instance.name }}</strong>
-                    <span>{{ instance.profilePath }}</span>
+                  <div class="ic-main">
+                    <div class="ic-info">
+                      <strong>{{ instance.name }}</strong>
+                      <span>{{ instance.profilePath }}</span>
+                      <span class="ic-runtime">
+                        PID：{{ instance.processId ?? "未运行" }} · 调试端口：{{ instance.debugPort ?? "未分配" }}
+                      </span>
+                      <span v-if="instance.errorMessage" class="ic-error">{{ instance.errorMessage }}</span>
+                    </div>
+                    <Chip size="sm" :variant="statusTone(instance.status)">{{ statusLabel(instance.status) }}</Chip>
                   </div>
-                  <Chip size="sm" :variant="statusTone(instance.status)">{{ instance.status }}</Chip>
+                  <div class="ic-actions">
+                    <Button
+                      variant="secondary"
+                      :disabled="isInstanceActionPending(instance.id)"
+                      @click="handleStartInstance(instance.id)"
+                    >
+                      <template #leading><span class="material-symbols-outlined">play_arrow</span></template>
+                      启动
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      :disabled="isInstanceActionPending(instance.id)"
+                      @click="handleCheckInstance(instance.id)"
+                    >
+                      <template #leading><span class="material-symbols-outlined">radar</span></template>
+                      检查
+                    </Button>
+                    <Button
+                      variant="danger"
+                      :disabled="isInstanceActionPending(instance.id)"
+                      @click="handleStopInstance(instance.id)"
+                    >
+                      <template #leading><span class="material-symbols-outlined">stop</span></template>
+                      停止
+                    </Button>
+                  </div>
                 </div>
               </div>
               <Button variant="secondary" @click="isCreatingInstance = true">新建浏览器实例</Button>
@@ -350,6 +382,25 @@ async function handleCreateInstance() {
   instanceForm.name = "";
   instanceForm.profilePath = "";
   isCreatingInstance.value = false;
+}
+
+function isInstanceActionPending(instanceId: string) {
+  return deviceWorkspacesStore.instanceActionKey?.endsWith(`:${instanceId}`) ?? false;
+}
+
+async function handleStartInstance(instanceId: string) {
+  if (!selectedWorkspace.value) return;
+  await deviceWorkspacesStore.startBrowser(selectedWorkspace.value.id, instanceId);
+}
+
+async function handleCheckInstance(instanceId: string) {
+  if (!selectedWorkspace.value) return;
+  await deviceWorkspacesStore.checkBrowserHealth(selectedWorkspace.value.id, instanceId);
+}
+
+async function handleStopInstance(instanceId: string) {
+  if (!selectedWorkspace.value) return;
+  await deviceWorkspacesStore.stopBrowser(selectedWorkspace.value.id, instanceId);
 }
 
 async function handleDelete() {

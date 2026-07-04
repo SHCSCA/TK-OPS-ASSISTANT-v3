@@ -24,6 +24,12 @@
         <span><strong>阻断提示：</strong>{{ projectBlockReason }}</span>
       </div>
 
+      <RenderWorkspaceHandoffCard
+        v-if="workspaceHandoff"
+        class="render-workspace-handoff-slot"
+        :handoff="workspaceHandoff"
+      />
+
       <div class="summary-grid">
         <Card class="summary-card">
           <span class="sc-label">任务总数</span>
@@ -49,7 +55,13 @@
             <div class="rail-card__header flex-col align-start gap-3">
               <div style="display: flex; justify-content: space-between; width: 100%;">
                 <h3>渲染任务</h3>
-                <Button variant="primary" size="sm" :disabled="createDisabled" @click="showDrawer = true">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  data-testid="render-create-task-button"
+                  :disabled="createDisabled"
+                  @click="showDrawer = true"
+                >
                   <template #leading><span class="material-symbols-outlined">add_task</span></template>
                   新建任务
                 </Button>
@@ -130,6 +142,9 @@
                 <Button variant="secondary" :disabled="cancelDisabled" @click="handleCancel(selectedTask.id)">
                   {{ selectedTask.status === 'running' || selectedTask.status === 'pending' ? '取消任务' : '取消不可用' }}
                 </Button>
+                <Button variant="secondary" :disabled="retryDisabled" @click="handleRetry(selectedTask.id)">
+                  {{ selectedTask.status === 'failed' || selectedTask.status === 'cancelled' ? '重试任务' : '重试不可用' }}
+                </Button>
                 <Button variant="danger" @click="handleDelete(selectedTask.id)">删除记录</Button>
               </div>
             </div>
@@ -161,6 +176,7 @@
                 </div>
                 <div class="config-grid cols-2">
                   <div class="cfg-row"><span>项目 ID</span><strong>{{ selectedTask.projectId || "未绑定" }}</strong></div>
+                  <div class="cfg-row"><span>时间线 ID</span><strong>{{ selectedTask.timeline_id || "未绑定" }}</strong></div>
                   <div class="cfg-row"><span>项目名称</span><strong>{{ selectedTask.projectName }}</strong></div>
                   <div class="cfg-row"><span>预设</span><strong>{{ selectedTask.preset }}</strong></div>
                   <div class="cfg-row"><span>格式</span><strong>{{ selectedTask.format }}</strong></div>
@@ -170,12 +186,28 @@
               <div class="lane">
                 <div class="lane-head">
                   <h4>执行说明</h4>
-                  <Chip size="sm" :variant="selectedTask.errorMessage ? 'danger' : 'neutral'">{{ selectedTask.errorMessage ? "错误" : "正常" }}</Chip>
+                  <Chip size="sm" :variant="selectedTask.errorMessage ? 'danger' : 'default'">{{ selectedTask.errorMessage ? "错误" : "正常" }}</Chip>
                 </div>
                 <div v-if="selectedTask.errorMessage" class="lane-note is-error">{{ selectedTask.errorMessage }}</div>
                 <div v-else class="lane-note">
                   {{ taskBlockLabel(selectedTask) === "可执行" ? "任务已经进入真实队列，进度和输出路径由 Runtime 更新。" : "当前任务存在阻断或输出缺失，按钮会根据真实状态禁用。" }}
                 </div>
+              </div>
+
+              <div class="lane">
+                <div class="lane-head">
+                  <h4>输出校验</h4>
+                  <Chip size="sm" :variant="selectedTask.output.can_open ? 'success' : 'warning'">
+                    {{ selectedTask.output.can_open ? "文件可打开" : "待校验" }}
+                  </Chip>
+                </div>
+                <div class="config-grid cols-2">
+                  <div class="cfg-row"><span>存在状态</span><strong>{{ selectedTask.output.exists ? "已生成" : "未找到" }}</strong></div>
+                  <div class="cfg-row"><span>文件大小</span><strong>{{ formatBytes(selectedTask.output.size_bytes) }}</strong></div>
+                  <div class="cfg-row"><span>错误码</span><strong>{{ selectedTask.failure.error_code || "无" }}</strong></div>
+                  <div class="cfg-row"><span>建议动作</span><strong>{{ selectedTask.failure.next_action?.label || "无需操作" }}</strong></div>
+                </div>
+                <div v-if="selectedTask.failure.error_message" class="lane-note is-error">{{ selectedTask.failure.error_message }}</div>
               </div>
 
               <div class="lane">
@@ -216,11 +248,21 @@
               <form class="drawer-form" @submit.prevent="handleCreateFromDrawer">
                 <div class="form-group">
                   <label>项目 ID</label>
-                  <Input v-model="createForm.projectId" :placeholder="projectIdPlaceholder" required />
+                  <Input
+                    v-model="createForm.projectId"
+                    :disabled="handoffLocksProject"
+                    :placeholder="projectIdPlaceholder"
+                    required
+                  />
                 </div>
                 <div class="form-group">
                   <label>项目名称</label>
-                  <Input v-model="createForm.projectName" :placeholder="projectNamePlaceholder" required />
+                  <Input
+                    v-model="createForm.projectName"
+                    :disabled="handoffLocksProject"
+                    :placeholder="projectNamePlaceholder"
+                    required
+                  />
                 </div>
                 <div class="form-group">
                   <label>预设</label>
@@ -245,7 +287,10 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
+import RenderWorkspaceHandoffCard from "@/modules/renders/RenderWorkspaceHandoffCard.vue";
+import { buildRenderWorkspaceHandoff } from "@/modules/renders/renderWorkspaceHandoff";
 import { useProjectStore } from "@/stores/project";
 import { useRendersStore } from "@/stores/renders";
 import { useTaskBusStore } from "@/stores/task-bus";
@@ -256,20 +301,31 @@ import Card from "@/components/ui/Card/Card.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 import Input from "@/components/ui/Input/Input.vue";
 
-type RenderTaskView = RenderTaskDto & { fileName: string; projectId: string | null; projectName: string; status: "pending" | "running" | "completed" | "failed"; errorMessage?: string | null };
-type FilterValue = "all" | "queued" | "running" | "completed" | "failed";
+type RenderTaskView = RenderTaskDto & {
+  fileName: string;
+  projectId: string | null;
+  projectName: string;
+  outputPath: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
+  errorMessage?: string | null;
+};
+type FilterValue = "all" | "pending" | "running" | "completed" | "failed" | "cancelled";
 
 const rendersStore = useRendersStore();
 const projectStore = useProjectStore();
 const taskBusStore = useTaskBusStore();
+const route = useRoute();
 const currentFilter = ref<FilterValue>("all");
 const selectedTaskId = ref<string | null>(null);
 const showDrawer = ref(false);
 const createForm = ref({ projectId: "", projectName: "", preset: "1080p", format: "mp4" });
 
 const statusTabs: Array<{ label: string; value: FilterValue }> = [
-  { label: "全部", value: "all" }, { label: "排队", value: "queued" }, { label: "渲染中", value: "running" },
-  { label: "已完成", value: "completed" }, { label: "失败", value: "failed" }
+  { label: "全部", value: "all" }, { label: "排队", value: "pending" }, { label: "渲染中", value: "running" },
+  { label: "已完成", value: "completed" }, { label: "失败", value: "failed" }, { label: "已取消", value: "cancelled" }
 ];
 
 const tasks = computed<RenderTaskView[]>(() =>
@@ -283,9 +339,13 @@ const tasks = computed<RenderTaskView[]>(() =>
       fileName: task.output_path?.split(/[\\/]/).pop() || `${task.id}.${task.format}`,
       projectId: task.project_id, 
       projectName: task.project_name || "未绑定项目", 
+      outputPath: task.output_path,
+      createdAt: task.created_at,
+      startedAt: task.started_at,
+      finishedAt: task.finished_at,
       status,
       progress,
-      errorMessage: liveTask?.errorMessage ?? task.error_message
+      errorMessage: liveTask?.errorMessage ?? task.failure?.error_message ?? task.error_message
     };
   })
 );
@@ -301,8 +361,12 @@ const runningCount = computed(() => tasks.value.filter((task) => task.status ===
 const isLoading = computed(() => rendersStore.loading || rendersStore.viewState === "loading");
 const isEmpty = computed(() => rendersStore.viewState === "empty" && !isLoading.value);
 const hasProjectContext = computed(() => Boolean(projectStore.currentProject));
-const createDisabled = computed(() => !hasProjectContext.value || isLoading.value);
+const workspaceHandoff = computed(() => buildRenderWorkspaceHandoff(route.query, projectStore.currentProject));
+const handoffBlocksCreate = computed(() => Boolean(workspaceHandoff.value && !workspaceHandoff.value.canCreateFromHandoff));
+const handoffLocksProject = computed(() => Boolean(workspaceHandoff.value?.canCreateFromHandoff));
+const createDisabled = computed(() => !hasProjectContext.value || isLoading.value || handoffBlocksCreate.value);
 const cancelDisabled = computed(() => !selectedTask.value || isLoading.value || (selectedTask.value.status !== "running" && selectedTask.value.status !== "pending"));
+const retryDisabled = computed(() => !selectedTask.value || isLoading.value || (selectedTask.value.status !== "failed" && selectedTask.value.status !== "cancelled"));
 const projectBindingLabel = computed(() => hasProjectContext.value ? projectStore.currentProject?.projectName || "已绑定" : "未绑定");
 const projectIdPlaceholder = computed(() => projectStore.currentProject?.projectId || "project-1");
 const projectNamePlaceholder = computed(() => projectStore.currentProject?.projectName || "当前项目名称");
@@ -324,45 +388,58 @@ watch(() => projectStore.currentProject, (project) => {
 }, { immediate: true });
 
 function normalizeRenderStatus(status: string): RenderTaskView["status"] {
-  if (status === "queued") return "pending";
-  if (status === "running") return "running";
-  if (status === "succeeded") return "completed";
+  if (status === "queued" || status === "pending") return "pending";
+  if (status === "running" || status === "rendering") return "running";
+  if (status === "succeeded" || status === "completed") return "completed";
+  if (status === "cancelled") return "cancelled";
   return "failed";
 }
 
 function isTaskBlocked(task: RenderTaskView) {
-  return (!task.projectId && task.status !== "completed") || (!task.output_path && task.status === "pending");
+  return (!task.projectId && task.status !== "completed") || (!task.outputPath && task.status === "pending");
 }
 
 function taskTone(task: RenderTaskView) {
   if (task.status === "running") return "brand";
   if (task.status === "completed") return "success";
   if (task.status === "failed") return "danger";
+  if (task.status === "cancelled") return "warning";
   if (isTaskBlocked(task)) return "warning";
-  return "neutral";
+  return "default";
 }
 
 function taskStatusLabel(task: RenderTaskView) {
   if (task.status === "pending") return "排队中";
   if (task.status === "running") return "渲染中";
   if (task.status === "completed") return "已完成";
+  if (task.status === "cancelled") return "已取消";
   return "失败";
 }
 
 function taskBlockLabel(task: RenderTaskView) {
   if (!task.projectId) return "未绑定项目";
-  if (!task.output_path && task.status === "pending") return "等待生成输出路径";
+  if (!task.outputPath && task.status === "pending") return "等待生成输出路径";
   if (task.status === "failed") return "任务失败";
+  if (task.status === "cancelled") return "任务已取消";
   return "可执行";
 }
 
 async function handleNewTask() {
+  if (createDisabled.value) return;
   if (!projectStore.currentProject) return;
-  const task = await rendersStore.addTask({
-    format: createForm.value.format.trim() || "mp4", preset: createForm.value.preset.trim() || "1080p",
-    project_id: createForm.value.projectId.trim() || projectStore.currentProject.projectId, project_name: createForm.value.projectName.trim() || projectStore.currentProject.projectName
-  });
-  if (task) { selectedTaskId.value = task.id; showDrawer.value = false; }
+  const handoff = workspaceHandoff.value?.canCreateFromHandoff ? workspaceHandoff.value : null;
+  const payload: RenderTaskCreateInput = {
+    format: createForm.value.format.trim() || "mp4",
+    preset: createForm.value.preset.trim() || "1080p",
+    project_id: handoff?.projectId || createForm.value.projectId.trim() || projectStore.currentProject.projectId,
+    project_name: handoff?.projectName || createForm.value.projectName.trim() || projectStore.currentProject.projectName,
+  };
+  if (handoff) payload.timeline_id = handoff.timelineId;
+  const task = await rendersStore.addTask(payload);
+  if (task) {
+    selectedTaskId.value = task.id;
+    showDrawer.value = false;
+  }
 }
 
 async function handleCreateFromDrawer() { await handleNewTask(); }
@@ -371,9 +448,19 @@ async function handleDelete(id: string) {
   if (selectedTaskId.value === id) selectedTaskId.value = null;
 }
 async function handleCancel(id: string) { await rendersStore.cancel(id); }
+async function handleRetry(id: string) {
+  const task = await rendersStore.retry(id);
+  if (task) selectedTaskId.value = task.id;
+}
 function formatDateTime(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : `${date.toLocaleDateString("zh-CN")} ${date.toLocaleTimeString("zh-CN", { hour12: false, hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function formatBytes(value: number | null) {
+  if (value === null) return "未知";
+  if (value < 1024) return `${value} B`;
+  return `${(value / 1024).toFixed(1)} KB`;
 }
 </script>
 

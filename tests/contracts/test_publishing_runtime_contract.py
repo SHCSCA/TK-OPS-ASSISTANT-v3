@@ -123,6 +123,10 @@ def test_publishing_contract_exposes_receipt_summary(runtime_client: TestClient,
         "next_action",
         "receipt",
     } == set(submit_result)
+    assert submit_result["status"] == "manual_required"
+    assert submit_result["receipt_status"] == "manual_required"
+    assert "已提交平台" not in submit_result["message"]
+    assert submit_result["next_action"]["key"] == "manual-publish"
 
     latest_receipt_response = runtime_client.get(f"/api/publishing/plans/{plan['id']}/receipt")
     assert latest_receipt_response.status_code == 200
@@ -141,4 +145,6 @@ def test_publishing_contract_exposes_receipt_summary(runtime_client: TestClient,
         "received_at",
         "created_at",
     } == set(latest_receipt)
-    assert latest_receipt["status"] == "receipt_pending"
+    assert latest_receipt["status"] == "manual_required"
+    assert latest_receipt["stage"] == "manual_handoff"
+    assert "已提交平台" not in latest_receipt["summary"]

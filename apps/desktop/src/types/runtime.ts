@@ -77,6 +77,10 @@ export type AppSettings = {
   };
   media: {
     ffprobePath: string;
+    ffmpegPath: string;
+  };
+  browser: {
+    executablePath: string;
   };
 };
 
@@ -118,6 +122,14 @@ export type MediaDiagnostics = {
     errorCode: string | null;
     errorMessage: string | null;
   };
+  ffmpeg: {
+    status: string;
+    path: string | null;
+    source: string | null;
+    version: string | null;
+    errorCode: string | null;
+    errorMessage: string | null;
+  };
   checkedAt: string;
 };
 
@@ -149,6 +161,42 @@ export type RuntimeSelfCheckReport = {
     errorCode: string | null;
     checkedAt: string;
   }>;
+};
+
+export type BootstrapReadinessAction = {
+  key: string;
+  label: string;
+};
+
+export type BootstrapReadinessItem = {
+  key: string;
+  label: string;
+  status: string;
+  detail: string;
+  errorCode: string | null;
+  blockedReason: string | null;
+  affectedTarget: string | null;
+  nextStep: string | null;
+  action: BootstrapReadinessAction | null;
+  checkedAt: string;
+};
+
+export type BootstrapReadinessBlocker = {
+  key: string;
+  errorCode: string;
+  blockedReason: string;
+  affectedTarget: string;
+  nextStep: string;
+  action: BootstrapReadinessAction | null;
+};
+
+export type BootstrapReadinessReport = {
+  status: string;
+  canContinue: boolean;
+  checkedAt: string;
+  items: BootstrapReadinessItem[];
+  blockers: BootstrapReadinessBlocker[];
+  requestId?: string | null;
 };
 
 export type LogFilter = {
@@ -294,6 +342,7 @@ export type AICapabilityId =
   | "subtitle_alignment"
   | "video_transcription"
   | "video_generation"
+  | "magic_cut"
   | "asset_analysis";
 
 export type AICapabilityConfig = {
@@ -711,17 +760,48 @@ export type ReplaceWorkspaceClipInput = {
 };
 
 export type TimelinePreviewDto = {
+  timelineId?: string;
   status: string;
+  message?: string;
   previewUrl: string | null;
+  previewMode?: "manifest" | "media" | "unavailable" | string;
+  media?: {
+    kind: "video" | "audio" | string;
+    url: string;
+    source: string;
+    mimeType: string;
+    durationMs: number | null;
+    expiresAt?: string | null;
+  } | null;
+  error?: {
+    code: string;
+    message: string;
+  } | null;
 };
 
 export type TimelinePrecheckIssueDto = string;
+
+export type TimelinePrecheckIssueDetailDto = {
+  id?: string;
+  code?: string | null;
+  severity?: string | null;
+  message: string;
+  suggestion?: string | null;
+  targetType?: string | null;
+  targetId?: string | null;
+  targetLabel?: string | null;
+  clipId?: string | null;
+  trackId?: string | null;
+  startMs?: number | null;
+  actionLabel?: string | null;
+};
 
 export type TimelinePrecheckDto = {
   timelineId?: string;
   status: string;
   message?: string;
   issues: TimelinePrecheckIssueDto[];
+  issueDetails?: TimelinePrecheckIssueDetailDto[];
 };
 
 export type WorkspaceTimelineCreateInput = {
@@ -746,7 +826,7 @@ export type WorkspaceAICommandInput = {
 };
 
 export type WorkspaceAICommandResultDto = {
-  status: "blocked" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
+  status: "blocked" | "queued" | "running" | "cancelling" | "succeeded" | "failed" | "cancelled";
   task: TaskInfo | null;
   message: string;
 };
@@ -1184,7 +1264,12 @@ export type AutomationTaskDto = {
   last_run_at: string | null;
   last_run_status: string | null;
   run_count: number;
+  rule?: AutomationTaskRuleDto | null;
   config_json: string | null;
+  source: AutomationTaskSourceDto;
+  queue: AutomationTaskQueueDto;
+  latestResult: AutomationTaskLatestResultDto;
+  retry: AutomationTaskRetryDto;
   created_at: string;
   updated_at: string;
 };
@@ -1196,6 +1281,11 @@ export type AutomationTaskRunDto = {
   started_at: string | null;
   finished_at: string | null;
   log_text: string | null;
+  resultSummary: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  retryable: boolean;
+  nextAction: string | null;
   created_at: string;
 };
 
@@ -1203,7 +1293,49 @@ export type TriggerTaskResultDto = {
   task_id: string;
   run_id: string;
   status: string;
+  queueStatus: string;
+  queuePosition: number | null;
+  activeRunId: string;
+  nextAction: string | null;
   message: string;
+};
+
+export type AutomationTaskRuleDto = {
+  kind: string;
+  config: Record<string, unknown>;
+};
+
+export type AutomationTaskSourceDto = {
+  kind: string;
+  objectId: string | null;
+  projectId: string | null;
+  accountId: string | null;
+  workspaceId: string | null;
+  label: string | null;
+};
+
+export type AutomationTaskQueueDto = {
+  status: string;
+  inQueue: boolean;
+  position: number | null;
+  activeRunId: string | null;
+  queuedAt: string | null;
+};
+
+export type AutomationTaskLatestResultDto = {
+  runId: string | null;
+  status: string;
+  finishedAt: string | null;
+  summary: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+};
+
+export type AutomationTaskRetryDto = {
+  canRetry: boolean;
+  reason: string | null;
+  errorCode: string | null;
+  nextAction: string | null;
 };
 
 export type DeviceWorkspaceCreateInput = {
@@ -1288,6 +1420,12 @@ export type BrowserInstanceDto = {
   name: string;
   status: string;
   profilePath: string;
+  processId: number | null;
+  debugPort: number | null;
+  debugHost: string | null;
+  runtimeMode: string;
+  launchSupported: boolean;
+  runtimeEvidence: Record<string, unknown> | null;
   lastCheckedAt: string | null;
   lastStartedAt: string | null;
   lastStoppedAt: string | null;
@@ -1303,6 +1441,9 @@ export type BrowserInstanceWriteResultDto = {
   versionOrRevision: string;
   objectSummary: Record<string, string>;
   browserInstance: BrowserInstanceDto;
+  operation: string;
+  processBoundaryVerified: boolean;
+  processSummary: Record<string, unknown>;
 };
 
 export type ExecutionBindingDto = AccountBindingDto;
@@ -1462,6 +1603,7 @@ export type PublishCalendarDto = {
 export type RenderTaskCreateInput = {
   project_id?: string | null;
   project_name?: string | null;
+  timeline_id?: string | null;
   preset?: string;
   format?: string;
 };
@@ -1472,6 +1614,7 @@ export type RenderTaskUpdateInput = {
   status?: string | null;
   progress?: number | null;
   output_path?: string | null;
+  error_code?: string | null;
   error_message?: string | null;
 };
 
@@ -1479,11 +1622,13 @@ export type RenderTaskDto = {
   id: string;
   project_id: string | null;
   project_name: string | null;
+  timeline_id: string | null;
   preset: string;
   format: string;
   status: string;
   progress: number;
   output_path: string | null;
+  error_code: string | null;
   error_message: string | null;
   stage: RenderStageDto;
   output: RenderOutputStatusDto;

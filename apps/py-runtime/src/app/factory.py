@@ -70,6 +70,7 @@ from services.account_service import AccountService
 from services.ai_text_generation_service import AITextGenerationService
 from services.asset_service import AssetService
 from services.automation_service import AutomationService
+from services.browser_runtime import LocalBrowserRuntime
 from services.bootstrap_service import BootstrapService
 from services.ai_capability_service import AICapabilityService
 from services.dashboard_service import DashboardService
@@ -206,6 +207,8 @@ def create_app() -> FastAPI:
         secret_store,
     )
     settings_service.bind_ai_capability_service(ai_capability_service)
+    # 启动阶段先读取配置，确保媒体工具路径同步到统一解析器。
+    current_settings = settings_service.get_settings()
     ai_text_generation_service = AITextGenerationService(
         capability_service=ai_capability_service,
         ai_job_repository=ai_job_repository,
@@ -246,14 +249,23 @@ def create_app() -> FastAPI:
         account_repository,
         binding_repository=device_workspace_repository,
     )
-    device_workspace_service = DeviceWorkspaceService(device_workspace_repository)
+    device_workspace_service = DeviceWorkspaceService(
+        device_workspace_repository,
+        browser_runtime=LocalBrowserRuntime(
+            executable_path_provider=lambda: settings_service.get_settings().browser.executablePath
+        ),
+    )
     automation_service = AutomationService(automation_repository)
     publishing_service = PublishingService(
         publishing_repository,
         account_repository=account_repository,
         device_workspace_repository=device_workspace_repository,
     )
-    render_service = RenderService(render_repository)
+    render_service = RenderService(
+        render_repository,
+        timeline_repository=timeline_repository,
+        runtime_config=runtime_config,
+    )
     review_service = ReviewService(
         review_repository,
         dashboard_repository=dashboard_repository,
@@ -279,6 +291,7 @@ def create_app() -> FastAPI:
         timeline_repository,
         asset_repository=asset_repository,
         task_manager=task_manager,
+        ai_text_generation_service=ai_text_generation_service,
     )
     workspace_assembly_service = WorkspaceAssemblyService(
         timeline_repository=timeline_repository,
@@ -294,7 +307,6 @@ def create_app() -> FastAPI:
         task_manager=task_manager,
     )
     search_service = SearchService(session_factory=session_factory)
-    current_settings = settings_service.get_settings()
     configure_logging(Path(current_settings.paths.logDir), current_settings.logging.level)
     if license_import_error:
         log.warning("许可证服务依赖未就绪: %s", license_import_error)
@@ -319,12 +331,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            'http://127.0.0.1:1420',
-            'http://localhost:1420',
-            'tauri://localhost',
-            'http://tauri.localhost',
-        ],
+        allow_origins=list(runtime_config.allowed_origins),
         allow_methods=['*'],
         allow_headers=['*'],
     )

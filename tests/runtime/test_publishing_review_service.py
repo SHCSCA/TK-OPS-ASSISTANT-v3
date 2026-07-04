@@ -170,7 +170,7 @@ def test_publishing_receipt_history_and_calendar_conflicts(tmp_path: Path) -> No
     assert len(receipts) == 2
     latest = service.get_latest_receipt(clean_plan.id)
     assert latest.id == receipts[0].id
-    assert latest.status == "receipt_pending"
+    assert latest.status == "manual_required"
 
     calendar = service.get_calendar()
     assert len(calendar.items) >= 1
@@ -198,15 +198,18 @@ def test_publishing_plan_summary_includes_readiness_and_receipt(tmp_path: Path) 
     assert precheck.blocking_count == 0
 
     submitted = service.submit(plan.id)
-    assert submitted.receipt_status == "receipt_pending"
+    assert submitted.status == "manual_required"
+    assert submitted.receipt_status == "manual_required"
     assert submitted.receipt is not None
-    assert submitted.receipt.summary == "已提交平台，等待平台回执。"
+    assert submitted.receipt.stage == "manual_handoff"
+    assert "已提交平台" not in submitted.message
+    assert submitted.receipt.summary == "发布前检查已通过，当前需要人工在 TikTok 或绑定浏览器工作区完成提交。"
 
     refreshed = service.get_plan(plan.id)
     assert refreshed.publish_readiness.can_submit is True
     assert refreshed.precheck_summary.status == "ready"
     assert refreshed.latest_receipt is not None
-    assert refreshed.latest_receipt.status == "receipt_pending"
+    assert refreshed.latest_receipt.status == "manual_required"
     assert refreshed.recovery.can_cancel is True
 
 

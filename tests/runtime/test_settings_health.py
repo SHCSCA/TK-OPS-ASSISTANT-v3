@@ -6,6 +6,9 @@ from pathlib import Path
 import zipfile
 from fastapi.testclient import TestClient
 
+from app.config import load_runtime_config
+
+
 def test_settings_health_returns_runtime_snapshot(runtime_client: TestClient) -> None:
     client = runtime_client
 
@@ -70,8 +73,16 @@ def test_settings_media_diagnostics_reports_ffprobe_state(runtime_app) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["ok"] is True
-    assert set(payload["data"]) == {"ffprobe", "checkedAt"}
+    assert set(payload["data"]) == {"ffprobe", "ffmpeg", "checkedAt"}
     assert set(payload["data"]["ffprobe"]) == {
+        "status",
+        "path",
+        "source",
+        "version",
+        "errorCode",
+        "errorMessage",
+    }
+    assert set(payload["data"]["ffmpeg"]) == {
         "status",
         "path",
         "source",
@@ -81,23 +92,114 @@ def test_settings_media_diagnostics_reports_ffprobe_state(runtime_app) -> None:
     }
 
 
-def test_settings_health_allows_desktop_origins(runtime_client: TestClient) -> None:
-    browser_response = runtime_client.get(
-        "/api/settings/health",
-        headers={"Origin": "http://127.0.0.1:1420"},
+def test_settings_diagnostics_reports_invalid_ffmpeg_config_without_500(
+    runtime_app,
+    runtime_data_dir: Path,
+) -> None:
+    client = TestClient(runtime_app)
+    current = client.get("/api/settings/config").json()["data"]
+    current["media"]["ffmpegPath"] = str(runtime_data_dir / "missing" / "ffmpeg.exe")
+    update_response = client.put("/api/settings/config", json=current)
+    assert update_response.status_code == 200
+
+    response = client.get("/api/settings/diagnostics")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    ffmpeg_item = next(
+        item for item in payload["data"]["items"] if item["id"] == "media.ffmpeg"
     )
-    tauri_response = runtime_client.get(
+    assert ffmpeg_item["status"] == "failed"
+    assert "FFmpeg" in ffmpeg_item["summary"]
+
+
+def test_settings_health_allows_desktop_origins(runtime_client: TestClient) -> None:
+    allowed_origins = [
+        "http://127.0.0.1:1420",
+        "http://localhost:1420",
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://127.0.0.1:5174",
+        "http://localhost:5174",
+        "tauri://localhost",
+        "http://tauri.localhost",
+    ]
+
+    for origin in allowed_origins:
+        response = runtime_client.get(
+            "/api/settings/health",
+            headers={"Origin": origin},
+        )
+
+        assert response.status_code == 200
+        assert response.headers.get("access-control-allow-origin") == origin
+
+    preflight_response = runtime_client.options(
+        "/api/settings/config",
+        headers={
+            "Origin": "http://127.0.0.1:5174",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    blocked_response = runtime_client.get(
         "/api/settings/health",
-        headers={"Origin": "tauri://localhost"},
+        headers={"Origin": "http://evil.example"},
     )
 
-    assert browser_response.status_code == 200
+    assert preflight_response.status_code == 200
     assert (
-        browser_response.headers.get("access-control-allow-origin")
-        == "http://127.0.0.1:1420"
+        preflight_response.headers.get("access-control-allow-origin")
+        == "http://127.0.0.1:5174"
     )
-    assert tauri_response.status_code == 200
-    assert tauri_response.headers.get("access-control-allow-origin") == "tauri://localhost"
+    assert "GET" in preflight_response.headers.get("access-control-allow-methods", "")
+    assert blocked_response.status_code == 200
+    assert blocked_response.headers.get("access-control-allow-origin") is None
+
+
+def test_runtime_config_loads_extra_allowed_origins(
+    monkeypatch,
+    runtime_data_dir: Path,
+) -> None:
+    monkeypatch.setenv(
+        "TK_OPS_RUNTIME_ALLOWED_ORIGINS",
+        "http://127.0.0.1:6006, http://127.0.0.1:5174",
+    )
+
+    config = load_runtime_config()
+
+    assert "http://127.0.0.1:6006" in config.allowed_origins
+    assert config.allowed_origins.count("http://127.0.0.1:5174") == 1
+
+
+def test_runtime_config_reads_legacy_allowed_origins(
+    monkeypatch,
+    runtime_data_dir: Path,
+) -> None:
+    monkeypatch.setenv("TK_OPS_ALLOWED_ORIGINS", "http://127.0.0.1:7007")
+
+    config = load_runtime_config()
+
+    assert "http://127.0.0.1:7007" in config.allowed_origins
+
+
+def test_runtime_config_rejects_unsafe_allowed_origins(
+    monkeypatch,
+    runtime_data_dir: Path,
+) -> None:
+    monkeypatch.setenv(
+        "TK_OPS_RUNTIME_ALLOWED_ORIGINS",
+        "*, http://127.0.0.1:6006/path, http://127.0.0.1:6007?x=1",
+    )
+    monkeypatch.setenv("TK_OPS_ALLOWED_ORIGINS", "http://127.0.0.1:6008#debug")
+
+    config = load_runtime_config()
+
+    assert "*" not in config.allowed_origins
+    assert "http://127.0.0.1:6006/path" not in config.allowed_origins
+    assert "http://127.0.0.1:6007?x=1" not in config.allowed_origins
+    assert "http://127.0.0.1:6008#debug" not in config.allowed_origins
 
 
 def test_settings_health_reads_real_ai_provider_snapshot(runtime_app) -> None:
@@ -152,6 +254,7 @@ def test_provider_health_refresh_emits_ai_capability_changed_event(runtime_app) 
         "video_transcription",
         "video_generation",
         "asset_analysis",
+        "magic_cut",
     }
 
 

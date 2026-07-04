@@ -11,6 +11,17 @@
       </div>
 
       <p v-if="errorSummary" class="settings-page__error">{{ errorSummary }}</p>
+      <div v-if="readinessBlockers.length > 0" class="readiness-blockers" data-testid="bootstrap-gate-blockers">
+        <div v-for="blocker in readinessBlockers" :key="blocker.key" class="error-box">
+          <span class="material-symbols-outlined error-icon">warning</span>
+          <div class="error-content">
+            <span class="error-text">{{ blocker.blockedReason }}</span>
+            <span class="error-meta">
+              影响对象：{{ blocker.affectedTarget }}；下一步：{{ blocker.nextStep }}
+            </span>
+          </div>
+        </div>
+      </div>
 
       <form class="initialization-grid" @submit.prevent="handleSave">
         <fieldset class="command-panel settings-card">
@@ -116,6 +127,7 @@ const route = useRoute();
 const router = useRouter();
 
 const isSubmitting = computed(() => configBusStore.status === "saving");
+const readinessBlockers = computed(() => configBusStore.bootstrapReadiness?.blockers ?? []);
 const errorSummary = computed(() => {
   if (!configBusStore.error) {
     return "";

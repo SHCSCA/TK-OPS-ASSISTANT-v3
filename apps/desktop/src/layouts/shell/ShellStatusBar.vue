@@ -14,7 +14,7 @@
 
       <div class="status-item">
         <span class="material-symbols-outlined">auto_awesome</span>
-        <span>{{ aiProviderLabel }} · {{ aiLatency }}</span>
+        <span>{{ aiStatusLabel }}</span>
       </div>
     </div>
 
@@ -50,7 +50,7 @@ const props = defineProps<{
 const shellUiStore = useShellUiStore();
 const taskBusStore = useTaskBusStore();
 
-const themeLabel = computed(() => shellUiStore.theme === 'dark' ? 'Dark' : 'Light');
+const themeLabel = computed(() => shellUiStore.theme === "dark" ? "深色" : "浅色");
 
 const runningTasksCount = computed(() => {
   let count = 0;
@@ -74,8 +74,21 @@ const queuedTasksCount = computed(() => {
 
 const hasRunningTask = computed(() => runningTasksCount.value > 0);
 
-// Mock latency based on connection status
-const aiLatency = computed(() => props.runtimeStatus === 'online' ? '128ms' : '--');
+const aiStatusLabel = computed(() => {
+  if (props.runtimeStatus === "loading") {
+    return "AI 状态同步中";
+  }
+
+  if (props.runtimeStatus === "offline") {
+    return "AI 状态未知 · Runtime 离线";
+  }
+
+  if (props.runtimeStatus !== "online") {
+    return "AI 状态未知 · Runtime 待连接";
+  }
+
+  return props.aiProviderLabel === "AI 未配置" ? "AI 未配置 · 待配置" : `${props.aiProviderLabel} · 等待诊断`;
+});
 
 function openLogs() {
   shellUiStore.setDetailPanelOpen(true);
@@ -128,15 +141,33 @@ function openLogs() {
   min-width: 0;
 }
 
+.shell-status-bar__left {
+  flex: 1 1 auto;
+}
+
+.shell-status-bar__right {
+  flex: 0 1 auto;
+}
+
 .status-item {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.status-item span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-item .material-symbols-outlined {
   font-size: 14px;
+  flex: 0 0 auto;
 }
 
 .status-dot {
@@ -199,7 +230,7 @@ function openLogs() {
 }
 
 /* 窄屏适配 */
-@media (max-width: 860px) {
+@media (max-width: 960px) {
   .shell-status-bar__right {
     gap: var(--space-2);
   }

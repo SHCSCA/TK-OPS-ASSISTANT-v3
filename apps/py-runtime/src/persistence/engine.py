@@ -42,6 +42,7 @@ def initialize_domain_schema(engine: Engine) -> None:
     _repair_legacy_publish_plan_schema(engine)
     _repair_legacy_account_schema(engine)
     _repair_legacy_device_workspace_schema(engine)
+    _repair_legacy_browser_instance_schema(engine)
     _repair_legacy_execution_binding_schema(engine)
     _repair_legacy_automation_schema(engine)
 
@@ -408,10 +409,12 @@ def _repair_legacy_subtitle_track_schema(engine: Engine) -> None:
 def _repair_legacy_render_task_schema(engine: Engine) -> None:
     required_columns = {
         "project_name": "TEXT",
+        "timeline_id": "VARCHAR",
         "preset": "TEXT NOT NULL DEFAULT '1080p'",
         "format": "TEXT NOT NULL DEFAULT 'mp4'",
         "started_at": "DATETIME",
         "finished_at": "DATETIME",
+        "error_code": "TEXT",
         "error_message": "TEXT",
     }
 
@@ -610,6 +613,20 @@ def _repair_legacy_device_workspace_schema(engine: Engine) -> None:
 
     if needs_rebuild:
         _rebuild_legacy_device_workspace_table(engine)
+
+
+def _repair_legacy_browser_instance_schema(engine: Engine) -> None:
+    required_columns = {
+        "process_id": "INTEGER",
+        "debug_port": "INTEGER",
+        "debug_host": "VARCHAR",
+        "runtime_mode": "VARCHAR",
+        "executable_path": "TEXT",
+        "runtime_evidence_json": "TEXT",
+    }
+
+    with engine.begin() as connection:
+        _ensure_table_columns(connection, "browser_instances", required_columns)
 
 
 def _repair_legacy_execution_binding_schema(engine: Engine) -> None:

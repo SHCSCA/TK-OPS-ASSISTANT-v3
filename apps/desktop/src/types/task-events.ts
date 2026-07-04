@@ -23,7 +23,7 @@ export type TaskEventType =
   | "config.changed"
   | "ai-capability.changed";
 
-export type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+export type TaskStatus = "queued" | "running" | "cancelling" | "succeeded" | "failed" | "cancelled";
 
 export interface TaskEvent {
   schema_version: number;

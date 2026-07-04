@@ -114,7 +114,7 @@ const summary = computed(() => {
 
 .save-bar-enter-active,
 .save-bar-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: opacity var(--motion-instant) var(--ease-standard), transform var(--motion-instant) var(--ease-standard);
 }
 
 .save-bar-enter-from,

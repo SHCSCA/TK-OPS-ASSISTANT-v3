@@ -161,6 +161,36 @@
               选择
             </Button>
           </article>
+
+          <article class="system-directory-row">
+            <div>
+              <strong>FFmpeg 可执行文件</strong>
+              <span>可填写 ffmpeg.exe，也可填写包含 ffmpeg.exe 的 bin 目录；留空时自动发现。</span>
+            </div>
+            <Input
+              :model-value="form.media.ffmpegPath"
+              placeholder="自动发现，或选择 ffmpeg.exe / bin 目录"
+              @update:model-value="value => updateForm({ media: { ffmpegPath: value } })"
+            />
+            <Button variant="secondary" data-action="pick-ffmpeg-path" :disabled="disabled" @click="$emit('pick-file', 'media.ffmpegPath')">
+              选择
+            </Button>
+          </article>
+
+          <article class="system-directory-row">
+            <div>
+              <strong>浏览器可执行文件</strong>
+              <span>用于启动真实本地浏览器实例；留空时自动发现 Edge 或 Chrome。</span>
+            </div>
+            <Input
+              :model-value="form.browser.executablePath"
+              placeholder="自动发现，或选择 msedge.exe / chrome.exe"
+              @update:model-value="value => updateForm({ browser: { executablePath: value } })"
+            />
+            <Button variant="secondary" data-action="pick-browser-path" :disabled="disabled" @click="$emit('pick-file', 'browser.executablePath')">
+              选择
+            </Button>
+          </article>
         </div>
       </section>
     </div>
@@ -187,16 +217,15 @@
             <Button
               variant="danger"
               size="sm"
-              :disabled="disabled || clearingKey === item.key"
-              @click="confirmClear(item.key, item.label)"
+              disabled
             >
-              {{ clearingKey === item.key ? "清除中..." : "清除" }}
+              待接入
             </Button>
           </article>
         </div>
 
-        <Button variant="danger" block :disabled="disabled || clearingKey === 'all'" @click="confirmClearAll">
-          {{ clearingKey === "all" ? "清除中..." : "全部清除缓存" }}
+        <Button variant="danger" block disabled>
+          等待 Runtime 清理接口
         </Button>
       </section>
     </aside>
@@ -204,7 +233,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 
 import Button from "@/components/ui/Button/Button.vue";
 import Input from "@/components/ui/Input/Input.vue";
@@ -221,40 +250,18 @@ defineProps<{
 const emit = defineEmits<{
   (e: "update", patch: Partial<AppSettingsUpdateInput>): void;
   (e: "pick-directory", field: "runtime.workspaceRoot" | "paths.cacheDir" | "paths.exportDir" | "paths.logDir"): void;
-  (e: "pick-file", field: "media.ffprobePath"): void;
+  (e: "pick-file", field: "media.ffprobePath" | "media.ffmpegPath" | "browser.executablePath"): void;
   (e: "open-log-directory"): void;
 }>();
 
-const clearingKey = ref<string | null>(null);
-
 const cacheItems = computed(() => [
-  { key: "model", label: "模型缓存", size: "Runtime 尚未提供体积查询接口" },
-  { key: "asset", label: "资产预览图", size: "暂存本地，请通过资源管理器清理" },
-  { key: "render", label: "渲染缓存", size: "暂存本地，请通过资源管理器清理" }
+  { key: "model", label: "模型缓存", size: "等待 Runtime 提供清理接口和体积统计" },
+  { key: "asset", label: "资产预览图", size: "等待 Runtime 提供清理接口和日志记录" },
+  { key: "render", label: "渲染缓存", size: "等待 Runtime 提供清理接口和失败反馈" }
 ]);
 
 function updateForm(patch: Partial<AppSettingsUpdateInput>) {
   emit("update", patch);
-}
-
-function confirmClear(key: string, label: string) {
-  if (!confirm(`确定清除「${label}」吗？此操作不可撤销。`)) {
-    return;
-  }
-  clearingKey.value = key;
-  window.setTimeout(() => {
-    clearingKey.value = null;
-  }, 1500);
-}
-
-function confirmClearAll() {
-  if (!confirm("确定清除全部缓存吗？清除后可能需要重新下载模型和生成预览图。")) {
-    return;
-  }
-  clearingKey.value = "all";
-  window.setTimeout(() => {
-    clearingKey.value = null;
-  }, 2000);
 }
 </script>
 

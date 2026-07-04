@@ -34,6 +34,7 @@ class RenderFailureDto(BaseModel):
 class RenderTaskCreateInput(BaseModel):
     project_id: str | None = None
     project_name: str | None = None
+    timeline_id: str | None = None
     preset: str = "1080p"
     format: str = "mp4"
 
@@ -44,6 +45,7 @@ class RenderTaskUpdateInput(BaseModel):
     status: str | None = None
     progress: int | None = None
     output_path: str | None = None
+    error_code: str | None = None
     error_message: str | None = None
 
 
@@ -51,11 +53,13 @@ class RenderTaskDto(BaseModel):
     id: str
     project_id: str | None = None
     project_name: str | None = None
+    timeline_id: str | None = None
     preset: str
     format: str
     status: str
     progress: int
     output_path: str | None = None
+    error_code: str | None = None
     error_message: str | None = None
     stage: RenderStageDto
     output: RenderOutputStatusDto

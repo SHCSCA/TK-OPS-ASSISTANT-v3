@@ -64,6 +64,13 @@ class AssemblySegment:
         return max(0, self.end_ms - self.start_ms)
 
 
+@dataclass(frozen=True, slots=True)
+class AssemblyContext:
+    sources: list[WorkspaceAssemblySourceDto]
+    issues: list[str]
+    managed_tracks: list[dict[str, object]]
+
+
 class WorkspaceAssemblyService:
     def __init__(
         self,
@@ -92,66 +99,24 @@ class WorkspaceAssemblyService:
 
         try:
             timeline = self._resolve_timeline(project_id, payload.timelineName)
-            script = self._latest_script(project_id)
-            storyboard = self._latest_storyboard(project_id)
-            voice_track = self._latest_ready_voice_track(project_id)
-            subtitle_track = self._latest_ready_subtitle_track(project_id)
-
-            script_segments = self._build_script_segments(script)
-            storyboard_segments = self._build_storyboard_segments(storyboard, script_segments)
-            voice_segments = self._build_timed_segments_from_track(
-                voice_track.segments_json if voice_track else None,
-                default_source="配音",
-                script_segments=script_segments,
-            )
-            subtitle_segments = self._build_timed_segments_from_track(
-                subtitle_track.segments_json if subtitle_track else None,
-                default_source="字幕",
-                script_segments=script_segments,
-            )
-            issues = self._build_issues(
-                script,
-                storyboard,
-                voice_track,
-                subtitle_track,
-                storyboard_segments,
-            )
-            sources = self._build_sources(
-                script=script,
-                storyboard=storyboard,
-                voice_track=voice_track,
-                subtitle_track=subtitle_track,
-                script_segments=script_segments,
-                storyboard_segments=storyboard_segments,
-                voice_segments=voice_segments,
-                subtitle_segments=subtitle_segments,
-            )
-            managed_tracks = self._build_managed_tracks(
-                script=script,
-                storyboard=storyboard,
-                voice_track=voice_track,
-                subtitle_track=subtitle_track,
-                storyboard_segments=storyboard_segments,
-                voice_segments=voice_segments,
-                subtitle_segments=subtitle_segments,
-            )
+            context = self._build_assembly_context(project_id)
             existing_tracks = self._workspace_service._parse_tracks(timeline.tracks_json)
-            tracks = self._merge_tracks(existing_tracks, managed_tracks)
+            tracks = self._merge_tracks(existing_tracks, context.managed_tracks)
             updated = self._save_assembled_timeline(
                 timeline,
                 name=payload.timelineName,
                 tracks=tracks,
             )
             assembly_state = WorkspaceAssemblyStateDto(
-                status="warning" if issues else "ready",
-                sources=sources,
-                issues=issues,
+                status=self._assembly_status(context),
+                sources=context.sources,
+                issues=context.issues,
             )
             result = self._workspace_service._build_timeline_result(
                 updated,
-                message="剪辑工作台时间线已从脚本、分镜、配音和字幕汇入。",
+                message=self._assembly_message(context),
                 save_source="assembly",
-                save_message="已保存 M05 剪辑工作台受管轨道。",
+                save_message=self._assembly_save_message(context),
             )
             result.assemblyState = assembly_state
             return result
@@ -160,6 +125,95 @@ class WorkspaceAssemblyService:
         except Exception as exc:
             log.exception("汇入剪辑工作台时间线失败")
             raise HTTPException(status_code=500, detail="汇入剪辑工作台时间线失败。") from exc
+
+    def build_project_assembly_state(self, project_id: str) -> WorkspaceAssemblyStateDto:
+        try:
+            context = self._build_assembly_context(project_id)
+            return WorkspaceAssemblyStateDto(
+                status=self._assembly_status(context),
+                sources=context.sources,
+                issues=context.issues,
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            log.exception("读取剪辑工作台汇入状态失败")
+            raise HTTPException(status_code=500, detail="读取剪辑工作台汇入状态失败。") from exc
+
+    def _build_assembly_context(self, project_id: str) -> AssemblyContext:
+        script = self._latest_script(project_id)
+        storyboard = self._latest_storyboard(project_id)
+        voice_track = self._latest_ready_voice_track(project_id)
+        subtitle_track = self._latest_ready_subtitle_track(project_id)
+
+        script_segments = self._build_script_segments(script)
+        storyboard_segments = self._build_storyboard_segments(storyboard, script_segments)
+        voice_segments = self._build_timed_segments_from_track(
+            voice_track.segments_json if voice_track else None,
+            default_source="配音",
+            script_segments=script_segments,
+        )
+        subtitle_segments = self._build_timed_segments_from_track(
+            subtitle_track.segments_json if subtitle_track else None,
+            default_source="字幕",
+            script_segments=script_segments,
+        )
+        sync_segments = self._resolve_sync_segments(
+            storyboard_segments,
+            script_segments,
+            voice_segments,
+            subtitle_segments,
+        )
+        voice_segments = self._align_segments_to_reference(voice_segments, sync_segments)
+        subtitle_segments = self._align_segments_to_reference(subtitle_segments, sync_segments)
+        issues = self._build_issues(
+            script,
+            storyboard,
+            voice_track,
+            subtitle_track,
+            storyboard_segments,
+        )
+        sources = self._build_sources(
+            script=script,
+            storyboard=storyboard,
+            voice_track=voice_track,
+            subtitle_track=subtitle_track,
+            script_segments=script_segments,
+            storyboard_segments=storyboard_segments,
+            voice_segments=voice_segments,
+            subtitle_segments=subtitle_segments,
+        )
+        managed_tracks = self._build_managed_tracks(
+            script=script,
+            storyboard=storyboard,
+            voice_track=voice_track,
+            subtitle_track=subtitle_track,
+            storyboard_segments=storyboard_segments,
+            voice_segments=voice_segments,
+            subtitle_segments=subtitle_segments,
+        )
+        return AssemblyContext(
+            sources=sources,
+            issues=issues,
+            managed_tracks=managed_tracks,
+        )
+
+    def _assembly_status(self, context: AssemblyContext) -> str:
+        return "warning" if context.issues or not context.managed_tracks else "ready"
+
+    def _assembly_message(self, context: AssemblyContext) -> str:
+        if self._assembly_status(context) == "ready":
+            return "剪辑工作台时间线已从脚本、分镜、配音和字幕汇入。"
+        if not context.managed_tracks:
+            return "未生成 AI 三轨，请先补齐来源后重新汇入。"
+        return "未生成完整 AI 三轨，请先补齐来源后重新汇入；当前仅保留可用受管轨道。"
+
+    def _assembly_save_message(self, context: AssemblyContext) -> str:
+        if not context.managed_tracks:
+            return "已保存当前时间线状态，未生成 AI 受管轨道。"
+        if self._assembly_status(context) != "ready":
+            return "已保存可用 AI 受管轨道，仍需补齐缺失来源。"
+        return "已保存 M05 剪辑工作台受管轨道。"
 
     def _resolve_timeline(self, project_id: str, timeline_name: str) -> Timeline:
         timeline = self._timeline_repository.get_current_for_project(project_id)
@@ -349,6 +403,43 @@ class WorkspaceAssemblyService:
                 )
             )
         return segments
+
+    def _resolve_sync_segments(
+        self,
+        *segment_sets: list[AssemblySegment],
+    ) -> list[AssemblySegment]:
+        for segments in segment_sets:
+            if segments:
+                return segments
+        return []
+
+    def _align_segments_to_reference(
+        self,
+        segments: list[AssemblySegment],
+        reference_segments: list[AssemblySegment],
+    ) -> list[AssemblySegment]:
+        if not segments or not reference_segments:
+            return segments
+
+        by_segment_id = {segment.segment_id: segment for segment in reference_segments}
+        aligned: list[AssemblySegment] = []
+        for segment in segments:
+            reference = by_segment_id.get(segment.segment_id)
+            if reference is None and segment.index < len(reference_segments):
+                reference = reference_segments[segment.index]
+            if reference is None:
+                continue
+            aligned.append(
+                AssemblySegment(
+                    index=segment.index,
+                    segment_id=segment.segment_id,
+                    start_ms=reference.start_ms,
+                    end_ms=reference.end_ms,
+                    text=segment.text,
+                    visual_prompt=segment.visual_prompt or reference.visual_prompt,
+                )
+            )
+        return aligned
 
     def _build_issues(
         self,

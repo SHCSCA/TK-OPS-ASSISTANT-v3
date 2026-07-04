@@ -58,7 +58,9 @@
 
       <main class="app-shell__content content-host command-content-host">
         <RouterView v-slot="{ Component }">
-          <component :is="Component" :key="route.fullPath" />
+          <transition name="page-fade" mode="out-in">
+            <component :is="Component" :key="route.fullPath" />
+          </transition>
         </RouterView>
       </main>
 
@@ -111,6 +113,7 @@ import { RouterView, useRoute } from "vue-router";
 
 
 import { routeManifest } from "@/app/router";
+import type { RouteNavGroup } from "@/types/router";
 import type { AssetDto, AssetReferenceDto } from "@/types/runtime";
 import ToastContainer from "@/components/ui/Toast/ToastContainer.vue";
 import ShellDetailPanel from "@/layouts/shell/ShellDetailPanel.vue";
@@ -143,8 +146,10 @@ const { detailContext, isDetailPanelOpen, reducedMotion, sidebarCollapsed, theme
 const { health } = storeToRefs(configBusStore);
 const isConstrainedShell = ref(false);
 const isCompactDetailShell = ref(false);
+const compactSidebarOpen = ref(false);
 let constrainedShellQuery: MediaQueryList | null = null;
 let compactDetailShellQuery: MediaQueryList | null = null;
+const NAV_GROUP_ORDER: RouteNavGroup[] = ["启动与总览", "创作前置", "创作与媒体", "执行与治理", "系统与 AI"];
 
 onMounted(() => {
   taskBusStore.connect();
@@ -176,11 +181,10 @@ const selectedAsset = computed<AssetDto | null>(
 );
 
 const navGroups = computed(() => {
-  const labels = [...new Set(routeManifest.map((item) => item.navGroup))].filter((label) => label !== "HIDDEN");
-  return labels.map((label) => ({
+  return NAV_GROUP_ORDER.map((label) => ({
     label,
     items: routeManifest.filter((item) => item.navGroup === label)
-  }));
+  })).filter((group) => group.items.length > 0);
 });
 
 const projectLabel = computed(() => projectStore.currentProject?.projectName ?? "未选择项目");
@@ -283,7 +287,11 @@ const detailPresentation = computed<"hidden" | "docked" | "rail" | "focus">(() =
 const shouldProtectWorkspace = computed(
   () => showWorkspaceChrome.value && isDetailPanelOpen.value && isConstrainedShell.value
 );
-const effectiveSidebarCollapsed = computed(() => sidebarCollapsed.value || shouldProtectWorkspace.value);
+const effectiveSidebarCollapsed = computed(() => {
+  if (shouldProtectWorkspace.value) return true;
+  if (isCompactDetailShell.value) return !compactSidebarOpen.value;
+  return sidebarCollapsed.value;
+});
 
 watch(
   [theme, reducedMotion],
@@ -329,6 +337,14 @@ function handleToggleDetailPanel() {
 }
 
 function handleToggleSidebar() {
+  if (isCompactDetailShell.value) {
+    if (shouldProtectWorkspace.value) {
+      shellUiStore.closeDetailPanel();
+    }
+    compactSidebarOpen.value = !compactSidebarOpen.value;
+    return;
+  }
+
   if (shouldProtectWorkspace.value) {
     shellUiStore.closeDetailPanel();
     if (sidebarCollapsed.value) {
@@ -346,7 +362,17 @@ function syncShellConstraint(source?: MediaQueryList | MediaQueryListEvent) {
 
 function syncCompactDetailShell(source?: MediaQueryList | MediaQueryListEvent) {
   isCompactDetailShell.value = Boolean(source?.matches ?? compactDetailShellQuery?.matches);
+  if (!isCompactDetailShell.value) {
+    compactSidebarOpen.value = false;
+  }
 }
+
+watch(
+  () => route.fullPath,
+  () => {
+    compactSidebarOpen.value = false;
+  }
+);
 
 function syncDetailContext() {
   if (!showWorkspaceChrome.value || detailPanelMode.value === "hidden") {

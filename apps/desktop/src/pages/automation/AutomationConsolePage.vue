@@ -18,8 +18,8 @@
       <span class="material-symbols-outlined spinning">sync</span>
       <span>正在读取自动化任务和运行日志...</span>
     </div>
-    <div v-else-if="automationStore.lastTriggerResult" class="dashboard-alert" data-tone="success">
-      <span class="material-symbols-outlined">check_circle</span>
+    <div v-else-if="automationStore.lastTriggerResult" class="dashboard-alert" data-tone="warning">
+      <span class="material-symbols-outlined">pending_actions</span>
       <span><strong>最近一次触发：</strong>{{ automationStore.lastTriggerResult.message }} ({{ automationStore.lastTriggerResult.status }})</span>
     </div>
 
@@ -104,7 +104,7 @@
               </div>
               <div class="tc-meta tc-meta-results">
                 <span>运行次数: {{ task.run_count }}</span>
-                <span>最近结果: <strong>{{ task.last_run_status === 'success' ? '成功' : (task.last_run_status === 'failed' ? '失败' : (task.last_run_status || '未知')) }}</strong></span>
+                <span>最近结果: <strong>{{ runStatusLabel(task.last_run_status) }}</strong></span>
               </div>
               <div class="tc-meta">
                 <span>Cron: {{ task.cron_expr || "未配置" }}</span>
@@ -186,7 +186,7 @@
               <div v-else class="run-list">
                 <div v-for="run in selectedRuns" :key="run.id" class="run-item" :class="{ 'is-blocked': run.status === 'blocked', 'is-failed': run.status === 'failed' }">
                   <div class="run-head">
-                    <strong>{{ run.status === 'success' ? '成功' : (run.status === 'failed' ? '失败' : run.status) }}</strong>
+                    <strong>{{ runStatusLabel(run.status) }}</strong>
                     <span>{{ formatDateTime(run.started_at ?? run.created_at) }}</span>
                   </div>
                   <div class="run-meta">
@@ -332,7 +332,7 @@ const selectedTaskBlockLabel = computed(() => {
   if (!selectedTask.value) return "未选中";
   if (!selectedTask.value.enabled) return "任务已关闭";
   const st = taskRealtimeStatus(selectedTask.value);
-  if (st === "blocked") return "最近运行被阻断";
+  if (st === "blocked") return "执行器待接入或最近运行被阻断";
   if (st === "failed") return "最近运行失败";
   return "可手动运行";
 });
@@ -399,7 +399,7 @@ function taskStatusTone(task: TaskView) {
   if (st === "retried") return "brand";
   if (st === "queued") return "warning";
   if (st === "cancelled") return "neutral";
-  if (st === "succeeded" || st === "success") return "success";
+  if (st === "succeeded" || st === "success") return "warning";
   return "success";
 }
 
@@ -413,11 +413,25 @@ function taskStatusLabel(task: TaskView) {
     'retried': '已重试',
     'cancelled': '已取消',
     'blocked': '已阻断',
-    'succeeded': '已完成',
-    'success': '已完成',
+    'succeeded': '检查完成',
+    'success': '检查完成',
     'error': '错误'
   };
   return map[st] || st || "待命";
+}
+
+function runStatusLabel(status: string | null) {
+  const map: Record<string, string> = {
+    queued: "排队中",
+    running: "运行中",
+    failed: "失败",
+    blocked: "待接入执行器",
+    cancelled: "已取消",
+    succeeded: "检查完成",
+    success: "检查完成",
+    error: "错误"
+  };
+  return status ? map[status] || status : "未知";
 }
 
 async function handleRunTask(id: string) {

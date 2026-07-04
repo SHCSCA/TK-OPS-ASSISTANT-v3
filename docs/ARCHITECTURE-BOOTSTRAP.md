@@ -223,6 +223,8 @@ Runtime 返回协议继续沿用 [docs/PRD.md](./PRD.md) 已确定的统一 JSON
 
 本文档不发明第二套返回协议。
 
+Runtime CORS 白名单必须通过 `RuntimeConfig.allowed_origins` 统一注入，不允许在路由或页面中临时放宽。默认白名单覆盖 Tauri 桌面壳、`tauri://localhost`、`http://tauri.localhost` 以及本地 Vite 调试端口 `5173` / `5174`。如需追加本机调试 origin，使用 `TK_OPS_RUNTIME_ALLOWED_ORIGINS` 传入逗号分隔的精确 origin；历史 `TK_OPS_ALLOWED_ORIGINS` 仅作兼容读取。配置值禁止使用 `*`，也禁止携带 path、query 或 fragment，非法值必须被忽略并记录日志。
+
 ### 5.2 API 前缀分组
 
 下列前缀只定义资源归属和路由边界，不在本轮展开字段级 schema 或 endpoint 细节。

@@ -33,6 +33,9 @@ log = logging.getLogger(__name__)
 _BINDING_REQUIRED_TYPES = {"collect", "reply", "sync", "sync_status", "validate"}
 _ACTIVE_STATUSES = {"queued", "running"}
 _FAILURE_STATUSES = {"failed", "cancelled", "blocked"}
+_EXECUTOR_MISSING_ERROR_CODE = "automation.executor_missing"
+_EXECUTOR_MISSING_MESSAGE = "自动化执行器尚未接入，本次只完成执行前检查。"
+_EXECUTOR_MISSING_NEXT_ACTION = "请先接入对应自动化执行器，或改为人工处理该任务。"
 
 
 class AutomationService:
@@ -265,22 +268,24 @@ class AutomationService:
             raise RuntimeError(validation["message"])
 
         await progress(60, "已完成执行前检查。")
-        await progress(90, "已生成本次执行摘要。")
         finished_at = utc_now()
         self._repository.update_run(
             run_id,
-            status="succeeded",
+            status="blocked",
             finished_at=finished_at,
-            append_log_text="自动化任务执行完成，本次运行已生成执行回执摘要。",
+            append_log_text=_EXECUTOR_MISSING_MESSAGE,
         )
         self._broadcast_event(
             {
                 "type": "automation.task.updated",
                 "taskId": task_id,
                 "runId": run_id,
-                "status": "succeeded",
+                "status": "blocked",
+                "errorCode": _EXECUTOR_MISSING_ERROR_CODE,
+                "nextAction": _EXECUTOR_MISSING_NEXT_ACTION,
             }
         )
+        raise RuntimeError(_EXECUTOR_MISSING_MESSAGE)
 
     def _get_task_model(self, task_id: str) -> AutomationTask:
         try:
@@ -391,7 +396,11 @@ class AutomationService:
         next_action = None
         retryable = run.status in _FAILURE_STATUSES
 
-        if run.status in _FAILURE_STATUSES and validation is not None:
+        if run.status == "blocked" and validation is None:
+            error_code = _EXECUTOR_MISSING_ERROR_CODE
+            error_message = _EXECUTOR_MISSING_MESSAGE
+            next_action = _EXECUTOR_MISSING_NEXT_ACTION
+        elif run.status in _FAILURE_STATUSES and validation is not None:
             error_code = validation["errorCode"]
             error_message = validation["message"]
             next_action = validation["nextAction"]
@@ -521,7 +530,10 @@ class AutomationService:
         validation = self._validate_task_dependencies(task, self._build_source(task))
         error_code = None
         error_message = None
-        if latest_run.status in _FAILURE_STATUSES and validation is not None:
+        if latest_run.status == "blocked" and validation is None:
+            error_code = _EXECUTOR_MISSING_ERROR_CODE
+            error_message = _EXECUTOR_MISSING_MESSAGE
+        elif latest_run.status in _FAILURE_STATUSES and validation is not None:
             error_code = validation["errorCode"]
             error_message = validation["message"]
         elif latest_run.status == "cancelled":
@@ -622,6 +634,8 @@ class AutomationService:
             return "请先补齐账号或工作区绑定，再重新触发。"
         if error_code == "automation.task_disabled":
             return "请先恢复任务开关，再重新触发。"
+        if error_code == _EXECUTOR_MISSING_ERROR_CODE:
+            return _EXECUTOR_MISSING_NEXT_ACTION
         return "请检查最近一次运行日志后，再重新触发任务。"
 
     def _resolve_active_task(self, task_id: str) -> TaskInfo | None:

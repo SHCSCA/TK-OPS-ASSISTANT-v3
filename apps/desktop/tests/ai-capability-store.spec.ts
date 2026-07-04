@@ -210,4 +210,35 @@ describe("AI 能力 store 多 Provider 行为", () => {
       path: "/api/settings/ai-capabilities/support-matrix"
     });
   });
+
+  it("保存能力绑定后刷新设置、Provider 目录和支持矩阵", async () => {
+    const calls: Array<{ method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method) => {
+        calls.push({ path, method });
+        if (path === "/api/settings/ai-capabilities" && method === "PUT") {
+          return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+        }
+        if (path === "/api/settings/ai-capabilities" && method === "GET") {
+          return okJsonResponse(runtimeFixtures.aiCapabilitySettings);
+        }
+        if (path === "/api/settings/ai-providers/catalog") {
+          return okJsonResponse(runtimeFixtures.aiProviderCatalog);
+        }
+        if (path === "/api/settings/ai-capabilities/support-matrix") {
+          return okJsonResponse(runtimeFixtures.aiCapabilitySupportMatrix);
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const store = useAICapabilityStore();
+    await store.saveCapabilities(runtimeFixtures.aiCapabilitySettings.capabilities);
+
+    expect(store.status).toBe("ready");
+    expect(calls).toContainEqual({ method: "GET", path: "/api/settings/ai-capabilities" });
+    expect(calls).toContainEqual({ method: "GET", path: "/api/settings/ai-providers/catalog" });
+    expect(calls).toContainEqual({ method: "GET", path: "/api/settings/ai-capabilities/support-matrix" });
+  });
 });

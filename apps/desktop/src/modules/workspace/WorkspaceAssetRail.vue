@@ -29,108 +29,128 @@
       <small :title="summaryDescription">{{ summaryDescription }}</small>
     </div>
 
-    <template v-if="activeTab === 'assets'">
-      <div class="workspace-asset-rail__actions">
-        <button type="button" :disabled="assetStatus === 'loading'" @click="$emit('sync-assets')">
-          <span class="material-symbols-outlined">sync</span>
-          同步资产
-        </button>
-      </div>
+    <transition name="tab-fade" mode="out-in">
+      <div v-if="activeTab === 'assets'" key="assets" class="workspace-asset-rail__pane">
+        <div class="workspace-asset-rail__actions">
+          <button type="button" :disabled="assetStatus === 'loading'" @click="$emit('sync-assets')">
+            <span class="material-symbols-outlined">sync</span>
+            同步资产
+          </button>
+        </div>
 
-      <div v-if="assetStatus === 'loading'" class="workspace-asset-rail__empty" data-state="loading">
-        正在同步当前项目资产。
-      </div>
-      <div v-else-if="assetStatus === 'error'" class="workspace-asset-rail__empty" data-state="error">
-        <strong>资产读取失败</strong>
-        <p>{{ assetError?.message ?? "请稍后重试。" }}</p>
-      </div>
-      <div v-else-if="assetCards.length === 0" class="workspace-asset-rail__empty" data-state="empty">
-        当前项目还没有可展示资产。
-      </div>
-      <div v-else class="workspace-asset-rail__list scroll-area">
-        <article
-          v-for="asset in assetCards"
-          :key="asset.id"
-          class="workspace-asset-card"
-          :data-tone="asset.tone"
-        >
-          <div class="workspace-asset-card__thumbnail">
-            <span class="material-symbols-outlined">{{ thumbnailIcon(asset.type) }}</span>
-          </div>
-          <div class="workspace-asset-card__body">
-            <strong>{{ asset.name }}</strong>
-            <p>{{ asset.summary }}</p>
-          </div>
-          <div class="workspace-asset-card__meta">
-            <div class="workspace-asset-card__state">
-              <span class="workspace-asset-card__status">{{ asset.status }}</span>
-              <small v-if="assetUnavailableReason(asset)">{{ assetUnavailableReason(asset) }}</small>
-            </div>
-            <div class="workspace-asset-card__actions">
-              <button
-                type="button"
-                :disabled="!canInsertAsset(asset)"
-                @click="emit('asset-insert', asset.id)"
-              >
-                加入时间线
-              </button>
-              <button
-                type="button"
-                :disabled="!canReplaceAsset(asset)"
-                @click="emit('asset-replace', asset.id)"
-              >
-                替换片段
-              </button>
-            </div>
-          </div>
-        </article>
-      </div>
-    </template>
-
-    <template v-else>
-      <div v-if="!timeline" class="workspace-asset-rail__empty">
-        还没有时间线草稿，素材区保持空态。
-      </div>
-      <div v-else-if="filteredSourceEntries.length === 0" class="workspace-asset-rail__empty">
-        当前来源还没有落到时间线的真实片段。
-      </div>
-      <div v-else class="workspace-asset-rail__list workspace-asset-rail__list--sources scroll-area">
-        <ul class="workspace-asset-rail__source-list">
-          <li
-            v-for="entry in filteredSourceEntries"
-            :key="entry.id"
-            class="workspace-asset-rail__item"
-            :class="{ 'workspace-asset-rail__item--active': selectedClip?.id === entry.id }"
+        <div v-if="assetStatus === 'loading'" class="workspace-asset-rail__empty" data-state="loading">
+          正在同步当前项目资产。
+        </div>
+        <div v-else-if="assetStatus === 'error'" class="workspace-asset-rail__empty" data-state="error">
+          <strong>资产读取失败</strong>
+          <p>{{ assetError?.message ?? "请稍后重试。" }}</p>
+        </div>
+        <div v-else-if="assetCards.length === 0" class="workspace-asset-rail__empty" data-state="empty">
+          当前项目还没有可展示资产。
+        </div>
+        <div v-else class="workspace-asset-rail__list scroll-area">
+          <article
+            v-for="asset in assetCards"
+            :key="asset.id"
+            class="workspace-asset-card"
+            :data-tone="asset.tone"
           >
-            <button
-              class="workspace-asset-rail__item-card"
-              type="button"
-              @click="$emit('select-source-clip', { clipId: entry.id, trackId: entry.trackId })"
+            <div
+              class="workspace-asset-card__thumbnail"
+              :data-kind="asset.type"
+              :data-testid="`workspace-asset-thumbnail-${asset.id}`"
             >
-              <div class="workspace-asset-rail__item-main">
-                <div class="workspace-asset-rail__item-head">
-                  <strong>{{ sourceEntryLabel(entry) }}</strong>
-                  <span class="workspace-asset-rail__item-status" :data-status="entry.status">
-                    {{ workspaceStatusLabel(entry.status) }}
-                  </span>
-                </div>
-                <span class="workspace-asset-rail__item-time">{{ sourceEntryTime(entry) }}</span>
-                <p>{{ entry.trackName }} · {{ sourceTypeLabel(entry.sourceType) }} · {{ trackPolicy(entry.trackId) }}</p>
+              <AssetPreview
+                v-if="canRenderAssetPreview(asset)"
+                class="workspace-asset-card__preview"
+                :asset="asset.previewAsset"
+              />
+              <div v-else-if="asset.type === 'audio'" class="workspace-asset-card__waveform" aria-hidden="true">
+                <span v-for="index in 9" :key="index"></span>
               </div>
-            </button>
-          </li>
-        </ul>
+              <span v-else class="material-symbols-outlined">{{ thumbnailIcon(asset.type) }}</span>
+              <small>{{ asset.durationLabel }}</small>
+            </div>
+            <div class="workspace-asset-card__body">
+              <strong>{{ asset.name }}</strong>
+              <p>{{ asset.summary }}</p>
+            </div>
+            <div class="workspace-asset-card__meta">
+              <div class="workspace-asset-card__state">
+                <span class="workspace-asset-card__status">{{ asset.status }}</span>
+                <small v-if="assetUnavailableReason(asset)">{{ assetUnavailableReason(asset) }}</small>
+              </div>
+              <div class="workspace-asset-card__actions">
+                <button
+                  class="workspace-asset-card__primary-action"
+                  type="button"
+                  :disabled="isPrimaryActionDisabled(asset)"
+                  @click="handlePrimaryAssetAction(asset)"
+                >
+                  {{ asset.primaryAction }}
+                </button>
+                <button
+                  type="button"
+                  :disabled="!canReplaceAsset(asset)"
+                  @click="emit('asset-replace', asset.id)"
+                >
+                  替换片段
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
       </div>
-    </template>
+
+      <div v-else key="sources" class="workspace-asset-rail__pane">
+        <div v-if="!timeline" class="workspace-asset-rail__empty">
+          还没有时间线草稿，素材区保持空态。
+        </div>
+        <div v-else-if="filteredSourceEntries.length === 0" class="workspace-asset-rail__empty">
+          当前来源还没有落到时间线的真实片段。
+        </div>
+        <div v-else class="workspace-asset-rail__list workspace-asset-rail__list--sources scroll-area">
+          <ul class="workspace-asset-rail__source-list">
+            <li
+              v-for="entry in filteredSourceEntries"
+              :key="entry.id"
+              class="workspace-asset-rail__item"
+              :class="{ 'workspace-asset-rail__item--active': selectedClip?.id === entry.id }"
+            >
+              <button
+                class="workspace-asset-rail__item-card"
+                type="button"
+                @click="$emit('select-source-clip', { clipId: entry.id, trackId: entry.trackId })"
+              >
+                <div class="workspace-asset-rail__item-main">
+                  <div class="workspace-asset-rail__item-head">
+                    <strong>{{ sourceEntryLabel(entry) }}</strong>
+                    <span class="workspace-asset-rail__item-status" :data-status="entry.status">
+                      {{ workspaceStatusLabel(entry.status) }}
+                    </span>
+                  </div>
+                  <span class="workspace-asset-rail__item-time">{{ sourceEntryTime(entry) }}</span>
+                  <p>{{ entry.trackName }} · {{ sourceTypeLabel(entry.sourceType) }} · {{ trackPolicy(entry.trackId) }}</p>
+                </div>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </transition>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
+import AssetPreview from "@/components/assets/AssetPreview.vue";
 import {
   buildWorkspaceAssetCards,
+  resolveDefaultWorkspaceAssetTab,
+  resolveWorkspaceAssetTabFromSourceType,
   sourceTypeLabel,
+  type WorkspaceAssetSourceTabId,
   type WorkspaceAssetCard
 } from "@/modules/workspace/workspaceAssetViewModel";
 import {
@@ -146,7 +166,7 @@ import type {
   WorkspaceTimelineDto
 } from "@/types/runtime";
 
-type SourceTabId = "storyboard" | "voice_track" | "subtitle_track" | "assets";
+type SourceTabId = WorkspaceAssetSourceTabId;
 
 const props = defineProps<{
   assemblyState: WorkspaceAssemblyStateDto | null;
@@ -166,6 +186,7 @@ const emit = defineEmits<{
 }>();
 
 const activeTab = ref<SourceTabId>("assets");
+const hasManualTabSelection = ref(false);
 
 const sourceTabs: Array<{ id: SourceTabId; label: string; testId: string }> = [
   { id: "storyboard", label: "分镜", testId: "workspace-asset-tab-storyboard" },
@@ -189,6 +210,14 @@ const filteredSourceEntries = computed(() =>
 
 const assetCards = computed<WorkspaceAssetCard[]>(() =>
   buildWorkspaceAssetCards({
+    projectId: props.projectId,
+    assets: props.assets,
+    timeline: props.timeline
+  })
+);
+
+const defaultSourceTab = computed<SourceTabId>(() =>
+  resolveDefaultWorkspaceAssetTab({
     projectId: props.projectId,
     assets: props.assets,
     timeline: props.timeline
@@ -236,12 +265,36 @@ function thumbnailIcon(type: string): string {
   return "movie";
 }
 
+function canRenderAssetPreview(asset: WorkspaceAssetCard): boolean {
+  if (!["image", "video"].includes(asset.type)) return false;
+  return Boolean(asset.thumbnailPath || asset.filePath);
+}
+
 function canInsertAsset(asset: WorkspaceAssetCard): boolean {
   return isSupportedAssetType(asset) && isAssetAvailable(asset) && Boolean(props.timeline);
 }
 
 function canReplaceAsset(asset: WorkspaceAssetCard): boolean {
   return isAssetAvailable(asset) && isAssetCompatibleWithSelectedTrack(asset);
+}
+
+function isPrimaryActionDisabled(asset: WorkspaceAssetCard): boolean {
+  if (isRecoverableAsset(asset)) return props.assetStatus === "loading";
+  if (asset.primaryAction === "替换片段") return !canReplaceAsset(asset);
+  return !canInsertAsset(asset);
+}
+
+function handlePrimaryAssetAction(asset: WorkspaceAssetCard): void {
+  if (isPrimaryActionDisabled(asset)) return;
+  if (isRecoverableAsset(asset)) {
+    emit("sync-assets");
+    return;
+  }
+  if (asset.primaryAction === "替换片段") {
+    emit("asset-replace", asset.id);
+    return;
+  }
+  emit("asset-insert", asset.id);
 }
 
 function assetUnavailableReason(asset: WorkspaceAssetCard): string {
@@ -251,6 +304,10 @@ function assetUnavailableReason(asset: WorkspaceAssetCard): string {
 
 function isAssetAvailable(asset: WorkspaceAssetCard): boolean {
   return ["available", "ready"].includes(asset.asset.availability.status);
+}
+
+function isRecoverableAsset(asset: WorkspaceAssetCard): boolean {
+  return !isAssetAvailable(asset);
 }
 
 function isSupportedAssetType(asset: WorkspaceAssetCard): boolean {
@@ -267,7 +324,7 @@ function isAssetCompatibleWithSelectedTrack(asset: WorkspaceAssetCard): boolean 
 }
 
 function neutralUnavailableReason(status: string): string {
-  if (["missing", "missing_source", "missing_file"].includes(status)) return "资产当前不可用，请重新定位或重新导入。";
+  if (["missing", "missing_source", "missing_file"].includes(status)) return "资产当前不可用，请重新导入后重新检查。";
   if (status === "needs_transcode") return "资产需要处理后才能使用。";
   return "资产当前不可用，请在资产中心处理后再使用。";
 }
@@ -285,8 +342,39 @@ function sourceEntryTime(entry: WorkspaceTimelineClipDto): string {
 }
 
 function selectSourceTab(tabId: SourceTabId): void {
+  hasManualTabSelection.value = true;
   activeTab.value = tabId;
 }
+
+function sourceTabFromClip(clip: WorkspaceTimelineClipDto | null): SourceTabId | null {
+  return resolveWorkspaceAssetTabFromSourceType(clip?.sourceType);
+}
+
+watch(
+  () => props.selectedClip,
+  (clip) => {
+    const nextTab = sourceTabFromClip(clip);
+    if (nextTab) activeTab.value = nextTab;
+  },
+  { immediate: true }
+);
+
+watch(
+  defaultSourceTab,
+  (tabId) => {
+    if (hasManualTabSelection.value || sourceTabFromClip(props.selectedClip)) return;
+    activeTab.value = tabId;
+  },
+  { immediate: true }
+);
+
+watch(
+  () => props.projectId,
+  () => {
+    hasManualTabSelection.value = false;
+    activeTab.value = defaultSourceTab.value;
+  }
+);
 </script>
 
 <style scoped>
@@ -404,6 +492,24 @@ function selectSourceTab(tabId: SourceTabId): void {
   border-color: color-mix(in srgb, var(--color-danger) 42%, var(--border-default));
 }
 
+/* Tab 切换过渡 —— pane 作为嵌套 grid 占据父网格后两行 */
+.workspace-asset-rail__pane {
+  display: grid;
+  gap: 10px;
+  grid-row: 4 / -1;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.tab-fade-enter-active,
+.tab-fade-leave-active {
+  transition: opacity var(--motion-content) var(--ease-standard);
+}
+.tab-fade-enter-from,
+.tab-fade-leave-to {
+  opacity: 0;
+}
+
 .workspace-asset-rail__list {
   display: grid;
   gap: 10px;
@@ -415,7 +521,7 @@ function selectSourceTab(tabId: SourceTabId): void {
 }
 
 .workspace-asset-rail__list--sources {
-  grid-row: 4 / 6;
+  grid-row: 1 / -1;
 }
 
 .workspace-asset-rail__source-list {
@@ -465,10 +571,14 @@ function selectSourceTab(tabId: SourceTabId): void {
   width: 100%;
 }
 
-.workspace-asset-rail__item-card:hover,
+.workspace-asset-rail__item-card:hover {
+  background: var(--color-bg-hover);
+}
+
 .workspace-asset-rail__item-card:focus-visible {
   background: var(--color-bg-hover);
-  outline: none;
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
 }
 
 .workspace-asset-rail__item-card:active {
@@ -560,7 +670,7 @@ function selectSourceTab(tabId: SourceTabId): void {
   border-radius: 8px;
   display: grid;
   gap: 10px 12px;
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: minmax(86px, 36%) minmax(0, 1fr);
   padding: 12px;
 }
 
@@ -578,16 +688,94 @@ function selectSourceTab(tabId: SourceTabId): void {
 
 .workspace-asset-card__thumbnail {
   align-items: center;
-  aspect-ratio: 1;
+  aspect-ratio: 16 / 10;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 18%, transparent), transparent),
     var(--surface-primary);
   border: 1px solid var(--border-default);
   border-radius: 8px;
   color: var(--text-secondary);
-  display: flex;
+  display: grid;
   justify-content: center;
   min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.workspace-asset-card__thumbnail > .material-symbols-outlined {
+  font-size: 24px;
+}
+
+.workspace-asset-card__thumbnail small {
+  background: rgb(0 0 0 / 62%);
+  border-radius: 999px;
+  bottom: 5px;
+  color: #ffffff;
+  font: var(--font-caption);
+  line-height: 1;
+  max-width: calc(100% - 10px);
+  overflow: hidden;
+  padding: 4px 6px;
+  position: absolute;
+  right: 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.workspace-asset-card__preview {
+  border: 0;
+  border-radius: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.workspace-asset-card__preview :deep(.asset-preview__badge),
+.workspace-asset-card__preview :deep(.asset-preview__fallback small),
+.workspace-asset-card__preview :deep(.asset-preview__fallback strong) {
+  display: none;
+}
+
+.workspace-asset-card__preview :deep(img),
+.workspace-asset-card__preview :deep(video) {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.workspace-asset-card__waveform {
+  align-items: center;
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(9, 1fr);
+  height: 46px;
+  justify-self: stretch;
+  padding: 0 10px;
+}
+
+.workspace-asset-card__waveform span {
+  background: var(--color-brand-primary);
+  border-radius: 999px;
+  height: 44%;
+  min-height: 10px;
+}
+
+.workspace-asset-card__waveform span:nth-child(2n) {
+  height: 68%;
+}
+
+.workspace-asset-card__waveform span:nth-child(3n) {
+  height: 84%;
+}
+
+.workspace-asset-card__waveform span:nth-child(5n) {
+  height: 56%;
+}
+
+.workspace-asset-card__thumbnail[data-kind="audio"] {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-success) 20%, transparent), transparent),
+    var(--surface-primary);
 }
 
 .workspace-asset-card__body {

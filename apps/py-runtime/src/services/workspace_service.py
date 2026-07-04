@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from pathlib import Path
@@ -9,6 +10,7 @@ from urllib.parse import quote
 from fastapi import HTTPException
 from pydantic import ValidationError
 
+from ai.providers.errors import ProviderHTTPException
 from domain.models.asset import Asset
 from domain.models.timeline import Timeline
 from repositories.asset_repository import AssetRepository
@@ -23,6 +25,7 @@ from schemas.workspace import (
     TimelineClipDto,
     TimelineCreateInput,
     TimelineDto,
+    TimelinePrecheckIssueDto,
     TimelinePrecheckDto,
     TimelinePreviewDto,
     TimelineTrackDto,
@@ -35,7 +38,17 @@ from schemas.workspace import (
     WorkspaceSaveStateDto,
     WorkspaceTimelineResultDto,
 )
+from services.ai_text_generation_service import (
+    AITextGenerationService,
+    normalize_text_generation_readiness_message,
+)
+from services.magic_cut import (
+    apply_magic_cut_operations,
+    parse_magic_cut_operations,
+    serialize_timeline_for_ai,
+)
 from services.task_manager import TaskInfo, TaskManager, task_manager as default_task_manager
+from services.timeline_preview_media import TimelinePreviewMediaResolver
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +59,29 @@ MIN_TRIMMED_CLIP_DURATION_MS = 500
 MIN_ASSET_CLIP_DURATION_MS = 500
 DEFAULT_ASSET_CLIP_DURATION_MS = 3000
 ASSET_TRACK_KIND_BY_TYPE = {"video": "video", "image": "video", "audio": "audio"}
+MAGIC_CUT_RUNTIME_FAILURE_MESSAGE = "智能粗剪 AI 调用失败，请检查 Provider 配置或稍后重试。"
+MAGIC_CUT_OPERATION_FAILURE_MESSAGE = "智能粗剪执行失败，请查看日志后重试。"
+
+
+def _build_magic_cut_instruction(parameters: dict[str, object]) -> str:
+    """从前端提交的 parameters 中构建用户可读的剪辑指令。"""
+    if not isinstance(parameters, dict):
+        return "请根据时间线片段结构给出智能剪辑建议。"
+
+    parts: list[str] = []
+    selected_track_id = parameters.get("selectedTrackId")
+    if isinstance(selected_track_id, str) and selected_track_id.strip():
+        parts.append(f"用户当前选中的轨道 ID 为 {selected_track_id}")
+    selected_clip_id = parameters.get("selectedClipId")
+    if isinstance(selected_clip_id, str) and selected_clip_id.strip():
+        parts.append(f"用户当前选中的片段 ID 为 {selected_clip_id}")
+    raw_instruction = parameters.get("instruction")
+    if isinstance(raw_instruction, str) and raw_instruction.strip():
+        parts.append(f"用户补充指令：{raw_instruction.strip()}")
+
+    if not parts:
+        return "请根据时间线片段结构给出智能剪辑建议，使视频更紧凑、节奏更好。"
+    return "。".join(parts) + "。请据此调整剪辑策略。"
 
 
 class WorkspaceService:
@@ -55,10 +91,13 @@ class WorkspaceService:
         *,
         asset_repository: AssetRepository | None = None,
         task_manager: TaskManager | None = None,
+        ai_text_generation_service: AITextGenerationService | None = None,
     ) -> None:
         self._repository = repository
         self._asset_repository = asset_repository
+        self._preview_media_resolver = TimelinePreviewMediaResolver(asset_repository)
         self._task_manager = task_manager or default_task_manager
+        self._ai_text_generation_service = ai_text_generation_service
 
     def get_project_timeline(self, project_id: str) -> WorkspaceTimelineResultDto:
         try:
@@ -159,9 +198,11 @@ class WorkspaceService:
         self,
         clip_id: str,
         payload: ClipMoveInput | dict[str, object],
+        *,
+        timeline_id: str | None = None,
     ) -> WorkspaceTimelineResultDto:
         input_data = self._normalize_payload(payload)
-        timeline, tracks, track_index, clip_index, clip = self._locate_clip(clip_id)
+        timeline, tracks, track_index, clip_index, clip = self._locate_clip_for_operation(clip_id, timeline_id)
         target_track_index = self._find_track_index(tracks, str(input_data["targetTrackId"]))
         if target_track_index is None:
             raise HTTPException(status_code=404, detail="目标轨道不存在。")
@@ -203,9 +244,11 @@ class WorkspaceService:
         self,
         clip_id: str,
         payload: ClipTrimInput | dict[str, object],
+        *,
+        timeline_id: str | None = None,
     ) -> WorkspaceTimelineResultDto:
         input_data = self._normalize_payload(payload)
-        timeline, tracks, track_index, clip_index, clip = self._locate_clip(clip_id)
+        timeline, tracks, track_index, clip_index, clip = self._locate_clip_for_operation(clip_id, timeline_id)
         trimmed_clip = dict(clip)
         for field in ("startMs", "durationMs", "inPointMs", "outPointMs"):
             if input_data.get(field) is not None:
@@ -317,8 +360,8 @@ class WorkspaceService:
             "已确认保存资产入轨结果。",
         )
 
-    def delete_clip(self, clip_id: str) -> WorkspaceTimelineResultDto:
-        timeline, tracks, track_index, clip_index, _ = self._locate_clip(clip_id)
+    def delete_clip(self, clip_id: str, *, timeline_id: str | None = None) -> WorkspaceTimelineResultDto:
+        timeline, tracks, track_index, clip_index, _ = self._locate_clip_for_operation(clip_id, timeline_id)
         track = tracks[track_index]
         if bool(track.get("locked")):
             raise HTTPException(status_code=400, detail="锁定轨道不能删除片段。")
@@ -336,9 +379,11 @@ class WorkspaceService:
         self,
         clip_id: str,
         payload: ClipSplitInput | dict[str, object],
+        *,
+        timeline_id: str | None = None,
     ) -> WorkspaceTimelineResultDto:
         input_data = self._normalize_payload(payload)
-        timeline, tracks, track_index, clip_index, clip = self._locate_clip(clip_id)
+        timeline, tracks, track_index, clip_index, clip = self._locate_clip_for_operation(clip_id, timeline_id)
         track = tracks[track_index]
         if bool(track.get("locked")):
             raise HTTPException(status_code=400, detail="锁定轨道不能分割片段。")
@@ -386,30 +431,44 @@ class WorkspaceService:
             tracks = self._parse_tracks(timeline.tracks_json)
             preview_payload = self._build_timeline_preview_payload(timeline, tracks)
             preview_url = self._encode_data_url(preview_payload)
+            media, preview_error = self._preview_media_resolver.resolve(tracks)
         except HTTPException:
             raise
         except Exception as exc:
             log.exception("生成时间线本地预览失败")
             raise HTTPException(status_code=500, detail="生成时间线本地预览失败。") from exc
 
+        preview_mode = "media" if media else "unavailable" if preview_error else "manifest"
+        status = "ready" if media else "unavailable" if preview_error else "structure_only"
+        if media:
+            message = "时间线真实媒体预览已准备。"
+        elif preview_error:
+            message = preview_error.message
+        else:
+            message = "时间线本地预览已生成，当前没有可播放媒体，仅展示轨道与片段摘要。"
+
         return TimelinePreviewDto(
             timelineId=timeline_id,
-            status="ready",
-            message="时间线本地预览已生成，包含真实轨道与片段摘要。",
+            status=status,
+            message=message,
             previewUrl=preview_url,
+            previewMode=preview_mode,
+            media=media,
+            error=preview_error,
         )
 
     def precheck_timeline(self, timeline_id: str) -> TimelinePrecheckDto:
         timeline = self._load_timeline(timeline_id)
         try:
-            tracks = self._parse_tracks(timeline.tracks_json)
-            issues = self._build_timeline_precheck_issues(tracks)
+            tracks = self._parse_precheck_tracks(timeline.tracks_json)
+            issue_details = self._build_timeline_precheck_issue_details(timeline.id, tracks)
         except HTTPException:
             raise
         except Exception as exc:
             log.exception("执行时间线本地预检失败")
             raise HTTPException(status_code=500, detail="执行时间线本地预检失败。") from exc
 
+        issues = [issue.message for issue in issue_details]
         if issues:
             status = "warning"
             message = f"时间线本地预检发现 {len(issues)} 个问题。"
@@ -422,6 +481,7 @@ class WorkspaceService:
             status=status,
             message=message,
             issues=issues,
+            issueDetails=issue_details,
         )
 
     def run_ai_command(
@@ -430,9 +490,95 @@ class WorkspaceService:
         payload: WorkspaceAICommandInput,
     ) -> WorkspaceAICommandResultDto:
         timeline = self._resolve_command_timeline(project_id, payload.timelineId)
+        if payload.capabilityId == "magic_cut":
+            if self._ai_text_generation_service is None:
+                log.warning("智能粗剪配置预检失败 code=%s", "ai_provider_unsupported")
+                return WorkspaceAICommandResultDto(
+                    status="blocked",
+                    task=None,
+                    message=normalize_text_generation_readiness_message(
+                        "magic_cut",
+                        "ai_provider_unsupported",
+                        "智能粗剪 Provider 未配置，请先选择可用文本模型。",
+                    ),
+                )
+            try:
+                self._ai_text_generation_service.validate_text_generation_ready("magic_cut")
+            except ProviderHTTPException as exc:
+                log.warning(
+                    "智能粗剪配置预检失败 code=%s status=%s",
+                    exc.error_code,
+                    exc.status_code,
+                )
+                return WorkspaceAICommandResultDto(
+                    status="blocked",
+                    task=None,
+                    message=normalize_text_generation_readiness_message(
+                        "magic_cut",
+                        exc.error_code,
+                        str(exc.detail),
+                    ),
+                )
 
         async def _command_task(progress_callback):
-            await progress_callback(55, f"正在分析时间线：{timeline.id}")
+            if payload.capabilityId == "magic_cut" and self._ai_text_generation_service:
+                await progress_callback(10, "正在序列化时间线上下文...")
+                timeline_context = serialize_timeline_for_ai(timeline.tracks_json)
+
+                await progress_callback(20, "正在调用 AI 剪辑分析师...")
+                instruction = _build_magic_cut_instruction(payload.parameters)
+                try:
+                    result = await asyncio.to_thread(
+                        self._ai_text_generation_service.generate_text,
+                        "magic_cut",
+                        {"timeline_context": timeline_context, "instruction": instruction},
+                        project_id=project_id,
+                    )
+                except ProviderHTTPException as exc:
+                    log.warning(
+                        "智能粗剪 AI 调用被 Provider 阻断 code=%s status=%s",
+                        exc.error_code,
+                        exc.status_code,
+                    )
+                    safe_message = normalize_text_generation_readiness_message(
+                        "magic_cut",
+                        exc.error_code,
+                        MAGIC_CUT_RUNTIME_FAILURE_MESSAGE,
+                    )
+                    await progress_callback(0, safe_message)
+                    raise ProviderHTTPException(
+                        status_code=exc.status_code,
+                        detail=safe_message,
+                        error_code=exc.error_code,
+                    ) from None
+                except Exception:
+                    log.exception("智能粗剪 AI 调用失败")
+                    await progress_callback(0, MAGIC_CUT_OPERATION_FAILURE_MESSAGE)
+                    raise RuntimeError(MAGIC_CUT_OPERATION_FAILURE_MESSAGE)
+
+                await progress_callback(60, "正在解析 AI 响应...")
+                operations, summary = parse_magic_cut_operations(result.text)
+
+                if not operations:
+                    await progress_callback(100, summary)
+                    return
+
+                await progress_callback(75, f"正在应用 {len(operations)} 个剪辑操作...")
+                try:
+                    applied, failed, op_message = apply_magic_cut_operations(
+                        self, timeline.id, operations,
+                    )
+                    if applied == 0 and failed > 0:
+                        log.warning("智能粗剪操作全部失败: %s", op_message)
+                        await progress_callback(0, MAGIC_CUT_OPERATION_FAILURE_MESSAGE)
+                        raise RuntimeError(MAGIC_CUT_OPERATION_FAILURE_MESSAGE)
+                    await progress_callback(100, f"智能粗剪完成。{op_message}")
+                except Exception:
+                    log.exception("智能粗剪应用操作失败")
+                    await progress_callback(0, MAGIC_CUT_OPERATION_FAILURE_MESSAGE)
+                    raise RuntimeError(MAGIC_CUT_OPERATION_FAILURE_MESSAGE)
+            else:
+                await progress_callback(55, f"正在分析时间线：{timeline.id}")
 
         try:
             task = self._task_manager.submit(
@@ -550,6 +696,22 @@ class WorkspaceService:
                 for clip_index, clip in enumerate(track["clips"]):
                     if str(clip.get("id")) == clip_id:
                         return timeline, tracks, track_index, clip_index, clip
+        raise HTTPException(status_code=404, detail="片段不存在。")
+
+    def _locate_clip_for_operation(
+        self,
+        clip_id: str,
+        timeline_id: str | None,
+    ) -> tuple[Timeline, list[dict[str, object]], int, int, dict[str, object]]:
+        if timeline_id is None:
+            return self._locate_clip(clip_id)
+
+        timeline = self._load_timeline(timeline_id)
+        tracks = self._parse_tracks(timeline.tracks_json)
+        for track_index, track in enumerate(tracks):
+            for clip_index, clip in enumerate(track["clips"]):
+                if str(clip.get("id")) == clip_id:
+                    return timeline, tracks, track_index, clip_index, clip
         raise HTTPException(status_code=404, detail="片段不存在。")
 
     def _load_timeline(self, timeline_id: str) -> Timeline:
@@ -992,7 +1154,7 @@ class WorkspaceService:
             track_clip_count = len(clip_summaries)
             track_clip_duration_ms = sum(int(clip["durationMs"]) for clip in clip_summaries)
             clip_count += track_clip_count
-            total_clip_duration_ms += track_clip_duration_ms
+            total_clip_duration_ms = max(total_clip_duration_ms, self._track_end_ms(clip_summaries))
             track_summaries.append(
                 {
                     "id": track.get("id"),
@@ -1019,6 +1181,14 @@ class WorkspaceService:
             "tracks": track_summaries,
         }
 
+    def _track_end_ms(self, clips: list[dict[str, object]]) -> int:
+        track_end_ms = 0
+        for clip in clips:
+            start_ms = int(clip.get("startMs") or 0)
+            duration_ms = int(clip.get("durationMs") or 0)
+            track_end_ms = max(track_end_ms, start_ms + duration_ms)
+        return track_end_ms
+
     def _encode_data_url(self, payload: dict[str, object]) -> str:
         json_payload = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         return f"data:application/json;charset=utf-8,{quote(json_payload, safe='')}"
@@ -1035,36 +1205,171 @@ class WorkspaceService:
             "sourceId": clip.get("sourceId"),
         }
 
-    def _build_timeline_precheck_issues(
+    def _parse_precheck_tracks(self, tracks_json: str) -> list[object]:
+        try:
+            raw_tracks = json.loads(tracks_json)
+        except (TypeError, ValueError) as exc:
+            log.exception("解析时间线预检轨道 JSON 失败")
+            raise HTTPException(status_code=500, detail="解析时间线轨道 JSON 失败。") from exc
+        if not isinstance(raw_tracks, list):
+            return []
+        return raw_tracks
+
+    def _build_timeline_precheck_issue_details(
         self,
-        tracks: list[dict[str, object]],
-    ) -> list[str]:
-        issues: list[str] = []
+        timeline_id: str,
+        tracks: list[object],
+    ) -> list[TimelinePrecheckIssueDto]:
+        issues: list[TimelinePrecheckIssueDto] = []
         if not tracks:
-            return ["时间线尚未配置轨道，无法生成本地预检结果。"]
+            return [
+                self._make_precheck_issue(
+                    issue_id=f"timeline-{timeline_id}-tracks-missing",
+                    message="时间线尚未配置轨道，无法生成本地预检结果。",
+                    target_type="timeline",
+                    target_id=timeline_id,
+                    suggestion="请先汇入创作结果或创建基础轨道。",
+                    action_label="汇入创作结果",
+                )
+            ]
 
         for track in tracks:
+            if not isinstance(track, dict):
+                issues.append(
+                    self._make_precheck_issue(
+                        issue_id=f"timeline-{timeline_id}-track-format",
+                        message="时间线存在无法识别的轨道数据。",
+                        target_type="timeline",
+                        target_id=timeline_id,
+                        suggestion="请重新汇入创作结果后再预检。",
+                        action_label="重新预检",
+                    )
+                )
+                continue
+
+            track_id = str(track.get("id") or "").strip()
             track_name = str(track.get("name") or track.get("id") or "未命名轨道")
             track_kind = str(track.get("kind") or "")
             if track_kind not in SUPPORTED_TRACK_KINDS:
-                issues.append(f"轨道 {track_name} 的类型 {track_kind} 不受支持。")
+                issues.append(
+                    self._make_precheck_issue(
+                        issue_id=f"track-{track_id or track_name}-kind",
+                        message=f"轨道 {track_name} 的类型 {track_kind} 不受支持。",
+                        target_type="track",
+                        target_id=track_id or None,
+                        track_id=track_id or None,
+                        suggestion="请移除或转换不支持的轨道类型。",
+                        action_label="定位轨道",
+                    )
+                )
 
             clips = track.get("clips")
             if not isinstance(clips, list):
-                issues.append(f"轨道 {track_name} 的片段数据格式无效。")
+                issues.append(
+                    self._make_precheck_issue(
+                        issue_id=f"track-{track_id or track_name}-clips",
+                        message=f"轨道 {track_name} 的片段数据格式无效。",
+                        target_type="track",
+                        target_id=track_id or None,
+                        track_id=track_id or None,
+                        suggestion="请重新汇入或修复该轨道片段数据。",
+                        action_label="定位轨道",
+                    )
+                )
                 continue
 
             for clip in clips:
                 if not isinstance(clip, dict):
-                    issues.append(f"轨道 {track_name} 存在无法识别的片段。")
+                    issues.append(
+                        self._make_precheck_issue(
+                            issue_id=f"track-{track_id or track_name}-clip-format",
+                            message=f"轨道 {track_name} 存在无法识别的片段。",
+                            target_type="track",
+                            target_id=track_id or None,
+                            track_id=track_id or None,
+                            suggestion="请删除异常片段或重新汇入创作结果。",
+                            action_label="定位轨道",
+                        )
+                    )
                     continue
 
+                clip_id = str(clip.get("id") or "").strip()
                 clip_label = str(clip.get("label") or clip.get("id") or "未命名片段")
                 duration_ms = clip.get("durationMs")
                 start_ms = clip.get("startMs")
                 if not isinstance(duration_ms, int) or duration_ms <= 0:
-                    issues.append(f"片段 {clip_label} 的时长无效。")
+                    issues.append(
+                        self._make_clip_or_track_precheck_issue(
+                            issue_id=f"{clip_id or 'clip-' + clip_label}-duration",
+                            message=f"片段 {clip_label} 的时长无效。",
+                            track_id=track_id,
+                            clip_id=clip_id,
+                            suggestion="请调整片段时长后重新预检。",
+                        )
+                    )
                 if not isinstance(start_ms, int) or start_ms < 0:
-                    issues.append(f"片段 {clip_label} 的起始时间无效。")
+                    issues.append(
+                        self._make_clip_or_track_precheck_issue(
+                            issue_id=f"{clip_id or 'clip-' + clip_label}-start",
+                            message=f"片段 {clip_label} 的起始时间无效。",
+                            track_id=track_id,
+                            clip_id=clip_id,
+                            suggestion="请调整片段起始时间后重新预检。",
+                        )
+                    )
 
         return issues
+
+    def _make_clip_or_track_precheck_issue(
+        self,
+        *,
+        issue_id: str,
+        message: str,
+        track_id: str,
+        clip_id: str,
+        suggestion: str,
+    ) -> TimelinePrecheckIssueDto:
+        if clip_id:
+            return self._make_precheck_issue(
+                issue_id=issue_id,
+                message=message,
+                target_type="clip",
+                target_id=clip_id,
+                track_id=track_id or None,
+                clip_id=clip_id,
+                suggestion=suggestion,
+                action_label="定位片段",
+            )
+        return self._make_precheck_issue(
+            issue_id=issue_id,
+            message=message,
+            target_type="track",
+            target_id=track_id or None,
+            track_id=track_id or None,
+            suggestion=suggestion,
+            action_label="定位轨道",
+        )
+
+    def _make_precheck_issue(
+        self,
+        *,
+        issue_id: str,
+        message: str,
+        target_type: str,
+        target_id: str | None,
+        track_id: str | None = None,
+        clip_id: str | None = None,
+        suggestion: str | None = None,
+        action_label: str | None = None,
+    ) -> TimelinePrecheckIssueDto:
+        return TimelinePrecheckIssueDto(
+            id=issue_id,
+            severity="warning",
+            message=message,
+            targetType=target_type,
+            targetId=target_id,
+            trackId=track_id,
+            clipId=clip_id,
+            suggestion=suggestion,
+            actionLabel=action_label,
+        )

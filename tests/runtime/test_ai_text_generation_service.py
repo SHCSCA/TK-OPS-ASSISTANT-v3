@@ -33,11 +33,13 @@ class _FakeCapabilityService:
         *,
         resolved_model: str | None = None,
         capability_id: str = 'script_generation',
+        supports_model: bool = True,
     ) -> None:
         self._capability = capability
         self._runtime = runtime
         self._resolved_model = resolved_model
         self._capability_id = capability_id
+        self._supports_model = supports_model
 
     def get_capability(self, capability_id: str) -> _FakeCapability:
         assert capability_id == self._capability_id
@@ -61,6 +63,12 @@ class _FakeCapabilityService:
         assert required_capability_type in {'text_generation', 'asset_analysis', None}
         return self._resolved_model or model_id
 
+    def model_supports_capability(self, provider_id: str, model_id: str, capability_id: str) -> bool:
+        assert provider_id == self._capability.provider
+        assert model_id in {self._capability.model, self._resolved_model or self._capability.model}
+        assert capability_id == self._capability_id
+        return self._supports_model
+
 
 def _make_service(
     tmp_path: Path,
@@ -69,6 +77,7 @@ def _make_service(
     *,
     resolved_model: str | None = None,
     capability_id: str = 'script_generation',
+    supports_model: bool = True,
 ) -> AITextGenerationService:
     engine = create_runtime_engine(tmp_path / 'runtime.db')
     Base.metadata.create_all(engine)
@@ -80,6 +89,7 @@ def _make_service(
             runtime,
             resolved_model=resolved_model,
             capability_id=capability_id,
+            supports_model=supports_model,
         ),
         ai_job_repository=job_repository,
     )
@@ -561,3 +571,64 @@ def test_generate_text_allows_secretless_local_provider_without_api_key(
         capability_ids=('script_generation',),
     )
     assert recent_jobs[0].status == 'succeeded'
+
+
+@pytest.mark.parametrize(
+    ('capability_enabled', 'runtime', 'supports_model', 'expected_detail'),
+    [
+        (
+            False,
+            _make_runtime('deepseek'),
+            True,
+            '智能粗剪能力未启用，请先在 AI 与系统设置中启用并保存。',
+        ),
+        (
+            True,
+            ProviderRuntimeConfig(
+                provider='deepseek',
+                label='deepseek',
+                api_key=None,
+                base_url='https://example.com/v1',
+                secret_source='none',
+                requires_secret=True,
+                supports_text_generation=True,
+                supports_tts=False,
+                protocol_family='openai_chat',
+            ),
+            True,
+            '智能粗剪 Provider 密钥缺失，请先完成密钥配置。',
+        ),
+        (
+            True,
+            _make_runtime('deepseek'),
+            False,
+            '当前模型不支持智能粗剪所需的文本生成能力，请更换模型。',
+        ),
+    ],
+)
+def test_magic_cut_readiness_errors_are_recoverable_chinese_messages(
+    tmp_path: Path,
+    capability_enabled: bool,
+    runtime: ProviderRuntimeConfig,
+    supports_model: bool,
+    expected_detail: str,
+) -> None:
+    service = _make_service(
+        tmp_path,
+        _FakeCapability(
+            enabled=capability_enabled,
+            provider='deepseek',
+            model='deepseek-chat',
+            agentRole='TikTok 智能粗剪 Agent',
+            systemPrompt='输出剪辑操作。',
+            userPromptTemplate='{{timeline_context}}',
+        ),
+        runtime,
+        capability_id='magic_cut',
+        supports_model=supports_model,
+    )
+
+    with pytest.raises(ProviderHTTPException) as exc_info:
+        service.validate_text_generation_ready('magic_cut')
+
+    assert exc_info.value.detail == expected_detail

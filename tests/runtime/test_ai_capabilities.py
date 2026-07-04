@@ -29,7 +29,7 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
         'degradedProviderCount',
         'lastHealthRefreshAt',
     }
-    assert len(payload['data']['capabilities']) == 8
+    assert len(payload['data']['capabilities']) == 9
     capability_ids = {item['capabilityId'] for item in payload['data']['capabilities']}
     assert capability_ids == {
         'script_generation',
@@ -40,6 +40,7 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
         'video_transcription',
         'video_generation',
         'asset_analysis',
+        'magic_cut',
     }
     providers = {item['provider']: item for item in payload['data']['providers']}
     assert set(providers) == {'openai', 'deepseek', 'volcengine', 'volcengine_tts'}
@@ -60,6 +61,21 @@ def test_ai_capabilities_return_defaults_and_provider_status_without_plaintext_s
     )
     assert asset_analysis['provider'] == 'volcengine'
     assert asset_analysis['model'] == 'doubao-seed-2.0-pro'
+    video_transcription = next(
+        item for item in payload['data']['capabilities']
+        if item['capabilityId'] == 'video_transcription'
+    )
+    assert video_transcription['provider'] == 'volcengine'
+    assert video_transcription['model'] == 'doubao-seed-2.0-pro'
+    magic_cut = next(
+        item for item in payload['data']['capabilities']
+        if item['capabilityId'] == 'magic_cut'
+    )
+    assert (magic_cut['provider'], magic_cut['model']) in {
+        ('deepseek', 'deepseek-chat'),
+        ('volcengine', 'doubao-seed-1.6'),
+    }
+    assert magic_cut['enabled'] is False
 
 
 def test_ai_capabilities_use_agent_prompt_config_defaults(
@@ -265,6 +281,7 @@ def test_ai_capability_mutations_emit_broadcast_events(runtime_app) -> None:
         'video_transcription',
         'video_generation',
         'asset_analysis',
+        'magic_cut',
     }
 
 
@@ -413,6 +430,15 @@ def test_ai_capability_update_and_secret_status_persist(runtime_app) -> None:
                     'agentRole': 'Asset analyst',
                     'systemPrompt': 'Analyze assets.',
                     'userPromptTemplate': 'Assets: {{assets}}',
+                },
+                {
+                    'capabilityId': 'magic_cut',
+                    'enabled': False,
+                    'provider': 'openai',
+                    'model': 'gpt-5-mini',
+                    'agentRole': 'Smart trimmer',
+                    'systemPrompt': 'Trim video content.',
+                    'userPromptTemplate': 'Timeline: {{timeline}}',
                 },
             ]
         },
@@ -692,6 +718,105 @@ def test_volcengine_legacy_alias_is_hidden_and_resolved_to_latest_remote_model(
     assert payload['model'] == 'doubao-seed-1-6-251015'
 
 
+def test_video_transcription_default_alias_can_be_saved_after_volcengine_refresh(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+    client.put(
+        '/api/settings/ai-capabilities/providers/volcengine/secret',
+        json={'apiKey': 'sk-test-volcengine'},
+    )
+
+    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
+        assert url == 'https://ark.cn-beijing.volces.com/api/v3/models'
+        return {
+            'data': [
+                {
+                    'id': 'doubao-seed-2-0-pro-260302',
+                    'name': 'doubao-seed-2.0-pro',
+                    'capabilities': ['text_generation', 'vision', 'asset_analysis'],
+                    'input_modalities': ['text', 'image', 'video'],
+                    'output_modalities': ['text'],
+                },
+            ],
+        }
+
+    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
+    refresh_response = client.post('/api/settings/ai-providers/volcengine/models/refresh')
+    assert refresh_response.status_code == 200
+
+    settings_response = client.get('/api/settings/ai-capabilities')
+    assert settings_response.status_code == 200
+    capabilities = settings_response.json()['data']['capabilities']
+    video_transcription = next(
+        item for item in capabilities
+        if item['capabilityId'] == 'video_transcription'
+    )
+    assert video_transcription['provider'] == 'volcengine'
+    assert video_transcription['model'] == 'doubao-seed-2.0-pro'
+
+    save_response = client.put('/api/settings/ai-capabilities', json={'capabilities': capabilities})
+    assert save_response.status_code == 200
+
+
+def test_magic_cut_support_matrix_excludes_hybrid_video_generation_models(
+    runtime_app,
+    monkeypatch,
+) -> None:
+    client = TestClient(runtime_app)
+    client.put(
+        '/api/settings/ai-capabilities/providers/volcengine/secret',
+        json={'apiKey': 'sk-test-volcengine'},
+    )
+
+    def fake_request_json_get(url: str, *, headers: dict[str, str] | None = None) -> dict[str, object]:
+        assert url == 'https://ark.cn-beijing.volces.com/api/v3/models'
+        return {
+            'data': [
+                {
+                    'id': 'doubao-hybrid-video-editor-260101',
+                    'name': 'doubao-hybrid-video-editor',
+                    'capabilities': ['text_generation', 'video_generation'],
+                    'input_modalities': ['text', 'image'],
+                    'output_modalities': ['text', 'video'],
+                },
+                {
+                    'id': 'doubao-seed-1-6-260101',
+                    'name': 'doubao-seed-1-6',
+                    'capabilities': ['text_generation'],
+                    'input_modalities': ['text'],
+                    'output_modalities': ['text'],
+                },
+            ],
+        }
+
+    monkeypatch.setattr('services.ai_capability_service._request_json_get', fake_request_json_get)
+    refresh_response = client.post('/api/settings/ai-providers/volcengine/models/refresh')
+    assert refresh_response.status_code == 200
+
+    matrix_response = client.get('/api/settings/ai-capabilities/support-matrix')
+    assert matrix_response.status_code == 200
+    capabilities = {
+        item['capabilityId']: item
+        for item in matrix_response.json()['data']['capabilities']
+    }
+    magic_cut_model_ids = {
+        item['modelId']
+        for item in capabilities['magic_cut']['models']
+        if item['provider'] == 'volcengine'
+    }
+    video_generation_model_ids = {
+        item['modelId']
+        for item in capabilities['video_generation']['models']
+        if item['provider'] == 'volcengine'
+    }
+
+    assert 'doubao-hybrid-video-editor-260101' not in magic_cut_model_ids
+    assert 'doubao-seed-1-6-260101' in magic_cut_model_ids
+    assert 'doubao-hybrid-video-editor-260101' in video_generation_model_ids
+
+
 def test_unconnected_media_and_custom_providers_are_hidden(
     runtime_client: TestClient,
 ) -> None:
@@ -841,6 +966,7 @@ def test_ai_capability_support_matrix_limits_models_by_capability(
         'video_transcription',
         'video_generation',
         'asset_analysis',
+        'magic_cut',
     }
     assert 'openai' in capabilities['script_generation']['providers']
     assert 'volcengine_tts' in capabilities['tts_generation']['providers']
@@ -871,6 +997,24 @@ def test_ai_capability_support_matrix_limits_models_by_capability(
         item['provider'] == 'volcengine'
         and item['modelId'] == 'doubao-seed-2.0-pro'
         for item in capabilities['video_transcription']['models']
+    )
+    assert any(
+        item['provider'] == 'volcengine'
+        and item['modelId'] == 'doubao-seed-1.6'
+        for item in capabilities['magic_cut']['models']
+    )
+    assert any(
+        item['provider'] == 'deepseek'
+        and item['modelId'] == 'deepseek-chat'
+        for item in capabilities['magic_cut']['models']
+    )
+    assert all(
+        'text_generation' in item['capabilityTypes']
+        for item in capabilities['magic_cut']['models']
+    )
+    assert all(
+        'video_generation' not in item['capabilityTypes']
+        for item in capabilities['magic_cut']['models']
     )
     assert 'openai' in capabilities['asset_analysis']['providers']
     assert 'volcengine' in capabilities['asset_analysis']['providers']
@@ -1066,3 +1210,48 @@ def test_ai_provider_model_upsert_persists_and_support_matrix_reads_capability_k
         item['provider'] == 'openai' and item['modelId'] == 'runtime-writer'
         for item in capabilities['script_generation']['models']
     )
+
+
+def test_magic_cut_ignores_video_generation_model_even_when_default_for_magic_cut(
+    runtime_client: TestClient,
+) -> None:
+    create_response = runtime_client.put(
+        '/api/ai-providers/openai/models/runtime-hybrid-video-editor',
+        json={
+            'displayName': 'Runtime Hybrid Video Editor',
+            'capabilityKinds': ['text_generation', 'video_generation'],
+            'inputModalities': ['text', 'image'],
+            'outputModalities': ['text', 'video'],
+            'contextWindow': 64000,
+            'defaultFor': ['magic_cut'],
+            'enabled': True,
+        },
+    )
+    assert create_response.status_code == 200
+
+    matrix_response = runtime_client.get('/api/settings/ai-capabilities/support-matrix')
+    assert matrix_response.status_code == 200
+    capabilities = {
+        item['capabilityId']: item
+        for item in matrix_response.json()['data']['capabilities']
+    }
+    assert all(
+        item['modelId'] != 'runtime-hybrid-video-editor'
+        for item in capabilities['magic_cut']['models']
+    )
+    assert any(
+        item['modelId'] == 'runtime-hybrid-video-editor'
+        for item in capabilities['video_generation']['models']
+    )
+
+
+def test_magic_cut_unknown_model_is_not_treated_as_supported(
+    runtime_app,
+) -> None:
+    service = runtime_app.state.ai_capability_service
+
+    assert service.model_supports_capability(
+        'openai',
+        'unknown-magic-cut-model',
+        'magic_cut',
+    ) is False

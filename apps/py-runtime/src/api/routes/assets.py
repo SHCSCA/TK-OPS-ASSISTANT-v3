@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter, Request
+from fastapi.responses import FileResponse
 
 from schemas.assets import (
     AssetCreateInput,
@@ -111,6 +114,16 @@ def get_asset(asset_id: str, request: Request) -> dict[str, object]:
     return ok_response(asset.model_dump(mode="json"))
 
 
+@router.get("/{asset_id}/media")
+def stream_asset_media(asset_id: str, request: Request, token: str | None = None) -> FileResponse:
+    media_path = _svc(request).get_asset_media_path(asset_id, token=token)
+    return FileResponse(
+        media_path,
+        filename=media_path.name,
+        media_type=_asset_media_type(media_path),
+    )
+
+
 @router.patch("/{asset_id}")
 def update_asset(asset_id: str, payload: AssetUpdateInput, request: Request) -> dict[str, object]:
     asset = _svc(request).update_asset(asset_id, payload)
@@ -137,3 +150,26 @@ def add_asset_reference(
 ) -> dict[str, object]:
     ref = _svc(request).add_reference(asset_id, payload)
     return ok_response(ref.model_dump(mode="json"))
+
+
+def _asset_media_type(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in {".mp4", ".m4v", ".mov"}:
+        return "video/mp4"
+    if suffix == ".webm":
+        return "video/webm"
+    if suffix == ".mp3":
+        return "audio/mpeg"
+    if suffix == ".wav":
+        return "audio/wav"
+    if suffix == ".ogg":
+        return "audio/ogg"
+    if suffix == ".m4a":
+        return "audio/mp4"
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if suffix == ".png":
+        return "image/png"
+    if suffix == ".webp":
+        return "image/webp"
+    return "application/octet-stream"

@@ -134,7 +134,7 @@
 }
 
 .video-card:hover .video-card__preview::after {
-  animation: shimmer 1.5s infinite;
+  animation: shimmer var(--motion-flow) infinite;
 }
 
 .video-card__body {
@@ -186,7 +186,7 @@
 }
 
 .status-dot--ready { background: var(--status-success); box-shadow: 0 0 8px var(--status-success); }
-.status-dot--loading { background: var(--status-info); box-shadow: 0 0 8px var(--status-info); animation: pulse 2s infinite; }
+.status-dot--loading { background: var(--status-info); box-shadow: 0 0 8px var(--status-info); animation: pulse var(--motion-pulse) infinite; }
 .status-dot--error { background: var(--status-error); box-shadow: 0 0 8px var(--status-error); }
 
 /* --- Animations --- */

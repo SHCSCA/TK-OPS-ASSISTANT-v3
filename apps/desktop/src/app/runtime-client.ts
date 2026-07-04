@@ -13,6 +13,7 @@ import type {
   AppSettings,
   AppSettingsUpdateInput,
   BootstrapDirectoryReport,
+  BootstrapReadinessReport,
   CreateProjectInput,
   CurrentProjectContext,
   DashboardSummary,
@@ -126,12 +127,7 @@ import type {
 } from "@/types/runtime";
 import type { TaskInfo } from "@/types/task-events";
 import type { ImportedVideo } from "@/types/video";
-
-const DEFAULT_RUNTIME_BASE_URL = "http://127.0.0.1:8000";
-
-function resolveRuntimeBaseUrl(): string {
-  return import.meta.env.VITE_RUNTIME_BASE_URL?.trim() || DEFAULT_RUNTIME_BASE_URL;
-}
+import { resolveRuntimeBaseUrl } from "@/app/runtime-endpoint";
 
 export function buildRuntimeResourceUrl(path: string, query: Record<string, string> = {}): string {
   const url = new URL(path, resolveRuntimeBaseUrl());
@@ -201,6 +197,14 @@ export async function runtimeSelfCheck(): Promise<RuntimeSelfCheckReport> {
   return requestRuntime<RuntimeSelfCheckReport>("/api/bootstrap/runtime-selfcheck", {
     method: "POST"
   });
+}
+
+export async function fetchBootstrapReadiness(): Promise<BootstrapReadinessReport> {
+  const result = await requestRuntimeWithMeta<BootstrapReadinessReport>("/api/bootstrap/readiness");
+  return {
+    ...result.data,
+    requestId: result.requestId || result.data.requestId || null
+  };
 }
 
 export async function fetchRuntimeLogs(filter: LogFilter = {}): Promise<LogPageDto> {
@@ -1476,7 +1480,19 @@ export async function cancelTask(
   );
 }
 
+type RuntimeResponseWithMeta<T> = {
+  data: T;
+  requestId: string;
+};
+
 async function requestRuntime<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return (await requestRuntimeWithMeta<T>(path, init)).data;
+}
+
+async function requestRuntimeWithMeta<T>(
+  path: string,
+  init: RequestInit = {}
+): Promise<RuntimeResponseWithMeta<T>> {
   const response = await fetch(`${resolveRuntimeBaseUrl()}${path}`, {
     ...init,
     headers: {
@@ -1487,20 +1503,30 @@ async function requestRuntime<T>(path: string, init: RequestInit = {}): Promise<
   });
 
   const payload = await readEnvelope<T>(response);
+  const requestId = response.headers?.get("X-Request-ID") ?? "";
 
   if (!response.ok) {
     throw toRuntimeRequestError(
       payload,
       response.status,
-      `Runtime request failed (HTTP ${response.status}).`
+      `Runtime 请求失败（HTTP ${response.status}），请稍后重试。`,
+      requestId
     );
   }
 
   if (!payload || !payload.ok) {
-    throw toRuntimeRequestError(payload, response.status, "Runtime request failed.");
+    throw toRuntimeRequestError(
+      payload,
+      response.status,
+      "Runtime 请求失败，请稍后重试。",
+      requestId
+    );
   }
 
-  return payload.data;
+  return {
+    data: payload.data,
+    requestId
+  };
 }
 
 async function readEnvelope<T>(response: Response): Promise<RuntimeEnvelope<T> | null> {
@@ -1514,18 +1540,19 @@ async function readEnvelope<T>(response: Response): Promise<RuntimeEnvelope<T> |
 function toRuntimeRequestError(
   payload: RuntimeEnvelope<unknown> | null,
   status: number,
-  fallbackMessage: string
+  fallbackMessage: string,
+  fallbackRequestId = ""
 ): RuntimeRequestError {
   if (payload && !payload.ok) {
     return new RuntimeRequestError(normalizeRuntimeErrorMessage(payload.error, status), {
       details: payload.details,
       errorCode: payload.error_code,
-      requestId: payload.requestId,
+      requestId: payload.requestId ?? fallbackRequestId,
       status
     });
   }
 
-  return new RuntimeRequestError(fallbackMessage, { status });
+  return new RuntimeRequestError(fallbackMessage, { requestId: fallbackRequestId, status });
 }
 
 function normalizeRuntimeErrorMessage(message: string, status: number): string {

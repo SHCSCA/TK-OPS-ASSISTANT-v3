@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildRuntimeWebSocketUrl } from "@/app/runtime-endpoint";
 import { useTaskBusStore } from "@/stores/task-bus";
 
 describe("task bus store", () => {
@@ -10,6 +11,13 @@ describe("task bus store", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("WebSocket 地址与 Runtime endpoint 入口保持一致", () => {
+    vi.stubEnv("VITE_RUNTIME_BASE_URL", "https://runtime.example.com:9443/root");
+
+    expect(buildRuntimeWebSocketUrl()).toBe("wss://runtime.example.com:9443/api/ws");
   });
 
   it("按 videoId 分发导入阶段进度事件，并缓存最后事件", () => {

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from pathlib import Path
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -24,14 +25,27 @@ from schemas.device_workspaces import (
     DeviceWorkspaceUpdateInput,
     HealthCheckResultDto,
 )
+from services.browser_runtime import (
+    BrowserLaunchResult,
+    BrowserRuntime,
+    BrowserRuntimeError,
+    BrowserRuntimeHealth,
+    LocalBrowserRuntime,
+)
 from services.ws_manager import ws_manager
 
 log = logging.getLogger(__name__)
 
 
 class DeviceWorkspaceService:
-    def __init__(self, repository: DeviceWorkspaceRepository) -> None:
+    def __init__(
+        self,
+        repository: DeviceWorkspaceRepository,
+        *,
+        browser_runtime: BrowserRuntime | None = None,
+    ) -> None:
         self._repository = repository
+        self._browser_runtime = browser_runtime or LocalBrowserRuntime()
 
     def list_workspaces(self) -> list[DeviceWorkspaceDto]:
         try:
@@ -236,26 +250,195 @@ class DeviceWorkspaceService:
         return self._to_browser_instance_dto(self._get_browser_instance_model(workspace_id, instance_id))
 
     def start_browser_instance(self, workspace_id: str, instance_id: str) -> BrowserInstanceWriteResultDto:
+        instance = self._get_browser_instance_model(workspace_id, instance_id)
+        profile_path = Path(instance.profile_path)
+        if not profile_path.exists():
+            updated = self._update_browser_instance_status(
+                workspace_id,
+                instance_id,
+                status="error",
+                error_code="browser_instance.profile_missing",
+                error_message="浏览器实例的 profile 目录不存在。",
+                last_checked_at=self._now(),
+            )
+            return self._to_browser_write_result(
+                updated,
+                operation="start",
+                process_boundary_verified=False,
+                process_summary=self._process_summary(
+                    alive=False,
+                    process_id=updated.process_id,
+                    debug_port=updated.debug_port,
+                ),
+            )
+
+        existing_health = self._browser_runtime.health(
+            process_id=instance.process_id,
+            debug_port=instance.debug_port,
+        )
+        if existing_health.alive:
+            updated = self._update_browser_instance_status(
+                workspace_id,
+                instance_id,
+                status="running",
+                error_code=None,
+                error_message=None,
+                runtime_evidence_json=self._dump_runtime_evidence(
+                    {
+                        "processId": instance.process_id,
+                        "debugPort": instance.debug_port,
+                        "debugHost": instance.debug_host,
+                        "devtoolsUrl": existing_health.devtools_url,
+                        "metadata": existing_health.metadata,
+                    }
+                ),
+                last_started_at=instance.last_started_at or self._now(),
+            )
+            return self._to_browser_write_result(
+                updated,
+                operation="start",
+                process_boundary_verified=True,
+                process_summary=self._process_summary(
+                    alive=True,
+                    process_id=updated.process_id,
+                    debug_port=updated.debug_port,
+                ),
+            )
+
+        try:
+            launch_result = self._browser_runtime.launch(profile_path=profile_path)
+        except BrowserRuntimeError as exc:
+            updated = self._update_browser_instance_status(
+                workspace_id,
+                instance_id,
+                status="error",
+                error_code=exc.error_code,
+                error_message=exc.message,
+                process_id=None,
+                debug_port=None,
+                debug_host=None,
+                runtime_mode="metadata_only",
+                runtime_evidence_json=self._dump_runtime_evidence(
+                    {
+                        "profilePath": str(profile_path),
+                        "errorCode": exc.error_code,
+                        "errorMessage": exc.message,
+                    }
+                ),
+                last_checked_at=self._now(),
+            )
+            self._append_browser_log(
+                workspace_id=workspace_id,
+                kind="browser-start",
+                level="error",
+                message=exc.message,
+                context={
+                    "browserInstanceId": instance_id,
+                    "errorCode": exc.error_code,
+                },
+            )
+            return self._to_browser_write_result(
+                updated,
+                operation="start",
+                process_boundary_verified=False,
+                process_summary=self._process_summary(alive=False),
+            )
+
         instance = self._update_browser_instance_status(
             workspace_id,
             instance_id,
             status="running",
             error_code=None,
             error_message=None,
+            process_id=launch_result.process_id,
+            debug_port=launch_result.debug_port,
+            debug_host=launch_result.debug_host,
+            runtime_mode="local_process",
+            executable_path=launch_result.executable_path,
+            runtime_evidence_json=self._dump_launch_evidence(launch_result),
             last_started_at=self._now(),
         )
-        return self._to_browser_write_result(instance)
+        self._append_browser_log(
+            workspace_id=workspace_id,
+            kind="browser-start",
+            level="info",
+            message="浏览器实例已启动真实本地进程。",
+            context={
+                "browserInstanceId": instance_id,
+                "processId": launch_result.process_id,
+                "debugPort": launch_result.debug_port,
+            },
+        )
+        return self._to_browser_write_result(
+            instance,
+            operation="start",
+            process_boundary_verified=True,
+            process_summary=self._process_summary(
+                alive=True,
+                process_id=launch_result.process_id,
+                debug_port=launch_result.debug_port,
+            ),
+        )
 
     def stop_browser_instance(self, workspace_id: str, instance_id: str) -> BrowserInstanceWriteResultDto:
+        current = self._get_browser_instance_model(workspace_id, instance_id)
+        stop_result = self._browser_runtime.stop(process_id=current.process_id)
+        if stop_result.error_code:
+            instance = self._update_browser_instance_status(
+                workspace_id,
+                instance_id,
+                status="error",
+                error_code=stop_result.error_code,
+                error_message=stop_result.error_message,
+                last_checked_at=self._now(),
+            )
+            return self._to_browser_write_result(
+                instance,
+                operation="stop",
+                process_boundary_verified=False,
+                process_summary=self._process_summary(
+                    alive=stop_result.alive,
+                    process_id=current.process_id,
+                    debug_port=current.debug_port,
+                ),
+            )
         instance = self._update_browser_instance_status(
             workspace_id,
             instance_id,
             status="stopped",
             error_code=None,
             error_message=None,
+            process_id=None,
+            debug_port=None,
+            debug_host=None,
+            runtime_evidence_json=self._dump_runtime_evidence(
+                {
+                    "stoppedProcessId": current.process_id,
+                    "stoppedAt": self._now().isoformat(),
+                }
+            ),
             last_stopped_at=self._now(),
         )
-        return self._to_browser_write_result(instance)
+        self._append_browser_log(
+            workspace_id=workspace_id,
+            kind="browser-stop",
+            level="info",
+            message="浏览器实例进程已停止。",
+            context={
+                "browserInstanceId": instance_id,
+                "processId": current.process_id,
+            },
+        )
+        return self._to_browser_write_result(
+            instance,
+            operation="stop",
+            process_boundary_verified=not stop_result.alive,
+            process_summary=self._process_summary(
+                alive=stop_result.alive,
+                process_id=current.process_id,
+                debug_port=current.debug_port,
+            ),
+        )
 
     def health_check_browser_instance(
         self,
@@ -273,7 +456,41 @@ class DeviceWorkspaceService:
                 error_message="浏览器实例的 profile 目录不存在。",
                 last_checked_at=self._now(),
             )
-            return self._to_browser_write_result(updated)
+            return self._to_browser_write_result(
+                updated,
+                operation="health-check",
+                process_boundary_verified=False,
+                process_summary=self._process_summary(
+                    alive=False,
+                    process_id=updated.process_id,
+                    debug_port=updated.debug_port,
+                ),
+            )
+
+        health = self._browser_runtime.health(
+            process_id=instance.process_id,
+            debug_port=instance.debug_port,
+        )
+        if not health.alive:
+            updated = self._update_browser_instance_status(
+                workspace_id,
+                instance_id,
+                status="error",
+                error_code=health.error_code or "browser_instance.process_missing",
+                error_message=health.error_message or "浏览器进程不存在或已经退出。",
+                runtime_evidence_json=self._dump_health_evidence(health),
+                last_checked_at=self._now(),
+            )
+            return self._to_browser_write_result(
+                updated,
+                operation="health-check",
+                process_boundary_verified=False,
+                process_summary=self._process_summary(
+                    alive=False,
+                    process_id=instance.process_id,
+                    debug_port=instance.debug_port,
+                ),
+            )
 
         updated = self._update_browser_instance_status(
             workspace_id,
@@ -281,9 +498,19 @@ class DeviceWorkspaceService:
             status="ready",
             error_code=None,
             error_message=None,
+            runtime_evidence_json=self._dump_health_evidence(health),
             last_checked_at=self._now(),
         )
-        return self._to_browser_write_result(updated)
+        return self._to_browser_write_result(
+            updated,
+            operation="health-check",
+            process_boundary_verified=True,
+            process_summary=self._process_summary(
+                alive=True,
+                process_id=updated.process_id,
+                debug_port=updated.debug_port,
+            ),
+        )
 
     def _get_workspace_model(self, ws_id: str) -> DeviceWorkspace:
         try:
@@ -407,6 +634,12 @@ class DeviceWorkspaceService:
             name=item.name,
             profilePath=item.profile_path,
             status=item.status,
+            processId=item.process_id,
+            debugPort=item.debug_port,
+            debugHost=item.debug_host,
+            runtimeMode=item.runtime_mode or "metadata_only",
+            launchSupported=self._browser_runtime.launch_supported(),
+            runtimeEvidence=self._parse_runtime_evidence(item.runtime_evidence_json),
             lastCheckedAt=item.last_checked_at,
             lastStartedAt=item.last_started_at,
             lastStoppedAt=item.last_stopped_at,
@@ -416,7 +649,14 @@ class DeviceWorkspaceService:
             updatedAt=item.updated_at,
         )
 
-    def _to_browser_write_result(self, item: BrowserInstance) -> BrowserInstanceWriteResultDto:
+    def _to_browser_write_result(
+        self,
+        item: BrowserInstance,
+        *,
+        operation: str,
+        process_boundary_verified: bool,
+        process_summary: dict[str, object],
+    ) -> BrowserInstanceWriteResultDto:
         updated_at = item.updated_at.isoformat()
         return BrowserInstanceWriteResultDto(
             saved=True,
@@ -428,7 +668,80 @@ class DeviceWorkspaceService:
                 "name": item.name,
             },
             browserInstance=self._to_browser_instance_dto(item),
+            operation=operation,
+            processBoundaryVerified=process_boundary_verified,
+            processSummary=process_summary,
         )
+
+    def _dump_launch_evidence(self, launch_result: BrowserLaunchResult) -> str:
+        return self._dump_runtime_evidence(
+            {
+                "processId": launch_result.process_id,
+                "debugHost": launch_result.debug_host,
+                "debugPort": launch_result.debug_port,
+                "executablePath": launch_result.executable_path,
+                "devtoolsUrl": launch_result.devtools_url,
+                "metadata": launch_result.metadata,
+            }
+        )
+
+    def _dump_health_evidence(self, health: BrowserRuntimeHealth) -> str:
+        return self._dump_runtime_evidence(
+            {
+                "alive": health.alive,
+                "processId": health.process_id,
+                "debugPort": health.debug_port,
+                "devtoolsUrl": health.devtools_url,
+                "errorCode": health.error_code,
+                "errorMessage": health.error_message,
+                "metadata": health.metadata,
+            }
+        )
+
+    def _dump_runtime_evidence(self, payload: dict[str, object]) -> str:
+        return json.dumps(payload, ensure_ascii=False)
+
+    def _parse_runtime_evidence(self, raw_value: str | None) -> dict[str, object] | None:
+        if not raw_value:
+            return None
+        try:
+            payload = json.loads(raw_value)
+        except json.JSONDecodeError:
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    def _process_summary(
+        self,
+        *,
+        alive: bool,
+        process_id: int | None = None,
+        debug_port: int | None = None,
+    ) -> dict[str, object]:
+        return {
+            "pid": process_id,
+            "debugPort": debug_port,
+            "alive": alive,
+        }
+
+    def _append_browser_log(
+        self,
+        *,
+        workspace_id: str,
+        kind: str,
+        level: str,
+        message: str,
+        context: dict[str, Any],
+    ) -> None:
+        try:
+            self._repository.append_log(
+                workspace_id=workspace_id,
+                kind=kind,
+                level=level,
+                message=message,
+                context_json=json.dumps(context, ensure_ascii=False),
+            )
+        except Exception:
+            log.exception("写入浏览器实例日志失败")
 
     def _now(self):
         return utc_now()

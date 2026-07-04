@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("Tauri capability 权限", () => {
-  it("主窗口保留剪辑工作台和右侧抽屉所需的最小桌面空间", () => {
+  it("主窗口默认保持宽屏体验，同时允许 960 宽度紧凑窗口验证", () => {
     const configPath = resolve(process.cwd(), "src-tauri", "tauri.conf.json");
     const config = JSON.parse(readFileSync(configPath, "utf8")) as {
       app?: {
@@ -23,8 +23,8 @@ describe("Tauri capability 权限", () => {
 
     expect(mainWindow?.width).toBe(1680);
     expect(mainWindow?.height).toBe(960);
-    expect(mainWindow?.minWidth).toBe(1680);
-    expect(mainWindow?.minHeight).toBe(900);
+    expect(mainWindow?.minWidth).toBeLessThanOrEqual(960);
+    expect(mainWindow?.minHeight).toBeLessThanOrEqual(720);
     expect(mainWindow?.resizable).toBe(true);
   });
 

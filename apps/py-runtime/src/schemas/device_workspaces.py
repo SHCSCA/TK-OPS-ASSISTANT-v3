@@ -87,6 +87,12 @@ class BrowserInstanceDto(BaseModel):
     name: str
     profilePath: str
     status: str
+    processId: int | None = None
+    debugPort: int | None = None
+    debugHost: str | None = None
+    runtimeMode: str
+    launchSupported: bool
+    runtimeEvidence: dict[str, object] | None = None
     lastCheckedAt: datetime | None = None
     lastStartedAt: datetime | None = None
     lastStoppedAt: datetime | None = None
@@ -102,3 +108,6 @@ class BrowserInstanceWriteResultDto(BaseModel):
     versionOrRevision: str
     objectSummary: dict[str, str]
     browserInstance: BrowserInstanceDto
+    operation: str
+    processBoundaryVerified: bool
+    processSummary: dict[str, object]

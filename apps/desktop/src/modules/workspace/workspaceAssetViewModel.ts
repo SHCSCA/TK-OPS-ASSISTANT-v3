@@ -1,6 +1,7 @@
 import type { AssetDto, WorkspaceTimelineDto } from "@/types/runtime";
 
 export type WorkspaceAssetTone = "neutral" | "success" | "warning" | "danger";
+export type WorkspaceAssetSourceTabId = "storyboard" | "voice_track" | "subtitle_track" | "assets";
 
 export type WorkspaceAssetCard = {
   id: string;
@@ -17,6 +18,7 @@ export type WorkspaceAssetCard = {
   primaryAction: string;
   isOnTimeline: boolean;
   asset: AssetDto;
+  previewAsset: AssetDto;
 };
 
 export type BuildWorkspaceAssetCardsInput = {
@@ -24,6 +26,8 @@ export type BuildWorkspaceAssetCardsInput = {
   assets: AssetDto[];
   timeline: WorkspaceTimelineDto | null;
 };
+
+const SOURCE_TAB_PRIORITY: WorkspaceAssetSourceTabId[] = ["storyboard", "voice_track", "subtitle_track"];
 
 export function buildWorkspaceAssetCards(input: BuildWorkspaceAssetCardsInput): WorkspaceAssetCard[] {
   const timelineAssetIds = new Set(
@@ -40,6 +44,11 @@ export function buildWorkspaceAssetCards(input: BuildWorkspaceAssetCardsInput): 
       const isOnTimeline = timelineAssetIds.has(asset.id);
       const state = resolveAssetState(asset, isOnTimeline);
       const durationLabel = formatDuration(asset.durationMs);
+      const thumbnailPath = asset.thumbnailPath || asset.thumbnailStatus.path;
+      const previewAsset = {
+        ...asset,
+        thumbnailPath
+      };
 
       return {
         id: asset.id,
@@ -47,15 +56,36 @@ export function buildWorkspaceAssetCards(input: BuildWorkspaceAssetCardsInput): 
         name: asset.name,
         type: asset.type,
         filePath: asset.filePath,
-        thumbnailPath: asset.thumbnailPath || asset.thumbnailStatus.path,
+        thumbnailPath,
         durationLabel,
         summary: [assetTypeLabel(asset.type), durationLabel, formatFileSize(asset.fileSizeBytes)].join(" · "),
         sourceTypeLabel: sourceTypeLabel(asset.sourceInfo.source || asset.source),
         isOnTimeline,
         asset,
+        previewAsset,
         ...state
       };
     });
+}
+
+export function resolveDefaultWorkspaceAssetTab(input: BuildWorkspaceAssetCardsInput): WorkspaceAssetSourceTabId {
+  const hasProjectAssets = input.assets.some(
+    (asset) => asset.projectId === input.projectId || asset.sourceInfo.projectId === input.projectId
+  );
+  if (hasProjectAssets) return "assets";
+
+  const sourceTypes = new Set(
+    input.timeline?.tracks.flatMap((track) => track.clips.map((clip) => clip.sourceType)) ?? []
+  );
+
+  return SOURCE_TAB_PRIORITY.find((sourceType) => sourceTypes.has(sourceType)) ?? "assets";
+}
+
+export function resolveWorkspaceAssetTabFromSourceType(sourceType: string | null | undefined): WorkspaceAssetSourceTabId | null {
+  if (sourceType === "storyboard") return "storyboard";
+  if (sourceType === "voice_track") return "voice_track";
+  if (sourceType === "subtitle_track") return "subtitle_track";
+  return null;
 }
 
 export function sourceTypeLabel(sourceType: string): string {
@@ -77,7 +107,7 @@ function resolveAssetState(
     return {
       status: "路径缺失",
       tone: "danger",
-      primaryAction: asset.availability.nextAction || "重新定位"
+      primaryAction: "重新检查"
     };
   }
 
@@ -85,7 +115,7 @@ function resolveAssetState(
     return {
       status: "不可用",
       tone: "danger",
-      primaryAction: asset.availability.nextAction || "处理资产"
+      primaryAction: "重新检查"
     };
   }
 
@@ -93,7 +123,7 @@ function resolveAssetState(
     return {
       status: "需转码",
       tone: "warning",
-      primaryAction: "检查"
+      primaryAction: "重新检查"
     };
   }
 
@@ -101,7 +131,7 @@ function resolveAssetState(
     return {
       status: "已入轨",
       tone: "success",
-      primaryAction: "替换片段"
+      primaryAction: asset.type === "audio" ? "加入音轨" : "加入轨道"
     };
   }
 

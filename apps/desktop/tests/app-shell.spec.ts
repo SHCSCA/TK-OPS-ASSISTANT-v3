@@ -94,6 +94,9 @@ describe("App shell", () => {
         if (path === "/api/settings/diagnostics") {
           return okJsonResponse(runtimeFixtures.initializedDiagnostics);
         }
+        if (path === "/api/bootstrap/readiness") {
+          return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+        }
         if (path === "/api/dashboard/summary") {
           return okJsonResponse(runtimeFixtures.emptyDashboardSummary);
         }
@@ -134,6 +137,7 @@ describe("App shell", () => {
         if (path === "/api/settings/health") return okJsonResponse(runtimeFixtures.health);
         if (path === "/api/settings/config") return okJsonResponse(runtimeFixtures.initializedConfig);
         if (path === "/api/settings/diagnostics") return okJsonResponse(runtimeFixtures.initializedDiagnostics);
+        if (path === "/api/bootstrap/readiness") return okJsonResponse(runtimeFixtures.bootstrapReadiness);
         if (path === "/api/dashboard/summary") {
           return okJsonResponse({
             recentProjects: [],

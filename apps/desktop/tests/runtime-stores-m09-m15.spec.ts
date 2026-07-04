@@ -8,6 +8,7 @@ import { useDeviceWorkspacesStore } from "@/stores/device-workspaces";
 import { usePublishingStore } from "@/stores/publishing";
 import { useRendersStore } from "@/stores/renders";
 import { useReviewStore } from "@/stores/review";
+import { useTaskBusStore } from "@/stores/task-bus";
 
 import { createRouteAwareFetch, errorJsonResponse, okJsonResponse } from "./runtime-helpers";
 
@@ -207,6 +208,46 @@ describe("M09-M15 Pinia store Runtime 行为", () => {
     expect(devices.error).toBe("设备工作区加载失败");
     expect(devices.viewState).toBe("error");
   });
+
+  it("渲染 store 收到 Runtime 状态事件后刷新输出路径", async () => {
+    let renderLoadCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method) => {
+        if (path === "/api/renders/tasks" && method === "GET") {
+          renderLoadCount += 1;
+          return okJsonResponse([
+            renderLoadCount === 1
+              ? renderTask("render-1", 35, "rendering")
+              : renderTask(
+                  "render-1",
+                  100,
+                  "completed",
+                  "G:/AI/TK-OPS-ASSISTANT-V3/.runtime-data/exports/project-1/render-1.mp4"
+                )
+          ]);
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const renders = useRendersStore();
+    await renders.loadTasks();
+
+    useTaskBusStore().handleIncomingMessage(
+      JSON.stringify({
+        schema_version: 1,
+        type: "render.status.changed",
+        taskId: "render-1",
+        status: "completed"
+      })
+    );
+    await waitForStoreRefresh();
+
+    expect(renders.tasks[0].status).toBe("completed");
+    expect(renders.tasks[0].output_path).toContain("render-1.mp4");
+  });
+
   it("资产 store 支持真实导入、标签解析和删除前引用阻断", async () => {
     let references = [assetReference()];
     const deleteAssetMock = vi.fn(() => okJsonResponse({ deleted: true }));
@@ -378,7 +419,7 @@ function publishCalendar() {
   };
 }
 
-function renderTask(id = "render-1", progress = 0, status = "queued") {
+function renderTask(id = "render-1", progress = 0, status = "queued", outputPath: string | null = null) {
   return {
     id,
     project_id: "project-1",
@@ -387,16 +428,28 @@ function renderTask(id = "render-1", progress = 0, status = "queued") {
     format: "mp4",
     status,
     progress,
-    output_path: null,
+    output_path: outputPath,
     error_message: null,
     stage: { code: status, label: "排队中" },
-    output: { path: null, exists: false, size_bytes: null, last_checked_at: now(), can_open: false },
+    output: {
+      path: outputPath,
+      exists: Boolean(outputPath),
+      size_bytes: outputPath ? 1024 : null,
+      last_checked_at: now(),
+      can_open: Boolean(outputPath)
+    },
     failure: { error_code: null, error_message: null, next_action: null, retryable: false },
     started_at: null,
     finished_at: null,
     created_at: now(),
     updated_at: now()
   };
+}
+
+async function waitForStoreRefresh() {
+  for (let index = 0; index < 5; index += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
 }
 
 function exportProfile(id = "profile-1") {

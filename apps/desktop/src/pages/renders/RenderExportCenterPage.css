@@ -50,6 +50,11 @@
   flex-shrink: 0;
 }
 
+.render-workspace-handoff-slot {
+  margin-bottom: var(--space-4);
+  flex-shrink: 0;
+}
+
 .summary-card {
   padding: var(--space-4);
   display: flex;
@@ -270,7 +275,7 @@
   height: 2px;
   background: var(--gradient-ai-primary);
   background-size: 200% 200%;
-  animation: ai-flow 2.4s linear infinite;
+  animation: ai-flow var(--motion-flow) linear infinite;
   z-index: 10;
 }
 

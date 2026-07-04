@@ -22,7 +22,11 @@ export function createBootstrapSettingsInput(): AppSettingsUpdateInput {
       subtitleMode: ""
     },
     media: {
-      ffprobePath: ""
+      ffprobePath: "",
+      ffmpegPath: ""
+    },
+    browser: {
+      executablePath: ""
     }
   };
 }
@@ -43,6 +47,8 @@ export function applySettingsToBootstrapForm(
   target.ai.voice = source.ai.voice;
   target.ai.subtitleMode = source.ai.subtitleMode;
   target.media.ffprobePath = source.media?.ffprobePath ?? "";
+  target.media.ffmpegPath = source.media?.ffmpegPath ?? "";
+  target.browser.executablePath = source.browser?.executablePath ?? "";
 }
 
 export function cloneBootstrapSettingsInput(
@@ -69,7 +75,11 @@ export function cloneBootstrapSettingsInput(
       subtitleMode: source.ai.subtitleMode
     },
     media: {
-      ffprobePath: source.media.ffprobePath
+      ffprobePath: source.media.ffprobePath,
+      ffmpegPath: source.media.ffmpegPath
+    },
+    browser: {
+      executablePath: source.browser?.executablePath ?? ""
     }
   };
 }

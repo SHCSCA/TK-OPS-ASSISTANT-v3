@@ -55,6 +55,9 @@ describe("Creator dashboard", () => {
         return summaryResponse.promise;
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
 
@@ -129,6 +132,9 @@ describe("Creator dashboard", () => {
         });
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
 
@@ -196,6 +202,9 @@ describe("Creator dashboard", () => {
         return errorJsonResponse(500, "总览摘要读取失败。", "req-dashboard-500");
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
 

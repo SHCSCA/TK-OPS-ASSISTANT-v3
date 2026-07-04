@@ -15,7 +15,7 @@
         @click="$emit('magic-cut')"
       >
         <span class="material-symbols-outlined">auto_fix_high</span>
-        AI 魔法剪
+        智能粗剪
       </button>
       <button class="workspace-ai-bar__button workspace-ai-bar__button--ghost" type="button" disabled>
         <span class="material-symbols-outlined">record_voice_over</span>
@@ -63,20 +63,20 @@ const title = computed(() => {
   return "等待时间线草稿";
 });
 const description = computed(() => {
-  if (!props.hasTimeline) return "先创建时间线草稿，AI 工具条才会进入真实 blocked / disabled 语义。";
-  if (props.selectedClip) return `片段状态：${props.selectedClip.status}，AI 命令不会伪造结果。`;
-  return "当前只开放真实命令入口，未接通 Provider 时明确返回 blocked。";
+  if (!props.hasTimeline) return "先创建时间线草稿，智能粗剪会保持可恢复等待。";
+  if (props.selectedClip) return `片段状态：${props.selectedClip.status}，智能粗剪不会伪造结果。`;
+  return "当前只开放真实智能粗剪入口，能力未就绪时会显示可恢复原因。";
 });
 const statusLabel = computed(() => {
-  if (props.status === "blocked") return "Blocked";
-  if (props.status === "saving") return "处理中";
-  if (!props.hasTimeline) return "Disabled";
-  return "Ready";
+  if (props.status === "blocked") return "已阻断";
+  if (isBusy.value) return "处理中";
+  if (!props.hasTimeline) return "等待时间线";
+  return "可用";
 });
 const note = computed(() => {
   if (props.blockedMessage) return props.blockedMessage;
-  if (!props.hasTimeline) return "当前没有 timeline，命令保持 disabled。";
-  return "运行能力待接通前，仅支持时间线草稿与素材占位。";
+  if (!props.hasTimeline) return "等待时间线草稿后可执行智能粗剪。";
+  return "智能粗剪可用，执行结果将回写当前时间线草稿。";
 });
 </script>
 
@@ -144,7 +144,7 @@ const note = computed(() => {
 .workspace-ai-bar__button--ai {
   background: var(--gradient-ai-primary);
   background-size: 200% 200%;
-  animation: ai-shimmer 4s ease infinite;
+  animation: ai-shimmer var(--motion-flow) ease infinite;
   color: #fff;
   border: none;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--brand-primary) 20%, transparent);

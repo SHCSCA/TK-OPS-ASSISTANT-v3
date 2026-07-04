@@ -36,6 +36,9 @@ describe("Project context guard", () => {
           return okJsonResponse(runtimeFixtures.emptyDashboardSummary);
         }
 
+        if (path === "/api/bootstrap/readiness") {
+          return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+        }
         throw new Error(`Unhandled request: ${path}`);
       })
     );

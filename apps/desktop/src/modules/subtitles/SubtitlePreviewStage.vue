@@ -132,7 +132,7 @@ function clamp(value: number, min: number, max: number): number {
   height: 2px;
   background: var(--gradient-ai-primary);
   background-size: 200% 200%;
-  animation: ai-flow 2.4s linear infinite;
+  animation: ai-flow var(--motion-flow) linear infinite;
   z-index: 10;
 }
 
@@ -160,7 +160,7 @@ function clamp(value: number, min: number, max: number): number {
     transparent
   );
   content: "";
-  animation: subtitle-scan 1.2s ease-in-out infinite;
+  animation: subtitle-scan var(--motion-pulse) ease-in-out infinite;
 }
 
 .safe-area {

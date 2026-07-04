@@ -3,6 +3,10 @@ export type TimelineRectLike = {
   width: number;
 };
 
+export const TIMELINE_ZOOM_STEPS = [50, 75, 100, 150, 200, 300] as const;
+
+export type TimelineZoomPercent = (typeof TIMELINE_ZOOM_STEPS)[number];
+
 export function clampTimelineMs(value: number, durationMs: number): number {
   const duration = normalizeDurationMs(durationMs);
 
@@ -37,6 +41,31 @@ export function clientXToTimelineMs(clientX: number, rect: TimelineRectLike, dur
   const percent = ((clientX - rect.left) / width) * 100;
 
   return percentToMs(percent, durationMs);
+}
+
+export function normalizeTimelineZoomPercent(value: number): TimelineZoomPercent {
+  if (!Number.isFinite(value)) return 100;
+
+  return TIMELINE_ZOOM_STEPS.reduce<TimelineZoomPercent>((closest, step) => {
+    const closestDistance = Math.abs(value - closest);
+    const stepDistance = Math.abs(value - step);
+
+    return stepDistance < closestDistance ? step : closest;
+  }, TIMELINE_ZOOM_STEPS[0]);
+}
+
+export function timelineZoomScale(value: number): number {
+  return normalizeTimelineZoomPercent(value) / 100;
+}
+
+export function timelineZoomGridSizePx(value: number): number {
+  return Math.round(80 * timelineZoomScale(value));
+}
+
+export function timelineContentBaseWidthPx(durationMs: number): number {
+  const seconds = normalizeDurationMs(durationMs) / 1000;
+
+  return Math.max(960, Math.round(seconds * 64));
 }
 
 function normalizeDurationMs(durationMs: number): number {

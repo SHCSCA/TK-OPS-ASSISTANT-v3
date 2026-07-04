@@ -6,6 +6,7 @@ import {
   computePlayheadPercent,
   formatWorkspaceClipRange,
   resolveSnapStartMs,
+  summarizeManagedTrackSync,
   workspaceStatusLabel,
   workspaceTrackMetaLabel,
   trackVisualClass
@@ -71,6 +72,296 @@ describe("workspace timeline view model", () => {
     expect(rows.map((row) => row.visualClass)).toEqual(["video", "voice", "bgm", "subtitle"]);
     expect(rows.map((row) => row.heightClass)).toEqual(["tall", "medium", "medium", "compact"]);
     expect(trackVisualClass("audio", "环境声")).toBe("bgm");
+  });
+
+  it("为 AI 受管轨道标记统一结束点与需同步状态", () => {
+    const rows = buildTimelineRows(
+      [
+        track({
+          id: "managed-video-storyboard",
+          clips: [clip({ id: "video", trackId: "managed-video-storyboard", startMs: 0, durationMs: 15000 })]
+        }),
+        track({
+          id: "managed-voice-track",
+          kind: "audio",
+          name: "配音轨",
+          orderIndex: 1,
+          clips: [clip({ id: "voice", trackId: "managed-voice-track", startMs: 0, durationMs: 12000 })]
+        }),
+        track({
+          id: "managed-subtitle-track",
+          kind: "subtitle",
+          name: "字幕轨",
+          orderIndex: 2,
+          clips: [clip({ id: "subtitle", trackId: "managed-subtitle-track", startMs: 0, durationMs: 15000 })]
+        })
+      ],
+      15000
+    );
+
+    expect(rows.map((row) => row.syncStatus)).toEqual(["synced", "short", "synced"]);
+    expect(rows.map((row) => row.syncEndPercent)).toEqual([100, 80, 100]);
+    expect(rows.map((row) => row.syncTargetPercent)).toEqual([100, 100, 100]);
+    expect(rows.map((row) => row.syncGapWidthPercent)).toEqual([0, 20, 0]);
+    expect(rows[1].syncGapLeftPercent).toBe(80);
+    expect(rows[0].syncLabel).toBe("统一结束");
+    expect(rows[1].syncLabel).toBe("需同步 00:03");
+  });
+
+  it("手动轨道即使包含 AI 来源片段也不标记为受管轨道", () => {
+    const [row] = buildTimelineRows(
+      [
+        track({
+          id: "manual-storyboard-reference",
+          clips: [
+            clip({
+              id: "manual-storyboard-clip",
+              sourceType: "storyboard",
+              startMs: 0,
+              durationMs: 10000
+            })
+          ]
+        })
+      ],
+      10000
+    );
+
+    expect(row.isManagedAITrack).toBe(false);
+    expect(row.syncStatus).toBe("synced");
+    expect(row.syncLabel).toBe("手动轨道");
+  });
+
+  it("AI 三轨同步目标只按受管轨道计算，不被更长手动轨道带偏", () => {
+    const tracks = [
+      track({
+        id: "managed-video-storyboard",
+        clips: [clip({ id: "video", trackId: "managed-video-storyboard", startMs: 0, durationMs: 15000 })]
+      }),
+      track({
+        id: "managed-voice-track",
+        kind: "audio",
+        name: "配音轨",
+        orderIndex: 1,
+        clips: [clip({ id: "voice", trackId: "managed-voice-track", startMs: 0, durationMs: 15000 })]
+      }),
+      track({
+        id: "managed-subtitle-track",
+        kind: "subtitle",
+        name: "字幕轨",
+        orderIndex: 2,
+        clips: [clip({ id: "subtitle", trackId: "managed-subtitle-track", startMs: 0, durationMs: 15000 })]
+      }),
+      track({
+        id: "manual-bgm-track",
+        kind: "audio",
+        name: "手动 BGM",
+        orderIndex: 3,
+        clips: [clip({ id: "manual-bgm", trackId: "manual-bgm-track", startMs: 0, durationMs: 30000 })]
+      })
+    ];
+
+    const summary = summarizeManagedTrackSync(tracks, 30000);
+    const rows = buildTimelineRows(tracks, 30000, summary.targetDurationMs);
+
+    expect(summary).toMatchObject({
+      managedCount: 3,
+      targetDurationMs: 15000,
+      unsyncedCount: 0,
+      visible: true
+    });
+    expect(rows.filter((row) => row.isManagedAITrack).map((row) => row.syncStatus)).toEqual([
+      "synced",
+      "synced",
+      "synced"
+    ]);
+  });
+
+  it("声明时长存在时作为 AI 三轨规范目标，过长受管轨道标记超出", () => {
+    const tracks = [
+      track({
+        id: "managed-video-storyboard",
+        clips: [clip({ id: "video", trackId: "managed-video-storyboard", startMs: 0, durationMs: 18000 })]
+      }),
+      track({
+        id: "managed-voice-track",
+        kind: "audio",
+        name: "配音轨",
+        orderIndex: 1,
+        clips: [clip({ id: "voice", trackId: "managed-voice-track", startMs: 0, durationMs: 15000 })]
+      }),
+      track({
+        id: "manual-bgm-track",
+        kind: "audio",
+        name: "手动 BGM",
+        orderIndex: 2,
+        clips: [clip({ id: "manual-bgm", trackId: "manual-bgm-track", startMs: 0, durationMs: 30000 })]
+      })
+    ];
+
+    const summary = summarizeManagedTrackSync(tracks, 30000, 15000);
+    const rows = buildTimelineRows(tracks, 30000, summary.targetDurationMs);
+
+    expect(summary).toMatchObject({
+      managedCount: 2,
+      targetDurationMs: 15000,
+      unsyncedCount: 1,
+      visible: true
+    });
+    expect(rows.filter((row) => row.isManagedAITrack).map((row) => row.syncStatus)).toEqual([
+      "overflow",
+      "synced"
+    ]);
+  });
+
+  it("声明时长超过受管轨道范围时作为 AI 三轨对齐目标", () => {
+    const tracks = [
+      track({
+        id: "managed-video-storyboard",
+        clips: [clip({ id: "video", trackId: "managed-video-storyboard", startMs: 0, durationMs: 5000 })]
+      }),
+      track({
+        id: "managed-voice-track",
+        kind: "audio",
+        name: "配音轨",
+        orderIndex: 1,
+        clips: [clip({ id: "voice", trackId: "managed-voice-track", startMs: 0, durationMs: 3000 })]
+      }),
+      track({
+        id: "manual-bgm-track",
+        kind: "audio",
+        name: "手动 BGM",
+        orderIndex: 2,
+        clips: [clip({ id: "manual-bgm", trackId: "manual-bgm-track", startMs: 0, durationMs: 12000 })]
+      })
+    ];
+
+    const summary = summarizeManagedTrackSync(tracks, 12000, 12000);
+    const rows = buildTimelineRows(tracks, 12000, summary.targetDurationMs);
+
+    expect(summary).toMatchObject({
+      managedCount: 2,
+      targetDurationMs: 12000,
+      unsyncedCount: 2,
+      visible: true
+    });
+    expect(rows.filter((row) => row.isManagedAITrack).map((row) => row.syncStatus)).toEqual([
+      "short",
+      "short"
+    ]);
+    expect(rows.filter((row) => row.isManagedAITrack).map((row) => row.syncTargetPercent)).toEqual([100, 100]);
+  });
+
+  it("声明时长存在时优先作为三条受管轨道的同步目标", () => {
+    const tracks = [
+      track({
+        id: "managed-video-storyboard",
+        clips: [clip({ id: "video", trackId: "managed-video-storyboard", sourceType: "storyboard", startMs: 0, durationMs: 5000 })]
+      }),
+      track({
+        id: "managed-voice-track",
+        kind: "audio",
+        name: "配音轨",
+        orderIndex: 1,
+        clips: [clip({ id: "voice", trackId: "managed-voice-track", sourceType: "voice_track", startMs: 0, durationMs: 5000 })]
+      }),
+      track({
+        id: "managed-subtitle-track",
+        kind: "subtitle",
+        name: "字幕轨",
+        orderIndex: 2,
+        clips: [clip({ id: "subtitle", trackId: "managed-subtitle-track", sourceType: "subtitle_track", startMs: 0, durationMs: 5000 })]
+      }),
+      track({
+        id: "manual-bgm-track",
+        kind: "audio",
+        name: "手动 BGM",
+        orderIndex: 3,
+        clips: [clip({ id: "manual-bgm", trackId: "manual-bgm-track", startMs: 0, durationMs: 12000 })]
+      })
+    ];
+
+    const summary = summarizeManagedTrackSync(tracks, 12000, 12000);
+    const rows = buildTimelineRows(tracks, 12000, summary.targetDurationMs);
+    const managedRows = rows.filter((row) => row.isManagedAITrack);
+
+    expect(summary).toMatchObject({
+      managedCount: 3,
+      targetDurationMs: 12000,
+      unsyncedCount: 3,
+      visible: true
+    });
+    expect(managedRows.map((row) => row.syncStatus)).toEqual(["short", "short", "short"]);
+    expect(managedRows.map((row) => row.syncLabel)).toEqual(["需同步 00:07", "需同步 00:07", "需同步 00:07"]);
+    expect(managedRows.flatMap((row) => row.clips.map((item) => formatWorkspaceClipRange(item.clip.startMs, item.clip.durationMs)))).toEqual([
+      "00:00-00:05",
+      "00:00-00:05",
+      "00:00-00:05"
+    ]);
+  });
+
+  it("没有声明时长时才使用三条受管轨道共同结束点", () => {
+    const tracks = [
+      track({
+        id: "managed-video-storyboard",
+        clips: [clip({ id: "video", trackId: "managed-video-storyboard", sourceType: "storyboard", startMs: 0, durationMs: 5000 })]
+      }),
+      track({
+        id: "managed-voice-track",
+        kind: "audio",
+        name: "配音轨",
+        orderIndex: 1,
+        clips: [clip({ id: "voice", trackId: "managed-voice-track", sourceType: "voice_track", startMs: 0, durationMs: 5000 })]
+      }),
+      track({
+        id: "managed-subtitle-track",
+        kind: "subtitle",
+        name: "字幕轨",
+        orderIndex: 2,
+        clips: [clip({ id: "subtitle", trackId: "managed-subtitle-track", sourceType: "subtitle_track", startMs: 0, durationMs: 5000 })]
+      })
+    ];
+
+    const summary = summarizeManagedTrackSync(tracks, 5000, 0);
+    const rows = buildTimelineRows(tracks, 5000, summary.targetDurationMs);
+
+    expect(summary).toMatchObject({
+      managedCount: 3,
+      targetDurationMs: 5000,
+      unsyncedCount: 0,
+      visible: true
+    });
+    expect(rows.filter((row) => row.isManagedAITrack).map((row) => row.syncStatus)).toEqual([
+      "synced",
+      "synced",
+      "synced"
+    ]);
+  });
+
+  it("AI 轨道超过声明时长时按同步目标标记超出，不被画布时长吞掉", () => {
+    const rows = buildTimelineRows(
+      [
+        track({
+          id: "managed-video-storyboard",
+          clips: [clip({ id: "video", trackId: "managed-video-storyboard", startMs: 0, durationMs: 18000 })]
+        }),
+        track({
+          id: "managed-voice-track",
+          kind: "audio",
+          name: "配音轨",
+          orderIndex: 1,
+          clips: [clip({ id: "voice", trackId: "managed-voice-track", startMs: 0, durationMs: 15000 })]
+        })
+      ],
+      18000,
+      15000
+    );
+
+    expect(rows.map((row) => row.syncStatus)).toEqual(["overflow", "synced"]);
+    expect(rows[0].syncLabel).toBe("超出 00:03");
+    expect(rows[0].syncEndPercent).toBe(100);
+    expect(rows[0].syncTargetPercent).toBe(83.333);
+    expect(rows[0].syncGapWidthPercent).toBe(0);
+    expect(rows[1].syncEndPercent).toBe(83.333);
   });
 
   it("播放头百分比 clamp 到 0-100", () => {
@@ -194,7 +485,7 @@ describe("workspace timeline view model", () => {
         name: "分镜视频轨",
         clipCount: 5
       })
-    ).toBe("受管轨道 · 5 个片段");
+    ).toBe("AI 受管轨道 · 5 个片段");
     expect(
       workspaceTrackMetaLabel({
         id: "manual-video",
@@ -221,13 +512,14 @@ function track(input: Partial<WorkspaceTimelineTrackDto> = {}): WorkspaceTimelin
 function clip(input: {
   id: string;
   trackId?: string;
+  sourceType?: WorkspaceTimelineTrackDto["clips"][number]["sourceType"];
   startMs: number;
   durationMs: number;
 }): WorkspaceTimelineTrackDto["clips"][number] {
   return {
     id: input.id,
     trackId: input.trackId ?? "track-video",
-    sourceType: "asset",
+    sourceType: input.sourceType ?? "asset",
     sourceId: input.id,
     label: input.id,
     startMs: input.startMs,

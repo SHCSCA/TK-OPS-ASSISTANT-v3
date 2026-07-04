@@ -6,13 +6,17 @@ import os
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Protocol
 
 from fastapi import HTTPException
 
+from app.config import RuntimeConfig, load_runtime_config
 from common.http_errors import RuntimeHTTPException
 from common.time import utc_now
 from domain.models.render import ExportProfile, RenderTask
+from media.ffmpeg import MinimalFfmpegRenderer
 from repositories.render_repository import RenderRepository
+from repositories.timeline_repository import TimelineRepository
 from schemas.renders import (
     CancelRenderResultDto,
     DiskUsageSnapshotDto,
@@ -33,9 +37,34 @@ from services.ws_manager import ws_manager
 log = logging.getLogger(__name__)
 
 
+class MinimalRenderer(Protocol):
+    def render_minimal_mp4(
+        self,
+        *,
+        output_path: Path,
+        project_id: str | None,
+        project_name: str | None,
+        preset: str,
+        format: str,
+    ) -> object:
+        ...
+
+
 class RenderService:
-    def __init__(self, repository: RenderRepository) -> None:
+    def __init__(
+        self,
+        repository: RenderRepository,
+        *,
+        timeline_repository: TimelineRepository | None = None,
+        runtime_config: RuntimeConfig | None = None,
+        export_root: Path | None = None,
+        renderer: MinimalRenderer | None = None,
+    ) -> None:
         self._repository = repository
+        self._timeline_repository = timeline_repository
+        config = runtime_config or load_runtime_config()
+        self._export_root = (export_root or config.data_dir / "exports").resolve()
+        self._renderer = renderer or MinimalFfmpegRenderer()
 
     def list_tasks(self, *, status: str | None = None) -> list[RenderTaskDto]:
         try:
@@ -46,9 +75,11 @@ class RenderService:
         return [self._to_dto(task) for task in tasks]
 
     def create_task(self, payload: RenderTaskCreateInput) -> RenderTaskDto:
+        self._validate_timeline_project(payload)
         task = RenderTask(
             project_id=payload.project_id,
             project_name=payload.project_name,
+            timeline_id=payload.timeline_id,
             preset=payload.preset,
             format=payload.format,
         )
@@ -57,7 +88,45 @@ class RenderService:
         except Exception as exc:
             log.exception("创建渲染任务失败")
             raise HTTPException(status_code=500, detail="创建渲染任务失败") from exc
-        return self._to_dto(saved)
+        return self._run_minimal_render(saved)
+
+    def _validate_timeline_project(self, payload: RenderTaskCreateInput) -> None:
+        if not payload.timeline_id:
+            return
+        if not payload.project_id:
+            log.warning("渲染任务缺少项目 ID: timeline_id=%s", payload.timeline_id)
+            raise RuntimeHTTPException(
+                status_code=409,
+                detail="时间线缺少项目上下文，请重新从 AI 剪辑工作台进入导出链路。",
+                error_code="render.timeline_project_missing",
+            )
+        if self._timeline_repository is None:
+            log.error("渲染任务时间线校验仓储未注入: timeline_id=%s", payload.timeline_id)
+            raise HTTPException(status_code=500, detail="渲染任务时间线校验不可用")
+        try:
+            timeline = self._timeline_repository.get_by_id(payload.timeline_id)
+        except Exception as exc:
+            log.exception("渲染任务时间线校验失败: timeline_id=%s", payload.timeline_id)
+            raise HTTPException(status_code=500, detail="渲染任务时间线校验失败") from exc
+        if timeline is None:
+            log.warning("渲染任务时间线不存在: timeline_id=%s", payload.timeline_id)
+            raise RuntimeHTTPException(
+                status_code=409,
+                detail="时间线不存在，请重新从 AI 剪辑工作台进入导出链路。",
+                error_code="render.timeline_not_found",
+            )
+        if timeline.project_id != payload.project_id:
+            log.warning(
+                "渲染任务时间线项目不匹配: timeline_id=%s timeline_project=%s payload_project=%s",
+                payload.timeline_id,
+                timeline.project_id,
+                payload.project_id,
+            )
+            raise RuntimeHTTPException(
+                status_code=409,
+                detail="时间线不属于当前项目，请重新从 AI 剪辑工作台进入导出链路。",
+                error_code="render.timeline_project_mismatch",
+            )
 
     def get_task(self, task_id: str) -> RenderTaskDto:
         return self._to_dto(self._get_task_model(task_id))
@@ -77,7 +146,7 @@ class RenderService:
             self._broadcast_render_progress(task)
         if any(
             field in payload.model_fields_set
-            for field in ("status", "output_path", "error_message", "progress")
+            for field in ("status", "output_path", "error_code", "error_message", "progress")
         ):
             self._broadcast_render_status(task)
         return self._to_dto(task)
@@ -129,7 +198,110 @@ class RenderService:
         if retried is None:
             raise HTTPException(status_code=404, detail="渲染任务不存在")
         self._broadcast_render_status(retried)
-        return self._to_dto(retried)
+        return self._run_minimal_render(retried)
+
+    def _run_minimal_render(self, task: RenderTask) -> RenderTaskDto:
+        started_at = utc_now()
+        rendering = self._update_task_state(
+            task.id,
+            status="rendering",
+            progress=10,
+            started_at=started_at,
+            error_code=None,
+            error_message=None,
+        )
+        output_path = self._build_output_path(rendering)
+        try:
+            result = self._renderer.render_minimal_mp4(
+                output_path=output_path,
+                project_id=rendering.project_id,
+                project_name=rendering.project_name,
+                preset=rendering.preset,
+                format=rendering.format,
+            )
+        except Exception:
+            log.exception("执行最小渲染任务失败: %s", task.id)
+            return self._mark_task_failed(
+                task.id,
+                error_code="render.task_failed",
+                error_message="渲染任务执行失败，请检查日志后重试。",
+            )
+
+        error_code = getattr(result, "error_code", None)
+        error_message = getattr(result, "error_message", None)
+        rendered_output = getattr(result, "output_path", None)
+        if error_code or rendered_output is None:
+            return self._mark_task_failed(
+                task.id,
+                error_code=str(error_code or "render.task_failed"),
+                error_message=str(error_message or "渲染任务执行失败，请检查日志后重试。"),
+            )
+
+        rendered_path = Path(rendered_output)
+        try:
+            if not rendered_path.exists() or rendered_path.stat().st_size <= 0:
+                return self._mark_task_failed(
+                    task.id,
+                    error_code="render.output_not_found",
+                    error_message="渲染任务执行完成，但输出文件不存在或为空。",
+                )
+        except OSError:
+            log.exception("校验渲染输出文件失败: %s", rendered_path)
+            return self._mark_task_failed(
+                task.id,
+                error_code="render.output_not_found",
+                error_message="渲染任务执行完成，但输出文件无法访问。",
+            )
+
+        completed_at = utc_now()
+        completed = self._update_task_state(
+            task.id,
+            status="completed",
+            progress=100,
+            output_path=str(rendered_path),
+            error_code=None,
+            error_message=None,
+            finished_at=completed_at,
+        )
+        return self._to_dto(completed)
+
+    def _mark_task_failed(
+        self,
+        task_id: str,
+        *,
+        error_code: str,
+        error_message: str,
+    ) -> RenderTaskDto:
+        log.warning("渲染任务失败: task_id=%s error_code=%s", task_id, error_code)
+        failed = self._update_task_state(
+            task_id,
+            status="failed",
+            progress=0,
+            error_code=error_code,
+            error_message=error_message,
+            finished_at=utc_now(),
+        )
+        return self._to_dto(failed)
+
+    def _update_task_state(self, task_id: str, **values: object) -> RenderTask:
+        try:
+            task = self._repository.update_task(task_id, **values)
+        except Exception as exc:
+            log.exception("更新渲染任务状态失败")
+            raise HTTPException(status_code=500, detail="更新渲染任务状态失败") from exc
+        if task is None:
+            raise HTTPException(status_code=404, detail="渲染任务不存在")
+        if "progress" in values:
+            self._broadcast_render_progress(task)
+        self._broadcast_render_status(task)
+        return task
+
+    def _build_output_path(self, task: RenderTask) -> Path:
+        suffix = task.format.lower().strip() or "mp4"
+        if suffix != "mp4":
+            suffix = "mp4"
+        project_part = self._safe_path_part(task.project_id or "project")
+        return self._export_root / project_part / f"{task.id}.{suffix}"
 
     def list_profiles(self) -> list[ExportProfileDto]:
         try:
@@ -173,18 +345,32 @@ class RenderService:
             usagePct=None,
             message="当前未接入 GPU 监控能力。",
         )
-        disk_usage = shutil.disk_usage(Path.cwd())
-        disk = DiskUsageSnapshotDto(
-            status="ready",
-            path=str(Path.cwd()),
-            totalBytes=disk_usage.total,
-            usedBytes=disk_usage.used,
-            freeBytes=disk_usage.free,
-            usagePct=round(disk_usage.used / disk_usage.total * 100, 2)
-            if disk_usage.total
-            else None,
-            message="磁盘占用统计已读取。",
-        )
+        disk_path = self._export_root
+        try:
+            disk_path.mkdir(parents=True, exist_ok=True)
+            disk_usage = shutil.disk_usage(disk_path)
+            disk = DiskUsageSnapshotDto(
+                status="ready",
+                path=str(disk_path),
+                totalBytes=disk_usage.total,
+                usedBytes=disk_usage.used,
+                freeBytes=disk_usage.free,
+                usagePct=round(disk_usage.used / disk_usage.total * 100, 2)
+                if disk_usage.total
+                else None,
+                message="磁盘占用统计已读取。",
+            )
+        except OSError:
+            log.exception("读取渲染导出目录磁盘占用失败: %s", disk_path)
+            disk = DiskUsageSnapshotDto(
+                status="unavailable",
+                path=str(disk_path),
+                totalBytes=None,
+                usedBytes=None,
+                freeBytes=None,
+                usagePct=None,
+                message="导出目录磁盘占用读取失败。",
+            )
         return RenderResourceUsageDto(
             cpu=cpu,
             gpu=gpu,
@@ -225,6 +411,7 @@ class RenderService:
             "type": "render.status.changed",
             "taskId": task.id,
             "status": dto.status,
+            "errorCode": dto.failure.error_code,
             "stage": dto.stage.model_dump(mode="json"),
             "output": dto.output.model_dump(mode="json"),
             "failure": dto.failure.model_dump(mode="json"),
@@ -270,11 +457,13 @@ class RenderService:
             id=task.id,
             project_id=task.project_id,
             project_name=task.project_name,
+            timeline_id=task.timeline_id,
             preset=task.preset,
             format=task.format,
             status=task.status,
             progress=task.progress,
             output_path=task.output_path,
+            error_code=task.error_code,
             error_message=task.error_message,
             stage=stage,
             output=output,
@@ -312,8 +501,18 @@ class RenderService:
             )
 
         output_path = Path(task.output_path)
-        exists = output_path.exists()
-        size_bytes = output_path.stat().st_size if exists else None
+        try:
+            exists = output_path.exists()
+            size_bytes = output_path.stat().st_size if exists else None
+        except OSError:
+            log.exception("读取渲染输出文件状态失败: %s", output_path)
+            return RenderOutputStatusDto(
+                path=str(output_path),
+                exists=False,
+                size_bytes=None,
+                last_checked_at=checked_at,
+                can_open=False,
+            )
         return RenderOutputStatusDto(
             path=str(output_path),
             exists=exists,
@@ -329,7 +528,7 @@ class RenderService:
     ) -> RenderFailureDto:
         if task.status == "failed":
             return RenderFailureDto(
-                error_code="render.task_failed",
+                error_code=task.error_code or "render.task_failed",
                 error_message=task.error_message or "渲染任务执行失败。",
                 next_action=RenderSuggestedActionDto(
                     key="retry-render",
@@ -347,7 +546,7 @@ class RenderService:
                 ),
                 retryable=True,
             )
-        if task.status == "completed" and output.path and not output.exists:
+        if task.status == "completed" and (not output.path or not output.exists):
             return RenderFailureDto(
                 error_code="render.output_not_found",
                 error_message="渲染任务已完成，但输出文件不存在。",
@@ -363,6 +562,10 @@ class RenderService:
             next_action=None,
             retryable=False,
         )
+
+    def _safe_path_part(self, value: str) -> str:
+        normalized = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in value)
+        return normalized.strip("-") or "project"
 
     def _to_profile_dto(self, profile: ExportProfile) -> ExportProfileDto:
         return ExportProfileDto(

@@ -17,6 +17,8 @@ if str(RUNTIME_SRC) not in sys.path:
 def runtime_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("TK_OPS_RUNTIME_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("TK_OPS_RUNTIME_MODE", "test")
+    monkeypatch.delenv("TK_OPS_RUNTIME_ALLOWED_ORIGINS", raising=False)
+    monkeypatch.delenv("TK_OPS_ALLOWED_ORIGINS", raising=False)
     return tmp_path
 
 

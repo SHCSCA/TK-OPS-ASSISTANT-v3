@@ -742,6 +742,17 @@ class AICapabilityService:
             return candidates[0].modelId
         return requested_model
 
+    def model_supports_capability(
+        self,
+        provider_id: str,
+        model_id: str,
+        capability_id: str,
+    ) -> bool:
+        model = self._find_model(provider_id, model_id)
+        if model is None:
+            return False
+        return _model_supports_capability(model, capability_id)
+
     def _get_catalog_runtime_config(self, provider_id: str) -> ProviderRuntimeConfig:
         metadata = _get_supported_provider_catalog_metadata(provider_id)
         base_urls = {item.provider_id: item.base_url for item in self._repository.load_provider_settings()}
@@ -908,7 +919,7 @@ class AICapabilityService:
             changed = len(known_stored) != len(stored)
             for capability_id in CAPABILITY_IDS:
                 if capability_id not in configs_by_id:
-                    configs_by_id[capability_id] = _default_capability_config(capability_id)
+                    configs_by_id[capability_id] = self._default_capability_config(capability_id)
                     changed = True
             migrated = [configs_by_id[capability_id] for capability_id in CAPABILITY_IDS]
             if changed or migrated != stored:
@@ -916,7 +927,7 @@ class AICapabilityService:
             return migrated
 
         defaults = [
-            _default_capability_config(capability_id)
+            self._default_capability_config(capability_id)
             for capability_id in CAPABILITY_IDS
         ]
         return self._repository.save_capabilities(defaults)
@@ -930,8 +941,26 @@ class AICapabilityService:
             provider_id=item.provider,
             model_id=item.model,
         ):
-            return _default_capability_config(item.capability_id)
+            return self._default_capability_config(item.capability_id)
         return item
+
+    def _default_capability_config(self, capability_id: str) -> StoredAICapabilityConfig:
+        return _default_capability_config(
+            capability_id,
+            enabled=self._default_capability_enabled(capability_id),
+        )
+
+    def _default_capability_enabled(self, capability_id: str) -> bool:
+        if capability_id == "magic_cut":
+            provider_id = _default_provider_for_capability(capability_id)
+            try:
+                metadata = _get_supported_provider_catalog_metadata(provider_id)
+                runtime = self.get_provider_runtime_config(provider_id)
+            except Exception:
+                log.exception("解析智能粗剪默认 Provider 可用性失败 provider=%s", provider_id)
+                return False
+            return _is_catalog_provider_configured(metadata, runtime)
+        return capability_id in {"script_generation", "script_rewrite", "storyboard_generation"}
 
     def _validate_supported_capability_binding(
         self,
@@ -961,12 +990,25 @@ class AICapabilityService:
             return False
         if capability_id == "tts_generation" and provider_id not in SUPPORTED_TTS_PROVIDER_IDS:
             return False
-        return any(
+        enabled_models = [
+            item
+            for item in self._model_catalog()
+            if item.provider == provider_id and item.enabled
+        ]
+        if any(
             item.provider == provider_id
             and item.modelId == model_id
-            and item.enabled
             and _model_supports_capability(item, capability_id)
-            for item in self._model_catalog()
+            for item in enabled_models
+        ):
+            return True
+        return any(
+            _model_supports_capability(item, capability_id)
+            for item in _resolve_model_alias_candidates(
+                enabled_models,
+                model_id,
+                required_capability_type=None,
+            )
         )
 
     def _to_capability_dto(self, item: StoredAICapabilityConfig) -> AICapabilityConfigDto:
@@ -1001,10 +1043,14 @@ class AICapabilityService:
         )
 
 
-def _default_capability_config(capability_id: str) -> StoredAICapabilityConfig:
+def _default_capability_config(
+    capability_id: str,
+    *,
+    enabled: bool | None = None,
+) -> StoredAICapabilityConfig:
     return StoredAICapabilityConfig(
         capability_id=capability_id,
-        enabled=capability_id in {"script_generation", "script_rewrite", "storyboard_generation"},
+        enabled=enabled if enabled is not None else capability_id in {"script_generation", "script_rewrite", "storyboard_generation"},
         provider=_default_provider_for_capability(capability_id),
         model=_default_model_for_capability(capability_id),
         agent_role=_default_agent_role(capability_id),
@@ -1022,7 +1068,9 @@ def _default_provider_for_capability(capability_id: str) -> str:
     if capability_id == "video_generation":
         return "volcengine"
     if capability_id == "video_transcription":
-        return "openai"
+        return "volcengine"
+    if capability_id == "magic_cut":
+        return "deepseek"
     return "openai"
 
 
@@ -1036,7 +1084,9 @@ def _default_model_for_capability(capability_id: str) -> str:
     if capability_id == "video_generation":
         return "seedance-2.0"
     if capability_id == "video_transcription":
-        return "whisper-1"
+        return "doubao-seed-2.0-pro"
+    if capability_id == "magic_cut":
+        return "deepseek-chat"
     return "gpt-5-mini"
 
 
@@ -2164,12 +2214,20 @@ def _capability_kinds_from_value(value: object) -> list[str]:
 
 
 def _model_supports_capability(model: AIModelCatalogItemDto, capability_id: str) -> bool:
-    if capability_id in model.defaultFor:
-        return True
-
     capability_types = set(model.capabilityTypes)
     input_modalities = set(model.inputModalities)
     output_modalities = set(model.outputModalities)
+
+    if capability_id == "magic_cut":
+        return (
+            "text_generation" in capability_types
+            and "text" in output_modalities
+            and "video_generation" not in capability_types
+            and "video" not in output_modalities
+        )
+
+    if capability_id in model.defaultFor:
+        return True
 
     if capability_id in {"script_generation", "script_rewrite", "storyboard_generation"}:
         return "text_generation" in capability_types and "text" in output_modalities
@@ -2340,6 +2398,7 @@ def _capability_type_for(capability_id: str) -> str:
         "video_transcription": "speech_to_text",
         "video_generation": "video_generation",
         "asset_analysis": "asset_analysis",
+        "magic_cut": "text_generation",
     }[capability_id]
 
 

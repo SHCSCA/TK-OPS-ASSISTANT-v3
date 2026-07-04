@@ -38,8 +38,14 @@ const fillWidth = computed(() => (props.max <= 0 ? 0 : (clampedValue.value / pro
 
 <style scoped>
 .ui-progress {
+  animation: progress-enter var(--motion-content) var(--ease-standard);
   display: grid;
   gap: 6px;
+}
+
+@keyframes progress-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .ui-progress__track {

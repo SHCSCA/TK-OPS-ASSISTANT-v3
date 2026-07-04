@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 
+import { buildRuntimeWebSocketUrl } from "@/app/runtime-endpoint";
 import type { TaskEvent, TaskInfo, TaskEventType } from "@/types/task-events";
 
 type TaskEventCallback = (event: TaskEvent) => void;
@@ -21,7 +22,6 @@ type CompatibleTaskInfo = TaskInfo & {
   progressPct?: number;
 };
 
-const DEFAULT_RUNTIME_BASE_URL = "http://127.0.0.1:8000";
 const RECONNECT_DELAY_MS = 3000;
 const HEARTBEAT_INTERVAL_MS = 25000;
 
@@ -32,19 +32,6 @@ function resolveBrowserTimerApi(): BrowserTimerApi | null {
     return null;
   }
   return window;
-}
-
-function resolveRuntimeBaseUrl(): string {
-  return import.meta.env.VITE_RUNTIME_BASE_URL?.trim() || DEFAULT_RUNTIME_BASE_URL;
-}
-
-function resolveWebSocketUrl(): string {
-  const url = new URL(resolveRuntimeBaseUrl());
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.pathname = "/api/ws";
-  url.search = "";
-  url.hash = "";
-  return url.toString();
 }
 
 function normalizeRuntimeEvent(value: unknown): TaskEvent | null {
@@ -65,6 +52,16 @@ function normalizeRuntimeEvent(value: unknown): TaskEvent | null {
 
 function inferTaskStatus(event: TaskEvent, existing: TaskInfo | undefined): TaskInfo["status"] {
   if (event.status) {
+    const status = event.status as string;
+    if (status === "rendering") {
+      return "running";
+    }
+    if (status === "completed") {
+      return "succeeded";
+    }
+    if (status === "pending") {
+      return "queued";
+    }
     return event.status;
   }
 
@@ -181,7 +178,7 @@ const useTaskBusStoreBase = defineStore("task-bus", {
       this._manualDisconnect = false;
       this._clearReconnectTimer();
 
-      const socket = new WebSocket(resolveWebSocketUrl());
+      const socket = new WebSocket(buildRuntimeWebSocketUrl());
       this._socket = socket;
 
       socket.onopen = () => {

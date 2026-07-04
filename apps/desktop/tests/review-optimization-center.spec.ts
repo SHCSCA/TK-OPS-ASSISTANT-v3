@@ -70,7 +70,10 @@ describe("ReviewOptimizationCenterPage", () => {
         return okJsonResponse(runtimeFixtures.emptyDashboardSummary);
       }
 
-      throw new Error(`Unhandled request: ${path}`);
+      if (path === "/api/bootstrap/readiness") {
+          return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+        }
+        throw new Error(`Unhandled request: ${path}`);
     });
 
     vi.stubGlobal("fetch", fetchMock);
@@ -125,6 +128,9 @@ describe("ReviewOptimizationCenterPage", () => {
         });
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
 
@@ -167,6 +173,9 @@ describe("ReviewOptimizationCenterPage", () => {
         return okJsonResponse(reviewSummaryWithSuggestions());
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
 
@@ -211,6 +220,9 @@ describe("ReviewOptimizationCenterPage", () => {
         return errorJsonResponse(500, "复盘摘要读取失败。", "req-review-500");
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     });
 

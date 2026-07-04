@@ -52,12 +52,19 @@ export const useRendersStore = defineStore("renders", {
     syncSubscriptions(): void {
       const taskBus = useTaskBusStore();
       this.tasks.forEach((task) => {
-        // Subscribe only to unfinished tasks to save memory
-        const isUnfinished = task.status === "queued" || task.status === "running" || task.status === "pending";
+        // 只订阅未完成任务，避免长时间保留无效监听。
+        const isUnfinished =
+          task.status === "queued" ||
+          task.status === "running" ||
+          task.status === "pending" ||
+          task.status === "rendering";
         if (isUnfinished && !this._unsubscribers[task.id]) {
           this._unsubscribers[task.id] = taskBus.subscribe(task.id, (event: TaskEvent) => {
-            // When task completes or fails, reload to get output_path and final status
-            if (event.type === "task.completed" || event.type === "task.failed") {
+            if (
+              event.type === "task.completed" ||
+              event.type === "task.failed" ||
+              event.type === "render.status.changed"
+            ) {
               void this.loadTasks();
             }
           });

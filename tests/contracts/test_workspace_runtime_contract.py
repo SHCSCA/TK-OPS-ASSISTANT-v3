@@ -17,6 +17,7 @@ ROUTES_SRC = REPO_ROOT / "apps" / "py-runtime" / "src" / "api" / "routes"
 if str(ROUTES_SRC) not in sys.path:
     sys.path.insert(0, str(ROUTES_SRC))
 
+from assets import router as assets_router
 from workspace import router as workspace_router
 from common.time import utc_now_iso
 from domain.models import Asset
@@ -31,6 +32,7 @@ from repositories.subtitle_repository import SubtitleRepository
 from repositories.voice_repository import VoiceRepository
 from schemas.envelope import error_response
 from services.task_manager import TaskManager
+from services.asset_service import AssetService
 from services.workspace_assembly import WorkspaceAssemblyService
 from services.workspace_service import WorkspaceService
 
@@ -116,7 +118,10 @@ def runtime_client(tmp_path):
     @app.exception_handler(StarletteHTTPException)
     async def handle_http_exception(request, exc):  # type: ignore[no-untyped-def]
         message = exc.detail if isinstance(exc.detail, str) else "请求处理失败"
-        return JSONResponse(status_code=exc.status_code, content=error_response(message))
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response(message, error_code=getattr(exc, "error_code", None)),
+        )
 
     @app.exception_handler(Exception)
     async def handle_unexpected_exception(request, exc):  # type: ignore[no-untyped-def]
@@ -171,8 +176,10 @@ def runtime_client_with_assets(tmp_path):
 
     app = FastAPI()
     app.state.asset_repository = asset_repository
+    app.state.asset_service = AssetService(asset_repository)
     app.state.workspace_service = workspace_service
     app.state.workspace_assembly_service = workspace_assembly_service
+    app.include_router(assets_router)
     app.include_router(workspace_router)
 
     @app.exception_handler(StarletteHTTPException)
@@ -261,7 +268,7 @@ def _seed_contract_asset(
     name: str,
     file_name: str,
     duration_ms: int | None,
-) -> None:
+) -> Path:
     tmp_path = runtime_client.workspace_tmp_path  # type: ignore[attr-defined]
     asset_path = Path(tmp_path) / file_name
     asset_path.write_bytes(b"contract asset")
@@ -285,6 +292,7 @@ def _seed_contract_asset(
             updated_at=now,
         )
     )
+    return asset_path
 
 
 def test_workspace_timeline_contract_returns_empty_state(
@@ -315,7 +323,40 @@ def test_workspace_assembly_contract_returns_sources_and_timeline(
     assert data["timeline"] is not None
     assert data["saveState"]["source"] == "assembly"
     assert set(data["assemblyState"]) == {"status", "sources", "issues"}
+    assert data["assemblyState"]["status"] == "warning"
     assert isinstance(data["assemblyState"]["sources"], list)
+    assert "未生成 AI 三轨" in data["message"]
+    assert "补齐来源" in data["message"]
+
+
+def test_workspace_timeline_get_contract_returns_warning_assembly_state_after_missing_sources(
+    runtime_client: TestClient,
+) -> None:
+    assemble_response = runtime_client.post(
+        "/api/workspace/projects/project-workspace/timeline/assemble",
+        json={"mode": "merge_managed", "timelineName": "主时间线"},
+    )
+    assert assemble_response.status_code == 200
+
+    response = runtime_client.get("/api/workspace/projects/project-workspace/timeline")
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert set(data) == {"timeline", "activeTask", "saveState", "assemblyState", "message"}
+    assert data["timeline"] is not None
+    assert data["timeline"]["tracks"] == []
+    assert data["assemblyState"]["status"] == "warning"
+    assert set(data["assemblyState"]) == {"status", "sources", "issues"}
+    assert [source["status"] for source in data["assemblyState"]["sources"]] == [
+        "missing",
+        "missing",
+        "missing",
+        "missing",
+    ]
+    assert "缺少可用脚本。" in data["assemblyState"]["issues"]
+    assert "缺少可用分镜。" in data["assemblyState"]["issues"]
+    assert "缺少可用配音轨。" in data["assemblyState"]["issues"]
+    assert "缺少可用字幕轨。" in data["assemblyState"]["issues"]
 
 
 def test_workspace_timeline_contract_creates_and_updates_draft(
@@ -587,11 +628,15 @@ def test_workspace_timeline_preview_returns_local_summary_from_real_timeline(
     assert response.status_code == 200
     data = _assert_ok(response.json())
     assert data["timelineId"] == timeline_id
-    assert data["status"] == "ready"
+    assert data["status"] == "structure_only"
+    assert data["previewMode"] == "manifest"
+    assert data["media"] is None
+    assert data["error"] is None
     assert data["previewUrl"] is not None
 
     prefix, encoded_payload = data["previewUrl"].split(",", 1)
     assert prefix.startswith("data:application/json")
+    assert not prefix.startswith(("data:video", "data:audio"))
     preview_payload = json.loads(unquote(encoded_payload))
     assert preview_payload["timelineId"] == timeline_id
     assert preview_payload["trackCount"] == 2
@@ -599,6 +644,231 @@ def test_workspace_timeline_preview_returns_local_summary_from_real_timeline(
     assert preview_payload["tracks"][0]["kind"] == "video"
     assert preview_payload["tracks"][0]["clipCount"] == 1
     assert preview_payload["tracks"][1]["kind"] == "audio"
+
+
+def test_workspace_timeline_preview_duration_uses_timeline_end_for_parallel_tracks(
+    runtime_client: TestClient,
+) -> None:
+    project_id, timeline_id = _create_workspace_timeline(runtime_client)
+    update_response = runtime_client.patch(
+        f"/api/workspace/timelines/{timeline_id}",
+        json={
+            "name": "主时间线",
+            "durationSeconds": 12,
+            "tracks": [
+                {
+                    "id": "track-video",
+                    "kind": "video",
+                    "name": "主画面",
+                    "orderIndex": 0,
+                    "locked": False,
+                    "muted": False,
+                    "clips": [
+                        {
+                            "id": "clip-video-1",
+                            "trackId": "track-video",
+                            "sourceType": "manual",
+                            "sourceId": None,
+                            "label": "开场镜头",
+                            "startMs": 0,
+                            "durationMs": 12000,
+                            "inPointMs": 0,
+                            "outPointMs": None,
+                            "status": "ready",
+                        }
+                    ],
+                },
+                {
+                    "id": "track-subtitle",
+                    "kind": "subtitle",
+                    "name": "字幕轨",
+                    "orderIndex": 1,
+                    "locked": False,
+                    "muted": False,
+                    "clips": [
+                        {
+                            "id": "clip-subtitle-1",
+                            "trackId": "track-subtitle",
+                            "sourceType": "subtitle_track",
+                            "sourceId": None,
+                            "label": "字幕片段",
+                            "startMs": 0,
+                            "durationMs": 12000,
+                            "inPointMs": 0,
+                            "outPointMs": None,
+                            "status": "ready",
+                        }
+                    ],
+                },
+            ],
+        },
+    )
+    assert update_response.status_code == 200
+
+    response = runtime_client.get(f"/api/workspace/timelines/{timeline_id}/preview")
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["previewUrl"] is not None
+    _, encoded_payload = data["previewUrl"].split(",", 1)
+    preview_payload = json.loads(unquote(encoded_payload))
+    assert preview_payload["trackCount"] == 2
+    assert preview_payload["clipCount"] == 2
+    assert preview_payload["tracks"][0]["clipDurationMs"] == 12000
+    assert preview_payload["tracks"][1]["clipDurationMs"] == 12000
+    assert preview_payload["totalClipDurationMs"] == 12000
+
+
+def test_workspace_timeline_preview_returns_registered_asset_media(
+    runtime_client_with_assets: TestClient,
+) -> None:
+    _, timeline_id, _ = _seed_timeline_with_clip(runtime_client_with_assets)
+    asset_path = _seed_contract_asset(
+        runtime_client_with_assets,
+        asset_id="asset-contract-preview",
+        asset_type="video",
+        name="可播放素材.mp4",
+        file_name="contract-preview.mp4",
+        duration_ms=1800,
+    )
+    insert_response = runtime_client_with_assets.post(
+        f"/api/workspace/timelines/{timeline_id}/clips/insert-asset",
+        json={
+            "assetId": "asset-contract-preview",
+            "targetTrackId": "track-video",
+            "startMs": 4300,
+        },
+    )
+    assert insert_response.status_code == 200
+
+    response = runtime_client_with_assets.get(f"/api/workspace/timelines/{timeline_id}/preview")
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["status"] == "ready"
+    assert data["previewMode"] == "media"
+    assert data["media"]["kind"] == "video"
+    assert data["media"]["mimeType"] == "video/mp4"
+    assert data["media"]["durationMs"] == 1800
+    assert data["media"]["url"].startswith("/api/assets/asset-contract-preview/media?token=")
+    assert data["media"]["source"] == "asset:asset-contract-preview"
+    assert data["media"]["expiresAt"] is None
+    assert str(asset_path) not in data["media"]["url"]
+    assert "file://" not in data["media"]["url"]
+    assert data["error"] is None
+
+    media_response = runtime_client_with_assets.get(data["media"]["url"])
+    assert media_response.status_code == 200
+    assert media_response.headers["content-type"].startswith("video/mp4")
+    assert media_response.content == asset_path.read_bytes()
+
+    denied_response = runtime_client_with_assets.get("/api/assets/asset-contract-preview/media")
+    assert denied_response.status_code == 403
+
+
+def test_workspace_timeline_preview_returns_registered_audio_media(
+    runtime_client_with_assets: TestClient,
+) -> None:
+    _, timeline_id, _ = _seed_timeline_with_clip(runtime_client_with_assets)
+    asset_path = _seed_contract_asset(
+        runtime_client_with_assets,
+        asset_id="asset-contract-audio-preview",
+        asset_type="audio",
+        name="可播放配音.mp3",
+        file_name="contract-preview.mp3",
+        duration_ms=2400,
+    )
+    insert_response = runtime_client_with_assets.post(
+        f"/api/workspace/timelines/{timeline_id}/clips/insert-asset",
+        json={
+            "assetId": "asset-contract-audio-preview",
+            "targetTrackId": "track-audio",
+            "startMs": 0,
+        },
+    )
+    assert insert_response.status_code == 200
+
+    response = runtime_client_with_assets.get(f"/api/workspace/timelines/{timeline_id}/preview")
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["status"] == "ready"
+    assert data["previewMode"] == "media"
+    assert data["media"]["kind"] == "audio"
+    assert data["media"]["mimeType"] == "audio/mpeg"
+    assert data["media"]["durationMs"] == 2400
+    assert data["media"]["url"].startswith("/api/assets/asset-contract-audio-preview/media?token=")
+    assert data["media"]["source"] == "asset:asset-contract-audio-preview"
+    assert data["error"] is None
+
+    media_response = runtime_client_with_assets.get(data["media"]["url"])
+    assert media_response.status_code == 200
+    assert media_response.headers["content-type"].startswith("audio/mpeg")
+    assert media_response.content == asset_path.read_bytes()
+
+
+def test_workspace_timeline_preview_marks_missing_asset_media_unavailable(
+    runtime_client_with_assets: TestClient,
+) -> None:
+    _, timeline_id, _ = _seed_timeline_with_clip(runtime_client_with_assets)
+    asset_path = _seed_contract_asset(
+        runtime_client_with_assets,
+        asset_id="asset-contract-missing-preview",
+        asset_type="video",
+        name="缺失预览素材.mp4",
+        file_name="contract-missing-preview.mp4",
+        duration_ms=2200,
+    )
+    asset_path.unlink()
+    update_response = runtime_client_with_assets.patch(
+        f"/api/workspace/timelines/{timeline_id}",
+        json={
+            "name": "主时间线",
+            "durationSeconds": 12,
+            "tracks": [
+                {
+                    "id": "track-video",
+                    "kind": "video",
+                    "name": "主画面",
+                    "orderIndex": 0,
+                    "locked": False,
+                    "muted": False,
+                    "clips": [
+                        {
+                            "id": "clip-missing-preview",
+                            "trackId": "track-video",
+                            "sourceType": "asset",
+                            "sourceId": "asset-contract-missing-preview",
+                            "label": "缺失预览素材",
+                            "startMs": 0,
+                            "durationMs": 2200,
+                            "inPointMs": 0,
+                            "outPointMs": 2200,
+                            "status": "ready",
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    assert update_response.status_code == 200
+
+    response = runtime_client_with_assets.get(f"/api/workspace/timelines/{timeline_id}/preview")
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["status"] == "unavailable"
+    assert data["previewMode"] == "unavailable"
+    assert data["previewUrl"] is not None
+    assert data["media"] is None
+    assert data["error"] == {
+        "code": "preview.asset_file_missing",
+        "message": "时间线包含资产片段，但源文件不可用，已保留结构预览。",
+    }
+    _, encoded_payload = data["previewUrl"].split(",", 1)
+    preview_payload = json.loads(unquote(encoded_payload))
+    assert preview_payload["timelineId"] == timeline_id
+    assert preview_payload["clipCount"] == 1
 
 
 def test_workspace_timeline_precheck_returns_local_status_from_real_timeline(
@@ -613,6 +883,7 @@ def test_workspace_timeline_precheck_returns_local_status_from_real_timeline(
     assert data["timelineId"] == timeline_id
     assert data["status"] == "ready"
     assert data["issues"] == []
+    assert data["issueDetails"] == []
     assert "通过" in data["message"]
 
 
@@ -628,10 +899,97 @@ def test_workspace_timeline_precheck_reports_real_issues_for_empty_tracks(
     assert data["timelineId"] == timeline_id
     assert data["status"] == "warning"
     assert data["issues"]
+    assert data["issueDetails"][0]["targetType"] == "timeline"
+    assert data["issueDetails"][0]["targetId"] == timeline_id
     assert any("轨道" in issue for issue in data["issues"])
 
 
+def test_workspace_timeline_precheck_keeps_issues_and_adds_issue_details(
+    runtime_client: TestClient,
+) -> None:
+    project_id, timeline_id = _create_workspace_timeline(runtime_client)
+    update_response = runtime_client.patch(
+        f"/api/workspace/timelines/{timeline_id}",
+        json={
+            "name": "主时间线",
+            "durationSeconds": 12,
+            "tracks": [
+                {
+                    "id": "track-video",
+                    "kind": "video",
+                    "name": "主画面",
+                    "orderIndex": 0,
+                    "locked": False,
+                    "muted": False,
+                    "clips": [
+                        {
+                            "id": "clip-zero-duration",
+                            "trackId": "track-video",
+                            "sourceType": "manual",
+                            "sourceId": None,
+                            "label": "零时长片段",
+                            "startMs": 0,
+                            "durationMs": 0,
+                            "inPointMs": 0,
+                            "outPointMs": None,
+                            "status": "ready",
+                            "prompt": None,
+                            "resolution": None,
+                            "editableFields": ["label", "startMs", "durationMs"],
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    assert update_response.status_code == 200
+
+    response = runtime_client.post(f"/api/workspace/timelines/{timeline_id}/precheck")
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["timelineId"] == timeline_id
+    assert data["status"] == "warning"
+    assert data["issues"] == ["片段 零时长片段 的时长无效。"]
+    assert data["issueDetails"] == [
+        {
+            "id": "clip-zero-duration-duration",
+            "severity": "warning",
+            "message": "片段 零时长片段 的时长无效。",
+            "targetType": "clip",
+            "targetId": "clip-zero-duration",
+            "trackId": "track-video",
+            "clipId": "clip-zero-duration",
+            "suggestion": "请调整片段时长后重新预检。",
+            "actionLabel": "定位片段",
+        }
+    ]
+
+
 def test_workspace_ai_command_returns_real_taskbus_task(
+    runtime_client: TestClient,
+) -> None:
+    project_id, timeline_id = _create_workspace_timeline(runtime_client)
+
+    response = runtime_client.post(
+        f"/api/workspace/projects/{project_id}/ai-commands",
+        json={
+            "timelineId": timeline_id,
+            "capabilityId": "timeline_analysis",
+            "parameters": {"selectedClipId": "clip-video-1"},
+        },
+    )
+
+    assert response.status_code == 200
+    data = _assert_ok(response.json())
+    assert data["status"] == "queued"
+    assert data["task"] is not None
+    assert data["task"]["kind"] == "ai-workspace-command"
+    assert data["task"]["projectId"] == project_id
+    assert data["task"]["ownerRef"] == {"kind": "timeline", "id": timeline_id}
+
+
+def test_workspace_magic_cut_without_ready_ai_service_returns_error_envelope(
     runtime_client: TestClient,
 ) -> None:
     project_id, timeline_id = _create_workspace_timeline(runtime_client)
@@ -645,10 +1003,44 @@ def test_workspace_ai_command_returns_real_taskbus_task(
         },
     )
 
-    assert response.status_code == 200
-    data = _assert_ok(response.json())
-    assert data["status"] == "queued"
-    assert data["task"] is not None
-    assert data["task"]["kind"] == "ai-workspace-command"
-    assert data["task"]["projectId"] == project_id
-    assert data["task"]["ownerRef"] == {"kind": "timeline", "id": timeline_id}
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"] == "智能粗剪 Provider 未配置，请先选择可用文本模型。"
+    assert payload["error_code"] == "workspace.ai_command_precheck_failed"
+
+
+def test_workspace_ai_command_precheck_failure_returns_error_envelope(
+    runtime_client: TestClient,
+) -> None:
+    class DisabledMagicCutService:
+        def validate_text_generation_ready(self, capability_id: str) -> None:
+            assert capability_id == "magic_cut"
+            from ai.providers.errors import ProviderHTTPException
+
+            raise ProviderHTTPException(
+                status_code=400,
+                detail="智能粗剪能力未启用，请先在 AI 与系统设置中启用并保存。",
+                error_code="ai_capability_disabled",
+            )
+
+        def generate_text(self, *args, **kwargs):  # pragma: no cover - 预检失败不应入队
+            raise AssertionError("预检失败不应进入后台 AI 调用")
+
+    project_id, timeline_id = _create_workspace_timeline(runtime_client)
+    runtime_client.app.state.workspace_service._ai_text_generation_service = DisabledMagicCutService()
+
+    response = runtime_client.post(
+        f"/api/workspace/projects/{project_id}/ai-commands",
+        json={
+            "timelineId": timeline_id,
+            "capabilityId": "magic_cut",
+            "parameters": {"selectedClipId": "clip-video-1"},
+        },
+    )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"] == "智能粗剪能力未启用，请先在 AI 与系统设置中启用并保存。"
+    assert payload["error_code"] == "workspace.ai_command_precheck_failed"

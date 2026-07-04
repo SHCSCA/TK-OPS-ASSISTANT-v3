@@ -453,14 +453,10 @@ function formatLocale(locale: string) {
   border-top-color: var(--color-brand-primary);
   border-radius: 50%;
   margin: 0 auto var(--space-2);
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  animation: spin var(--motion-spin) linear infinite;
 }
 
 .spinning {
-  animation: spin 1s linear infinite;
+  animation: spin var(--motion-spin) linear infinite;
 }
 </style>

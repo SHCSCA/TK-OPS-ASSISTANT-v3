@@ -324,7 +324,7 @@
 }
 
 .stage-mini-item[data-status="succeeded"] { background: var(--color-success); }
-.stage-mini-item[data-status="running"] { background: var(--color-brand-primary); animation: pulse 1.5s infinite; }
+.stage-mini-item[data-status="running"] { background: var(--color-brand-primary); animation: pulse var(--motion-pulse) infinite; }
 .stage-mini-item[data-status="failed"], .stage-mini-item[data-status="failed_degraded"] { background: var(--color-danger); }
 .stage-mini-item[data-status="queued"] { background: var(--color-text-tertiary); }
 .stage-mini-item[data-status="provider_required"] { background: var(--color-warning); }
@@ -405,7 +405,7 @@
 }
 
 .stage-item__label .material-symbols-outlined[data-status="succeeded"] { color: var(--color-success); }
-.stage-item__label .material-symbols-outlined[data-status="running"] { color: var(--color-brand-primary); animation: spin 2s linear infinite; }
+.stage-item__label .material-symbols-outlined[data-status="running"] { color: var(--color-brand-primary); animation: spin var(--motion-spin) linear infinite; }
 .stage-item__label .material-symbols-outlined[data-status="failed"], 
 .stage-item__label .material-symbols-outlined[data-status="failed_degraded"] { color: var(--color-danger); }
 

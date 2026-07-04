@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 from pathlib import Path
+from urllib.parse import unquote
 from unittest.mock import AsyncMock
 
 import pytest
@@ -26,8 +29,13 @@ def _make_workspace_service(
     tmp_path: Path,
     *,
     task_manager: TaskManager | None = None,
+    ai_text_generation_service=None,
 ) -> WorkspaceService:
-    service, _ = _make_workspace_context(tmp_path, task_manager=task_manager)
+    service, _ = _make_workspace_context(
+        tmp_path,
+        task_manager=task_manager,
+        ai_text_generation_service=ai_text_generation_service,
+    )
     return service
 
 
@@ -35,6 +43,7 @@ def _make_workspace_context(
     tmp_path: Path,
     *,
     task_manager: TaskManager | None = None,
+    ai_text_generation_service=None,
 ) -> tuple[WorkspaceService, AssetRepository]:
     engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
@@ -62,6 +71,7 @@ def _make_workspace_context(
             repository,
             asset_repository=asset_repository,
             task_manager=task_manager,
+            ai_text_generation_service=ai_text_generation_service,
         ),
         asset_repository,
     )
@@ -656,9 +666,202 @@ def test_preview_returns_local_summary_from_real_timeline(tmp_path: Path) -> Non
 
     result = service.fetch_timeline_preview(timeline_id)
 
-    assert result.status == "ready"
+    assert result.status == "structure_only"
     assert "已生成" in result.message
     assert result.previewUrl is not None
+    assert result.previewMode == "manifest"
+    assert result.media is None
+    assert result.error is None
+
+
+def test_preview_manifest_total_duration_uses_timeline_end_for_parallel_tracks(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path)
+    timeline_id = _create_timeline_with_audio_clip(service)
+
+    result = service.fetch_timeline_preview(timeline_id)
+
+    assert result.previewUrl is not None
+    _, encoded_payload = result.previewUrl.split(",", 1)
+    preview_payload = json.loads(unquote(encoded_payload))
+    assert preview_payload["clipCount"] == 2
+    assert preview_payload["tracks"][0]["clipDurationMs"] == 4200
+    assert preview_payload["tracks"][1]["clipDurationMs"] == 2400
+    assert preview_payload["totalClipDurationMs"] == 4200
+
+
+def test_preview_returns_registered_asset_media_without_local_path(tmp_path: Path) -> None:
+    service, asset_repository = _make_workspace_context(tmp_path)
+    timeline_id = _create_timeline(service)
+    _seed_asset(
+        asset_repository,
+        tmp_path,
+        asset_id="asset-video-preview",
+        asset_type="video",
+        name="预览素材.mp4",
+        file_name="preview.mp4",
+        duration_ms=2600,
+    )
+    service.insert_asset_clip(
+        timeline_id,
+        {
+            "assetId": "asset-video-preview",
+            "targetTrackId": "track-video-1",
+            "startMs": 4300,
+        },
+    )
+
+    result = service.fetch_timeline_preview(timeline_id)
+
+    assert result.status == "ready"
+    assert result.previewMode == "media"
+    assert result.previewUrl is not None
+    assert result.media is not None
+    assert result.media.kind == "video"
+    assert result.media.mimeType == "video/mp4"
+    assert result.media.durationMs == 2600
+    assert result.media.url.startswith("/api/assets/asset-video-preview/media?token=")
+    assert result.media.source == "asset:asset-video-preview"
+    assert str(tmp_path) not in result.media.url
+    assert result.error is None
+
+
+def test_preview_marks_missing_asset_media_unavailable_but_keeps_manifest(tmp_path: Path) -> None:
+    service, asset_repository = _make_workspace_context(tmp_path)
+    created = service.create_project_timeline(
+        "project-workspace",
+        TimelineCreateInput(name="主时间线"),
+    )
+    assert created.timeline is not None
+    _seed_asset(
+        asset_repository,
+        tmp_path,
+        asset_id="asset-missing-preview",
+        asset_type="video",
+        name="缺失预览素材.mp4",
+        file_name="missing-preview.mp4",
+        duration_ms=3200,
+        create_file=False,
+    )
+    service.update_timeline(
+        created.timeline.id,
+        TimelineUpdateInput(
+            name="主时间线",
+            durationSeconds=8,
+            tracks=[
+                {
+                    "id": "track-video-1",
+                    "kind": "video",
+                    "name": "视频轨 1",
+                    "orderIndex": 0,
+                    "locked": False,
+                    "muted": False,
+                    "clips": [
+                        {
+                            "id": "clip-missing-media",
+                            "trackId": "track-video-1",
+                            "sourceType": "asset",
+                            "sourceId": "asset-missing-preview",
+                            "label": "缺失预览素材",
+                            "startMs": 0,
+                            "durationMs": 3200,
+                            "inPointMs": 0,
+                            "outPointMs": 3200,
+                            "status": "ready",
+                        }
+                    ],
+                }
+            ],
+        ),
+    )
+
+    result = service.fetch_timeline_preview(created.timeline.id)
+
+    assert result.status == "unavailable"
+    assert result.previewMode == "unavailable"
+    assert result.previewUrl is not None
+    assert result.media is None
+    assert result.error is not None
+    assert result.error.code == "preview.asset_file_missing"
+    assert "源文件不可用" in result.error.message
+
+
+def test_preview_prioritizes_missing_asset_over_later_playable_media(tmp_path: Path) -> None:
+    service, asset_repository = _make_workspace_context(tmp_path)
+    created = service.create_project_timeline(
+        "project-workspace",
+        TimelineCreateInput(name="主时间线"),
+    )
+    assert created.timeline is not None
+    _seed_asset(
+        asset_repository,
+        tmp_path,
+        asset_id="asset-mixed-missing-preview",
+        asset_type="video",
+        name="缺失预览素材.mp4",
+        file_name="mixed-missing-preview.mp4",
+        duration_ms=2000,
+        create_file=False,
+    )
+    _seed_asset(
+        asset_repository,
+        tmp_path,
+        asset_id="asset-mixed-ready-preview",
+        asset_type="video",
+        name="可播放预览素材.mp4",
+        file_name="mixed-ready-preview.mp4",
+        duration_ms=2400,
+    )
+    service.update_timeline(
+        created.timeline.id,
+        TimelineUpdateInput(
+            name="主时间线",
+            durationSeconds=6,
+            tracks=[
+                {
+                    "id": "track-video-1",
+                    "kind": "video",
+                    "name": "视频轨 1",
+                    "orderIndex": 0,
+                    "locked": False,
+                    "muted": False,
+                    "clips": [
+                        {
+                            "id": "clip-mixed-missing-media",
+                            "trackId": "track-video-1",
+                            "sourceType": "asset",
+                            "sourceId": "asset-mixed-missing-preview",
+                            "label": "缺失预览素材",
+                            "startMs": 0,
+                            "durationMs": 2000,
+                            "inPointMs": 0,
+                            "outPointMs": 2000,
+                            "status": "ready",
+                        },
+                        {
+                            "id": "clip-mixed-ready-media",
+                            "trackId": "track-video-1",
+                            "sourceType": "asset",
+                            "sourceId": "asset-mixed-ready-preview",
+                            "label": "可播放预览素材",
+                            "startMs": 2000,
+                            "durationMs": 2400,
+                            "inPointMs": 0,
+                            "outPointMs": 2400,
+                            "status": "ready",
+                        },
+                    ],
+                }
+            ],
+        ),
+    )
+
+    result = service.fetch_timeline_preview(created.timeline.id)
+
+    assert result.status == "unavailable"
+    assert result.previewMode == "unavailable"
+    assert result.media is None
+    assert result.error is not None
+    assert result.error.code == "preview.asset_file_missing"
 
 
 def test_precheck_returns_ready_for_valid_timeline(tmp_path: Path) -> None:
@@ -669,7 +872,118 @@ def test_precheck_returns_ready_for_valid_timeline(tmp_path: Path) -> None:
 
     assert result.status == "ready"
     assert result.issues == []
+    assert result.issueDetails == []
     assert "通过" in result.message
+
+
+def test_precheck_returns_structured_issue_details_for_clip_track_and_timeline(
+    tmp_path: Path,
+) -> None:
+    service = _make_workspace_service(tmp_path)
+    created = service.create_project_timeline(
+        "project-workspace",
+        TimelineCreateInput(name="主时间线"),
+    )
+    assert created.timeline is not None
+
+    service._repository.update_timeline(  # noqa: SLF001
+        created.timeline.id,
+        name=None,
+        duration_seconds=12,
+        tracks_json=json.dumps(
+            [
+                {
+                    "id": "track-video-invalid",
+                    "kind": "video",
+                    "name": "问题视频轨",
+                    "orderIndex": 0,
+                    "clips": [
+                        {
+                            "id": "clip-zero-duration",
+                            "trackId": "track-video-invalid",
+                            "sourceType": "manual",
+                            "label": "零时长片段",
+                            "startMs": 0,
+                            "durationMs": 0,
+                        },
+                        {
+                            "id": "clip-negative-start",
+                            "trackId": "track-video-invalid",
+                            "sourceType": "manual",
+                            "label": "负起点片段",
+                            "startMs": -10,
+                            "durationMs": 1200,
+                        },
+                    ],
+                },
+                {
+                    "id": "track-effect",
+                    "kind": "effect",
+                    "name": "特效轨",
+                    "orderIndex": 1,
+                    "clips": [],
+                },
+                {
+                    "id": "track-broken-clips",
+                    "kind": "video",
+                    "name": "损坏轨",
+                    "orderIndex": 2,
+                    "clips": "bad",
+                },
+            ],
+            ensure_ascii=False,
+        ),
+    )
+
+    result = service.precheck_timeline(created.timeline.id)
+
+    assert result.status == "warning"
+    assert result.issues == [issue.message for issue in result.issueDetails]
+
+    zero_duration_issue = next(
+        issue for issue in result.issueDetails if issue.id == "clip-zero-duration-duration"
+    )
+    assert zero_duration_issue.targetType == "clip"
+    assert zero_duration_issue.clipId == "clip-zero-duration"
+    assert zero_duration_issue.trackId == "track-video-invalid"
+    assert zero_duration_issue.message == "片段 零时长片段 的时长无效。"
+
+    negative_start_issue = next(
+        issue for issue in result.issueDetails if issue.id == "clip-negative-start-start"
+    )
+    assert negative_start_issue.targetType == "clip"
+    assert negative_start_issue.clipId == "clip-negative-start"
+    assert negative_start_issue.trackId == "track-video-invalid"
+
+    unsupported_track_issue = next(
+        issue for issue in result.issueDetails if issue.id == "track-track-effect-kind"
+    )
+    assert unsupported_track_issue.targetType == "track"
+    assert unsupported_track_issue.targetId == "track-effect"
+    assert unsupported_track_issue.trackId == "track-effect"
+
+    clips_format_issue = next(
+        issue for issue in result.issueDetails if issue.id == "track-track-broken-clips-clips"
+    )
+    assert clips_format_issue.targetType == "track"
+    assert clips_format_issue.trackId == "track-broken-clips"
+
+
+def test_precheck_returns_timeline_issue_detail_for_empty_tracks(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path)
+    created = service.create_project_timeline(
+        "project-workspace",
+        TimelineCreateInput(name="主时间线"),
+    )
+    assert created.timeline is not None
+
+    result = service.precheck_timeline(created.timeline.id)
+
+    assert result.status == "warning"
+    assert result.issues == ["时间线尚未配置轨道，无法生成本地预检结果。"]
+    assert len(result.issueDetails) == 1
+    assert result.issueDetails[0].targetType == "timeline"
+    assert result.issueDetails[0].targetId == created.timeline.id
 
 
 def test_get_project_timeline_exposes_active_task_feedback(
@@ -720,7 +1034,7 @@ def test_run_ai_command_returns_real_taskbus_task(
             "project-workspace",
             WorkspaceAICommandInput(
                 timelineId=timeline_id,
-                capabilityId="magic_cut",
+                capabilityId="timeline_analysis",
                 parameters={"selectedClipId": "clip-video-1"},
             ),
         )
@@ -747,3 +1061,473 @@ def test_run_ai_command_returns_real_taskbus_task(
         ]
 
     asyncio.run(_wait_for_completion())
+
+
+def test_run_magic_cut_blocks_when_ai_text_generation_service_missing(
+    tmp_path: Path,
+) -> None:
+    task_manager = TaskManager()
+    service = _make_workspace_service(
+        tmp_path,
+        task_manager=task_manager,
+        ai_text_generation_service=None,
+    )
+    timeline_id = _create_timeline(service)
+
+    result = service.run_ai_command(
+        "project-workspace",
+        WorkspaceAICommandInput(
+            timelineId=timeline_id,
+            capabilityId="magic_cut",
+            parameters={"selectedClipId": "clip-video-1"},
+        ),
+    )
+
+    assert result.status == "blocked"
+    assert result.task is None
+    assert result.message == "智能粗剪 Provider 未配置，请先选择可用文本模型。"
+    assert task_manager._tasks == {}  # noqa: SLF001
+
+
+def test_run_magic_cut_returns_blocked_before_task_when_capability_disabled(
+    tmp_path: Path,
+) -> None:
+    class DisabledMagicCutService:
+        def validate_text_generation_ready(self, capability_id: str) -> None:
+            assert capability_id == "magic_cut"
+            from ai.providers.errors import ProviderHTTPException
+
+            raise ProviderHTTPException(
+                status_code=400,
+                detail="当前 AI 能力已停用。",
+                error_code="ai_capability_disabled",
+            )
+
+        def generate_text(self, *args, **kwargs):  # pragma: no cover - 该测试要求不会进入后台调用
+            raise AssertionError("停用能力不应进入后台 AI 调用")
+
+    service = _make_workspace_service(
+        tmp_path,
+        task_manager=TaskManager(),
+        ai_text_generation_service=DisabledMagicCutService(),
+    )
+    timeline_id = _create_timeline(service)
+
+    result = service.run_ai_command(
+        "project-workspace",
+        WorkspaceAICommandInput(
+            timelineId=timeline_id,
+            capabilityId="magic_cut",
+            parameters={"selectedClipId": "clip-video-1"},
+        ),
+    )
+
+    assert result.status == "blocked"
+    assert result.task is None
+    assert result.message == "智能粗剪能力未启用，请先在 AI 与系统设置中启用并保存。"
+
+
+def test_run_magic_cut_returns_blocked_before_task_when_provider_secret_missing(
+    tmp_path: Path,
+) -> None:
+    class MissingSecretMagicCutService:
+        def validate_text_generation_ready(self, capability_id: str) -> None:
+            assert capability_id == "magic_cut"
+            from ai.providers.errors import ProviderHTTPException
+
+            raise ProviderHTTPException(
+                status_code=400,
+                detail="Provider API Key 尚未配置。",
+                error_code="ai_provider_not_configured",
+            )
+
+        def generate_text(self, *args, **kwargs):  # pragma: no cover - 该测试要求不会进入后台调用
+            raise AssertionError("缺少密钥时不应进入后台 AI 调用")
+
+    service = _make_workspace_service(
+        tmp_path,
+        task_manager=TaskManager(),
+        ai_text_generation_service=MissingSecretMagicCutService(),
+    )
+    timeline_id = _create_timeline(service)
+
+    result = service.run_ai_command(
+        "project-workspace",
+        WorkspaceAICommandInput(
+            timelineId=timeline_id,
+            capabilityId="magic_cut",
+            parameters={"selectedClipId": "clip-video-1"},
+        ),
+    )
+
+    assert result.status == "blocked"
+    assert result.task is None
+    assert result.message == "智能粗剪 Provider 密钥缺失，请先完成密钥配置。"
+
+
+def test_run_magic_cut_returns_blocked_before_task_when_provider_unsupported(
+    tmp_path: Path,
+) -> None:
+    class UnsupportedProviderMagicCutService:
+        def validate_text_generation_ready(self, capability_id: str) -> None:
+            assert capability_id == "magic_cut"
+            from ai.providers.errors import ProviderHTTPException
+
+            raise ProviderHTTPException(
+                status_code=400,
+                detail="当前 Provider 尚未接入文本生成。",
+                error_code="ai_provider_unsupported",
+            )
+
+        def generate_text(self, *args, **kwargs):  # pragma: no cover - 该测试要求不会进入后台调用
+            raise AssertionError("Provider 不支持时不应进入后台 AI 调用")
+
+    service = _make_workspace_service(
+        tmp_path,
+        task_manager=TaskManager(),
+        ai_text_generation_service=UnsupportedProviderMagicCutService(),
+    )
+    timeline_id = _create_timeline(service)
+
+    result = service.run_ai_command(
+        "project-workspace",
+        WorkspaceAICommandInput(
+            timelineId=timeline_id,
+            capabilityId="magic_cut",
+            parameters={"selectedClipId": "clip-video-1"},
+        ),
+    )
+
+    assert result.status == "blocked"
+    assert result.task is None
+    assert result.message == "智能粗剪 Provider 未配置，请先选择可用文本模型。"
+
+
+def test_run_magic_cut_returns_blocked_before_task_when_model_unsupported(
+    tmp_path: Path,
+) -> None:
+    class UnsupportedModelMagicCutService:
+        def validate_text_generation_ready(self, capability_id: str) -> None:
+            assert capability_id == "magic_cut"
+            from ai.providers.errors import ProviderHTTPException
+
+            raise ProviderHTTPException(
+                status_code=400,
+                detail="当前模型不支持智能粗剪所需的文本生成能力，请更换模型。",
+                error_code="ai_model_unsupported",
+            )
+
+        def generate_text(self, *args, **kwargs):  # pragma: no cover - 该测试要求不会进入后台调用
+            raise AssertionError("模型不支持时不应进入后台 AI 调用")
+
+    service = _make_workspace_service(
+        tmp_path,
+        task_manager=TaskManager(),
+        ai_text_generation_service=UnsupportedModelMagicCutService(),
+    )
+    timeline_id = _create_timeline(service)
+
+    result = service.run_ai_command(
+        "project-workspace",
+        WorkspaceAICommandInput(
+            timelineId=timeline_id,
+            capabilityId="magic_cut",
+            parameters={"selectedClipId": "clip-video-1"},
+        ),
+    )
+
+    assert result.status == "blocked"
+    assert result.task is None
+    assert result.message == "当前模型不支持智能粗剪所需的文本生成能力，请更换模型。"
+
+
+def test_run_magic_cut_applies_ai_operations_and_persists_timeline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class SuccessfulMagicCutService:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, dict[str, str], dict[str, object]]] = []
+
+        def validate_text_generation_ready(self, capability_id: str) -> None:
+            assert capability_id == "magic_cut"
+
+        def generate_text(self, capability_id: str, variables: dict[str, str], **kwargs: object):
+            assert capability_id == "magic_cut"
+            timeline_context = json.loads(variables["timeline_context"])
+            assert timeline_context[0]["clips"][0]["id"] == "clip-video-1"
+            assert timeline_context[0]["clips"][1]["id"] == "clip-video-2"
+            assert "clip-video-1" in variables["instruction"]
+            self.calls.append((capability_id, variables, kwargs))
+
+            class Result:
+                text = json.dumps(
+                    {
+                        "summary": "已压缩开场并消除视频轨空隙。",
+                        "operations": [
+                            {
+                                "action": "trim",
+                                "clipId": "clip-video-1",
+                                "startMs": 0,
+                                "durationMs": 3000,
+                            },
+                            {
+                                "action": "move",
+                                "clipId": "clip-video-2",
+                                "targetTrackId": "track-video-1",
+                                "startMs": 3000,
+                            },
+                        ],
+                    },
+                    ensure_ascii=False,
+                )
+
+            return Result()
+
+    ai_service = SuccessfulMagicCutService()
+    service = _make_workspace_service(
+        tmp_path,
+        task_manager=TaskManager(),
+        ai_text_generation_service=ai_service,
+    )
+    timeline_id = _create_timeline_with_neighbor_clip(service)
+    broadcast = AsyncMock()
+    monkeypatch.setattr(task_manager_module.ws_manager, "broadcast", broadcast)
+
+    async def _wait_for_success() -> None:
+        result = service.run_ai_command(
+            "project-workspace",
+            WorkspaceAICommandInput(
+                timelineId=timeline_id,
+                capabilityId="magic_cut",
+                parameters={"selectedClipId": "clip-video-1"},
+            ),
+        )
+
+        assert result.status == "queued"
+        assert result.task is not None
+
+        for _ in range(100):
+            task = service._task_manager.get(result.task["id"])  # type: ignore[attr-defined]
+            if task is not None and task.status == "succeeded":
+                break
+            await asyncio.sleep(0.01)
+
+        task = service._task_manager.get(result.task["id"])  # type: ignore[attr-defined]
+        assert task is not None
+        assert task.status == "succeeded"
+
+        refreshed = service.get_project_timeline("project-workspace")
+        assert refreshed.timeline is not None
+        video_track = next(track for track in refreshed.timeline.tracks if track.id == "track-video-1")
+
+        assert [clip.id for clip in video_track.clips] == [
+            "clip-video-1",
+            "clip-video-2",
+        ]
+        assert [(clip.startMs, clip.durationMs, clip.inPointMs, clip.outPointMs) for clip in video_track.clips] == [
+            (0, 3000, 0, None),
+            (3000, 2000, 0, None),
+        ]
+        assert video_track.clips[0].startMs + video_track.clips[0].durationMs == video_track.clips[1].startMs
+        assert refreshed.timeline.version is not None
+        assert refreshed.timeline.version.clipCount == 2
+        assert refreshed.activeTask is None
+        assert ai_service.calls[0][2]["project_id"] == "project-workspace"
+        assert "task.completed" in [call.args[0]["type"] for call in broadcast.await_args_list]
+
+    asyncio.run(_wait_for_success())
+
+
+def test_magic_cut_operations_are_scoped_to_requested_timeline(tmp_path: Path) -> None:
+    service = _make_workspace_service(tmp_path)
+
+    target = service.create_project_timeline(
+        "project-workspace",
+        TimelineCreateInput(name="目标时间线"),
+    )
+    assert target.timeline is not None
+    target = service.update_timeline(
+        target.timeline.id,
+        TimelineUpdateInput(
+            name="目标时间线",
+            durationSeconds=12,
+            tracks=_timeline_payload_with_neighbor_clip(),
+        ),
+    )
+    assert target.timeline is not None
+
+    decoy = service.create_project_timeline(
+        "project-workspace",
+        TimelineCreateInput(name="干扰时间线"),
+    )
+    assert decoy.timeline is not None
+    decoy = service.update_timeline(
+        decoy.timeline.id,
+        TimelineUpdateInput(
+            name="干扰时间线",
+            durationSeconds=12,
+            tracks=_timeline_payload_with_neighbor_clip(),
+        ),
+    )
+    assert decoy.timeline is not None
+
+    from services.magic_cut import apply_magic_cut_operations
+
+    applied, failed, _ = apply_magic_cut_operations(
+        service,
+        target.timeline.id,
+        [
+            {
+                "action": "trim",
+                "clipId": "clip-video-1",
+                "startMs": 0,
+                "durationMs": 3000,
+            }
+        ],
+    )
+
+    assert (applied, failed) == (1, 0)
+
+    target_after = json.loads(service._load_timeline(target.timeline.id).tracks_json)  # noqa: SLF001
+    decoy_after = json.loads(service._load_timeline(decoy.timeline.id).tracks_json)  # noqa: SLF001
+    assert target_after[0]["clips"][0]["durationMs"] == 3000
+    assert decoy_after[0]["clips"][0]["durationMs"] == 4200
+
+
+def test_run_magic_cut_fails_when_all_operations_fail(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class InvalidOperationMagicCutService:
+        def validate_text_generation_ready(self, capability_id: str) -> None:
+            assert capability_id == "magic_cut"
+
+        def generate_text(self, capability_id: str, variables: dict[str, str], **kwargs: object):
+            assert capability_id == "magic_cut"
+
+            class Result:
+                text = json.dumps(
+                    {
+                        "summary": "尝试处理不存在的片段。",
+                        "operations": [
+                            {
+                                "action": "trim",
+                                "clipId": "clip-missing",
+                                "startMs": 0,
+                                "durationMs": 3000,
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                )
+
+            return Result()
+
+    service = _make_workspace_service(
+        tmp_path,
+        task_manager=TaskManager(),
+        ai_text_generation_service=InvalidOperationMagicCutService(),
+    )
+    timeline_id = _create_timeline(service)
+    broadcast = AsyncMock()
+    monkeypatch.setattr(task_manager_module.ws_manager, "broadcast", broadcast)
+
+    async def _wait_for_failure() -> None:
+        result = service.run_ai_command(
+            "project-workspace",
+            WorkspaceAICommandInput(
+                timelineId=timeline_id,
+                capabilityId="magic_cut",
+                parameters={"selectedClipId": "clip-video-1"},
+            ),
+        )
+
+        assert result.status == "queued"
+        assert result.task is not None
+
+        for _ in range(100):
+            task = service._task_manager.get(result.task["id"])  # type: ignore[attr-defined]
+            if task is not None and task.status == "failed":
+                break
+            await asyncio.sleep(0.01)
+
+        task = service._task_manager.get(result.task["id"])  # type: ignore[attr-defined]
+        assert task is not None
+        assert task.status == "failed"
+        assert task.message == "智能粗剪执行失败，请查看日志后重试。"
+        assert "task.failed" in [call.args[0]["type"] for call in broadcast.await_args_list]
+
+        refreshed = service.get_project_timeline("project-workspace")
+        assert refreshed.timeline is not None
+        video_track = next(track for track in refreshed.timeline.tracks if track.id == "track-video-1")
+        assert [(clip.id, clip.startMs, clip.durationMs) for clip in video_track.clips] == [
+            ("clip-video-1", 0, 4200)
+        ]
+
+    asyncio.run(_wait_for_failure())
+
+
+def test_run_magic_cut_masks_unknown_provider_failure_in_task_message(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    raw_provider_error = "raw provider 401 invalid_api_key secret=should-not-leak"
+    caplog.set_level(logging.WARNING)
+
+    class RuntimeProviderFailureService:
+        def validate_text_generation_ready(self, capability_id: str) -> None:
+            assert capability_id == "magic_cut"
+
+        def generate_text(self, *args, **kwargs):
+            from ai.providers.errors import ProviderHTTPException
+
+            raise ProviderHTTPException(
+                status_code=502,
+                detail=raw_provider_error,
+                error_code="ai_provider_server_error",
+            )
+
+    service = _make_workspace_service(
+        tmp_path,
+        task_manager=TaskManager(),
+        ai_text_generation_service=RuntimeProviderFailureService(),
+    )
+    timeline_id = _create_timeline(service)
+    broadcast = AsyncMock()
+    monkeypatch.setattr(task_manager_module.ws_manager, "broadcast", broadcast)
+
+    async def _wait_for_failure() -> None:
+        result = service.run_ai_command(
+            "project-workspace",
+            WorkspaceAICommandInput(
+                timelineId=timeline_id,
+                capabilityId="magic_cut",
+                parameters={"selectedClipId": "clip-video-1"},
+            ),
+        )
+
+        assert result.status == "queued"
+        assert result.task is not None
+        for _ in range(50):
+            task = service._task_manager.get(result.task["id"])  # type: ignore[attr-defined]
+            if task is not None and task.status == "failed":
+                break
+            await asyncio.sleep(0.01)
+
+        task = service._task_manager.get(result.task["id"])  # type: ignore[attr-defined]
+        assert task is not None
+        assert task.status == "failed"
+        assert raw_provider_error not in task.message
+        assert "invalid_api_key" not in task.message
+        assert "智能粗剪 AI 调用失败，请检查 Provider 配置或稍后重试。" in task.message
+        for call in broadcast.await_args_list:
+            assert raw_provider_error not in call.args[0]["message"]
+            assert "invalid_api_key" not in call.args[0]["message"]
+
+        log_output = "\n".join(record.getMessage() for record in caplog.records)
+        assert raw_provider_error not in log_output
+        assert "secret=should-not-leak" not in log_output
+
+    asyncio.run(_wait_for_failure())

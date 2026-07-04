@@ -48,7 +48,7 @@ const toast = useToast();
 }
 
 .toast-slide-leave-active {
-  transition: all 200ms ease;
+  transition: all var(--motion-fast) var(--ease-standard);
 }
 
 .toast-slide-enter-from {
@@ -62,6 +62,6 @@ const toast = useToast();
 }
 
 .toast-slide-move {
-  transition: transform 200ms ease;
+  transition: transform var(--motion-instant) var(--ease-standard);
 }
 </style>

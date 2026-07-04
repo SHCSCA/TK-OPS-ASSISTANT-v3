@@ -85,7 +85,15 @@ def test_initialize_domain_schema_repair_render_tasks_legacy_columns(tmp_path) -
             ).mappings().all()
         }
 
-    assert {"project_name", "preset", "format", "started_at", "finished_at"} <= columns
+    assert {
+        "project_name",
+        "timeline_id",
+        "preset",
+        "format",
+        "started_at",
+        "finished_at",
+        "error_code",
+    } <= columns
 
     # 使用修复后的表结构再调用 list_tasks，确保不会再抛出 OperationalError
     repository = RenderRepository(session_factory=create_session_factory(engine))
@@ -94,8 +102,84 @@ def test_initialize_domain_schema_repair_render_tasks_legacy_columns(tmp_path) -
     assert tasks[0].id == "legacy-task"
     assert tasks[0].preset == "1080p"
     assert tasks[0].format == "mp4"
+    assert tasks[0].timeline_id == "timeline-old"
     assert tasks[0].project_name is None
     assert tasks[0].error_message == "legacy-error"
+
+
+def test_initialize_domain_schema_adds_missing_render_task_timeline_id(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    engine = create_runtime_engine(tmp_path / "runtime.db")
+
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE projects (id TEXT PRIMARY KEY)"))
+        connection.execute(text("INSERT INTO projects (id) VALUES ('project-render')"))
+        connection.execute(
+            text(
+                """
+                CREATE TABLE render_tasks (
+                    id VARCHAR NOT NULL,
+                    project_id VARCHAR NOT NULL,
+                    status VARCHAR NOT NULL,
+                    output_path TEXT,
+                    profile_json TEXT NOT NULL,
+                    progress INTEGER NOT NULL,
+                    source VARCHAR NOT NULL,
+                    error_message TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (id),
+                    FOREIGN KEY(project_id) REFERENCES projects (id) ON DELETE CASCADE
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                INSERT INTO render_tasks (
+                    id,
+                    project_id,
+                    status,
+                    output_path,
+                    profile_json,
+                    progress,
+                    source,
+                    error_message,
+                    created_at,
+                    updated_at
+                )
+                VALUES (
+                    'legacy-task-no-timeline',
+                    'project-render',
+                    'running',
+                    NULL,
+                    '{"stages":[]}',
+                    12,
+                    'local',
+                    NULL,
+                    '2026-04-20 10:00:00',
+                    '2026-04-20 10:00:00'
+                )
+                """
+            )
+        )
+
+    initialize_domain_schema(engine)
+
+    with engine.connect() as connection:
+        columns = {
+            row["name"] for row in connection.execute(
+                text("PRAGMA table_info(render_tasks)")
+            ).mappings().all()
+        }
+
+    assert "timeline_id" in columns
+
+    repository = RenderRepository(session_factory=create_session_factory(engine))
+    tasks = repository.list_tasks()
+    assert len(tasks) == 1
+    assert tasks[0].id == "legacy-task-no-timeline"
+    assert tasks[0].timeline_id is None
 
 
 def test_initialize_domain_schema_repair_publish_plans_legacy_timestamps(tmp_path) -> None:  # type: ignore[no-untyped-def]

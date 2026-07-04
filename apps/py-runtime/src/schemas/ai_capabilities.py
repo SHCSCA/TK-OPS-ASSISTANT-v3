@@ -14,6 +14,7 @@ CAPABILITY_IDS = (
     'video_transcription',
     'video_generation',
     'asset_analysis',
+    'magic_cut',
 )
 
 

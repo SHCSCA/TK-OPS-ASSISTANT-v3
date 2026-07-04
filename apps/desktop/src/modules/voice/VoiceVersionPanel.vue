@@ -364,16 +364,12 @@ function confirmDelete(trackId: string): void {
   border-top-color: var(--color-brand-primary);
   border-radius: 50%;
   margin: 0 auto var(--space-2);
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  animation: spin var(--motion-spin) linear infinite;
 }
 
 .voice-version-enter-active,
 .voice-version-leave-active {
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: opacity var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
 }
 
 .voice-version-enter-from,

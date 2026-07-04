@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildWorkspaceAssetCards,
+  resolveDefaultWorkspaceAssetTab,
+  resolveWorkspaceAssetTabFromSourceType,
   sourceTypeLabel
 } from "@/modules/workspace/workspaceAssetViewModel";
 import type { AssetDto, WorkspaceTimelineDto } from "@/types/runtime";
@@ -21,7 +23,7 @@ describe("workspace asset view model", () => {
     expect(cards.map((card) => card.id)).toEqual(["asset-direct", "asset-source"]);
   });
 
-  it("把已在时间线中的素材标记为已入轨并提供替换片段操作", () => {
+  it("把已在时间线中的素材标记为已入轨并保留加入轨道操作", () => {
     const cards = buildWorkspaceAssetCards({
       projectId: "project-1",
       assets: [asset({ id: "asset-video", projectId: "project-1", type: "video" })],
@@ -46,7 +48,7 @@ describe("workspace asset view model", () => {
       isOnTimeline: true,
       status: "已入轨",
       tone: "success",
-      primaryAction: "替换片段"
+      primaryAction: "加入轨道"
     });
   });
 
@@ -91,7 +93,7 @@ describe("workspace asset view model", () => {
     });
   });
 
-  it("把缺失素材显示为路径缺失并使用重新定位操作", () => {
+  it("把缺失素材显示为路径缺失并使用重新检查操作", () => {
     const cards = buildWorkspaceAssetCards({
       projectId: "project-1",
       assets: [
@@ -108,11 +110,11 @@ describe("workspace asset view model", () => {
     expect(cards[0]).toMatchObject({
       status: "路径缺失",
       tone: "danger",
-      primaryAction: "重新定位"
+      primaryAction: "重新检查"
     });
   });
 
-  it("缺失素材存在 nextAction 时优先使用 nextAction", () => {
+  it("缺失素材存在 nextAction 时仍使用统一重新检查操作", () => {
     const cards = buildWorkspaceAssetCards({
       projectId: "project-1",
       assets: [
@@ -129,7 +131,7 @@ describe("workspace asset view model", () => {
     expect(cards[0]).toMatchObject({
       status: "路径缺失",
       tone: "danger",
-      primaryAction: "选择新路径"
+      primaryAction: "重新检查"
     });
   });
 
@@ -149,7 +151,7 @@ describe("workspace asset view model", () => {
     expect(cards[0]).toMatchObject({
       status: "需转码",
       tone: "warning",
-      primaryAction: "检查"
+      primaryAction: "重新检查"
     });
   });
 
@@ -198,6 +200,52 @@ describe("workspace asset view model", () => {
     });
 
     expect(cards[0].thumbnailPath).toBe("D:/tkops/thumbs/fallback.jpg");
+    expect(cards[0].previewAsset.thumbnailPath).toBe("D:/tkops/thumbs/fallback.jpg");
+  });
+
+  it("无资产且存在三类来源时默认选择优先级最高的分镜来源", () => {
+    const defaultTab = resolveDefaultWorkspaceAssetTab({
+      projectId: "project-1",
+      assets: [],
+      timeline: timeline([
+        timelineClip({ id: "clip-voice", sourceType: "voice_track", trackId: "track-audio" }),
+        timelineClip({ id: "clip-subtitle", sourceType: "subtitle_track", trackId: "track-subtitle" }),
+        timelineClip({ id: "clip-storyboard", sourceType: "storyboard", trackId: "track-video" })
+      ])
+    });
+
+    expect(defaultTab).toBe("storyboard");
+  });
+
+  it("无资产且无来源片段时默认保持资产空态", () => {
+    const defaultTab = resolveDefaultWorkspaceAssetTab({
+      projectId: "project-1",
+      assets: [],
+      timeline: timeline([
+        timelineClip({ id: "clip-manual", sourceType: "manual", trackId: "track-video" })
+      ])
+    });
+
+    expect(defaultTab).toBe("assets");
+  });
+
+  it("存在当前项目资产时默认保持资产 tab", () => {
+    const defaultTab = resolveDefaultWorkspaceAssetTab({
+      projectId: "project-1",
+      assets: [asset({ id: "asset-video", projectId: "project-1" })],
+      timeline: timeline([
+        timelineClip({ id: "clip-storyboard", sourceType: "storyboard", trackId: "track-video" })
+      ])
+    });
+
+    expect(defaultTab).toBe("assets");
+  });
+
+  it("把时间线片段来源映射为素材池来源 tab", () => {
+    expect(resolveWorkspaceAssetTabFromSourceType("storyboard")).toBe("storyboard");
+    expect(resolveWorkspaceAssetTabFromSourceType("voice_track")).toBe("voice_track");
+    expect(resolveWorkspaceAssetTabFromSourceType("subtitle_track")).toBe("subtitle_track");
+    expect(resolveWorkspaceAssetTabFromSourceType("asset")).toBeNull();
   });
 });
 
@@ -273,5 +321,24 @@ function timeline(clips: WorkspaceTimelineDto["tracks"][number]["clips"]): Works
     ],
     createdAt: "2026-05-15T00:00:00.000Z",
     updatedAt: "2026-05-15T00:00:00.000Z"
+  };
+}
+
+function timelineClip(input: {
+  id: string;
+  sourceType: string;
+  trackId: string;
+}): WorkspaceTimelineDto["tracks"][number]["clips"][number] {
+  return {
+    id: input.id,
+    trackId: input.trackId,
+    sourceType: input.sourceType,
+    sourceId: input.id,
+    label: input.id,
+    startMs: 0,
+    durationMs: 5000,
+    inPointMs: 0,
+    outPointMs: null,
+    status: "ready"
   };
 }

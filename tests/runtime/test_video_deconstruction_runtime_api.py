@@ -47,7 +47,7 @@ def _enable_multimodal_asset_analysis(client: TestClient) -> None:
         if item["capabilityId"] == "asset_analysis":
             item["enabled"] = True
             item["provider"] = "volcengine"
-            item["model"] = "doubao-seed-2.0-pro-260215"
+            item["model"] = "doubao-seed-2.0-pro"
         if item["capabilityId"] == "video_transcription":
             item["enabled"] = False
     update_response = client.put("/api/settings/ai-capabilities", json={"capabilities": capabilities})
@@ -69,11 +69,11 @@ def _enable_multimodal_video_transcription_with_legacy_asset_analysis(client: Te
         if item["capabilityId"] == "video_transcription":
             item["enabled"] = True
             item["provider"] = "volcengine"
-            item["model"] = "doubao-seed-2-0-pro-260215"
+            item["model"] = "doubao-seed-2.0-pro"
         if item["capabilityId"] == "asset_analysis":
             item["enabled"] = True
             item["provider"] = "volcengine"
-            item["model"] = "doubao-seed-1-6-vision-250815"
+            item["model"] = "doubao-seed-1.6"
             item["agentRole"] = "素材分析师"
             item["systemPrompt"] = "# 素材分析 Agent\n\n请输出 Markdown 素材分析报告。"
             item["userPromptTemplate"] = "请分析以下素材内容：{{content}}"

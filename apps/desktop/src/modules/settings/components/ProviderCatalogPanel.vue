@@ -405,8 +405,6 @@ type ProviderSecretDraft = {
   openApiRegion: string;
 };
 
-const SUPPORTED_PROVIDER_IDS = new Set(["openai", "deepseek", "volcengine", "volcengine_tts"]);
-
 const props = defineProps<{
   disabled: boolean;
   healthModel: string;
@@ -636,7 +634,6 @@ function providerGroupLabel(group: ProviderTemplateGroup): string {
 
 function isTemporarilyHiddenProvider(provider: AIProviderCatalogItem): boolean {
   return (
-    !SUPPORTED_PROVIDER_IDS.has(provider.provider) ||
     provider.kind === "custom" ||
     provider.region === "custom" ||
     provider.category === "custom" ||
@@ -702,6 +699,7 @@ function capabilityLabel(capability: string): string {
     text_generation: "文本",
     tts: "TTS",
     tts_generation: "TTS",
+    magic_cut: "智能粗剪",
     video_generation: "视频",
     vision: "视觉"
   };
@@ -852,7 +850,7 @@ function modalityLabel(modality: string): string {
   color: var(--text-primary);
   cursor: pointer;
   text-align: left;
-  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-spring);
 }
 
 .provider-connected-list__item--active,

@@ -1,4 +1,11 @@
-/* apps/desktop/src/styles/motion/keyframes.css */
+/* apps/desktop/src/styles/motion/keyframes.css
+ * 全局 @keyframes 仓库
+ *
+ * 治理规则：
+ *   1. 有明确消费者的 keyframes 保留
+ *   2. 孤立 keyframes 有未来用途的保留并标注用途，否则删除
+ *   3. 新增 keyframes 必须有对应消费者
+ */
 
 @property --num {
   syntax: "<integer>";
@@ -6,188 +13,161 @@
   inherits: false;
 }
 
-/* 6.1 aurora-rotate: 首启向导极光背景慢旋转 */
+/* ── 首启引导 ── */
+
+/* 极光背景慢旋转 */
 @keyframes aurora-rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-/* 6.2 activation-burst: 激活成功粒子扩散 */
+/* 激活成功粒子扩散 */
 @keyframes activation-burst {
-  0% {
-    opacity: 1;
-    transform: scale(0);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(3);
-  }
+  0% { opacity: 1; transform: scale(0); }
+  100% { opacity: 0; transform: scale(3); }
 }
 
-/* 6.5 ai-flow: AI 按钮流光 / 运行中流光 */
+/* ── 加载与进度 ── */
+
+/* 统一旋转加载图标 */
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+/* AI 按钮流光 / 运行中流光 */
 @keyframes ai-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 200% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
 }
 
-/* 6.6 progress-flow: 进度条运行中流光 */
+/* 进度条运行中流光 */
 @keyframes progress-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 200% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
 }
 
-/* 6.7 status-flow: Status Bar 顶部发光线 */
+/* Status Bar 顶部发光线 */
 @keyframes status-flow {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 200% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
 }
 
-/* 6.9 number-count-up: Dashboard 大数字过渡 (搭配 @property) */
-@keyframes number-count-up {
-  from {
-    --num: 0;
-  }
-  to {
-    --num: var(--target-num, 100);
-  }
-}
+/* ── 反馈与状态 ── */
 
-/* 6.10 exception-breathe: 异常卡边框呼吸 */
+/* 异常卡边框呼吸 */
 @keyframes exception-breathe {
-  0%, 100% {
-    border-color: var(--color-danger);
-  }
-  50% {
-    border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
-  }
+  0%, 100% { border-color: var(--color-danger); }
+  50% { border-color: color-mix(in srgb, var(--color-danger) 40%, transparent); }
 }
 
-/* 6.13 modal-enter: 弹窗入场 */
-@keyframes modal-enter {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -48%) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-/* 6.14 toast-slide-up: Toast 入场 */
+/* Toast 入场 */
 @keyframes toast-slide-up {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* 6.15 clip-gen-grow: AI 生成时间线片段入场 */
-@keyframes clip-gen-grow {
-  0% {
-    transform: scaleX(0);
-    box-shadow: 0 0 16px var(--color-brand-glow);
-  }
-  100% {
-    transform: scaleX(1);
-    box-shadow: 0 0 0 transparent;
-  }
-}
-
-/* 6.16 pipeline-node-pulse: 拆解阶段节点点亮脉冲 */
-@keyframes pipeline-node-pulse {
-  0% {
-    box-shadow: 0 0 0 0 var(--color-brand-glow);
-  }
-  100% {
-    box-shadow: 0 0 0 8px transparent;
-  }
-}
-
-/* 6.17 voice-wave-play: 配音播放竖条波形 */
-@keyframes voice-wave-play {
-  0%, 100% {
-    transform: scaleY(0.4);
-  }
-  50% {
-    transform: scaleY(1);
-  }
-}
-
-/* 6.18 subtitle-align-scan: 字幕对齐波形扫过游标 */
-@keyframes subtitle-align-scan {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(100%);
-  }
-}
-
-/* 6.19 device-heartbeat: 设备在线指示圆点呼吸 */
+/* 设备在线指示圆点呼吸 */
 @keyframes device-heartbeat {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
-/* 6.20 render-complete-glow: 渲染完成行发光 */
+/* 基础呼吸（通用） */
+@keyframes subtle-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.72; transform: scale(0.96); }
+}
+
+/* ── 新增：动效体系 Layer 1 keyframes ── */
+
+/* 骨架屏脉冲 */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* 页面入场 */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 页面离场 */
+@keyframes page-leave {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-8px); }
+}
+
+/* 列表项入场 */
+@keyframes list-item-enter {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* 列表项离场 */
+@keyframes list-item-leave {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(8px); }
+}
+
+/* 徽标数字变化 */
+@keyframes badge-count-change {
+  from { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  to { transform: scale(1); }
+}
+
+/* ========================================
+ * 孤立 keyframes —— 保留（有未来用途）
+ * ======================================== */
+
+/* Dashboard 大数字过渡（搭配 @property --num） */
+@keyframes number-count-up {
+  from { --num: 0; }
+  to { --num: var(--target-num, 100); }
+}
+
+/* AI 生成时间线片段入场（clip-gen-grow） */
+@keyframes clip-gen-grow {
+  0% { transform: scaleX(0); box-shadow: 0 0 16px var(--color-brand-glow); }
+  100% { transform: scaleX(1); box-shadow: 0 0 0 transparent; }
+}
+
+/* 拆解阶段节点点亮脉冲（pipeline-node-pulse） */
+@keyframes pipeline-node-pulse {
+  0% { box-shadow: 0 0 0 0 var(--color-brand-glow); }
+  100% { box-shadow: 0 0 0 8px transparent; }
+}
+
+/* 配音播放竖条波形（voice-wave-play） */
+@keyframes voice-wave-play {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+/* 字幕对齐扫过游标（subtitle-align-scan） */
+@keyframes subtitle-align-scan {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+/* 渲染完成行发光（render-complete-glow） */
 @keyframes render-complete-glow {
-  0% {
-    box-shadow: 0 0 0 0 var(--color-brand-glow);
-  }
-  50% {
-    box-shadow: 0 0 16px 2px var(--color-brand-glow);
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
+  0% { box-shadow: 0 0 0 0 var(--color-brand-glow); }
+  50% { box-shadow: 0 0 16px 2px var(--color-brand-glow); }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 
-/* 6.21 provider-test-shake: API 测试失败左右抖动 */
+/* API 测试失败左右抖动（provider-test-shake） */
 @keyframes provider-test-shake {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-2px); }
   75% { transform: translateX(2px); }
 }
 
-/* 基础呼吸，通用 */
-@keyframes subtle-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.72;
-    transform: scale(0.96);
-  }
-}
-
 /*
- * Reduced Motion 降级统一由 spacing.css 的 :root[data-reduced-motion="true"] 控制。
- * 不再跟随 OS 媒体查询——创作工具默认启用动效,仅用户主动切换时降级。
+ * Reduced Motion 降级统一由 tokens/motion.css 控制。
+ * 用户主动切换 :root[data-reduced-motion="true"] 时 animation 时长降至 1ms，
+ * 循环动效（pulse/spin/flow）应使用 --motion-pulse / --motion-spinner / --motion-spin / --motion-flow 等变量，
+ * 不建议直接写 animation-duration: 1s 硬编码。
  */

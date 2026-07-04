@@ -44,7 +44,7 @@ def _assert_subtitle_track_contract(track: dict[str, object]) -> None:
     assert "nextAction" in track["alignment"]
 
 
-def _build_app(tmp_path: Path) -> FastAPI:
+def _build_app(tmp_path: Path, *, include_voice_track: bool = True) -> FastAPI:
     engine = create_runtime_engine(tmp_path / "runtime.db")
     Base.metadata.create_all(engine)
     session_factory = create_session_factory(engine)
@@ -63,23 +63,24 @@ def _build_app(tmp_path: Path) -> FastAPI:
                 last_accessed_at=now,
             )
         )
-        session.add(
-            VoiceTrack(
-                id="voice-track-1",
-                project_id="project-subtitle",
-                timeline_id=None,
-                source="tts",
-                provider="openai",
-                voice_name="标准女声",
-                file_path=str(tmp_path / "voice.mp3"),
-                segments_json='[{"segmentIndex":0,"text":"第一句"}]',
-                status="ready",
-                version=3,
-                config_json="{}",
-                created_at=now,
-                updated_at=now,
+        if include_voice_track:
+            session.add(
+                VoiceTrack(
+                    id="voice-track-1",
+                    project_id="project-subtitle",
+                    timeline_id=None,
+                    source="tts",
+                    provider="openai",
+                    voice_name="标准女声",
+                    file_path=str(tmp_path / "voice.mp3"),
+                    segments_json='[{"segmentIndex":0,"text":"第一句"}]',
+                    status="ready",
+                    version=3,
+                    config_json="{}",
+                    created_at=now,
+                    updated_at=now,
+                )
             )
-        )
         session.add(
             SubtitleTrack(
                 id="subtitle-track-1",
@@ -166,7 +167,7 @@ def test_subtitle_track_contract_returns_source_voice_and_alignment(tmp_path: Pa
 def test_subtitle_generate_contract_returns_draft_when_source_voice_missing(
     tmp_path: Path,
 ) -> None:
-    client = TestClient(_build_app(tmp_path))
+    client = TestClient(_build_app(tmp_path, include_voice_track=False))
 
     response = client.post(
         "/api/subtitles/projects/project-subtitle/tracks/generate",

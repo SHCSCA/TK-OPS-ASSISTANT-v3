@@ -88,7 +88,7 @@ const items: Array<{ id: SettingsSectionId; label: string; summary: string }> = 
   color: var(--text-primary);
   cursor: pointer;
   text-align: left;
-  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  transition: border-color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-spring);
 }
 
 .settings-section-rail__item strong {

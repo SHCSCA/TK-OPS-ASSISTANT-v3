@@ -255,7 +255,7 @@
   height: 2px;
   background: var(--gradient-ai-primary);
   background-size: 200% 200%;
-  animation: ai-flow 2.4s linear infinite;
+  animation: ai-flow var(--motion-flow) linear infinite;
   z-index: 10;
 }
 

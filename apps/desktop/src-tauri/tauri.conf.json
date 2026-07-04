@@ -29,8 +29,8 @@
         "title": "TK-OPS",
         "width": 1680,
         "height": 960,
-        "minWidth": 1680,
-        "minHeight": 900,
+        "minWidth": 960,
+        "minHeight": 720,
         "resizable": true,
         "decorations": false
       }

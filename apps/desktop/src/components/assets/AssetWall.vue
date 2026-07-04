@@ -168,16 +168,7 @@ defineEmits<{
 }
 
 .asset-state__spinner {
-  animation: asset-spin 1.2s linear infinite;
-}
-
-@keyframes asset-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  animation: spin var(--motion-spin) linear infinite;
 }
 
 /* Reduced Motion 降级由 :root[data-reduced-motion="true"] 的 --motion-* 变量统一控制 */

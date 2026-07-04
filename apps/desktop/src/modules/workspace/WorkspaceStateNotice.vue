@@ -5,7 +5,7 @@
     :class="`workspace-state-notice--${status}`"
     aria-live="polite"
   >
-    <span class="material-symbols-outlined workspace-state-notice__icon">
+    <span class="material-symbols-outlined workspace-state-notice__icon" :class="{ spinning: status === 'loading' }">
       {{ icon }}
     </span>
     <div class="workspace-state-notice__copy">

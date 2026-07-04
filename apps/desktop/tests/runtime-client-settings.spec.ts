@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   RuntimeRequestError,
+  fetchBootstrapReadiness,
   fetchAICapabilitySupportMatrix,
   fetchAIProviderCatalog,
   fetchAIProviderModels,
@@ -108,6 +109,34 @@ describe("AI 与系统设置 Runtime client", () => {
     });
   });
 
+  it("读取 Runtime 首启 readiness 报告", async () => {
+    const calls: Array<{ method: string; path: string }> = [];
+    vi.stubGlobal(
+      "fetch",
+      createRouteAwareFetch((path, method) => {
+        calls.push({ path, method });
+        if (path === "/api/bootstrap/readiness" && method === "GET") {
+          return {
+            ...okJsonResponse(runtimeFixtures.blockedBootstrapReadiness),
+            headers: new Headers({ "X-Request-ID": "req-bootstrap-readiness" })
+          };
+        }
+        throw new Error(`Unhandled request: ${method} ${path}`);
+      })
+    );
+
+    const report = await fetchBootstrapReadiness();
+
+    expect(report.canContinue).toBe(false);
+    expect(report.requestId).toBe("req-bootstrap-readiness");
+    expect(report.blockers[0]).toMatchObject({
+      errorCode: "license.not_activated",
+      affectedTarget: "许可证",
+      nextStep: "请输入有效激活码并完成许可证激活。"
+    });
+    expect(calls).toEqual([{ path: "/api/bootstrap/readiness", method: "GET" }]);
+  });
+
   it("把英文校验失败文案归一为中文错误", async () => {
     vi.stubGlobal(
       "fetch",
@@ -132,6 +161,25 @@ describe("AI 与系统设置 Runtime client", () => {
       message: "请求参数校验失败，请检查输入后重试。",
       requestId: "req-settings",
       status: 422
+    } satisfies Partial<RuntimeRequestError>);
+  });
+
+  it("把非标准 Runtime 错误归一为中文兜底文案", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 500,
+        json: async () => {
+          throw new Error("not json");
+        }
+      }))
+    );
+
+    await expect(fetchBootstrapReadiness()).rejects.toMatchObject({
+      name: "RuntimeRequestError",
+      message: "Runtime 请求失败（HTTP 500），请稍后重试。",
+      status: 500
     } satisfies Partial<RuntimeRequestError>);
   });
 });

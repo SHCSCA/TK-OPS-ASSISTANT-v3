@@ -29,6 +29,7 @@ from schemas.assets import (
     BatchDeleteAssetsInput,
     BatchMoveGroupInput,
 )
+from services.asset_media_access import validate_asset_media_token
 from services.task_manager import ProgressCallback, TaskManager, task_manager as default_task_manager
 
 log = logging.getLogger(__name__)
@@ -127,6 +128,24 @@ class AssetService:
         if asset is None:
             raise HTTPException(status_code=404, detail="资产不存在")
         return self._to_dto(asset)
+
+    def get_asset_media_path(self, asset_id: str, token: str | None = None) -> Path:
+        try:
+            asset = self._repository.get_asset(asset_id)
+        except Exception as exc:
+            log.exception("读取资产媒体失败")
+            raise HTTPException(status_code=500, detail="读取资产媒体失败") from exc
+        if asset is None:
+            raise HTTPException(status_code=404, detail="资产不存在")
+        if not validate_asset_media_token(token, asset_id=asset.id, project_id=asset.project_id):
+            log.warning("资产媒体访问令牌无效 asset_id=%s", asset.id)
+            raise HTTPException(status_code=403, detail="媒体访问令牌无效或已过期")
+        if str(asset.type or "").strip().lower() not in {"audio", "image", "video"}:
+            raise HTTPException(status_code=400, detail="该资产类型不支持媒体预览")
+        file_path = Path(str(asset.file_path or ""))
+        if not file_path.exists() or not file_path.is_file():
+            raise HTTPException(status_code=404, detail="资产源文件不存在")
+        return file_path
 
     def update_asset(self, asset_id: str, payload: AssetUpdateInput) -> AssetDto:
         changes: dict[str, object] = {}

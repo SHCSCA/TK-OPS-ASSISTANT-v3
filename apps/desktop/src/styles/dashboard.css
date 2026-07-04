@@ -291,7 +291,7 @@
   cursor: pointer;
   font-size: 13px;
   padding: 4px 12px;
-  transition: background 150ms;
+  transition: background var(--motion-fast) var(--ease-standard);
 }
 
 .recent-projects-table__btn:hover {
@@ -342,7 +342,7 @@
   padding: 16px;
   position: relative;
   text-decoration: none;
-  transition: background 150ms, border-color 150ms;
+  transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
 }
 
 .chain-step::before {

@@ -26,28 +26,6 @@
   --radius-2xl: 24px;
   --radius-full: 9999px;
 
-  /* 2.6 动效曲线与时长 */
-  --motion-instant: 80ms;
-  --motion-fast: 160ms;
-  --motion-default: 240ms;
-  --motion-slow: 400ms;
-  --motion-lazy: 600ms;
-
-  /* 2.6.1 长周期动画时长（流光、旋转、呼吸等循环动效） */
-  --motion-flow: 2.4s;
-  --motion-rotate-slow: 30s;
-  --motion-rotate-med: 20s;
-  --motion-breathe: 3s;
-  --motion-pulse: 1.2s;
-  /* 加载旋转器专用时长（独立变量确保 reduced-motion 降级生效） */
-  --motion-spin: 1s;
-
-  --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
-  --ease-decelerate: cubic-bezier(0.0, 0.0, 0.2, 1);
-  --ease-accelerate: cubic-bezier(0.4, 0.0, 1.0, 1);
-  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
-
   /* AppShell 布局常量 */
   --titlebar-height: 48px;
   --sidebar-width-expanded: 280px;
@@ -67,6 +45,12 @@
   --density-card-padding: var(--space-4);
   --density-control-height: 36px;
 
+  /* 轨道颜色令牌 */
+  --color-track-video: #38bdf8;
+  --color-track-voice: #22c55e;
+  --color-track-bgm: #a78bfa;
+  --color-track-subtitle: #fb7185;
+
   /* 2.7 z-index 分层 */
   --z-base: 0;
   --z-sticky: 10;
@@ -79,10 +63,10 @@
   --z-modal: 1000;
   --z-toast: 1100;
   --z-command-palette: 1200;
-
-  /* 兼容旧变量 */
-  --motion-base: var(--motion-default);
 }
+
+/* 动效 token 已迁移至 tokens/motion.css */
+/* Reduced Motion 降级已迁移至 tokens/motion.css */
 
 @media (max-width: 1440px) {
   :root {
@@ -123,21 +107,6 @@
   --shadow-lg: 0 12px 32px 0 rgba(0, 0, 0, 0.6);
   --shadow-glow-brand: 0 0 24px 0 rgba(0, 188, 212, 0.32);
   --shadow-glow-ai: 0 0 32px 0 rgba(112, 0, 255, 0.28);
-}
-
-/* Reduced Motion 降级——唯一入口，仅用户主动切换时生效 */
-:root[data-reduced-motion="true"] {
-  --motion-instant: 1ms;
-  --motion-fast: 1ms;
-  --motion-default: 1ms;
-  --motion-slow: 1ms;
-  --motion-lazy: 1ms;
-  --motion-flow: 1ms;
-  --motion-rotate-slow: 1ms;
-  --motion-rotate-med: 1ms;
-  --motion-breathe: 1ms;
-  --motion-pulse: 1ms;
-  --motion-spin: 1ms;
 }
 
 /* 960px 以下：收紧密度令牌，适配紧凑窗口 */

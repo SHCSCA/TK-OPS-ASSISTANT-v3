@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, status
+import logging
 
+from fastapi import APIRouter, HTTPException, Request, status
+
+from common.http_errors import RuntimeHTTPException
 from schemas.envelope import ok_response
 from schemas.workspace import (
     ClipInsertAssetInput,
@@ -18,6 +21,7 @@ from services.workspace_assembly import WorkspaceAssemblyService
 from services.workspace_service import WorkspaceService
 
 router = APIRouter(prefix="/api/workspace", tags=["workspace"])
+log = logging.getLogger(__name__)
 
 
 def _svc(request: Request) -> WorkspaceService:
@@ -28,14 +32,29 @@ def _assembly_svc(request: Request) -> WorkspaceAssemblyService:
     return request.app.state.workspace_assembly_service  # type: ignore[no-any-return]
 
 
-def _timeline_payload(result) -> dict[str, object]:  # type: ignore[no-untyped-def]
-    return result.model_dump(mode="json", exclude={"assemblyState"})
+def _timeline_payload(result, *, include_assembly_state: bool = False) -> dict[str, object]:  # type: ignore[no-untyped-def]
+    exclude = set()
+    if not include_assembly_state or result.assemblyState is None:
+        exclude.add("assemblyState")
+    return result.model_dump(mode="json", exclude=exclude)
 
 
 @router.get("/projects/{project_id}/timeline")
 def get_project_timeline(project_id: str, request: Request) -> dict[str, object]:
-    result = _svc(request).get_project_timeline(project_id)
-    return ok_response(_timeline_payload(result))
+    try:
+        result = _svc(request).get_project_timeline(project_id)
+        if result.timeline is not None:
+            result.assemblyState = _assembly_svc(request).build_project_assembly_state(project_id)
+        return ok_response(_timeline_payload(result, include_assembly_state=True))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("读取剪辑工作台时间线失败")
+        raise RuntimeHTTPException(
+            status_code=500,
+            detail="读取剪辑工作台时间线失败。",
+            error_code="workspace.timeline_read_failed",
+        ) from exc
 
 
 @router.post("/projects/{project_id}/timeline", status_code=status.HTTP_201_CREATED)
@@ -149,4 +168,10 @@ async def run_ai_command(
     request: Request,
 ) -> dict[str, object]:
     result = _svc(request).run_ai_command(project_id, payload)
+    if result.status == "blocked" and result.task is None:
+        raise RuntimeHTTPException(
+            status_code=400,
+            detail=result.message,
+            error_code="workspace.ai_command_precheck_failed",
+        )
     return ok_response(result.model_dump(mode="json"))

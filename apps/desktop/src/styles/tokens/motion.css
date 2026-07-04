@@ -1,0 +1,58 @@
+/* apps/desktop/src/styles/tokens/motion.css
+ * 动效设计令牌 —— 5 级速度系统 + 缓动曲线
+ *
+ * 层级体系（由快到慢）：
+ *   Tier 1 — Haptic(150ms):      触觉反馈，click/active/press
+ *   Tier 2 — Instant(280ms):     即时过渡，hover/focus/tooltip
+ *   Tier 3 — Content(500ms):     内容过渡，panel/modal/list enter
+ *   Tier 4 — Scene(900ms):       场景过渡，page/sidebar/detail panel
+ *   Tier 5 — Celebration(1500ms): 庆祝反馈，badge/toast/progress complete
+ */
+
+:root {
+  /* ── 5 级速度系统 ── */
+  --motion-haptic: 150ms;
+  --motion-instant: 280ms;
+  --motion-content: 500ms;
+  --motion-scene: 900ms;
+  --motion-celebration: 1500ms;
+
+  /* ── 长周期循环动效（不参与 5 级体系） ── */
+  --motion-flow: 3.6s;
+  --motion-rotate-slow: 45s;
+  --motion-rotate-med: 30s;
+  --motion-breathe: 4.5s;
+  --motion-pulse: 1.8s;
+  --motion-spinner: 2400ms;
+  --motion-spin: 3s;
+
+  /* ── 缓动曲线 ── */
+  --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-decelerate: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --ease-accelerate: cubic-bezier(0.4, 0.0, 1.0, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ── 向后兼容别名（旧 token 名继续可用，值已对应新体系） ── */
+  --motion-fast: var(--motion-instant);
+  --motion-default: var(--motion-content);
+  --motion-base: var(--motion-content);
+  --motion-slow: var(--motion-scene);
+  --motion-lazy: var(--motion-scene);
+}
+
+/* Reduced Motion —— 一次性过渡降级，循环动效改为更慢节奏，避免 1ms 导致极速闪动 */
+:root[data-reduced-motion="true"] {
+  --motion-haptic: 1ms;
+  --motion-instant: 1ms;
+  --motion-content: 1ms;
+  --motion-scene: 1ms;
+  --motion-celebration: 1ms;
+  --motion-flow: 12s;
+  --motion-rotate-slow: 120s;
+  --motion-rotate-med: 90s;
+  --motion-breathe: 8s;
+  --motion-pulse: 4s;
+  --motion-spinner: 8s;
+  --motion-spin: 6s;
+}

@@ -97,6 +97,7 @@ describe("AI settings layout contract", () => {
     expect(providerPanel).toContain('PROVIDER_GROUP_ORDER: ProviderTemplateGroup[] = ["model", "media"]');
     expect(providerPanel).toContain("visibleProviderCatalog");
     expect(providerPanel).toContain("function isTemporarilyHiddenProvider");
+    expect(providerPanel).not.toContain("SUPPORTED_PROVIDER_IDS");
     expect(providerPanel).not.toContain("新增自定义");
     expect(providerPanel).not.toContain("selectCustomProvider");
     expect(providerPanel).not.toContain("customOpenAIProvider");

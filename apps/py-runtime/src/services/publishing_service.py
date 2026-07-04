@@ -174,21 +174,21 @@ class PublishingService:
             submitted = self._repository.submit_plan(plan_id)
             if submitted is None:
                 raise HTTPException(status_code=404, detail="发布计划不存在")
-            submitted = self._repository.update_plan(plan_id, status="submitted", error_message=None)
+            submitted = self._repository.update_plan(plan_id, status="manual_required", error_message=None)
             if submitted is None:
                 raise HTTPException(status_code=404, detail="发布计划不存在")
             receipt = self._repository.create_receipt(
                 plan_id=plan_id,
-                status="receipt_pending",
+                status="manual_required",
                 platform_response_json=json.dumps(
                     {
-                        "stage": "receipt",
-                        "summary": "已提交平台，等待平台回执。",
+                        "stage": "manual_handoff",
+                        "summary": "发布前检查已通过，当前需要人工在 TikTok 或绑定浏览器工作区完成提交。",
                         "errorCode": None,
                         "errorMessage": None,
                         "nextAction": {
-                            "key": "refresh-receipt",
-                            "label": "刷新回执",
+                            "key": "manual-publish",
+                            "label": "前往人工发布",
                         },
                         "isFinal": False,
                     },
@@ -206,13 +206,13 @@ class PublishingService:
             plan_id=plan_id,
             status=submitted.status,
             submitted_at=submitted.submitted_at or utc_now(),
-            message="发布计划已提交，正在等待平台回执。",
+            message="发布前检查已通过，已生成人工发布交接，请在 TikTok 或绑定浏览器工作区完成提交。",
             receipt_status=receipt.status,
             error_code=None,
             error_message=None,
             next_action=PublishSuggestedActionDto(
-                key="refresh-receipt",
-                label="刷新回执",
+                key="manual-publish",
+                label="前往人工发布",
             ),
             receipt=receipt_dto,
         )
@@ -738,7 +738,7 @@ class PublishingService:
         can_retry = bool(
             latest_receipt_dto and latest_receipt_dto.status in {"failed", "receipt_failed"}
         ) or plan.status in {"failed", "cancelled"}
-        can_cancel = plan.status in {"draft", "submitting", "submitted", "receipt_pending"}
+        can_cancel = plan.status in {"draft", "submitting", "submitted", "receipt_pending", "manual_required"}
 
         if not readiness.can_submit:
             next_action = readiness.next_action
@@ -879,6 +879,8 @@ def _is_auth_expired(auth_expires_at: str | None) -> bool:
 
 
 def _receipt_stage_for_status(status: str) -> str:
+    if status == "manual_required":
+        return "manual_handoff"
     if status in {"submitted", "receipt_pending"}:
         return "receipt"
     if status in {"failed", "receipt_failed"}:
@@ -891,6 +893,8 @@ def _receipt_stage_for_status(status: str) -> str:
 
 
 def _receipt_summary_for_status(status: str) -> str:
+    if status == "manual_required":
+        return "发布前检查已通过，当前需要人工在 TikTok 或绑定浏览器工作区完成提交。"
     if status == "receipt_pending":
         return "已提交平台，等待平台回执。"
     if status == "submitted":

@@ -1,9 +1,27 @@
 <template>
-  <section class="workspace-timeline" aria-label="项目时间线" :data-state="status">
+  <section
+    class="workspace-timeline"
+    data-testid="workspace-timeline"
+    aria-label="项目时间线"
+    :data-state="status"
+    :data-zoom-percent="safeZoomPercent"
+  >
     <header class="workspace-timeline__header">
       <div>
         <strong>时间线</strong>
         <p>{{ subtitle }}</p>
+      </div>
+      <div
+        v-if="syncSummary.visible"
+        class="workspace-timeline__sync-summary"
+        :data-sync="syncSummary.status"
+        data-testid="workspace-timeline-sync-summary"
+      >
+        <span class="material-symbols-outlined">{{ syncSummary.icon }}</span>
+        <div>
+          <strong>{{ syncSummary.label }}</strong>
+          <small>{{ syncSummary.meta }}</small>
+        </div>
       </div>
       <div class="workspace-timeline__selection" :data-active="String(Boolean(selectedClip || selectedTrack))">
         <strong class="workspace-timeline__selection-label">{{ selectedSummary.label }}</strong>
@@ -22,117 +40,164 @@
     </div>
     <div v-else class="workspace-timeline__body">
       <div v-if="status === 'saving'" class="ai-flow-bar" />
-      <div class="workspace-timeline__ruler" @click="handleTimelinePointer">
-        <span
-          v-for="marker in markers"
-          :key="marker.label"
-          class="workspace-timeline__tick"
-          :style="{ left: marker.left }"
-        >
-          {{ marker.label }}
-        </span>
-      </div>
-      <div class="workspace-timeline__playhead-layer">
+      <div class="workspace-timeline__viewport">
         <div
-          class="workspace-timeline__playhead"
-          data-testid="workspace-playhead"
-          :style="{ left: `${playheadPercent}%` }"
+          class="workspace-timeline__content"
+          data-testid="workspace-timeline-content"
+          :style="timelineContentStyle"
         >
-          <span>{{ playheadLabel }}</span>
-        </div>
-      </div>
-
-      <div class="workspace-timeline__tracks scroll-area">
-        <transition-group name="track-list">
-          <article
-            v-for="row in rows"
-            :key="row.id"
-            class="workspace-track"
-            :class="[
-              `workspace-track--${row.heightClass}`,
-              `workspace-track--${row.visualClass}`,
-              { 'workspace-track--selected': selectedTrackId === row.id }
-            ]"
-          >
-            <button class="workspace-track__label" type="button" @click="$emit('select-track', row.id)">
-              <span class="material-symbols-outlined">{{ trackIcon(row.kind) }}</span>
-              <div>
-                <strong>{{ row.name }}</strong>
-                <small>{{ trackMeta(row) }}</small>
-              </div>
-            </button>
-
-            <div class="workspace-track__lane" @click="handleTimelinePointer">
-              <transition-group name="clip-list">
-                <button
-                  v-for="clipView in row.clips"
-                  :key="clipView.id"
-                  class="workspace-clip"
-                  :class="[
-                    `workspace-clip--${clipView.joinClass}`,
-                    { 'workspace-clip--selected': selectedClipId === clipView.id }
-                  ]"
-                  :data-clip-id="clipView.id"
-                  :data-status="clipView.clip.status"
-                  type="button"
-                  :style="clipStyle(clipView)"
-                  @click.stop="$emit('select-clip', { clipId: clipView.id, trackId: row.id })"
-                  @pointerdown.stop="handleMovePointerDown(clipView.clip, $event)"
-                >
-                  <span
-                    v-if="clipView.id === selectedClipId"
-                    aria-label="左侧裁剪 0.5 秒"
-                    class="workspace-timeline__trim-handle workspace-timeline__trim-handle--left"
-                    data-testid="workspace-trim-left"
-                    role="button"
-                    tabindex="0"
-                    title="左侧收短 0.5 秒"
-                    @click.stop="emitTrim(clipView.id, 'left', 500)"
-                    @pointerdown.stop="handleTrimPointerDown(clipView.clip, 'left', $event)"
-                    @keydown.enter.stop.prevent="emitTrim(clipView.id, 'left', 500)"
-                    @keydown.space.stop.prevent="emitTrim(clipView.id, 'left', 500)"
-                  />
-                  <span
-                    v-if="clipView.id === selectedClipId"
-                    aria-label="右侧裁剪 0.5 秒"
-                    class="workspace-timeline__trim-handle workspace-timeline__trim-handle--right"
-                    data-testid="workspace-trim-right"
-                    role="button"
-                    tabindex="0"
-                    title="右侧收短 0.5 秒"
-                    @click.stop="emitTrim(clipView.id, 'right', -500)"
-                    @pointerdown.stop="handleTrimPointerDown(clipView.clip, 'right', $event)"
-                    @keydown.enter.stop.prevent="emitTrim(clipView.id, 'right', -500)"
-                    @keydown.space.stop.prevent="emitTrim(clipView.id, 'right', -500)"
-                  />
-                  <div v-if="row.visualClass === 'video'" class="workspace-timeline__thumbnail-strip" aria-hidden="true">
-                    <span v-for="index in 5" :key="index" />
-                  </div>
-                  <div
-                    v-else-if="row.visualClass === 'voice' || row.visualClass === 'bgm'"
-                    class="workspace-timeline__waveform"
-                    aria-hidden="true"
-                  >
-                    <span v-for="index in 14" :key="index" />
-                  </div>
-                  <div v-else class="workspace-timeline__subtitle-block">
-                    {{ subtitleText(clipView.clip) }}
-                  </div>
-                  <strong>{{ clipLabel(clipView.clip) }}</strong>
-                  <small>{{ clipSubtitle(clipView.clip) }}</small>
-                </button>
-              </transition-group>
-              <span v-if="row.clips.length === 0" class="workspace-track__empty">当前轨道暂无片段</span>
+          <div class="workspace-timeline__ruler" @click="handleTimelinePointer">
+            <span
+              v-for="marker in markers"
+              :key="marker.label"
+              class="workspace-timeline__tick"
+              :style="{ left: marker.left }"
+            >
+              {{ marker.label }}
+            </span>
+          </div>
+          <div class="workspace-timeline__playhead-layer">
+            <div
+              v-if="syncSummary.visible"
+              class="workspace-timeline__sync-end"
+              data-testid="workspace-sync-end"
+              :style="{ left: `${syncTargetPercent}%` }"
+            >
+              <span>AI 统一结束</span>
             </div>
-          </article>
-        </transition-group>
+            <div
+              class="workspace-timeline__playhead"
+              data-testid="workspace-playhead"
+              :style="{ left: `${playheadPercent}%` }"
+            >
+              <span>{{ playheadLabel }}</span>
+            </div>
+          </div>
+
+          <div class="workspace-timeline__tracks scroll-area">
+            <transition-group name="track-list">
+              <article
+                v-for="row in rows"
+                :key="row.id"
+                class="workspace-track"
+                :class="[
+                  `workspace-track--${row.heightClass}`,
+                  `workspace-track--${row.visualClass}`,
+                  { 'workspace-track--selected': selectedTrackId === row.id }
+                ]"
+              >
+                <button class="workspace-track__label" type="button" @click="$emit('select-track', row.id)">
+                  <span class="material-symbols-outlined">{{ trackIcon(row.kind) }}</span>
+                  <div>
+                    <strong>{{ row.name }}</strong>
+                    <small>{{ trackMeta(row) }}</small>
+                    <small
+                      v-if="row.isManagedAITrack"
+                      class="workspace-track__sync-badge"
+                      :data-sync="row.syncStatus"
+                    >
+                      {{ row.syncLabel }}
+                    </small>
+                  </div>
+                </button>
+
+                <div class="workspace-track__lane" @click="handleTimelinePointer">
+                  <span
+                    v-if="row.isManagedAITrack"
+                    class="workspace-track__sync-target"
+                    :data-sync="row.syncStatus"
+                    :style="{ width: `${row.syncTargetPercent}%` }"
+                  >
+                    <span>AI 统一目标</span>
+                  </span>
+                  <span
+                    v-if="row.isManagedAITrack"
+                    class="workspace-track__sync-span"
+                    :data-sync="row.syncStatus"
+                    :style="{ width: `${row.syncEndPercent}%` }"
+                  >
+                    <span>{{ row.syncLabel }}</span>
+                  </span>
+                  <span
+                    v-if="row.isManagedAITrack && row.syncGapWidthPercent > 0"
+                    class="workspace-track__sync-gap"
+                    :data-sync="row.syncStatus"
+                    :style="{ left: `${row.syncGapLeftPercent}%`, width: `${row.syncGapWidthPercent}%` }"
+                  >
+                    <span>{{ row.syncLabel }}</span>
+                  </span>
+                  <transition-group name="clip-list">
+                    <button
+                      v-for="clipView in row.clips"
+                      :key="clipView.id"
+                      class="workspace-clip"
+                      :class="[
+                        `workspace-clip--${clipView.joinClass}`,
+                        { 'workspace-clip--selected': selectedClipId === clipView.id }
+                      ]"
+                      :data-clip-id="clipView.id"
+                      :data-status="clipView.clip.status"
+                      type="button"
+                      :style="clipStyle(clipView)"
+                      @click.stop="$emit('select-clip', { clipId: clipView.id, trackId: row.id })"
+                      @pointerdown.stop="handleMovePointerDown(clipView.clip, $event)"
+                    >
+                      <span
+                        v-if="clipView.id === selectedClipId"
+                        aria-label="左侧裁剪 0.5 秒"
+                        class="workspace-timeline__trim-handle workspace-timeline__trim-handle--left"
+                        data-testid="workspace-trim-left"
+                        role="button"
+                        tabindex="0"
+                        title="左侧收短 0.5 秒"
+                        @click.stop="emitTrim(clipView.id, 'left', 500)"
+                        @pointerdown.stop="handleTrimPointerDown(clipView.clip, 'left', $event)"
+                        @keydown.enter.stop.prevent="emitTrim(clipView.id, 'left', 500)"
+                        @keydown.space.stop.prevent="emitTrim(clipView.id, 'left', 500)"
+                      />
+                      <span
+                        v-if="clipView.id === selectedClipId"
+                        aria-label="右侧裁剪 0.5 秒"
+                        class="workspace-timeline__trim-handle workspace-timeline__trim-handle--right"
+                        data-testid="workspace-trim-right"
+                        role="button"
+                        tabindex="0"
+                        title="右侧收短 0.5 秒"
+                        @click.stop="emitTrim(clipView.id, 'right', -500)"
+                        @pointerdown.stop="handleTrimPointerDown(clipView.clip, 'right', $event)"
+                        @keydown.enter.stop.prevent="emitTrim(clipView.id, 'right', -500)"
+                        @keydown.space.stop.prevent="emitTrim(clipView.id, 'right', -500)"
+                      />
+                      <div v-if="row.visualClass === 'video'" class="workspace-timeline__thumbnail-strip" aria-hidden="true">
+                        <span v-for="index in 5" :key="index" />
+                      </div>
+                      <div
+                        v-else-if="row.visualClass === 'voice' || row.visualClass === 'bgm'"
+                        class="workspace-timeline__waveform"
+                        aria-hidden="true"
+                      >
+                        <span v-for="index in 14" :key="index" />
+                      </div>
+                      <div v-else class="workspace-timeline__subtitle-block">
+                        {{ subtitleText(clipView.clip) }}
+                      </div>
+                      <strong>{{ clipLabel(clipView.clip) }}</strong>
+                      <small>{{ clipSubtitle(clipView.clip) }}</small>
+                    </button>
+                  </transition-group>
+                  <span v-if="row.clips.length === 0" class="workspace-track__empty">当前轨道暂无片段</span>
+                </div>
+              </article>
+            </transition-group>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 
 import type { EditingWorkspaceStatus } from "@/stores/editing-workspace";
 import type {
@@ -155,12 +220,19 @@ import {
   computePlayheadPercent,
   formatWorkspaceClipRange,
   formatWorkspaceTime,
+  summarizeManagedTrackSync,
   type TimelineClipView,
   type TimelineRowView,
   workspaceSourceTypeLabel,
   workspaceStatusLabel,
   workspaceTrackMetaLabel
 } from "./workspaceTimelineViewModel";
+import {
+  timelineContentBaseWidthPx,
+  normalizeTimelineZoomPercent,
+  timelineZoomGridSizePx,
+  timelineZoomScale
+} from "./workspaceTimelineGeometry";
 
 const props = defineProps<{
   selectedClipId: string | null;
@@ -169,6 +241,7 @@ const props = defineProps<{
   status: EditingWorkspaceStatus;
   timeline: WorkspaceTimelineDto | null;
   tracks: WorkspaceTimelineTrackDto[];
+  zoomPercent?: number;
 }>();
 
 const emit = defineEmits<{
@@ -189,6 +262,20 @@ const durationMs = computed(() => {
   const declaredDuration = Math.max(0, (props.timeline?.durationSeconds ?? 0) * 1000);
   return Math.max(declaredDuration, clipEnd, 1000);
 });
+const safeZoomPercent = computed(() => normalizeTimelineZoomPercent(props.zoomPercent ?? 100));
+const timelineContentStyle = computed(() => ({
+  "--workspace-timeline-content-base-width": `${timelineContentBaseWidthPx(durationMs.value)}px`,
+  "--workspace-timeline-grid-size": `${timelineZoomGridSizePx(safeZoomPercent.value)}px`,
+  "--workspace-timeline-zoom-scale": String(timelineZoomScale(safeZoomPercent.value))
+}));
+
+const declaredTargetDurationMs = computed(() => Math.max(0, (props.timeline?.durationSeconds ?? 0) * 1000));
+
+const syncTargetDurationMs = computed(() => {
+  return summarizeManagedTrackSync(props.tracks, durationMs.value, declaredTargetDurationMs.value).targetDurationMs;
+});
+
+const syncTargetPercent = computed(() => computePlayheadPercent(syncTargetDurationMs.value, durationMs.value));
 
 const markers = computed(() => {
   const count = 6;
@@ -201,7 +288,67 @@ const markers = computed(() => {
   });
 });
 
-const rows = computed(() => buildTimelineRows(props.tracks, durationMs.value));
+const rows = computed(() => buildTimelineRows(props.tracks, durationMs.value, syncTargetDurationMs.value));
+const syncSummary = computed(() => {
+  const managedRows = rows.value.filter((row) => row.isManagedAITrack);
+  if (managedRows.length === 0) {
+    return {
+      icon: "timeline",
+      label: "",
+      meta: "",
+      status: "synced",
+      visible: false
+    };
+  }
+
+  const unsyncedRows = managedRows.filter((row) => row.syncStatus !== "synced");
+  const targetLabel = formatWorkspaceTime(syncTargetDurationMs.value);
+  const missingRoleLabels = missingManagedTrackRoleLabels(managedRows.map((row) => row.kind));
+  const managedEndMs = managedRows.map((row) =>
+    row.track.clips.reduce((max, clip) => Math.max(max, clip.startMs + clip.durationMs), 0)
+  );
+  const presentTargetMs = managedEndMs.reduce((max, value) => Math.max(max, value), 0);
+  const presentRowsAligned = managedEndMs.every((value) => Math.abs(value - presentTargetMs) <= 250);
+
+  if (unsyncedRows.length === 0 && missingRoleLabels.length === 0) {
+    return {
+      icon: "check_circle",
+      label: "三轨统一结束",
+      meta: `${managedRows.length} 条 AI 受管轨道对齐到 ${targetLabel}`,
+      status: "synced",
+      visible: true
+    };
+  }
+
+  if (missingRoleLabels.length > 0 && unsyncedRows.length === 0 && presentRowsAligned && presentTargetMs > 0) {
+    return {
+      icon: "sync_problem",
+      label: `${managedRows.length} 条轨道已对齐`,
+      meta: `缺少${missingRoleLabels.join("、")} · 对齐到 ${formatWorkspaceTime(presentTargetMs)}`,
+      status: "warning",
+      visible: true
+    };
+  }
+
+  return {
+    icon: "sync_problem",
+    label: missingRoleLabels.length === 0 ? "三轨需要同步" : `${managedRows.length} 条轨道需要同步`,
+    meta: `${unsyncedRows.length} 条 AI 受管轨道未对齐到 ${targetLabel}${missingRoleLabels.length > 0 ? ` · 缺少${missingRoleLabels.join("、")}` : ""}`,
+    status: "warning",
+    visible: true
+  };
+});
+
+function missingManagedTrackRoleLabels(kinds: WorkspaceTimelineTrackKind[]): string[] {
+  const existingKinds = new Set(kinds);
+  const requiredRoles: Array<{ kind: WorkspaceTimelineTrackKind; label: string }> = [
+    { kind: "video", label: "视频轨" },
+    { kind: "audio", label: "配音轨" },
+    { kind: "subtitle", label: "字幕轨" }
+  ];
+
+  return requiredRoles.filter((role) => !existingKinds.has(role.kind)).map((role) => role.label);
+}
 const draggingClipId = ref<string | null>(null);
 const activeLaneElement = ref<HTMLElement | null>(null);
 const timelineClips = computed(() => props.tracks.flatMap((track) => track.clips));
@@ -412,507 +559,27 @@ function isPrimaryPointer(event: PointerEvent): boolean {
   return event.button === 0 && event.isPrimary;
 }
 
+function escapeCssIdentifier(value: string): string {
+  return globalThis.CSS?.escape ? globalThis.CSS.escape(value) : value.replace(/["\\]/g, "\\$&");
+}
+
 onBeforeUnmount(() => {
   const preview = timelineDrag.cancelDrag();
   if (preview) emit("drag-cancel", preview);
   unbindDocumentDragEvents();
 });
+
+watch(
+  () => props.selectedClipId,
+  async (clipId) => {
+    if (!clipId) return;
+    await nextTick();
+    const element = document.querySelector(`[data-clip-id="${escapeCssIdentifier(clipId)}"]`);
+    if (element instanceof HTMLElement) {
+      element.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+);
 </script>
 
-<style scoped>
-.workspace-timeline {
-  --workspace-track-label-width: 144px;
-
-  min-height: 0;
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(3, 7, 18, 0.98)),
-    var(--surface-secondary);
-  border: 1px solid color-mix(in srgb, var(--border-strong) 58%, transparent);
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  color: #eef4ff;
-}
-
-.workspace-timeline__header,
-.workspace-track,
-.workspace-track__label {
-  display: flex;
-  gap: 14px;
-}
-
-.workspace-timeline__header,
-.workspace-track {
-  justify-content: space-between;
-}
-
-.workspace-timeline__header {
-  align-items: center;
-  min-height: 34px;
-  padding: 0 14px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-  background: rgba(15, 23, 42, 0.86);
-}
-
-.workspace-timeline__header > div {
-  min-width: 0;
-}
-
-.workspace-timeline__header p,
-.workspace-track__label small,
-.workspace-track__empty,
-.workspace-timeline__empty {
-  color: rgba(203, 213, 225, 0.72);
-  margin: 0;
-}
-
-.workspace-timeline__selection {
-  display: grid;
-  justify-items: end;
-  gap: 2px;
-  min-width: 0;
-  max-width: min(420px, 42vw);
-  color: rgba(226, 232, 240, 0.84);
-}
-
-.workspace-timeline__selection-label {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: rgba(248, 250, 252, 0.94);
-  font-size: 12px;
-}
-
-.workspace-timeline__selection-meta {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: rgba(203, 213, 225, 0.68);
-  font-size: 11px;
-}
-
-.workspace-timeline__selection[data-active="true"] .workspace-timeline__selection-label {
-  color: #fde68a;
-}
-
-.workspace-timeline__empty {
-  display: flex;
-  min-height: 150px;
-  align-items: center;
-  justify-content: center;
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px dashed rgba(148, 163, 184, 0.22);
-  padding: 18px;
-  text-align: center;
-}
-
-.workspace-timeline__body {
-  display: grid;
-  grid-template-rows: 28px minmax(0, 1fr);
-  min-height: 0;
-  position: relative;
-}
-
-.ai-flow-bar {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--gradient-ai-primary);
-  background-size: 200% 200%;
-  animation: ai-flow 2.4s linear infinite;
-  z-index: 10;
-}
-
-.workspace-timeline__ruler {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-  background:
-    linear-gradient(to right, rgba(148, 163, 184, 0.16) 1px, transparent 1px),
-    rgba(2, 6, 23, 0.72);
-  background-size: 80px 100%;
-  margin-left: var(--workspace-track-label-width);
-  min-height: 28px;
-  position: relative;
-}
-
-.workspace-timeline__tick {
-  color: rgba(148, 163, 184, 0.9);
-  font-size: 11px;
-  position: absolute;
-  top: 7px;
-  transform: translateX(-50%);
-}
-
-.workspace-timeline__playhead-layer {
-  bottom: 0;
-  left: var(--workspace-track-label-width);
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-  top: 0;
-  z-index: 8;
-}
-
-.workspace-timeline__playhead {
-  bottom: 0;
-  position: absolute;
-  top: 0;
-  width: 1px;
-  background: #facc15;
-  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35), 0 0 18px rgba(250, 204, 21, 0.4);
-  transform: translateX(-0.5px);
-}
-
-.workspace-timeline__playhead::before {
-  content: "";
-  position: absolute;
-  top: 26px;
-  left: -5px;
-  width: 11px;
-  height: 11px;
-  background: #facc15;
-  clip-path: polygon(50% 100%, 0 0, 100% 0);
-}
-
-.workspace-timeline__playhead span {
-  position: absolute;
-  top: 6px;
-  left: 8px;
-  padding: 2px 6px;
-  border: 1px solid rgba(250, 204, 21, 0.4);
-  border-radius: 6px;
-  background: rgba(15, 23, 42, 0.92);
-  color: #fde68a;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.workspace-timeline__tracks {
-  display: grid;
-  gap: 0;
-  height: 100%;
-  min-height: 0;
-  overflow: auto;
-}
-
-.scroll-area {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-strong) transparent;
-}
-
-.scroll-area::-webkit-scrollbar {
-  width: 4px;
-}
-.scroll-area::-webkit-scrollbar-thumb {
-  background: var(--color-border-strong);
-  border-radius: 99px;
-}
-
-.workspace-track {
-  align-items: stretch;
-  display: grid;
-  grid-template-columns: var(--workspace-track-label-width) minmax(0, 1fr);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(15, 23, 42, 0.46);
-  padding: 0;
-}
-
-.workspace-track--tall {
-  min-height: 64px;
-}
-
-.workspace-track--medium {
-  min-height: 46px;
-}
-
-.workspace-track--compact {
-  min-height: 34px;
-}
-
-.workspace-track--selected {
-  background: color-mix(in srgb, var(--brand-primary) 14%, rgba(15, 23, 42, 0.72));
-  box-shadow: inset 3px 0 0 var(--brand-primary);
-}
-
-.workspace-track--video .workspace-track__label .material-symbols-outlined {
-  color: #38bdf8;
-}
-
-.workspace-track--voice .workspace-track__label .material-symbols-outlined {
-  color: #22c55e;
-}
-
-.workspace-track--bgm .workspace-track__label .material-symbols-outlined {
-  color: #a78bfa;
-}
-
-.workspace-track--subtitle .workspace-track__label .material-symbols-outlined {
-  color: #fb7185;
-}
-
-.workspace-track__label {
-  align-items: center;
-  background: rgba(2, 6, 23, 0.42);
-  border: 0;
-  border-right: 1px solid rgba(148, 163, 184, 0.16);
-  color: inherit;
-  min-width: 0;
-  flex-shrink: 0;
-  padding: 8px 10px;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workspace-track__label .material-symbols-outlined {
-  flex: 0 0 auto;
-  font-size: 21px;
-}
-
-.workspace-track__lane {
-  background:
-    linear-gradient(to right, rgba(148, 163, 184, 0.16) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(15, 23, 42, 0.18), rgba(2, 6, 23, 0.32));
-  background-size: 80px 100%, 100% 100%;
-  min-height: 100%;
-  overflow: hidden;
-  position: relative;
-}
-
-.workspace-clip {
-  align-content: start;
-  background: rgba(30, 41, 59, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 8px;
-  color: #f8fafc;
-  display: grid;
-  gap: 5px;
-  min-width: 0;
-  overflow: hidden;
-  padding: 6px 9px;
-  position: absolute;
-  top: 5px;
-  bottom: 5px;
-  transition: all var(--motion-fast) var(--ease-standard);
-  cursor: pointer;
-}
-
-.workspace-timeline__trim-handle {
-  background: rgba(250, 204, 21, 0.88);
-  border: 1px solid rgba(254, 243, 199, 0.86);
-  border-radius: 99px;
-  bottom: 7px;
-  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.14);
-  cursor: ew-resize;
-  position: absolute;
-  top: 7px;
-  width: 7px;
-  z-index: 2;
-}
-
-.workspace-timeline__trim-handle--left {
-  left: 4px;
-}
-
-.workspace-timeline__trim-handle--right {
-  right: 4px;
-}
-
-.workspace-track--tall .workspace-clip {
-  grid-template-rows: minmax(24px, 1fr) auto auto;
-}
-
-.workspace-track--medium .workspace-clip {
-  grid-template-rows: minmax(16px, 1fr) auto;
-}
-
-.workspace-track--compact .workspace-clip {
-  grid-template-rows: minmax(18px, 1fr) auto;
-  padding: 6px 10px;
-}
-
-.workspace-clip:active {
-  transform: scale(0.98);
-}
-
-.workspace-clip--selected {
-  border-color: rgba(250, 204, 21, 0.72);
-  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.36), 0 0 18px rgba(250, 204, 21, 0.22);
-}
-
-.workspace-clip--start {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.workspace-clip--middle {
-  border-radius: 0;
-}
-
-.workspace-clip--end {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.workspace-track--video .workspace-clip {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.34), rgba(15, 23, 42, 0.94));
-}
-
-.workspace-track--voice .workspace-clip {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.28), rgba(15, 23, 42, 0.94));
-}
-
-.workspace-track--bgm .workspace-clip {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.32), rgba(15, 23, 42, 0.94));
-}
-
-.workspace-track--subtitle .workspace-clip {
-  background: linear-gradient(135deg, rgba(244, 63, 94, 0.28), rgba(15, 23, 42, 0.94));
-}
-
-.workspace-timeline__thumbnail-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(18px, 1fr));
-  gap: 3px;
-  min-height: 20px;
-}
-
-.workspace-timeline__thumbnail-strip span {
-  border: 1px solid rgba(125, 211, 252, 0.14);
-  border-radius: 5px;
-  background:
-    radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.22), transparent 24px),
-    linear-gradient(135deg, rgba(56, 189, 248, 0.34), rgba(14, 116, 144, 0.1) 46%, rgba(15, 23, 42, 0.86));
-}
-
-.workspace-timeline__waveform {
-  display: flex;
-  min-height: 16px;
-  align-items: center;
-  gap: 3px;
-}
-
-.workspace-timeline__waveform span {
-  flex: 1 1 0;
-  min-width: 2px;
-  height: 12px;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.74;
-}
-
-.workspace-timeline__waveform span:nth-child(3n + 1) {
-  height: 16px;
-}
-
-.workspace-timeline__waveform span:nth-child(4n + 2) {
-  height: 12px;
-}
-
-.workspace-timeline__waveform span:nth-child(5n) {
-  height: 8px;
-}
-
-.workspace-track--voice .workspace-timeline__waveform {
-  color: #86efac;
-}
-
-.workspace-track--bgm .workspace-timeline__waveform {
-  color: #c4b5fd;
-}
-
-.workspace-timeline__subtitle-block {
-  display: flex;
-  min-height: 20px;
-  align-items: center;
-  overflow: hidden;
-  color: #fecdd3;
-  font-size: 12px;
-  line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.track-list-move,
-.track-list-enter-active,
-.track-list-leave-active {
-  transition: all var(--motion-default) var(--ease-spring);
-}
-.track-list-enter-from,
-.track-list-leave-to {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-.clip-list-move,
-.clip-list-enter-active,
-.clip-list-leave-active {
-  transition: all var(--motion-default) var(--ease-spring);
-}
-.clip-list-enter-from,
-.clip-list-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
-}
-
-.workspace-clip[data-status="blocked"] {
-  border-color: color-mix(in srgb, var(--color-warning) 44%, rgba(148, 163, 184, 0.24));
-}
-
-.workspace-clip[data-status="error"],
-.workspace-clip[data-status="missing_source"] {
-  border-color: color-mix(in srgb, var(--color-danger) 52%, rgba(148, 163, 184, 0.24));
-}
-
-.workspace-clip strong,
-.workspace-clip small {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workspace-clip strong {
-  color: #f8fafc;
-  font-size: 12px;
-}
-
-.workspace-clip small {
-  color: rgba(226, 232, 240, 0.72);
-  font-size: 11px;
-}
-
-.workspace-track__empty {
-  left: 16px;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-@media (max-width: 960px) {
-  .workspace-timeline {
-    --workspace-track-label-width: 112px;
-  }
-
-  .workspace-track {
-    grid-template-columns: var(--workspace-track-label-width) minmax(0, 1fr);
-  }
-
-  .workspace-track__label {
-    padding: 10px;
-  }
-
-  .workspace-track__label small {
-    white-space: normal;
-  }
-
-  .workspace-timeline__playhead span {
-    display: none;
-  }
-}
-</style>
+<style scoped src="./WorkspaceTimeline.css"></style>

@@ -7,7 +7,10 @@ import {
   updateDeviceWorkspace,
   fetchBrowserInstances,
   createBrowserInstance,
-  removeBrowserInstance
+  removeBrowserInstance,
+  startBrowserInstance,
+  stopBrowserInstance,
+  checkBrowserInstanceHealth
 } from "@/app/runtime-client";
 import type {
   DeviceWorkspaceCreateInput,
@@ -15,7 +18,8 @@ import type {
   DeviceWorkspaceUpdateInput,
   HealthCheckResultDto,
   BrowserInstanceDto,
-  BrowserInstanceCreateInput
+  BrowserInstanceCreateInput,
+  BrowserInstanceWriteResultDto
 } from "@/types/runtime";
 import { resolveCollectionStatus, toRuntimeErrorMessage } from "@/stores/runtime-store-helpers";
 
@@ -30,6 +34,7 @@ export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
     lastHealthCheck: null as HealthCheckResultDto | null,
     loading: false,
     instancesLoading: false,
+    instanceActionKey: null as string | null,
     status: "idle" as "idle" | "loading" | "empty" | "ready" | "error",
     healthCheckState: "idle" as "idle" | "checking" | "ready" | "error",
     error: null as string | null
@@ -125,6 +130,43 @@ export const useDeviceWorkspacesStore = defineStore("device-workspaces", {
       } catch (error) {
         this.error = getErrorMessage(error);
         return null;
+      }
+    },
+    async startBrowser(workspaceId: string, instanceId: string) {
+      return this.runBrowserInstanceAction(
+        `start:${instanceId}`,
+        () => startBrowserInstance(workspaceId, instanceId)
+      );
+    },
+    async stopBrowser(workspaceId: string, instanceId: string) {
+      return this.runBrowserInstanceAction(
+        `stop:${instanceId}`,
+        () => stopBrowserInstance(workspaceId, instanceId)
+      );
+    },
+    async checkBrowserHealth(workspaceId: string, instanceId: string) {
+      return this.runBrowserInstanceAction(
+        `health:${instanceId}`,
+        () => checkBrowserInstanceHealth(workspaceId, instanceId)
+      );
+    },
+    async runBrowserInstanceAction(
+      actionKey: string,
+      action: () => Promise<BrowserInstanceWriteResultDto>
+    ) {
+      this.error = null;
+      this.instanceActionKey = actionKey;
+      try {
+        const result = await action();
+        this.browserInstances = this.browserInstances.map((instance) =>
+          instance.id === result.browserInstance.id ? result.browserInstance : instance
+        );
+        return result;
+      } catch (error) {
+        this.error = getErrorMessage(error);
+        return null;
+      } finally {
+        this.instanceActionKey = null;
       }
     },
     async deleteBrowserInstance(id: string) {

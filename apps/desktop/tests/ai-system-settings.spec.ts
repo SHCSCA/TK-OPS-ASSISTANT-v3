@@ -112,6 +112,9 @@ describe("AI 与系统设置页", () => {
         return okJsonResponse(runtimeFixtures.providerHealth);
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     }, { fallbackUnhandledProviderHealth: false });
 
@@ -148,6 +151,7 @@ describe("AI 与系统设置页", () => {
     expect(wrapper.get('[data-action="pick-export-dir"]').exists()).toBe(true);
     expect(wrapper.get('[data-action="pick-log-dir"]').exists()).toBe(true);
     expect(wrapper.get('[data-action="pick-ffprobe-path"]').exists()).toBe(true);
+    expect(wrapper.get('[data-action="pick-ffmpeg-path"]').exists()).toBe(true);
     vi.mocked(open).mockResolvedValue("C:\\TK-OPS\\workspace");
     await wrapper.get('[data-action="pick-workspace-root"]').trigger("click");
     await flushPromises();
@@ -164,6 +168,16 @@ describe("AI 与系统设置页", () => {
       defaultPath: runtimeFixtures.initializedConfig.media.ffprobePath || undefined,
       directory: false,
       filters: [{ extensions: ["exe"], name: "FFprobe" }],
+      multiple: false
+    });
+
+    vi.mocked(open).mockResolvedValue("C:\\TK-OPS\\tools\\ffmpeg.exe");
+    await wrapper.get('[data-action="pick-ffmpeg-path"]').trigger("click");
+    await flushPromises();
+    expect(open).toHaveBeenCalledWith({
+      defaultPath: runtimeFixtures.initializedConfig.media.ffmpegPath || undefined,
+      directory: false,
+      filters: [{ extensions: ["exe"], name: "FFmpeg" }],
       multiple: false
     });
 
@@ -208,7 +222,8 @@ describe("AI 与系统设置页", () => {
         subtitleMode: "precise"
       },
       media: {
-        ffprobePath: "C:\\TK-OPS\\tools\\ffprobe.exe"
+        ffprobePath: "C:\\TK-OPS\\tools\\ffprobe.exe",
+        ffmpegPath: "C:\\TK-OPS\\tools\\ffmpeg.exe"
       }
     });
     expect(wrapper.text()).toContain("配置已就绪");
@@ -251,6 +266,9 @@ describe("AI 与系统设置页", () => {
         return okJsonResponse(runtimeFixtures.providerHealth);
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     }, { fallbackUnhandledProviderHealth: false });
 
@@ -352,6 +370,9 @@ describe("AI 与系统设置页", () => {
         });
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     }, { fallbackUnhandledProviderHealth: false });
 
@@ -449,6 +470,9 @@ describe("AI 与系统设置页", () => {
         return okJsonResponse(runtimeFixtures.providerHealth);
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     }, { fallbackUnhandledProviderHealth: false });
 
@@ -514,6 +538,9 @@ describe("AI 与系统设置页", () => {
         return okJsonResponse(runtimeFixtures.providerHealth);
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     }, { fallbackUnhandledProviderHealth: false });
 
@@ -573,6 +600,9 @@ describe("AI 与系统设置页", () => {
         return okJsonResponse(runtimeFixtures.providerHealth);
       }
 
+      if (path === "/api/bootstrap/readiness" && method === "GET") {
+        return okJsonResponse(runtimeFixtures.bootstrapReadiness);
+      }
       throw new Error(`Unhandled request: ${method} ${path}`);
     }, { fallbackUnhandledProviderHealth: false });
 

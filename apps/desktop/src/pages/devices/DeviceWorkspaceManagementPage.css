@@ -525,14 +525,23 @@
 }
 
 .instance-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--space-3);
   justify-content: space-between;
-  align-items: center;
+  align-items: start;
   padding: var(--space-3);
   background: var(--color-bg-canvas);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-sm);
+  min-width: 0;
+}
+
+.ic-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
   min-width: 0;
 }
 
@@ -554,6 +563,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ic-runtime {
+  color: var(--color-text-tertiary) !important;
+}
+
+.ic-error {
+  color: var(--color-danger) !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+
+.ic-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .drawer-enter-active, .drawer-leave-active { 
@@ -601,5 +628,13 @@
   .drawer-actions > * {
     min-height: 44px;
     flex: 1 1 100%;
+  }
+
+  .instance-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ic-actions {
+    justify-content: flex-start;
   }
 }

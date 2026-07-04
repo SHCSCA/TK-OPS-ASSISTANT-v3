@@ -78,7 +78,7 @@
               <div v-if="isEmpty" class="empty-state">
                 <span class="material-symbols-outlined">rocket_launch</span>
                 <strong>还没有发布计划</strong>
-                <p>创建一个计划后，可以在这里执行预检、提交和取消。</p>
+                <p>创建一个计划后，可以在这里执行预检、生成发布交接和取消。</p>
               </div>
               <div v-else class="task-list">
                 <transition-group name="task-list-transition">
@@ -126,7 +126,7 @@
               <div class="actions">
                 <Chip :variant="planStatusTone(selectedPlan)">{{ planStatusLabel(selectedPlan) }}</Chip>
                 <Button variant="secondary" :disabled="isActionDisabled" @click="handlePrecheck">执行预检</Button>
-                <Button variant="primary" :disabled="isSubmitDisabled" @click="handleSubmit">提交发布</Button>
+                <Button variant="primary" :disabled="isSubmitDisabled" @click="handleSubmit">生成人工交接</Button>
                 <Button variant="danger" :disabled="isBusy" @click="handleCancel">取消计划</Button>
               </div>
             </div>
@@ -190,7 +190,7 @@
                   <h4>提交回执</h4>
                   <Chip size="sm">{{ receiptLabel }}</Chip>
                 </div>
-                <div v-if="receipt === null" class="lane-empty">提交后，这里会显示 Runtime 返回的真实回执。</div>
+                <div v-if="receipt === null" class="lane-empty">生成交接后，这里会显示 Runtime 返回的真实边界说明。</div>
                 <div v-else class="config-grid">
                   <div class="cfg-row"><span>状态</span><strong>{{ receipt.status }}</strong></div>
                   <div class="cfg-row"><span>说明</span><strong>{{ receipt.message || "无" }}</strong></div>
@@ -278,7 +278,7 @@ import Chip from "@/components/ui/Chip/Chip.vue";
 import Input from "@/components/ui/Input/Input.vue";
 
 type PublishPlanView = PublishPlanDto & { accountLabel: string; projectLabel: string; scheduledAtLabel: string; videoAssetLabel: string; errorMessage?: string | null };
-type StatusFilterValue = "all" | "draft" | "ready" | "submitting" | "published" | "failed" | "cancelled";
+type StatusFilterValue = "all" | "draft" | "ready" | "submitting" | "manual_required" | "published" | "failed" | "cancelled";
 
 const publishingStore = usePublishingStore();
 const projectStore = useProjectStore();
@@ -293,7 +293,7 @@ const addForm = ref({ title: "", accountName: "", accountId: "", projectId: "", 
 
 function normalizePublishStatus(taskStatus: string): PublishPlanDto["status"] {
   if (taskStatus === "running" || taskStatus === "queued" || taskStatus === "pending") return "submitting";
-  if (taskStatus === "succeeded") return "published";
+  if (taskStatus === "succeeded") return "manual_required" as PublishPlanDto["status"];
   if (taskStatus === "failed") return "failed";
   return "draft";
 }
@@ -336,7 +336,7 @@ const workflowStateLabel = computed(() => {
 
 const statusFilters: Array<{ label: string; value: StatusFilterValue }> = [
   { label: "全部", value: "all" }, { label: "草稿", value: "draft" }, { label: "就绪", value: "ready" },
-  { label: "提交中", value: "submitting" }, { label: "已发布", value: "published" },
+  { label: "交接中", value: "submitting" }, { label: "待人工", value: "manual_required" }, { label: "已发布", value: "published" },
   { label: "失败", value: "failed" }, { label: "已取消", value: "cancelled" }
 ];
 
@@ -352,7 +352,8 @@ const isLoading = computed(() => publishingStore.loading);
 const isEmpty = computed(() => publishingStore.viewState === "empty" && !isLoading.value);
 const isBusy = computed(() => isLoading.value || publishingStore.workflowState === "checking" || publishingStore.workflowState === "submitting");
 const isActionDisabled = computed(() => !selectedPlan.value || isBusy.value || isPlanBlocked(selectedPlan.value));
-const isSubmitDisabled = computed(() => !selectedPlan.value || isBusy.value || selectedPlan.value.status === "published" || selectedPlan.value.status === "cancelled" || Boolean(selectedPlanBlockReason.value));
+const isSelectedPlanBlocked = computed(() => selectedPlanBlockReason.value !== "可继续提交");
+const isSubmitDisabled = computed(() => !selectedPlan.value || isBusy.value || selectedPlan.value.status === "published" || selectedPlan.value.status === "manual_required" || selectedPlan.value.status === "cancelled" || isSelectedPlanBlocked.value);
 
 const precheckResult = computed<PrecheckResultDto | null>(() => publishingStore.precheckResult);
 const precheckItems = computed(() => precheckResult.value?.items ?? []);
@@ -371,6 +372,7 @@ const precheckSummaryLabel = computed(() => {
 const selectedPlanBlockReason = computed(() => {
   if (!selectedPlan.value) return "未选择计划";
   if (selectedPlan.value.status === "published") return "计划已经发布";
+  if (selectedPlan.value.status === "manual_required") return "等待人工发布";
   if (selectedPlan.value.status === "cancelled") return "计划已经取消";
   if (!selectedPlan.value.account_id && !selectedPlan.value.account_name) return "账号尚未绑定";
   if (!selectedPlan.value.project_id) return "项目尚未绑定";
@@ -396,6 +398,7 @@ function isPlanBlocked(plan: PublishPlanView) {
 
 function planStatusTone(plan: PublishPlanView) {
   if (plan.status === "published") return "success";
+  if (plan.status === "manual_required") return "warning";
   if (plan.status === "failed") return "danger";
   if (plan.status === "submitting") return "brand";
   if (isPlanBlocked(plan)) return "warning";
@@ -405,7 +408,8 @@ function planStatusTone(plan: PublishPlanView) {
 function planStatusLabel(plan: PublishPlanView) {
   if (plan.status === "draft") return "草稿";
   if (plan.status === "ready") return "可提交";
-  if (plan.status === "submitting") return "提交中";
+  if (plan.status === "submitting") return "生成交接中";
+  if (plan.status === "manual_required") return "待人工发布";
   if (plan.status === "published") return "已发布";
   if (plan.status === "cancelled") return "已取消";
   if (plan.status === "failed") return "失败";

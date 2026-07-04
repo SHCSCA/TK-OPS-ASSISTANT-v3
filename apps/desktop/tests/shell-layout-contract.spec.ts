@@ -15,6 +15,63 @@ function readBetween(source: string, start: string, end: string) {
 }
 
 describe("shell layout contract", () => {
+  it("uses the UI PRD five navigation groups and hides setup from the sidebar", () => {
+    const routerTypes = readSource("../src/types/router.ts");
+    const routeManifest = readSource("../src/app/router/route-manifest.ts");
+
+    const expectedGroups = ["启动与总览", "创作前置", "创作与媒体", "执行与治理", "系统与 AI"];
+    expectedGroups.forEach((group) => {
+      expect(routerTypes).toContain(`"${group}"`);
+      expect(routeManifest).toContain(`navGroup: "${group}"`);
+    });
+
+    expect(routerTypes).toContain('"HIDDEN"');
+    expect(routeManifest).toContain('id: routeIds.setupLicenseWizard');
+    expect(routeManifest).toMatch(/id:\s*routeIds\.setupLicenseWizard[\s\S]*navGroup:\s*"HIDDEN"/);
+    expect(routeManifest).not.toContain('"全局管理"');
+    expect(routeManifest).not.toContain('"核心管线"');
+  });
+
+  it("keeps route groups aligned with PRD and UI PRD source of truth", () => {
+    const routeManifest = readSource("../src/app/router/route-manifest.ts");
+
+    expect(routeManifest).toMatch(/id:\s*routeIds\.videoDeconstructionCenter[\s\S]*navGroup:\s*"创作前置"/);
+    expect(routeManifest).toMatch(/id:\s*routeIds\.renderExportCenter[\s\S]*navGroup:\s*"创作与媒体"/);
+  });
+
+  it("renders sidebar navigation groups in a fixed UI PRD order", () => {
+    const appShell = readSource("../src/layouts/AppShell.vue");
+
+    expect(appShell).toContain("NAV_GROUP_ORDER");
+    expect(appShell).toMatch(
+      /const NAV_GROUP_ORDER[\s\S]*"启动与总览"[\s\S]*"创作前置"[\s\S]*"创作与媒体"[\s\S]*"执行与治理"[\s\S]*"系统与 AI"/
+    );
+    expect(appShell).not.toContain("new Set(routeManifest.map((item) => item.navGroup))");
+  });
+
+  it("shows status bar AI and theme state without simulated latency", () => {
+    const statusBar = readSource("../src/layouts/shell/ShellStatusBar.vue");
+
+    expect(statusBar).not.toContain("128ms");
+    expect(statusBar).not.toContain("'Dark'");
+    expect(statusBar).not.toContain("'Light'");
+    expect(statusBar).toContain("浅色");
+    expect(statusBar).toContain("深色");
+    expect(statusBar).toContain("AI 未配置 · 待配置");
+    expect(statusBar).toContain("AI 状态未知 · Runtime 离线");
+    expect(statusBar).toContain("AI 状态同步中");
+    expect(statusBar).toContain("等待诊断");
+  });
+
+  it("prevents long status bar labels from overlapping in 960px compact windows", () => {
+    const statusBar = readSource("../src/layouts/shell/ShellStatusBar.vue");
+
+    expect(statusBar).toMatch(/\.status-item\s*{[\s\S]*min-width:\s*0;/);
+    expect(statusBar).toMatch(/\.status-item\s+span:last-child\s*{[\s\S]*text-overflow:\s*ellipsis;/);
+    expect(statusBar).toMatch(/@media\s*\(max-width:\s*960px\)\s*{[\s\S]*\.shell-status-bar__right\s+\.status-item:not\(:last-of-type\)\s*{[\s\S]*display:\s*none;/);
+    expect(statusBar).not.toContain("@media (max-width: 860px)");
+  });
+
   it("locks the root webview to the viewport without browser scrollbars", () => {
     const shellCss = readSource("../src/styles/shell.css");
     const appShell = readSource("../src/layouts/AppShell.vue");
@@ -112,12 +169,27 @@ describe("shell layout contract", () => {
     );
   });
 
+  it("keeps the compact sidebar closed by default until the title-bar toggle opens it", () => {
+    const appShell = readSource("../src/layouts/AppShell.vue");
+
+    expect(appShell).toContain("const compactSidebarOpen = ref(false)");
+    expect(appShell).toMatch(
+      /const effectiveSidebarCollapsed = computed\(\(\) => \{[\s\S]*if \(isCompactDetailShell\.value\) return !compactSidebarOpen\.value;[\s\S]*return sidebarCollapsed\.value;[\s\S]*\}\);/
+    );
+    expect(appShell).toMatch(
+      /function handleToggleSidebar\(\) \{[\s\S]*if \(isCompactDetailShell\.value\) \{[\s\S]*compactSidebarOpen\.value = !compactSidebarOpen\.value;[\s\S]*return;/
+    );
+    expect(appShell).toMatch(
+      /watch\(\s*\(\) => route\.fullPath,[\s\S]*compactSidebarOpen\.value = false;/
+    );
+  });
+
   it("remounts the route component when the shell route changes", () => {
     const appShell = readSource("../src/layouts/AppShell.vue");
 
     expect(appShell).toContain('<component :is="Component" :key="route.fullPath" />');
-    expect(appShell).not.toContain('<transition name="page-fade"');
-    expect(appShell).not.toContain('mode="out-in"');
+    expect(appShell).toContain('<transition name="page-fade"');
+    expect(appShell).toContain('mode="out-in"');
   });
 
   it("docks side panels on desktop so they do not cover the workspace", () => {

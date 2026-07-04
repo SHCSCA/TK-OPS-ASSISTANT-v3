@@ -6,6 +6,7 @@ import {
   createWorkspaceTimeline,
   deleteWorkspaceClip,
   fetchAssets,
+  fetchTimelinePreview,
   fetchWorkspaceTimeline,
   insertWorkspaceAssetClip,
   moveWorkspaceClip,
@@ -14,24 +15,34 @@ import {
   runWorkspaceAICommand,
   splitWorkspaceClip,
   trimWorkspaceClip,
+  cancelTask,
   updateWorkspaceTimeline
 } from "@/app/runtime-client";
 import {
   buildWorkspacePreviewContext,
   type WorkspacePreviewContext
 } from "@/modules/workspace/workspacePreviewContext";
+import {
+  createTimelineHistorySaveState,
+  createWorkspaceTimelineHistorySnapshot,
+  createWorkspaceTimelineUpdateInput,
+  type WorkspaceTimelineHistorySnapshot
+} from "@/modules/workspace/workspaceTimelineHistory";
 import type {
   AssetDto,
   RuntimeRequestErrorShape,
   TimelinePrecheckDto,
+  TimelinePrecheckIssueDetailDto,
+  TimelinePreviewDto,
   WorkspaceAICommandResultDto,
   WorkspaceAssemblyStateDto,
   WorkspaceSaveStateDto,
   WorkspaceTimelineClipDto,
   WorkspaceTimelineDto,
-  WorkspaceTimelineResultDto,
-  WorkspaceTimelineTrackDto
+  WorkspaceTimelineTrackDto,
+  WorkspaceTimelineResultDto
 } from "@/types/runtime";
+import type { TaskInfo, TaskStatus } from "@/types/task-events";
 
 export type EditingWorkspaceStatus =
   | "idle"
@@ -71,6 +82,8 @@ type EditingWorkspaceState = {
   error: RuntimeRequestErrorShape | null;
   lastCommandResult: WorkspaceAICommandResultDto | null;
   precheck: TimelinePrecheckDto | null;
+  preview: TimelinePreviewDto | null;
+  previewError: RuntimeRequestErrorShape | null;
   projectId: string;
   playheadMs: number;
   saveState: WorkspaceSaveStateDto | null;
@@ -78,6 +91,8 @@ type EditingWorkspaceState = {
   selectedTrackId: string | null;
   status: EditingWorkspaceStatus;
   timeline: WorkspaceTimelineDto | null;
+  timelineRedoSnapshot: WorkspaceTimelineHistorySnapshot | null;
+  timelineUndoSnapshot: WorkspaceTimelineHistorySnapshot | null;
 };
 
 export const useEditingWorkspaceStore = defineStore("editing-workspace", {
@@ -90,15 +105,21 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     error: null,
     lastCommandResult: null,
     precheck: null,
+    preview: null,
+    previewError: null,
     projectId: "",
     playheadMs: 0,
     saveState: null,
     selectedClipId: null,
     selectedTrackId: null,
     status: "idle",
-    timeline: null
+    timeline: null,
+    timelineRedoSnapshot: null,
+    timelineUndoSnapshot: null
   }),
   getters: {
+    canRedoTimelineEdit: (state): boolean => state.timelineRedoSnapshot !== null,
+    canUndoTimelineEdit: (state): boolean => state.timelineUndoSnapshot !== null,
     hasTimeline: (state): boolean => state.timeline !== null,
     orderedTracks: (state): WorkspaceTimelineTrackDto[] =>
       [...(state.timeline?.tracks ?? [])].sort((a, b) => a.orderIndex - b.orderIndex),
@@ -120,6 +141,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
 
       return buildWorkspacePreviewContext({
         playheadMs: state.playheadMs,
+        timelinePreview: state.preview,
+        timelinePreviewErrorMessage: state.previewError?.message ?? null,
         selectedClip,
         selectedTrack,
         timeline: state.timeline
@@ -134,12 +157,16 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.projectId = projectId;
       this.lastCommandResult = null;
       this.precheck = null;
+      this.preview = null;
+      this.previewError = null;
       this.assets = [];
       this.assetStatus = "idle";
       this.assetError = null;
 
       try {
         this.applyTimelineResult(await fetchWorkspaceTimeline(projectId));
+        this.clearTimelineHistory();
+        await this.refreshTimelinePreview();
         await this.loadAssets(projectId);
       } catch (error) {
         this.applyRuntimeError(error);
@@ -194,6 +221,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       try {
         const result = await createWorkspaceTimeline(pid, { name });
         this.applyTimelineResult(result);
+        this.clearTimelineHistory();
+        await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
         this.applyRuntimeError(error);
@@ -219,6 +248,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
           timelineName: this.timeline?.name ?? "主时间线"
         });
         this.applyTimelineResult(result);
+        this.clearTimelineHistory();
+        await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
         this.applyRuntimeError(error);
@@ -257,12 +288,12 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.lastCommandResult = null;
 
       try {
-        const result = await updateWorkspaceTimeline(this.timeline.id, {
-          name: this.timeline.name,
-          durationSeconds: this.timeline.durationSeconds,
-          tracks: this.timeline.tracks
-        });
+        const result = await updateWorkspaceTimeline(
+          this.timeline.id,
+          createWorkspaceTimelineUpdateInput(this.timeline)
+        );
         this.applyTimelineResult(result);
+        await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
         this.applyRuntimeError(error);
@@ -296,9 +327,79 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         this.status = result.status === "blocked" ? "blocked" : "ready";
         return result;
       } catch (error) {
+        if (isMagicCutPrecheckError(error)) {
+          this.applyBlockedMessage(buildMagicCutUnavailableMessage(error.message));
+          return this.lastCommandResult;
+        }
         this.applyRuntimeError(error);
         return null;
       }
+    },
+    async cancelCommandTask(taskId: string): Promise<WorkspaceAICommandResultDto | null> {
+      if (!taskId) {
+        this.applyInputError("当前没有可取消的 AI 任务。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+
+      try {
+        const result = await cancelTask(taskId);
+        const status = normalizeCommandTaskStatus(result.status);
+        const now = new Date().toISOString();
+        const task: TaskInfo = {
+          id: result.task_id || taskId,
+          task_type: "ai-workspace-command",
+          project_id: this.projectId || null,
+          status,
+          progress: status === "succeeded" ? 100 : 0,
+          message: result.message || "AI 任务状态已更新。",
+          created_at: now,
+          updated_at: now
+        };
+        const commandResult: WorkspaceAICommandResultDto = {
+          status,
+          task,
+          message: task.message
+        };
+
+        this.lastCommandResult = commandResult;
+        this.blockedMessage = null;
+        this.status = "ready";
+        return commandResult;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async applyCommandTerminalTask(task: TaskInfo): Promise<void> {
+      const commandResult: WorkspaceAICommandResultDto = {
+        status: task.status,
+        task,
+        message: task.message || "AI 命令状态已更新。"
+      };
+
+      this.lastCommandResult = commandResult;
+      if (task.status !== "succeeded" || !this.projectId) return;
+
+      await this.load(this.projectId);
+      if (this.status === "error") {
+        this.lastCommandResult = {
+          ...commandResult,
+          message: appendCommandTerminalRefreshFailedMessage(commandResult.message)
+        };
+        return;
+      }
+
+      const precheckResult = await this.runPrecheck();
+      this.lastCommandResult = {
+        ...commandResult,
+        message:
+          precheckResult === null
+            ? appendCommandTerminalPrecheckFailedMessage(commandResult.message)
+            : appendCommandTerminalRefreshMessage(commandResult.message)
+      };
     },
     selectTrack(trackId: string | null): void {
       this.selectedTrackId = trackId;
@@ -311,13 +412,19 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.selectedTrackId = payload.trackId;
       this.selectedClipId = payload.clipId;
     },
-    focusPrecheckIssue(issue: string): boolean {
+    focusPrecheckIssue(issue: TimelinePrecheckIssueDetailDto | string): boolean {
       if (!this.timeline) {
         this.blockedMessage = "当前没有可定位的时间线。";
         return false;
       }
 
-      const normalizedIssue = issue.trim();
+      if (typeof issue !== "string") {
+        const focusedByDetail = this.focusStructuredPrecheckIssue(issue);
+        if (focusedByDetail !== null) return focusedByDetail;
+      }
+
+      const normalizedIssue =
+        typeof issue === "string" ? issue.trim() : this.buildPrecheckIssueSearchText(issue);
       if (!normalizedIssue) {
         this.blockedMessage = "预检问题内容为空，无法定位。";
         return false;
@@ -357,6 +464,56 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.blockedMessage = "这条预检问题没有可定位的片段或轨道，请先在时间线中手动选择。";
       return false;
     },
+    focusStructuredPrecheckIssue(issue: TimelinePrecheckIssueDetailDto): boolean | null {
+      if (!this.timeline) return false;
+
+      const targetType = issue.targetType?.trim();
+      const targetId = issue.targetId?.trim();
+      const clipId = issue.clipId?.trim() || (targetType === "clip" ? targetId : "");
+      if (clipId) {
+        const clip = this.findClipById(clipId);
+        if (clip) {
+          this.selectedTrackId = clip.trackId;
+          this.selectedClipId = clip.id;
+          this.setPlayheadMs(clip.startMs);
+          this.blockedMessage = null;
+          return true;
+        }
+      }
+
+      const trackId = issue.trackId?.trim() || (targetType === "track" ? targetId : "");
+      if (trackId) {
+        const track = this.timeline.tracks.find((item) => item.id === trackId);
+        if (track) {
+          this.selectedTrackId = track.id;
+          this.selectedClipId = null;
+          this.setPlayheadMs(track.clips[0]?.startMs ?? this.playheadMs);
+          this.blockedMessage = `已定位到轨道：${track.name}。`;
+          return true;
+        }
+      }
+
+      if (clipId || trackId) {
+        this.blockedMessage = "预检问题指向的片段或轨道不存在，请刷新时间线后重试。";
+        return false;
+      }
+
+      return null;
+    },
+    buildPrecheckIssueSearchText(issue: TimelinePrecheckIssueDetailDto): string {
+      return [
+        issue.message,
+        issue.suggestion,
+        issue.targetType,
+        issue.targetId,
+        issue.targetLabel,
+        issue.clipId,
+        issue.trackId
+      ]
+        .map((item) => item?.trim() ?? "")
+        .filter(Boolean)
+        .join(" ");
+    },
     setPlayheadMs(value: number): void {
       const durationMs = this.resolveTimelineDurationMs();
       const roundedValue = Number.isFinite(value) ? Math.round(value) : 0;
@@ -368,6 +525,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         return null;
       }
 
+      const undoSnapshot = this.createTimelineHistorySnapshot();
       this.status = "saving";
       this.error = null;
       this.precheck = null;
@@ -375,6 +533,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       try {
         const result = await deleteWorkspaceClip(this.selectedClipId);
         this.applyTimelineResult(result);
+        this.applyTimelineEditHistory(undoSnapshot);
+        await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
         this.applyRuntimeError(error);
@@ -397,6 +557,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         return null;
       }
 
+      const undoSnapshot = this.createTimelineHistorySnapshot();
       this.status = "saving";
       this.error = null;
       this.precheck = null;
@@ -406,6 +567,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
           splitAtMs: this.playheadMs
         });
         this.applyTimelineResult(result);
+        this.applyTimelineEditHistory(undoSnapshot);
+        await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
         this.applyRuntimeError(error);
@@ -419,6 +582,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         return null;
       }
 
+      const undoSnapshot = this.createTimelineHistorySnapshot();
       this.status = "saving";
       this.error = null;
       this.precheck = null;
@@ -429,6 +593,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
           startMs: Math.max(0, clip.startMs + deltaMs)
         });
         this.applyTimelineResult(result);
+        this.applyTimelineEditHistory(undoSnapshot);
+        await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
         this.applyRuntimeError(error);
@@ -439,6 +605,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       const originalTimeline = this.timeline;
       const originalSelectedTrackId = this.selectedTrackId;
       const originalSelectedClipId = this.selectedClipId;
+      const undoSnapshot = this.createTimelineHistorySnapshot();
 
       if (!this.findClipById(payload.clipId)) {
         this.applyInputError("请先选择要移动的片段。");
@@ -457,6 +624,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
           startMs: Math.max(0, Math.round(payload.startMs))
         });
         this.applyTimelineResult(result);
+        this.applyTimelineEditHistory(undoSnapshot);
+        await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
         this.timeline = originalTimeline;
@@ -470,6 +639,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       const originalTimeline = this.timeline;
       const originalSelectedTrackId = this.selectedTrackId;
       const originalSelectedClipId = this.selectedClipId;
+      const undoSnapshot = this.createTimelineHistorySnapshot();
       const clip = this.findClipById(payload.clipId);
 
       if (!clip) {
@@ -498,6 +668,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       try {
         const result = await trimWorkspaceClip(payload.clipId, trimInput);
         this.applyTimelineResult(result);
+        this.applyTimelineEditHistory(undoSnapshot);
+        await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
         this.timeline = originalTimeline;
@@ -514,6 +686,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         return null;
       }
 
+      const undoSnapshot = this.createTimelineHistorySnapshot();
       this.status = "saving";
       this.error = null;
       this.precheck = null;
@@ -530,6 +703,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
             : { durationMs: clip.durationMs + deltaMs }
         );
         this.applyTimelineResult(result);
+        this.applyTimelineEditHistory(undoSnapshot);
+        await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
         this.applyRuntimeError(error);
@@ -540,6 +715,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       const originalTimeline = this.timeline;
       const originalSelectedTrackId = this.selectedTrackId;
       const originalSelectedClipId = this.selectedClipId;
+      const undoSnapshot = this.createTimelineHistorySnapshot();
 
       if (!this.timeline) {
         this.applyInputError("当前项目还没有时间线草稿。");
@@ -557,6 +733,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
           startMs
         });
         this.applyTimelineResult(result);
+        this.applyTimelineEditHistory(undoSnapshot);
+        await this.refreshTimelinePreview();
         this.selectInsertedAssetClip(assetId, startMs);
         return result.timeline;
       } catch (error) {
@@ -571,6 +749,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       const originalTimeline = this.timeline;
       const originalSelectedTrackId = this.selectedTrackId;
       const originalSelectedClipId = this.selectedClipId;
+      const undoSnapshot = this.createTimelineHistorySnapshot();
       const clip = this.findClipById(this.selectedClipId);
 
       if (!clip) {
@@ -585,6 +764,8 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       try {
         const result = await replaceWorkspaceClip(clip.id, { assetId });
         this.applyTimelineResult(result);
+        this.applyTimelineEditHistory(undoSnapshot);
+        await this.refreshTimelinePreview();
         const replacedClip = this.findClipById(clip.id);
         if (replacedClip) {
           this.selectedTrackId = replacedClip.trackId;
@@ -599,8 +780,68 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         return null;
       }
     },
+    async undoTimelineEdit(): Promise<WorkspaceTimelineDto | null> {
+      const snapshot = this.timelineUndoSnapshot;
+      if (!snapshot) {
+        this.applyInputError("当前没有可撤销的时间线编辑。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+      const redoSnapshot = this.createTimelineHistorySnapshot();
+
+      try {
+        const result = await updateWorkspaceTimeline(
+          snapshot.timeline.id,
+          createWorkspaceTimelineUpdateInput(snapshot.timeline)
+        );
+        this.applyTimelineResult(result);
+        await this.refreshTimelinePreview();
+        this.restoreTimelineSnapshotView(snapshot);
+        this.applyTimelineHistorySaveState(result, "timeline_undo", "已撤销最近一次时间线编辑。");
+        this.timelineRedoSnapshot = redoSnapshot;
+        this.timelineUndoSnapshot = null;
+        return result.timeline;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
+    async redoTimelineEdit(): Promise<WorkspaceTimelineDto | null> {
+      const snapshot = this.timelineRedoSnapshot;
+      if (!snapshot) {
+        this.applyInputError("当前没有可重做的时间线编辑。");
+        return null;
+      }
+
+      this.status = "saving";
+      this.error = null;
+      this.precheck = null;
+      const undoSnapshot = this.createTimelineHistorySnapshot();
+
+      try {
+        const result = await updateWorkspaceTimeline(
+          snapshot.timeline.id,
+          createWorkspaceTimelineUpdateInput(snapshot.timeline)
+        );
+        this.applyTimelineResult(result);
+        await this.refreshTimelinePreview();
+        this.restoreTimelineSnapshotView(snapshot);
+        this.applyTimelineHistorySaveState(result, "timeline_redo", "已重做最近一次时间线编辑。");
+        this.timelineUndoSnapshot = undoSnapshot;
+        this.timelineRedoSnapshot = null;
+        return result.timeline;
+      } catch (error) {
+        this.applyRuntimeError(error);
+        return null;
+      }
+    },
     applyTimelineResult(result: WorkspaceTimelineResultDto): void {
       this.timeline = result.timeline;
+      this.preview = null;
+      this.previewError = null;
       this.blockedMessage = result.timeline ? null : result.message;
       this.saveState = result.saveState ?? null;
       this.assemblyState = result.assemblyState ?? null;
@@ -609,6 +850,63 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       this.selectedClipId = this.resolveSelectedClipId();
       this.setPlayheadMs(this.playheadMs);
       this.status = result.timeline ? "ready" : "empty";
+    },
+    createTimelineHistorySnapshot(): WorkspaceTimelineHistorySnapshot | null {
+      return createWorkspaceTimelineHistorySnapshot({
+        timeline: this.timeline,
+        selectedTrackId: this.selectedTrackId,
+        selectedClipId: this.selectedClipId,
+        playheadMs: this.playheadMs
+      });
+    },
+    applyTimelineEditHistory(snapshot: WorkspaceTimelineHistorySnapshot | null): void {
+      this.timelineUndoSnapshot = snapshot;
+      this.timelineRedoSnapshot = null;
+    },
+    clearTimelineHistory(): void {
+      this.timelineUndoSnapshot = null;
+      this.timelineRedoSnapshot = null;
+    },
+    restoreTimelineSnapshotView(snapshot: WorkspaceTimelineHistorySnapshot): void {
+      this.selectedTrackId = snapshot.selectedTrackId;
+      this.selectedClipId = snapshot.selectedClipId;
+      this.selectedTrackId = this.resolveSelectedTrackId();
+      this.selectedClipId = this.resolveSelectedClipId();
+      this.setPlayheadMs(snapshot.playheadMs);
+    },
+    applyTimelineHistorySaveState(
+      result: WorkspaceTimelineResultDto,
+      source: "timeline_undo" | "timeline_redo",
+      message: string
+    ): void {
+      this.saveState = createTimelineHistorySaveState(result, source, message);
+    },
+    async refreshTimelinePreview(): Promise<TimelinePreviewDto | null> {
+      if (!this.timeline) {
+        this.preview = null;
+        this.previewError = null;
+        return null;
+      }
+
+      try {
+        const preview = await fetchTimelinePreview(this.timeline.id);
+        this.preview = preview;
+        this.previewError = null;
+        return preview;
+      } catch (error) {
+        const runtimeError =
+          error instanceof RuntimeRequestError
+            ? error
+            : new RuntimeRequestError("时间线预览同步失败，请稍后重试。");
+        this.preview = null;
+        this.previewError = {
+          details: runtimeError.details,
+          message: runtimeError.message,
+          requestId: runtimeError.requestId,
+          status: runtimeError.status
+        };
+        return null;
+      }
     },
     resolveSelectedTrackId(): string | null {
       if (!this.timeline) return null;
@@ -656,6 +954,35 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         status: 0
       };
     },
+    applyBlockedMessage(message: string): void {
+      this.status = "blocked";
+      this.error = null;
+      this.blockedMessage = message;
+      this.lastCommandResult = {
+        status: "blocked",
+        task: null,
+        message
+      };
+    },
+    clearMagicCutBlockedMessage(message?: string): void {
+      const targetMessage = message ?? this.blockedMessage ?? this.lastCommandResult?.message ?? "";
+      if (!isMagicCutRecoveryMessage(targetMessage)) return;
+
+      if (this.blockedMessage && isMagicCutRecoveryMessage(this.blockedMessage)) {
+        this.blockedMessage = null;
+      }
+
+      if (
+        this.lastCommandResult?.status === "blocked"
+        && isMagicCutRecoveryMessage(this.lastCommandResult.message)
+      ) {
+        this.lastCommandResult = null;
+      }
+
+      if (this.status === "blocked") {
+        this.status = this.timeline ? "ready" : "empty";
+      }
+    },
     applyRuntimeError(error: unknown): void {
       const runtimeError =
         error instanceof RuntimeRequestError
@@ -671,3 +998,64 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     }
   }
 });
+
+function normalizeCommandTaskStatus(status: string): Exclude<WorkspaceAICommandResultDto["status"], "blocked"> {
+  const knownStatuses: TaskStatus[] = ["queued", "running", "cancelling", "succeeded", "failed", "cancelled"];
+  return knownStatuses.includes(status as TaskStatus) ? (status as TaskStatus) : "failed";
+}
+
+function isMagicCutPrecheckError(error: unknown): error is RuntimeRequestError {
+  return (
+    error instanceof RuntimeRequestError
+    && (
+      (
+        error.errorCode === "workspace.ai_command_precheck_failed"
+        && isMagicCutRecoveryMessage(error.message)
+      )
+      || (error.status === 400 && isMagicCutRecoveryMessage(error.message))
+    )
+  );
+}
+
+function buildMagicCutUnavailableMessage(message: string): string {
+  return message.startsWith("智能粗剪暂不可用：") ? message : `智能粗剪暂不可用：${message}`;
+}
+
+function appendCommandTerminalRefreshMessage(message: string): string {
+  const suffix = "时间线已刷新，预检已完成。";
+  const normalizedMessage = message.trim() || "AI 命令状态已更新。";
+  if (normalizedMessage.includes(suffix)) return normalizedMessage;
+  const separator = normalizedMessage.endsWith("。") ? " " : "。 ";
+  return `${normalizedMessage}${separator}${suffix}`;
+}
+
+function appendCommandTerminalRefreshFailedMessage(message: string): string {
+  const suffix = "时间线刷新失败。";
+  const normalizedMessage = message.trim() || "AI 命令状态已更新。";
+  if (normalizedMessage.includes(suffix)) return normalizedMessage;
+  const separator = normalizedMessage.endsWith("。") ? " " : "。 ";
+  return `${normalizedMessage}${separator}${suffix}`;
+}
+
+function appendCommandTerminalPrecheckFailedMessage(message: string): string {
+  const suffix = "时间线已刷新，预检失败。";
+  const normalizedMessage = message.trim() || "AI 命令状态已更新。";
+  if (normalizedMessage.includes(suffix)) return normalizedMessage;
+  const separator = normalizedMessage.endsWith("。") ? " " : "。 ";
+  return `${normalizedMessage}${separator}${suffix}`;
+}
+
+export function isMagicCutRecoveryMessage(message: string): boolean {
+  const normalizedMessage = normalizeMagicCutRecoveryMessage(message);
+  return (
+    normalizedMessage === "当前 AI 能力已停用。"
+    || normalizedMessage.startsWith("智能粗剪能力未启用")
+    || normalizedMessage.startsWith("智能粗剪 Provider")
+    || normalizedMessage.includes("当前模型不支持智能粗剪")
+  );
+}
+
+function normalizeMagicCutRecoveryMessage(message: string): string {
+  const prefix = "智能粗剪暂不可用：";
+  return message.startsWith(prefix) ? message.slice(prefix.length) : message;
+}

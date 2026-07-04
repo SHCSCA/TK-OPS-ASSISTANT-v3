@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   clampTimelineMs,
   clientXToTimelineMs,
+  normalizeTimelineZoomPercent,
+  timelineContentBaseWidthPx,
+  timelineZoomGridSizePx,
+  timelineZoomScale,
   msToPercent,
   percentToMs
 } from "@/modules/workspace/workspaceTimelineGeometry";
@@ -45,6 +49,21 @@ describe("workspace timeline geometry", () => {
     expect(clientXToTimelineMs(600, rect, 2000)).toBe(2000);
     expect(clientXToTimelineMs(Number.NaN, rect, 2000)).toBe(0);
     expect(clientXToTimelineMs(300, { left: 100, width: 0 }, 2000)).toBe(0);
+  });
+
+  it("将时间线缩放限制到统一档位并换算密度变量", () => {
+    expect(normalizeTimelineZoomPercent(Number.NaN)).toBe(100);
+    expect(normalizeTimelineZoomPercent(10)).toBe(50);
+    expect(normalizeTimelineZoomPercent(76)).toBe(75);
+    expect(normalizeTimelineZoomPercent(124)).toBe(100);
+    expect(normalizeTimelineZoomPercent(126)).toBe(150);
+    expect(normalizeTimelineZoomPercent(260)).toBe(300);
+
+    expect(timelineZoomScale(50)).toBe(0.5);
+    expect(timelineZoomScale(150)).toBe(1.5);
+    expect(timelineZoomGridSizePx(150)).toBe(120);
+    expect(timelineContentBaseWidthPx(15000)).toBe(960);
+    expect(timelineContentBaseWidthPx(30000)).toBe(1920);
   });
 });
 
