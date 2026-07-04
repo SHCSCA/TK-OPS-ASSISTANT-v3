@@ -18,6 +18,9 @@ __pycache__/
 htmlcov/
 
 # Local environments
+.env
+.env.*
+!.env.example
 .venv/
 env/
 ENV/
