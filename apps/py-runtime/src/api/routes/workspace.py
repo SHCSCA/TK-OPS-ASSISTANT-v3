@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from common.http_errors import RuntimeHTTPException
 from schemas.envelope import ok_response
@@ -150,8 +150,12 @@ def split_clip(
 
 
 @router.get("/timelines/{timeline_id}/preview")
-def get_timeline_preview(timeline_id: str, request: Request) -> dict[str, object]:
-    result = _svc(request).fetch_timeline_preview(timeline_id)
+def get_timeline_preview(
+    timeline_id: str,
+    request: Request,
+    clip_id: str | None = Query(default=None, alias="clipId"),
+) -> dict[str, object]:
+    result = _svc(request).fetch_timeline_preview(timeline_id, clip_id=clip_id)
     return ok_response(result.model_dump(mode="json"))
 
 

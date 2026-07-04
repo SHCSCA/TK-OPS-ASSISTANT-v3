@@ -187,7 +187,7 @@ const props = defineProps<{
   playProgress?: number;
 }>();
 
-const previewRatio = ref<"9:16" | "16:9">("16:9");
+const previewRatio = ref<"9:16" | "16:9">("9:16");
 
 const headline = computed(() => {
   return props.previewContext.headline;

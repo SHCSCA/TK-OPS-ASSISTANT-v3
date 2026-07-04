@@ -26,7 +26,7 @@ describe("workspace layout taxonomy contract", () => {
     const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
     const pageLines = page.split(/\r?\n/).length;
 
-    expect(pageLines).toBeLessThanOrEqual(940);
+    expect(pageLines).toBeLessThanOrEqual(600);
     expect(page).toContain('import WorkspaceAICapabilityRecovery from "@/modules/workspace/WorkspaceAICapabilityRecovery.vue";');
     expect(page).toContain('import WorkspaceSourceRecovery from "@/modules/workspace/WorkspaceSourceRecovery.vue";');
     expect(page).toContain('import WorkspaceSyncRecovery from "@/modules/workspace/WorkspaceSyncRecovery.vue";');
@@ -55,6 +55,7 @@ describe("workspace layout taxonomy contract", () => {
   it("keeps the M05 workbench responsive without global page max-width", () => {
     const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
     const css = readSource("../src/pages/workspace/AIEditingWorkspacePage.css");
+    const shellContext = readSource("../src/modules/workspace/useWorkspaceShellDetailContext.ts");
     const syncRecovery = readSource("../src/modules/workspace/WorkspaceSyncRecovery.vue");
 
     expect(css).toMatch(
@@ -83,7 +84,7 @@ describe("workspace layout taxonomy contract", () => {
     expect(page).toContain("同步 AI 三轨");
     expect(page).not.toContain("汇入创作链路");
     expect(page).toContain("managedTrackSyncRecovery");
-    expect(page).toContain("summarizeManagedTrackSync");
+    expect(shellContext).toContain("summarizeManagedTrackSync");
     expect(syncRecovery).toContain('data-testid="workspace-sync-recovery"');
     expect(syncRecovery).toContain('data-testid="workspace-sync-managed-tracks-button"');
     expect(syncRecovery).toMatch(/\.workspace-sync-recovery\s*{[\s\S]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\)\s+auto;/);
@@ -419,22 +420,25 @@ describe("workspace layout taxonomy contract", () => {
 
   it("centralizes the unsaved leave confirmation behind a replaceable helper", () => {
     const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
-    const routeLeaveBlock = page.match(/onBeforeRouteLeave\(async \(\) => \{[\s\S]*?\n\}\);/)?.[0] ?? "";
+    const actions = readSource("../src/modules/workspace/useAIEditingWorkspaceActions.ts");
 
-    expect(page).toContain('import { requestDesktopConfirm } from "@/composables/useDesktopConfirm";');
-    expect(page).toContain("function confirmUnsavedTimelineLeave()");
-    expect(page).toContain("requestDesktopConfirm(");
-    expect(routeLeaveBlock).toContain("confirmUnsavedTimelineLeave()");
-    expect(routeLeaveBlock).not.toContain("confirm(");
-    expect(page).not.toContain("window.confirm(");
+    expect(page).toContain("useAIEditingWorkspaceActions");
+    expect(actions).toContain('import { requestDesktopConfirm } from "@/composables/useDesktopConfirm";');
+    expect(actions).toContain("function confirmUnsavedTimelineLeave()");
+    expect(actions).toContain("requestDesktopConfirm(");
+    expect(actions).toContain("onBeforeRouteLeave(async () =>");
+    expect(actions).toContain("return confirmUnsavedTimelineLeave();");
+    expect(actions).not.toContain("window.confirm(");
   });
 
   it("keeps the M05 asset rail list scrollable instead of clipping long content", () => {
     const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
+    const actions = readSource("../src/modules/workspace/useAIEditingWorkspaceActions.ts");
     const assetRail = readSource("../src/modules/workspace/WorkspaceAssetRail.vue");
-    const handleSelectClipBlock = page.match(/function handleSelectClip[\s\S]*?\n}/)?.[0] ?? "";
+    const handleSelectClipBlock = actions.match(/function handleSelectClip[\s\S]*?\n  }/)?.[0] ?? "";
 
     expect(page).toContain('@select-source-clip="handleSelectClip"');
+    expect(page).toContain("useAIEditingWorkspaceActions");
     expect(handleSelectClipBlock).toContain("workspaceStore.selectTimelineClip(payload)");
     expect(handleSelectClipBlock).not.toContain("workspaceStore.selectTrack(payload.trackId)");
     expect(handleSelectClipBlock).not.toContain("workspaceStore.selectClip(payload.clipId)");
@@ -499,10 +503,12 @@ describe("workspace layout taxonomy contract", () => {
 
   it("keeps M05 selection details inside the workbench instead of auto-opening the global detail drawer", () => {
     const page = readSource("../src/pages/workspace/AIEditingWorkspacePage.vue");
+    const shellContext = readSource("../src/modules/workspace/useWorkspaceShellDetailContext.ts");
 
-    expect(page).toContain("shellUiStore.closeDetailPanel()");
-    expect(page).not.toContain("shellUiStore.openDetailPanel()");
-    expect(page).toContain("workspaceStatusLabel");
+    expect(page).toContain("useWorkspaceShellDetailContext");
+    expect(shellContext).toContain("shellUiStore.closeDetailPanel()");
+    expect(shellContext).not.toContain("shellUiStore.openDetailPanel()");
+    expect(shellContext).toContain("workspaceStatusLabel");
     expect(page).toContain(':preview-context="previewContext"');
     expect(page).toContain('@focus-precheck-issue="handleFocusPrecheckIssue"');
   });

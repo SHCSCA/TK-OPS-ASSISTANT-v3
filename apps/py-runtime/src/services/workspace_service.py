@@ -425,13 +425,13 @@ class WorkspaceService:
             "已确认保存片段分割结果。",
         )
 
-    def fetch_timeline_preview(self, timeline_id: str) -> TimelinePreviewDto:
+    def fetch_timeline_preview(self, timeline_id: str, clip_id: str | None = None) -> TimelinePreviewDto:
         timeline = self._load_timeline(timeline_id)
         try:
             tracks = self._parse_tracks(timeline.tracks_json)
             preview_payload = self._build_timeline_preview_payload(timeline, tracks)
             preview_url = self._encode_data_url(preview_payload)
-            media, preview_error = self._preview_media_resolver.resolve(tracks)
+            media, preview_error = self._preview_media_resolver.resolve(tracks, preferred_clip_id=clip_id)
         except HTTPException:
             raise
         except Exception as exc:

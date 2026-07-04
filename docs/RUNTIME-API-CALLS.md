@@ -1,4 +1,4 @@
-> 更新日期：2026-05-17；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。M05 AI 剪辑工作台已补齐创作链路汇入、受管轨道装配、9:16 基础播放器布局、资产来源视图、本地预检、播放头分割、步进移动与基础裁剪状态链路。
+> 更新日期：2026-07-04；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。M05 AI 剪辑工作台已补齐创作链路汇入、受管轨道装配、默认 9:16 预览、选中片段真实媒体预览、资产来源视图、本地预检、播放头分割、步进移动与基础裁剪状态链路。
 
 # Runtime API 与前端调用真源
 
@@ -583,13 +583,14 @@
 | `POST /api/workspace/timelines/{timeline_id}/clips/insert-asset` | 路径参数：`timeline_id`；`ClipInsertAssetInput`：`assetId`、`targetTrackId?`、`startMs?`。未传 `targetTrackId` 时按资产类型选择匹配轨道；未传 `startMs` 时插入到目标轨道末尾 | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_insert_asset`、`message` | `400`、`404`、`422`、`500`、`503` | `insertWorkspaceAssetClip`、`editing-workspace.ts:insertAssetAtPlayhead` |
 | `POST /api/workspace/clips/{clip_id}/split` | 路径参数：`clip_id`；`ClipSplitInput`：`splitAtMs`，必须位于片段内部 | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_split`、`message` | `400`、`404`、`422` | `splitWorkspaceClip`、`editing-workspace.ts:splitSelectedClip` |
 | `DELETE /api/workspace/clips/{clip_id}` | 路径参数：`clip_id` | `WorkspaceTimelineResultDto`：`timeline`、`activeTask?`、`saveState.source=clip_delete`、`message` | `400`、`404` | `deleteWorkspaceClip`、`editing-workspace.ts:deleteSelectedClip` |
-| `GET /api/workspace/timelines/{timeline_id}/preview` | 路径参数：`timeline_id` | `TimelinePreviewDto`：`timelineId`、`status=ready/structure_only/unavailable`、`message`、`previewUrl`、`previewMode=manifest/media/unavailable`、`media?`、`error?` | `404`、`500`；业务错误码见下方 `preview.*` | `fetchTimelinePreview` |
+| `GET /api/workspace/timelines/{timeline_id}/preview` | 路径参数：`timeline_id`；查询参数：`clipId?` | `TimelinePreviewDto`：`timelineId`、`status=ready/structure_only/unavailable`、`message`、`previewUrl`、`previewMode=manifest/media/unavailable`、`media?`、`error?` | `404`、`500`；业务错误码见下方 `preview.*` | `fetchTimelinePreview` |
 | `POST /api/workspace/timelines/{timeline_id}/precheck` | 路径参数：`timeline_id` | `TimelinePrecheckDto`：`status=ready/warning`、`issues[]`、`issueDetails[]` | `404`、`500` | `precheckTimeline` |
 | `POST /api/workspace/projects/{project_id}/ai-commands` | `WorkspaceAICommandInput`：`timelineId?`、`capabilityId`、`parameters` | `WorkspaceAICommandResultDto`；预检通过后返回 `status=queued` 并创建真实 TaskBus 任务；`magic_cut` 配置预检失败时返回错误信封 | `400(workspace.ai_command_precheck_failed)`、`404`、`422` | `runWorkspaceAICommand` |
 
 **当前实现说明**
 
 - `GET /preview` 不伪造渲染画面，返回基于真实轨道、片段与时长统计生成的本地 manifest。`previewUrl` 不是视频或音频播放地址，前端不得把它传给 `<video>` / `<audio>`；真实媒体预览必须等待 Runtime 显式返回 `previewMode=media` 与 `media.url`。
+- `GET /preview?clipId=...` 只为指定资产片段解析真实媒体；当片段不是资产来源、片段不存在或资产不可播放时返回结构预览 / 不可用状态，不再回退到时间线第一条可播放素材，避免预览与当前选择错位。
 - `previewMode=manifest` 表示仅结构预览；时间线没有可播放视频/音频资产时不是错误，`error=null`。
 - `previewMode=media` 表示 Runtime 已从资产中心真实文件生成媒体访问 URL；`media.mimeType` 来自资产文件后缀，`media.durationMs` 来自资产 `duration_ms` 字段，不读取片段 metadata。
 - `previewMode=unavailable` 表示时间线引用了真实媒体资产但当前不可播放，例如资产服务不可用、资产记录缺失或源文件路径不可用；Runtime 仍保留 `previewUrl` manifest 供前端展示结构摘要，并返回中文 `error.message` 与重试入口。
@@ -616,6 +617,7 @@
 | 参数 | 位置 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- | --- |
 | `timeline_id` | path | string | 是 | 时间线 ID |
+| `clipId` | query | string | 否 | 当前选中片段 ID；传入后 Runtime 只解析该资产片段的真实媒体，不做跨片段兜底 |
 
 **返回字段**
 
@@ -2367,7 +2369,7 @@ waveform 缺少音频：
 | M14 渲染导出 | 已修复：前端 `RenderResourceUsageDto`、templates/profile 类型与后端 schema 对齐，renders store 增加 profiles/templates/resource-usage/retry 消费 | 已有 `runtime-client-b-s5.spec.ts` 与 `runtime-stores-m09-m15.spec.ts` 覆盖 |
 | TaskBus | 已修复：前端兼容缺少 `schema_version` 的历史事件并补齐为 `1`；`video_status_changed` 仍作为 legacy event type 保留 | 已有 `task-bus.spec.ts` 覆盖 |
 
-当前文档与代码对齐批次：**2026-05-13 M05 创作链路汇入、受管轨道、9:16 基础播放器与本地预检收口，186 条 HTTP 接口明细已与当前后端代码全量对齐；后续主要补更多异常样例与端到端联调说明**
+当前文档与代码对齐批次：**2026-07-04 M05 创作链路汇入、受管轨道、默认 9:16 预览、选中片段真实媒体预览与本地预检收口，HTTP 接口明细已与当前后端代码对齐；后续主要补更多异常样例、完整时间线合成渲染和真人端到端联调说明**
 
 ---
 

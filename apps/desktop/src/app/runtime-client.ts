@@ -635,9 +635,11 @@ export async function deleteWorkspaceClip(clipId: string): Promise<WorkspaceTime
 }
 
 export async function fetchTimelinePreview(
-  timelineId: string
+  timelineId: string,
+  options: { clipId?: string | null } = {}
 ): Promise<TimelinePreviewDto> {
-  return requestRuntime<TimelinePreviewDto>(`/api/workspace/timelines/${timelineId}/preview`);
+  const query = options.clipId ? `?clipId=${encodeURIComponent(options.clipId)}` : "";
+  return requestRuntime<TimelinePreviewDto>(`/api/workspace/timelines/${timelineId}/preview${query}`);
 }
 
 export async function precheckTimeline(

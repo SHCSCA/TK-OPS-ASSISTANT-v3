@@ -304,8 +304,8 @@ describe("M05 AI 剪辑工作台页面", () => {
     await flushPromises();
 
     const previewCanvas = wrapper.get('[data-testid="workspace-preview-canvas"]');
-    expect(previewCanvas.attributes("data-ratio")).toBe("16:9");
-    expect(previewCanvas.text()).toContain("16:9");
+    expect(previewCanvas.attributes("data-ratio")).toBe("9:16");
+    expect(previewCanvas.text()).toContain("9:16");
     expect(wrapper.text()).toContain("分镜预览");
     expect(wrapper.text()).toContain("先按分镜和字幕检查节奏");
     expect(wrapper.get('[data-testid="workspace-preview-transport"]').text()).toContain("00:");

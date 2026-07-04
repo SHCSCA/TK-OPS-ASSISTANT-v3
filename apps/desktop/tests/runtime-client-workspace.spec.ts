@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   RuntimeRequestError,
   createWorkspaceTimeline,
+  fetchTimelinePreview,
   fetchWorkspaceTimeline,
   insertWorkspaceAssetClip,
   runWorkspaceAICommand,
@@ -153,6 +154,40 @@ describe("M05 AI 剪辑工作台 Runtime client 契约", () => {
           targetTrackId: "track-video",
           startMs: 4200
         }
+      }
+    ]);
+  });
+
+  it("时间线预览可按选中片段请求对应媒体", async () => {
+    const calls: Array<{ method: string; path: string }> = [];
+    const fetchMock = createRouteAwareFetch((path, method) => {
+      calls.push({
+        path,
+        method
+      });
+
+      if (path === "/api/workspace/timelines/timeline-1/preview?clipId=clip-second-media" && method === "GET") {
+        return okJsonResponse({
+          timelineId: "timeline-1",
+          status: "ready",
+          message: "真实媒体预览已准备",
+          previewUrl: null,
+          previewMode: "manifest",
+          media: null,
+          error: null
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchTimelinePreview("timeline-1", { clipId: "clip-second-media" });
+
+    expect(calls).toEqual([
+      {
+        method: "GET",
+        path: "/api/workspace/timelines/timeline-1/preview?clipId=clip-second-media"
       }
     ]);
   });

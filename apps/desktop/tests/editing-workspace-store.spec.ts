@@ -34,7 +34,7 @@ describe("M05 AI 剪辑工作台 store", () => {
           message: "时间线尚未包含可播放的视频或音频资产，已降级为结构预览。"
         }
       }),
-      timeline: timeline("timeline-1", [managedVideoTrack()])
+      timeline: timeline("timeline-1", [videoTrack([assetClip()])])
     }));
 
     const store = useEditingWorkspaceStore();
@@ -46,7 +46,7 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.previewContext.previewMode).toBe("structure");
     expect(store.previewContext.runtimePreviewErrorMessage).toBeNull();
     expect(store.previewContext.truthLabel).toBe("分镜预览");
-    expect(store.previewContext.truthDescription).toContain("先按分镜和字幕检查节奏");
+    expect(store.previewContext.truthDescription).toContain("查看对应画面和上下文");
   });
 
   it("加载时间线后通过 Runtime media 契约同步真实媒体预览地址", async () => {
@@ -64,11 +64,13 @@ describe("M05 AI 剪辑工作台 store", () => {
         previewMode: "media",
         status: "ready"
       }),
-      timeline: timeline("timeline-1", [managedVideoTrack()])
+      timeline: timeline("timeline-1", [videoTrack([assetClip()])])
     }));
 
     const store = useEditingWorkspaceStore();
     await store.load("project-1");
+    store.selectTimelineClip({ clipId: "asset-clip-1", trackId: "track-video" });
+    await store.refreshTimelinePreview();
 
     expect(store.preview?.previewMode).toBe("media");
     expect(store.previewContext.previewMode).toBe("media");
@@ -1107,7 +1109,7 @@ function createWorkspaceFetch(
       }, 201);
     }
 
-    if (path === "/api/workspace/timelines/timeline-1/preview" && method === "GET") {
+    if (path.startsWith("/api/workspace/timelines/timeline-1/preview") && method === "GET") {
       return okJsonResponse(options.preview ?? timelinePreview());
     }
 

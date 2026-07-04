@@ -889,7 +889,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
       }
 
       try {
-        const preview = await fetchTimelinePreview(this.timeline.id);
+        const preview = await fetchTimelinePreview(this.timeline.id, { clipId: this.selectedClipId });
         this.preview = preview;
         this.previewError = null;
         return preview;

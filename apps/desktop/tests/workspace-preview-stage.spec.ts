@@ -34,7 +34,7 @@ describe("M05 预览舞台", () => {
 
     expect(wrapper.get('[data-testid="workspace-preview-truth"]').text()).toContain("分镜预览");
     expect(wrapper.text()).toContain("当前片段还没有可播放素材");
-    expect(wrapper.get('[data-testid="workspace-preview-canvas"]').attributes("data-ratio")).toBe("16:9");
+    expect(wrapper.get('[data-testid="workspace-preview-canvas"]').attributes("data-ratio")).toBe("9:16");
     expect(wrapper.find(".workspace-preview-stage__safe-area").exists()).toBe(true);
     expect(wrapper.find('[data-testid="workspace-preview-phone"]').exists()).toBe(false);
     expect(wrapper.find(".workspace-preview-stage__facts").exists()).toBe(false);
@@ -53,7 +53,7 @@ describe("M05 预览舞台", () => {
     expect(source).toMatch(/--workspace-preview-copy:\s*#[0-9a-fA-F]{6};/);
   });
 
-  it("默认使用 16:9 大预览舞台并支持切换到 9:16", async () => {
+  it("默认使用 TikTok 9:16 大预览舞台并支持切换到 16:9", async () => {
     const timeline = workspaceTimeline([managedVideoTrack()]);
     const track = timeline.tracks[0];
     const clip = track.clips[0];
@@ -73,13 +73,13 @@ describe("M05 预览舞台", () => {
       }
     });
 
-    expect(wrapper.get('[data-testid="workspace-preview-canvas"]').attributes("data-ratio")).toBe("16:9");
-    expect(wrapper.get('[data-testid="workspace-preview-ratio-16-9"]').attributes("aria-pressed")).toBe("true");
-
-    await wrapper.get('[data-testid="workspace-preview-ratio-9-16"]').trigger("click");
-
     expect(wrapper.get('[data-testid="workspace-preview-canvas"]').attributes("data-ratio")).toBe("9:16");
     expect(wrapper.get('[data-testid="workspace-preview-ratio-9-16"]').attributes("aria-pressed")).toBe("true");
+
+    await wrapper.get('[data-testid="workspace-preview-ratio-16-9"]').trigger("click");
+
+    expect(wrapper.get('[data-testid="workspace-preview-canvas"]').attributes("data-ratio")).toBe("16:9");
+    expect(wrapper.get('[data-testid="workspace-preview-ratio-16-9"]').attributes("aria-pressed")).toBe("true");
   });
 
   it("预览舞台样式不再把 9:16 限制成手机窄框", () => {
@@ -332,7 +332,14 @@ describe("M05 预览舞台", () => {
   });
 
   it("结构预览支持 Runtime base64 清单", () => {
-    const timeline = workspaceTimeline([managedVideoTrack()]);
+    const timeline = workspaceTimeline([
+      managedVideoTrack([
+        managedClip("managed-video-asset-01", "managed-video-storyboard", "asset", "真实视频片段", {
+          sourceId: "asset-video-1",
+          status: "ready"
+        })
+      ])
+    ]);
     const track = timeline.tracks[0];
     const clip = track.clips[0];
     const previewContext = buildWorkspacePreviewContext({
@@ -506,7 +513,14 @@ describe("M05 预览舞台", () => {
   });
 
   it("只在 Runtime 明确返回 media 契约时播放真实视频", () => {
-    const timeline = workspaceTimeline([managedVideoTrack()]);
+    const timeline = workspaceTimeline([
+      managedVideoTrack([
+        managedClip("managed-video-asset-01", "managed-video-storyboard", "asset", "真实视频片段", {
+          sourceId: "asset-video-1",
+          status: "ready"
+        })
+      ])
+    ]);
     const track = timeline.tracks[0];
     const clip = track.clips[0];
     const previewContext = buildWorkspacePreviewContext({
@@ -554,8 +568,65 @@ describe("M05 预览舞台", () => {
     expect(wrapper.find('[data-testid="workspace-preview-audio"]').exists()).toBe(false);
   });
 
+  it("Runtime 返回的媒体不属于当前片段时回退结构预览", () => {
+    const timeline = workspaceTimeline([
+      managedVideoTrack([
+        managedClip("managed-video-asset-02", "managed-video-storyboard", "asset", "第二个视频片段", {
+          sourceId: "asset-video-2",
+          status: "ready"
+        })
+      ])
+    ]);
+    const track = timeline.tracks[0];
+    const clip = track.clips[0];
+    const previewContext = buildWorkspacePreviewContext({
+      playheadMs: 0,
+      timelinePreview: {
+        timelineId: "timeline-1",
+        status: "ready",
+        message: "真实媒体预览已准备",
+        previewMode: "media",
+        previewUrl: "data:application/json;charset=utf-8,%7B%7D",
+        media: {
+          kind: "video",
+          url: "/api/assets/asset-video-1/media?token=preview-token",
+          source: "asset:asset-video-1",
+          mimeType: "video/mp4",
+          durationMs: 1800
+        },
+        error: null
+      },
+      timelinePreviewErrorMessage: null,
+      selectedClip: clip,
+      selectedTrack: track,
+      timeline
+    });
+
+    const wrapper = mount(WorkspacePreviewStage, {
+      props: {
+        previewContext,
+        timeline
+      }
+    });
+
+    expect(previewContext.previewMode).toBe("structure");
+    expect(previewContext.mediaUrl).toBeNull();
+    expect(wrapper.find('[data-testid="workspace-preview-video"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="workspace-preview-truth"]').text()).toContain("分镜预览");
+  });
+
   it("只在 Runtime 明确返回 media 契约时播放真实音频", () => {
-    const timeline = workspaceTimeline([managedAudioTrack()]);
+    const timeline = workspaceTimeline([
+      {
+        ...managedAudioTrack(),
+        clips: [
+          managedClip("managed-audio-asset-01", "managed-audio-voice", "asset", "真实音频片段", {
+            sourceId: "asset-audio-1",
+            status: "ready"
+          })
+        ]
+      }
+    ]);
     const track = timeline.tracks[0];
     const clip = track.clips[0];
     const previewContext = buildWorkspacePreviewContext({
@@ -765,13 +836,14 @@ function managedClip(
     durationMs: number;
     metadata: Record<string, unknown>;
     status: string;
+    sourceId: string;
   }> = {}
 ) {
   return {
     id,
     trackId,
     sourceType,
-    sourceId: `${sourceType}-1`,
+    sourceId: overrides.sourceId ?? `${sourceType}-1`,
     label,
     startMs: 0,
     durationMs: overrides.durationMs ?? 5000,

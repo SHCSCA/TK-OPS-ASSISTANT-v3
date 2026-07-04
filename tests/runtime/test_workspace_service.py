@@ -725,6 +725,84 @@ def test_preview_returns_registered_asset_media_without_local_path(tmp_path: Pat
     assert result.error is None
 
 
+def test_preview_returns_media_for_requested_asset_clip(tmp_path: Path) -> None:
+    service, asset_repository = _make_workspace_context(tmp_path)
+    created = service.create_project_timeline(
+        "project-workspace",
+        TimelineCreateInput(name="主时间线"),
+    )
+    assert created.timeline is not None
+    _seed_asset(
+        asset_repository,
+        tmp_path,
+        asset_id="asset-first-preview",
+        asset_type="video",
+        name="第一个素材.mp4",
+        file_name="first-preview.mp4",
+        duration_ms=2000,
+    )
+    _seed_asset(
+        asset_repository,
+        tmp_path,
+        asset_id="asset-second-preview",
+        asset_type="video",
+        name="第二个素材.mp4",
+        file_name="second-preview.mp4",
+        duration_ms=3200,
+    )
+    service.update_timeline(
+        created.timeline.id,
+        TimelineUpdateInput(
+            name="主时间线",
+            durationSeconds=8,
+            tracks=[
+                {
+                    "id": "track-video-1",
+                    "kind": "video",
+                    "name": "视频轨 1",
+                    "orderIndex": 0,
+                    "locked": False,
+                    "muted": False,
+                    "clips": [
+                        {
+                            "id": "clip-first-media",
+                            "trackId": "track-video-1",
+                            "sourceType": "asset",
+                            "sourceId": "asset-first-preview",
+                            "label": "第一个素材",
+                            "startMs": 0,
+                            "durationMs": 2000,
+                            "inPointMs": 0,
+                            "outPointMs": 2000,
+                            "status": "ready",
+                        },
+                        {
+                            "id": "clip-second-media",
+                            "trackId": "track-video-1",
+                            "sourceType": "asset",
+                            "sourceId": "asset-second-preview",
+                            "label": "第二个素材",
+                            "startMs": 2000,
+                            "durationMs": 3200,
+                            "inPointMs": 0,
+                            "outPointMs": 3200,
+                            "status": "ready",
+                        },
+                    ],
+                }
+            ],
+        ),
+    )
+
+    result = service.fetch_timeline_preview(created.timeline.id, clip_id="clip-second-media")
+
+    assert result.previewMode == "media"
+    assert result.media is not None
+    assert result.media.source == "asset:asset-second-preview"
+    assert result.media.durationMs == 3200
+    assert "asset-second-preview" in result.media.url
+
+
 def test_preview_marks_missing_asset_media_unavailable_but_keeps_manifest(tmp_path: Path) -> None:
     service, asset_repository = _make_workspace_context(tmp_path)
     created = service.create_project_timeline(

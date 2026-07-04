@@ -32,8 +32,10 @@ class TimelinePreviewMediaResolver:
     def resolve(
         self,
         tracks: list[dict[str, object]],
+        *,
+        preferred_clip_id: str | None = None,
     ) -> tuple[TimelinePreviewMediaDto | None, TimelinePreviewErrorDto | None]:
-        asset_ids = self._iter_asset_ids(tracks)
+        asset_ids = self._iter_asset_ids(tracks, preferred_clip_id=preferred_clip_id)
         if not asset_ids:
             return None, None
 
@@ -83,7 +85,8 @@ class TimelinePreviewMediaResolver:
 
         return None, None
 
-    def _iter_asset_ids(self, tracks: list[dict[str, object]]) -> list[str]:
+    def _iter_asset_ids(self, tracks: list[dict[str, object]], *, preferred_clip_id: str | None = None) -> list[str]:
+        preferred_clip_id = str(preferred_clip_id or "").strip()
         asset_ids: list[str] = []
         for track in tracks:
             track_kind = str(track.get("kind") or "")
@@ -95,11 +98,16 @@ class TimelinePreviewMediaResolver:
             for clip in clips:
                 if not isinstance(clip, dict):
                     continue
+                clip_id = str(clip.get("id") or "").strip()
+                if preferred_clip_id and clip_id != preferred_clip_id:
+                    continue
                 if str(clip.get("sourceType") or "") != "asset":
                     continue
                 asset_id = str(clip.get("sourceId") or "").strip()
                 if asset_id:
                     asset_ids.append(asset_id)
+        if preferred_clip_id:
+            return asset_ids[:1]
         return asset_ids
 
     def _resolve_asset_path(self, asset: Asset) -> Path | None:

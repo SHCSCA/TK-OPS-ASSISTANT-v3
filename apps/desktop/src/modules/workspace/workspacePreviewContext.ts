@@ -86,7 +86,7 @@ export function buildWorkspacePreviewContext(input: WorkspacePreviewContextInput
   const manifestSummaryResult = resolveRuntimePreviewManifestSummary(runtimePreviewUrl);
   const manifestSummary = manifestSummaryResult.summary;
   const previewErrorMessage = manifestSummaryResult.errorMessage ?? resolveTimelinePreviewErrorMessage(input);
-  const media = resolveRuntimePreviewMedia(input.timelinePreview);
+  const media = resolveRuntimePreviewMedia(input.timelinePreview, clip);
   const mediaUrl = media.url;
   const mediaKind = media.kind;
   const previewMode: WorkspacePreviewMode = mediaUrl && mediaKind
@@ -453,7 +453,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function resolveRuntimePreviewMedia(
-  timelinePreview: TimelinePreviewDto | null
+  timelinePreview: TimelinePreviewDto | null,
+  clip: WorkspaceTimelineClipDto | null
 ): {
   durationMs: number | null;
   kind: WorkspacePreviewMediaKind | null;
@@ -461,6 +462,10 @@ function resolveRuntimePreviewMedia(
   url: string | null;
 } {
   if (!timelinePreview || timelinePreview.previewMode !== "media") {
+    return { durationMs: null, kind: null, mimeType: null, url: null };
+  }
+
+  if (!mediaSourceMatchesClip(timelinePreview.media?.source, clip)) {
     return { durationMs: null, kind: null, mimeType: null, url: null };
   }
 
@@ -494,6 +499,11 @@ function resolveRuntimePreviewMedia(
     mimeType: rawMimeType.trim(),
     url: resolveRuntimeMediaUrl(rawUrl)
   };
+}
+
+function mediaSourceMatchesClip(source: string | null | undefined, clip: WorkspaceTimelineClipDto | null): boolean {
+  if (!clip || clip.sourceType !== "asset" || !clip.sourceId) return false;
+  return source === `asset:${clip.sourceId}`;
 }
 
 function formatRuntimePreviewMediaInfo(media: {
