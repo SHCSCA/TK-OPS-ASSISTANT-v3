@@ -483,6 +483,13 @@
   grid-template-columns: auto auto auto minmax(80px, 1fr) auto;
 }
 
+.workspace-preview-stage__scrubber {
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+  min-width: 120px;
+  width: min(24vw, 240px);
+}
+
 .workspace-preview-stage__compact-status {
   align-items: center;
   color: var(--text-secondary);
@@ -539,6 +546,7 @@
   background: color-mix(in srgb, var(--surface-tertiary) 88%, transparent);
   border: 1px solid var(--border-default);
   border-radius: 999px;
+  display: none;
   height: 8px;
   min-width: 120px;
   overflow: hidden;

@@ -82,6 +82,8 @@ describe("workspace layout taxonomy contract", () => {
     expect(css).toContain("contain: layout paint;");
     expect(css).toContain("overflow-anchor: none;");
     expect(page).toContain("同步 AI 三轨");
+    expect(page).toContain('<h1 class="page-header__title">AI 剪辑工作台</h1>');
+    expect(page).not.toContain('<h1 class="page-header__title">M05 AI 剪辑工作台</h1>');
     expect(page).not.toContain("汇入创作链路");
     expect(page).toContain("managedTrackSyncRecovery");
     expect(shellContext).toContain("summarizeManagedTrackSync");
@@ -103,7 +105,7 @@ describe("workspace layout taxonomy contract", () => {
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__viewer\)\s*{[\s\S]*min-height:\s*300px;/);
     expect(css).not.toContain("min-height: 140px");
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__footer p\)\s*{[\s\S]*display:\s*none;/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__transport\)\s*{[\s\S]*display:\s*none;/);
+    expect(css).not.toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__transport\)\s*{[\s\S]*display:\s*none;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.workspace-timeline-area-wrapper\s*{[\s\S]*grid-column:\s*1;[\s\S]*grid-row:\s*2;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.stage-panel-wrapper--asset\s*{[\s\S]*grid-column:\s*1;[\s\S]*grid-row:\s*3;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.stage-panel-wrapper--inspector\s*{[\s\S]*grid-column:\s*1;[\s\S]*grid-row:\s*4;[\s\S]*min-height:\s*112px;/);
@@ -129,12 +131,12 @@ describe("workspace layout taxonomy contract", () => {
     expect(css).toMatch(/@media\s+\(max-height:\s*780px\)\s*{[\s\S]*@container\s+editing-workspace\s+\(min-width:\s*1041px\)\s+and\s+\(max-width:\s*1319px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-columns:\s*minmax\(160px,\s*200px\)\s+minmax\(480px,\s*1fr\)\s+minmax\(160px,\s*200px\);/);
     expect(css).toMatch(/@media\s+\(max-height:\s*780px\)\s*{[\s\S]*@container\s+editing-workspace\s+\(min-width:\s*1041px\)\s+and\s+\(max-width:\s*1319px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-rows:\s*minmax\(340px,\s*1fr\)\s+clamp\(190px,\s*28vh,\s*220px\);/);
     expect(css).toMatch(/@media\s+\(max-height:\s*780px\)\s*{[\s\S]*@container\s+editing-workspace\s+\(min-width:\s*1041px\)\s+and\s+\(max-width:\s*1319px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__viewer\)\s*{[\s\S]*min-height:\s*280px;/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__transport\)\s*{[\s\S]*display:\s*none;/);
+    expect(css).not.toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__transport\)\s*{[\s\S]*display:\s*none;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__compact-status\)\s*{[\s\S]*display:\s*grid;/);
     expect(css).toMatch(/@media\s+\(max-height:\s*860px\)\s*{[\s\S]*@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-rows:[\s\S]*minmax\(280px,\s*36vh\)[\s\S]*clamp\(220px,\s*32vh,\s*250px\)[\s\S]*clamp\(84px,\s*13vh,\s*104px\)[\s\S]*clamp\(92px,\s*14vh,\s*116px\)/);
     expect(css).toMatch(/@media\s+\(max-height:\s*860px\)\s*{[\s\S]*@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s*{[\s\S]*min-height:\s*280px;/);
     expect(css).toMatch(/@media\s+\(max-height:\s*860px\)\s*{[\s\S]*@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__viewer\)\s*{[\s\S]*min-height:\s*200px;/);
-    expect(css).toMatch(/@media\s+\(max-height:\s*860px\)\s*{[\s\S]*@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__compact-status\)\s*{[\s\S]*display:\s*none;/);
+    expect(css).toMatch(/@media\s+\(max-height:\s*860px\)\s*{[\s\S]*@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__compact-status\)\s*{[\s\S]*display:\s*grid;/);
     expect(css).not.toContain(".workspace-tool-bar");
     expect(css).not.toContain(".workspace-tool-bar__actions");
   });
@@ -252,9 +254,9 @@ describe("workspace layout taxonomy contract", () => {
     expect(timelineStyle).toMatch(/\.workspace-track--bgm\s+\.workspace-clip\s*{/);
     expect(timelineStyle).toMatch(/\.workspace-track--subtitle\s+\.workspace-clip\s*{/);
     expect(timelineStyle).toMatch(/\.workspace-timeline__tracks\s*{[\s\S]*height:\s*100%;/);
-    expect(timelineStyle).toMatch(/\.workspace-track--tall\s*{[\s\S]*min-height:\s*58px;/);
-    expect(timelineStyle).toMatch(/\.workspace-track--medium\s*{[\s\S]*min-height:\s*58px;/);
-    expect(timelineStyle).toMatch(/\.workspace-track--compact\s*{[\s\S]*min-height:\s*58px;/);
+    expect(timelineStyle).toMatch(/\.workspace-track--tall\s*{[\s\S]*min-height:\s*68px;/);
+    expect(timelineStyle).toMatch(/\.workspace-track--medium\s*{[\s\S]*min-height:\s*56px;/);
+    expect(timelineStyle).toMatch(/\.workspace-track--compact\s*{[\s\S]*min-height:\s*44px;/);
     expect(timelineStyle).toMatch(/\.workspace-timeline__sync-summary\s*{[\s\S]*grid-template-columns:\s*auto\s+minmax\(0,\s*1fr\);/);
     expect(timelineStyle).toMatch(/\.workspace-timeline__sync-summary\[data-sync="synced"\]\s*{/);
     expect(timelineStyle).toMatch(/\.workspace-timeline__sync-summary\[data-sync="warning"\]\s*{/);

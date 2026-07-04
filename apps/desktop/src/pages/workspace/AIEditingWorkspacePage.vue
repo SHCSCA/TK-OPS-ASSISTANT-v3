@@ -5,7 +5,7 @@
         <div class="page-header__crumb">首页 / 创作中枢</div>
         <div class="page-header__row">
           <div class="page-header__copy">
-            <h1 class="page-header__title">M05 AI 剪辑工作台</h1>
+            <h1 class="page-header__title">AI 剪辑工作台</h1>
             <p class="page-header__subtitle">
               基于真实素材与时间线草稿，完成 AI 粗剪、预览校验与人工微调。
             </p>
@@ -192,6 +192,7 @@
               :play-progress="playProgress"
               @play="handlePlay"
               @pause="handlePause"
+              @seek="handleSetPlayhead"
               @retry-preview="handleRetry"
             />
           </div>

@@ -85,7 +85,7 @@ describe("page responsive layout contract", () => {
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.page-header__crumb,[\s\S]*\.page-header__subtitle\s*{[\s\S]*display:\s*none;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s*{[\s\S]*grid-row:\s*1;[\s\S]*min-height:\s*460px;[\s\S]*overflow:\s*visible;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__viewer\)\s*{[\s\S]*min-height:\s*300px;/);
-    expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__transport\)\s*{[\s\S]*display:\s*none;/);
+    expect(css).not.toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__transport\)\s*{[\s\S]*display:\s*none;/);
     expect(css).toMatch(/@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s+:deep\(\.workspace-preview-stage__compact-status\)\s*{[\s\S]*display:\s*grid;/);
     expect(css).toMatch(/@media\s+\(max-height:\s*860px\)\s*{[\s\S]*@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.workspace-stage\s*{[\s\S]*grid-template-rows:[\s\S]*minmax\(280px,\s*36vh\)[\s\S]*clamp\(220px,\s*32vh,\s*250px\)/);
     expect(css).toMatch(/@media\s+\(max-height:\s*860px\)\s*{[\s\S]*@container\s+editing-workspace\s+\(max-width:\s*1040px\)\s*{[\s\S]*\.preview-panel-wrapper\s*{[\s\S]*min-height:\s*280px;/);

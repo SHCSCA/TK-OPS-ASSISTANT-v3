@@ -80,6 +80,86 @@ describe("M05 AI 剪辑工作台 store", () => {
     );
   });
 
+  it("晚返回的旧预览不能覆盖当前片段预览", async () => {
+    const previewRequests: Array<{
+      clipId: string | null;
+      reject: (error: unknown) => void;
+      resolve: (response: ReturnType<typeof okJsonResponse>) => void;
+    }> = [];
+    vi.stubGlobal("fetch", createRouteAwareFetch((path, method) => {
+      if (path.startsWith("/api/workspace/timelines/timeline-1/preview") && method === "GET") {
+        return new Promise((resolve, reject) => {
+          previewRequests.push({
+            clipId: new URL(`http://runtime${path}`).searchParams.get("clipId"),
+            reject,
+            resolve
+          });
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    }, { fallbackUnhandledTimelinePreview: false }));
+
+    const store = useEditingWorkspaceStore();
+    store.timeline = timeline("timeline-1", [videoTrack([assetClip()])]);
+    store.selectClip("asset-clip-1");
+
+    const staleRefresh = store.refreshTimelinePreview();
+    store.selectClip(null);
+    const currentRefresh = store.refreshTimelinePreview();
+
+    expect(previewRequests.map((request) => request.clipId)).toEqual(["asset-clip-1", null]);
+
+    previewRequests[1].resolve(okJsonResponse(timelinePreview({ previewUrl: "data:current-preview" })));
+    await currentRefresh;
+
+    previewRequests[0].resolve(okJsonResponse(timelinePreview({ previewUrl: "data:stale-preview" })));
+    await staleRefresh;
+
+    expect(store.preview?.previewUrl).toBe("data:current-preview");
+    expect(store.previewError).toBeNull();
+  });
+
+  it("晚返回的旧预览错误不能覆盖当前预览状态", async () => {
+    const previewRequests: Array<{
+      clipId: string | null;
+      reject: (error: unknown) => void;
+      resolve: (response: ReturnType<typeof okJsonResponse>) => void;
+    }> = [];
+    vi.stubGlobal("fetch", createRouteAwareFetch((path, method) => {
+      if (path.startsWith("/api/workspace/timelines/timeline-1/preview") && method === "GET") {
+        return new Promise((resolve, reject) => {
+          previewRequests.push({
+            clipId: new URL(`http://runtime${path}`).searchParams.get("clipId"),
+            reject,
+            resolve
+          });
+        });
+      }
+
+      throw new Error(`Unhandled request: ${method} ${path}`);
+    }, { fallbackUnhandledTimelinePreview: false }));
+
+    const store = useEditingWorkspaceStore();
+    store.timeline = timeline("timeline-1", [videoTrack([assetClip()])]);
+    store.selectClip("asset-clip-1");
+
+    const staleRefresh = store.refreshTimelinePreview();
+    store.selectClip(null);
+    const currentRefresh = store.refreshTimelinePreview();
+
+    expect(previewRequests.map((request) => request.clipId)).toEqual(["asset-clip-1", null]);
+
+    previewRequests[1].resolve(okJsonResponse(timelinePreview({ previewUrl: "data:current-preview" })));
+    await currentRefresh;
+
+    previewRequests[0].reject(new Error("旧预览失败"));
+    await staleRefresh;
+
+    expect(store.preview?.previewUrl).toBe("data:current-preview");
+    expect(store.previewError).toBeNull();
+  });
+
   it("创建时间线草稿后进入 ready 并保存真实时间线", async () => {
     vi.stubGlobal("fetch", createWorkspaceFetch({ timeline: null }));
 
@@ -487,7 +567,7 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.timeline?.tracks[0].clips[0].startMs).toBe(0);
     expect(store.selectedTrackId).toBe("managed-video-storyboard");
     expect(store.selectedClipId).toBe("managed-video-storyboard-01");
-    expect(store.error?.message).toBe("目标轨道已锁定，无法移动片段。");
+    expect(store.error?.message).toBe("目标轨道已锁定，无法移动片段。已恢复到操作前时间线。");
   });
 
   it("提交左边缘拖拽裁剪预览时通过 Runtime 保存并保留选中片段", async () => {
@@ -572,7 +652,7 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.timeline?.tracks[0].clips[0].startMs).toBe(0);
     expect(store.selectedTrackId).toBe("managed-video-storyboard");
     expect(store.selectedClipId).toBe("managed-video-storyboard-01");
-    expect(store.error?.message).toBe("片段裁剪后至少需要保留 500ms。");
+    expect(store.error?.message).toBe("片段裁剪后至少需要保留 500ms。已恢复到操作前时间线。");
   });
 
   it("按右边缘裁剪选中片段时通过 Runtime 保存", async () => {
@@ -591,7 +671,8 @@ describe("M05 AI 剪辑工作台 store", () => {
   });
 
   it("按播放头把资产加入时间线并选中新资产片段", async () => {
-    vi.stubGlobal("fetch", createWorkspaceFetch());
+    const fetchMock = createWorkspaceFetch();
+    vi.stubGlobal("fetch", fetchMock);
 
     const store = useEditingWorkspaceStore();
     await store.load("project-1");
@@ -609,6 +690,13 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.selectedTrackId).toBe("track-video");
     expect(store.selectedClipId).toBe("asset-clip-1");
     expect(store.saveState?.source).toBe("clip_insert_asset");
+    expect(
+      fetchMock.mock.calls
+        .map(([url]) => new URL(String(url)))
+        .filter((url) => url.pathname === "/api/workspace/timelines/timeline-1/preview")
+        .at(-1)
+        ?.searchParams.get("clipId")
+    ).toBe("asset-clip-1");
   });
 
   it("资产加入失败时保留原时间线并显示中文错误", async () => {
@@ -624,7 +712,7 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(timelineResult).toBeNull();
     expect(store.status).toBe("error");
     expect(store.timeline).toBe(originalTimeline);
-    expect(store.error?.message).toBe("资产入轨失败，请检查素材状态。");
+    expect(store.error?.message).toBe("资产入轨失败，请检查素材状态。已恢复到操作前时间线。");
   });
 
   it("用资产替换选中片段后保留选中片段", async () => {
@@ -666,7 +754,7 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.timeline).toBe(originalTimeline);
     expect(store.selectedTrackId).toBe("managed-video-storyboard");
     expect(store.selectedClipId).toBe("managed-video-storyboard-01");
-    expect(store.error?.message).toBe("资产替换失败，请检查素材状态。");
+    expect(store.error?.message).toBe("资产替换失败，请检查素材状态。已恢复到操作前时间线。");
   });
 
   it("执行时间线预检后保存真实预检结果", async () => {

@@ -342,15 +342,15 @@
 }
 
 .workspace-track--tall {
-  min-height: 58px;
+  min-height: 68px;
 }
 
 .workspace-track--medium {
-  min-height: 58px;
+  min-height: 56px;
 }
 
 .workspace-track--compact {
-  min-height: 58px;
+  min-height: 44px;
 }
 
 .workspace-track--selected {

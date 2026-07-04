@@ -98,6 +98,17 @@
           <span>{{ isPlaying ? '暂停' : '播放' }}</span>
         </button>
         <time>{{ transportTimeLabel }}</time>
+        <input
+          class="workspace-preview-stage__scrubber"
+          data-testid="workspace-preview-scrubber"
+          type="range"
+          aria-label="预览播放头"
+          min="0"
+          :max="durationMs"
+          step="100"
+          :value="currentPlayheadMs"
+          @input="handleSeekInput"
+        />
         <div
           class="workspace-preview-stage__progress"
           aria-label="预览进度条"
@@ -174,12 +185,6 @@ import type { WorkspaceTimelineDto } from "@/types/runtime";
 import type { WorkspacePreviewContext } from "./workspacePreviewContext";
 import { formatWorkspaceTime } from "./workspaceTimelineViewModel";
 
-defineEmits<{
-  play: [];
-  pause: [];
-  "retry-preview": [];
-}>();
-
 const props = defineProps<{
   previewContext: WorkspacePreviewContext;
   timeline: WorkspaceTimelineDto | null;
@@ -194,9 +199,8 @@ const headline = computed(() => {
 });
 
 const durationLabel = computed(() => {
-  const seconds = props.timeline?.durationSeconds;
-  if (seconds === null || seconds === undefined) return "待定";
-  return formatWorkspaceTime(seconds * 1000);
+  if (durationMs.value <= 0) return "待定";
+  return formatWorkspaceTime(durationMs.value);
 });
 
 const transportTimeLabel = computed(() => props.previewContext.currentTimeLabel.replace("当前时间：", ""));
@@ -208,6 +212,28 @@ const safePlayProgress = computed(() => {
   if (!Number.isFinite(progress)) return 0;
   return Math.min(100, Math.max(0, progress));
 });
+
+const durationMs = computed(() => {
+  const seconds = props.timeline?.durationSeconds;
+  if (seconds === null || seconds === undefined) return 0;
+  return Math.max(0, Math.round(seconds * 1000));
+});
+
+const currentPlayheadMs = computed(() => Math.round((safePlayProgress.value / 100) * durationMs.value));
+
+const emit = defineEmits<{
+  play: [];
+  pause: [];
+  seek: [positionMs: number];
+  "retry-preview": [];
+}>();
+
+function handleSeekInput(event: Event): void {
+  const input = event.target as HTMLInputElement;
+  const nextPositionMs = Number(input.value);
+  if (!Number.isFinite(nextPositionMs)) return;
+  emit("seek", Math.max(0, Math.min(durationMs.value, Math.round(nextPositionMs))));
+}
 
 </script>
 

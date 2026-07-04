@@ -631,7 +631,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         this.timeline = originalTimeline;
         this.selectedTrackId = originalSelectedTrackId;
         this.selectedClipId = originalSelectedClipId;
-        this.applyRuntimeError(error);
+        this.applyRuntimeError(error, "已恢复到操作前时间线。");
         return null;
       }
     },
@@ -675,7 +675,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         this.timeline = originalTimeline;
         this.selectedTrackId = originalSelectedTrackId;
         this.selectedClipId = originalSelectedClipId;
-        this.applyRuntimeError(error);
+        this.applyRuntimeError(error, "已恢复到操作前时间线。");
         return null;
       }
     },
@@ -734,14 +734,14 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         });
         this.applyTimelineResult(result);
         this.applyTimelineEditHistory(undoSnapshot);
-        await this.refreshTimelinePreview();
         this.selectInsertedAssetClip(assetId, startMs);
+        await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
         this.timeline = originalTimeline;
         this.selectedTrackId = originalSelectedTrackId;
         this.selectedClipId = originalSelectedClipId;
-        this.applyRuntimeError(error);
+        this.applyRuntimeError(error, "已恢复到操作前时间线。");
         return null;
       }
     },
@@ -776,7 +776,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         this.timeline = originalTimeline;
         this.selectedTrackId = originalSelectedTrackId;
         this.selectedClipId = originalSelectedClipId;
-        this.applyRuntimeError(error);
+        this.applyRuntimeError(error, "已恢复到操作前时间线。");
         return null;
       }
     },
@@ -888,8 +888,14 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         return null;
       }
 
+      const timelineId = this.timeline.id;
+      const selectedClipId = this.selectedClipId;
+      const isCurrentPreviewRequest = () =>
+        this.timeline?.id === timelineId && this.selectedClipId === selectedClipId;
+
       try {
-        const preview = await fetchTimelinePreview(this.timeline.id, { clipId: this.selectedClipId });
+        const preview = await fetchTimelinePreview(timelineId, { clipId: selectedClipId });
+        if (!isCurrentPreviewRequest()) return preview;
         this.preview = preview;
         this.previewError = null;
         return preview;
@@ -898,6 +904,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
           error instanceof RuntimeRequestError
             ? error
             : new RuntimeRequestError("时间线预览同步失败，请稍后重试。");
+        if (!isCurrentPreviewRequest()) return null;
         this.preview = null;
         this.previewError = {
           details: runtimeError.details,
@@ -983,15 +990,18 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         this.status = this.timeline ? "ready" : "empty";
       }
     },
-    applyRuntimeError(error: unknown): void {
+    applyRuntimeError(error: unknown, suffix?: string): void {
       const runtimeError =
         error instanceof RuntimeRequestError
           ? error
           : new RuntimeRequestError("AI 剪辑工作台请求失败");
+      const message = suffix && !runtimeError.message.endsWith(suffix)
+        ? `${runtimeError.message}${suffix}`
+        : runtimeError.message;
       this.status = "error";
       this.error = {
         details: runtimeError.details,
-        message: runtimeError.message,
+        message,
         requestId: runtimeError.requestId,
         status: runtimeError.status
       };

@@ -360,10 +360,6 @@
     display: none;
   }
 
-  .preview-panel-wrapper :deep(.workspace-preview-stage__transport) {
-    display: none;
-  }
-
   .preview-panel-wrapper :deep(.workspace-preview-stage__compact-status) {
     display: grid;
   }
@@ -445,9 +441,6 @@
     display: none;
   }
 
-  .preview-panel-wrapper :deep(.workspace-preview-stage__transport) {
-    display: none;
-  }
 }
 
 @media (max-height: 860px) {
@@ -482,7 +475,7 @@
     }
 
     .preview-panel-wrapper :deep(.workspace-preview-stage__compact-status) {
-      display: none;
+      display: grid;
     }
   }
 }
@@ -518,8 +511,7 @@
       padding: 8px;
     }
 
-    .preview-panel-wrapper :deep(.workspace-preview-stage__footer p),
-    .preview-panel-wrapper :deep(.workspace-preview-stage__transport) {
+    .preview-panel-wrapper :deep(.workspace-preview-stage__footer p) {
       display: none;
     }
 
