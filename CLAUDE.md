@@ -1,277 +1,212 @@
 # CLAUDE.md
 
-本文档为 Claude Code(claude.ai/code)及协作 AI(Codex / Gemini 等)在本仓库工作时的行为准则。
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ---
 
-## 一、项目概览
+## 1. 项目定位
 
-TK-OPS 是面向内容创作者的 **AI 视频创作中枢**(非运营后台、非团队协作平台),以 TikTok 为第一目标平台,采用本地优先、一机一码离线授权的 Windows 桌面工作台模式。
+TK-OPS 是面向内容创作者的 **AI 视频创作中枢**，不是运营后台、团队协作平台或经营系统。第一目标平台是 TikTok，产品形态是本地优先、一机一码离线授权的 Windows 桌面工作台。
 
-当前阶段:创作主链基线已打通——桌面壳、Runtime 配置总线、离线授权首启链路、项目上下文总线,以及 Dashboard / Script / Storyboard 最小联通链路已完成。
+当前实现已落到新主线：`apps/desktop` 承载 Tauri 2 + Vue 3 桌面壳，`apps/py-runtime` 承载 FastAPI Runtime；16 个正式路由、首启授权、配置总线、项目上下文、脚本/分镜/工作台/语音/字幕/资产/账号/设备/自动化/发布/渲染/复盘等模块均已有实现入口。后续功能必须继续回到同一条创作主链，不得回流旧后台口径或旧壳路径。
 
----
+核心模型链固定为：
 
-## 二、技术栈
+```text
+Project -> Script -> Storyboard -> Timeline -> VoiceTrack -> SubtitleTrack -> RenderTask
+```
 
-- **桌面壳**:Tauri 2 + Vue 3 + TypeScript + Vite(`apps/desktop`)
-- **业务运行时**:Python 3.13+ + FastAPI + SQLAlchemy + Alembic(`apps/py-runtime`)
-- **前端状态**:Pinia + Vue Router
-- **本地数据**:SQLite
-- **通信**:HTTP + WebSocket,Runtime 统一 JSON 信封
-  - 成功:`{ "ok": true, "data": ... }`
-  - 失败:`{ "ok": false, "error": "...", "error_code": "..." }`(error_code 用于前端路由到具体的中文提示)
+从零创作与导入拆解只是入口不同，最终必须回到同一 Project，不允许为不同入口创建两套割裂模型。
 
 ---
 
-## 三、常用命令
+## 2. 常用命令
+
+> 运行环境以 Windows 为主；仓库根目录是命令默认执行位置。根 `package.json#version` 是版本唯一真源。
 
 ```bash
-# 一键启动桌面应用(自动启动 Runtime + 健康检查 + Tauri)
+# 依赖安装
+npm --prefix apps/desktop install
+python -m venv venv
+venv\Scripts\python.exe -m pip install -e "./apps/py-runtime[dev]"
+
+# 一键启动桌面应用：检查 Python / npm / cargo / node_modules，启动 Runtime，等待 /api/settings/health，再启动 Tauri
 npm run app:dev
 
+# Smoke 模式：Runtime、Vite/Tauri 就绪后自动退出，适合验证启动链路
+TK_OPS_APP_DEV_EXIT_AFTER_READY=1 npm run app:dev
+
 # 单独启动
-npm run runtime:dev          # 仅 Runtime(FastAPI on :8000)
-npm run desktop:tauri:dev    # 仅 Tauri 开发态
+npm run runtime:dev
+venv\Scripts\python.exe -m uvicorn main:app --app-dir apps/py-runtime/src --host 127.0.0.1 --port 8000 --reload
+npm run desktop:dev          # 仅 Vite，默认 127.0.0.1:1420
+npm run desktop:tauri:dev    # 仅 Tauri dev
 
-# 前端
-npm --prefix apps/desktop install
+# 构建
+npm run desktop:build
 npm --prefix apps/desktop run build
+
+# 前端测试（Vitest，jsdom，测试文件在 apps/desktop/tests）
 npm --prefix apps/desktop run test
+npm --prefix apps/desktop run test -- tests/script-topic-center.spec.ts
 
-# Runtime
-venv\Scripts\python.exe -m pip install -e "./apps/py-runtime[dev]"
+# Runtime / Contract 测试
 venv\Scripts\python.exe -m pytest tests/runtime -q
+venv\Scripts\python.exe -m pytest tests/runtime/test_settings_health.py -q
+venv\Scripts\python.exe -m pytest tests/runtime/test_settings_health.py::test_health_returns_runtime_status -q
 venv\Scripts\python.exe -m pytest tests/contracts -q
+venv\Scripts\python.exe -m pytest tests/contracts/test_runtime_health_contract.py -q
 
-# 版本管理(唯一真源:根 package.json#version)
+# 开发数据、媒体工具、版本同步
+npm run runtime:seed-dev
+npm --prefix apps/desktop run prepare:media-tools
 npm run version:sync
 npm run version:check
 ```
 
+当前没有独立 lint 脚本；不要在未实际运行的情况下声称 lint 已通过。
+
+`npm run app:dev` 会占用/复用 `8000`（Runtime）与 `1420`（Vite）端口：端口被占用但健康检查可用时会复用现有服务；端口被占用且不可访问时会报中文错误。Tauri 开发态还要求本机存在 Rust/Cargo。
+
 ---
 
-## 四、架构与目录结构
+## 3. 文档真源与工作流
 
-### 4.1 双进程架构
+文档冲突时按以下优先级处理：
 
-桌面应用由两个进程组成:
+1. 产品范围、页面、能力边界：`docs/PRD.md`
+2. 视觉、壳层、布局、设计令牌：`docs/UI-DESIGN-PRD.md`
+3. 目录、路由、模块、模型落点：`docs/ARCHITECTURE-BOOTSTRAP.md`
+4. 工程约束、协作流程：`AGENTS.md`
 
-1. **Tauri 进程** — 加载 Vue SPA,提供桌面窗口壳
-2. **Python Runtime 进程** — FastAPI 服务,承载所有业务逻辑、数据持久化与 AI 调用
+实现前必须核对 `docs/superpowers/plans/` 与 `docs/superpowers/specs/` 中相关计划和设计，尤其是 M05/M14/M15、AI 设置、媒体、授权、发布、渲染等已有计划。
 
-前端通过 `apps/desktop/src/app/runtime-client.ts` 与 Runtime HTTP API 通信。
+Superpowers 分级：
 
-### 4.2 进程生命周期与崩溃语义(必须遵守)
+- **S 档**：跨前端 + Runtime + 数据模型、新增/修改主模型链、新增页面或改路由真源、外部集成。必须完整 plan + spec。
+- **M 档**：单模块新功能、既有数据模型非破坏性扩展。至少需要 plan。
+- **L 档**：Bug 修复、单组件/单接口小改、文档/配置/测试补齐。可直接开工，但交付说明要写清楚。
 
-双进程场景下异常路径多,以下规则是硬约束:
+Graphify 规则：本仓库有 `graphify-out/`。回答架构或代码库问题前先读 `graphify-out/GRAPH_REPORT.md`；如果未来出现 `graphify-out/wiki/index.md`，优先走 wiki。修改代码文件后运行 `graphify update .`（AST-only，无 API 成本）。
 
-- **启动顺序**:启动器先启动 Runtime → 轮询 `/api/settings/health` 就绪 → 再启动 Tauri 窗口
-- **端口占用**:Runtime 启动失败时不得静默退出,必须向启动器返回结构化错误,由壳层展示中文提示并提供"查看端口占用/重试"操作
-- **Runtime 崩溃**:Tauri 进程检测到 Runtime 掉线时,自动重启最多 3 次;3 次内未恢复则进入"离线降级态",禁用所有需要 Runtime 的功能,保留窗口与日志导出
-- **用户强杀 Runtime**:Tauri 不得跟随退出,必须显式弹出恢复入口
-- **Tauri 退出**:必须优雅关闭 Runtime(SIGTERM → 2s 宽限 → SIGKILL),禁止留下孤儿进程
-- **日志**:进程切换、崩溃、重启必须写入统一日志,便于用户反馈时导出
+---
 
-### 4.3 前端关键路径
+## 4. 架构大图
 
-- **路由真源**:`apps/desktop/src/app/router/route-manifest.ts`
-- **路由 ID**:`apps/desktop/src/app/router/route-ids.ts`
-- **壳层布局**:`apps/desktop/src/layouts/AppShell.vue`
-- **首启流程**:`apps/desktop/src/bootstrap/BootstrapGate.vue`(加载 → 授权 → 初始化三阶段)
-- **状态管理**:`apps/desktop/src/stores/`(config-bus / license / project / bootstrap 等)
-- **页面组件**:`apps/desktop/src/pages/`
+### 4.1 双进程桌面架构
 
-### 4.4 Runtime 关键路径
+- **Tauri / Vue 进程**：加载 Vue SPA，提供 Windows 桌面壳、路由、页面状态、用户交互和桌面能力入口。
+- **Python Runtime 进程**：FastAPI 服务，承载业务编排、SQLite 持久化、AI Provider、媒体/任务、授权与诊断。
+- **通信方式**：前端只通过 Runtime HTTP / WebSocket 通信，不允许组件内直接 `fetch` 业务接口，也不允许回退旧 PySide6/Qt 壳。
 
-- **应用工厂**:`apps/py-runtime/src/app/factory.py`
-- **配置总线**:`apps/py-runtime/src/app/config.py` + `secret_store.py`
-- **路由层**:`apps/py-runtime/src/api/routes/`(只做入参校验与出参包装)
-- **服务层**:`apps/py-runtime/src/services/`(业务编排与跨模型协同)
-- **数据层**:`apps/py-runtime/src/repositories/`(SQLite 读写封装)
-- **离线授权**:`apps/py-runtime/src/services/license_service.py` + `license_activation.py`
+启动链路由 `scripts/run-desktop-app.mjs` 编排：检查依赖 → 启动或复用 Runtime → 轮询 `/api/settings/health` → 启动 Tauri。Runtime 单独启动由 `scripts/run-runtime-dev.mjs` 或 `apps/py-runtime/src/main.py` 负责。
 
-### 4.5 跨层动态流规则
+### 4.2 前端关键结构
 
-静态分层(routes → services → repositories)只解决"代码放哪里",真正的协作难点是动态流,以下是硬性约定:
+- 入口：`apps/desktop/src/main.ts` 创建 Pinia 与 Router，加载 `apps/desktop/src/styles/index.css`。
+- 应用根：`apps/desktop/src/App.vue` 只挂载 `BootstrapGate`。
+- 首启门禁：`apps/desktop/src/bootstrap/BootstrapGate.vue` + `apps/desktop/src/stores/bootstrap.ts` 管理 `boot_loading -> license_required -> initialization_required -> ready` 等阶段。
+- 路由真源：`apps/desktop/src/app/router/route-manifest.ts` 与 `route-ids.ts`。16 个正式路由都必须在这里维护；首启页在正常导航中为 `HIDDEN`。
+- 路由守卫：`apps/desktop/src/app/router/index.ts` 负责授权跳转；需要项目上下文的页面不再硬跳 Dashboard，页面应通过 ProjectContextGuard/空态处理缺失上下文。
+- Runtime 适配层：`apps/desktop/src/app/runtime-client.ts` 是前端请求唯一集中入口，负责 JSON 信封解析、`RuntimeRequestError`、`requestId`、任务 DTO 兼容。
+- 状态层：`apps/desktop/src/stores/` 管理 license、config-bus、project、bootstrap、task、workspace、voice、subtitle 等全局状态。
+- 页面与模块：`apps/desktop/src/pages/` 放页面根组件，复杂逻辑下沉到 `apps/desktop/src/modules/`、`stores/`、`types/`、`styles/`，禁止在页面根组件堆满状态、请求和样式。
+- 样式：优先使用 `apps/desktop/src/styles/` 的 CSS Variables 与语义设计令牌，Light / Dark 双主题同时考虑。
 
-- **AI 调用**:统一走 `services/ai_gateway`,强制重试(指数退避 + 最多 3 次)、强制超时、强制结构化错误码。禁止页面或路由直接调第三方 SDK
-- **长任务**:超过 2s 的操作必须走 task 机制(`tasks/` 目录),前端通过 WebSocket 订阅进度,禁止同步阻塞 HTTP
-- **WebSocket 消息**:所有消息类型必须带 `schema_version` 字段,变更时走兼容发布流程(新增字段兼容、删除字段走 deprecation 一个版本)
-- **错误传播**:Runtime 异常在服务层捕获转换为带 `error_code` 的业务错误,路由层只负责包 JSON 信封。UI 根据 `error_code` 映射中文提示
+### 4.3 Runtime 关键结构
 
-### 4.6 项目主模型链
+- 入口：`apps/py-runtime/src/main.py` 调用 `app.factory.create_app()`。
+- 应用工厂：`apps/py-runtime/src/app/factory.py` 加载 RuntimeConfig、SecretStore、SQLite engine，初始化 domain schema，创建 repositories/services，并将依赖放入 `app.state`。
+- 路由：`apps/py-runtime/src/api/routes/` 下按资源前缀拆分，`api/routes/__init__.py` 统一导出，factory 统一 include。
+- 配置与日志：`apps/py-runtime/src/app/config.py`、`secret_store.py`、`logging.py` 是配置、密钥和日志入口。
+- 模型与持久化：SQLAlchemy 模型在 `apps/py-runtime/src/domain/models/`，数据库基础设施在 `apps/py-runtime/src/persistence/`，迁移在 `apps/py-runtime/alembic/`。
+- 服务层：`apps/py-runtime/src/services/` 承接业务编排、AI、媒体、任务、授权、脚本、分镜、工作台等跨模型流程。
+- 仓储层：`apps/py-runtime/src/repositories/` 只封装 SQLite 查询与写入。
+- 任务与 WebSocket：`services/task_manager.py` 维护当前内存态长任务并通过 `services/ws_manager.py` 广播，事件必须带 `schema_version`。
+- AI Provider：`apps/py-runtime/src/ai/providers/` 与 `AICapabilityService` 管理能力路由、Provider 健康、模型和密钥状态。
 
+### 4.4 Runtime 协议
+
+统一 JSON 信封：
+
+```json
+{ "ok": true, "data": {} }
 ```
-Project → Script → Storyboard → Timeline → VoiceTrack → SubtitleTrack → RenderTask
+
+```json
+{ "ok": false, "error": "中文错误说明", "error_code": "request.validation_failed", "requestId": "...", "details": {} }
 ```
 
-从零创作与导入拆解最终必须回到同一 Project,不允许为不同入口建两套数据模型。
+`schemas/envelope.py` 是信封真源。`factory.py` 中间件为每个 HTTP 请求生成 `X-Request-ID`，异常处理器将参数错误、HTTPException 和未捕获异常统一转为错误信封。前端 `runtime-client.ts` 依赖 `error_code`、`requestId` 和 `details` 显示中文反馈与诊断入口。
 
 ---
 
-## 五、文档真源体系
+## 5. 工程硬约束
 
-文档冲突时的优先级:
-
-1. **产品范围/页面/能力边界**:`docs/PRD.md`
-2. **视觉/壳层/布局**:`docs/UI-DESIGN-PRD.md`
-3. **目录/路由/模块/模型落点**:`docs/ARCHITECTURE-BOOTSTRAP.md`
-4. **工程约束/协作流程**:`AGENTS.md`
-
----
-
-## 六、工程约束(硬性)
-
-### 6.1 通用
-
-- **语言**:全局文案、注释、交互提示使用中文,代码标识符使用英文
-- **编码采用 UTF-8**：无 BOM，文档、注释、字符串必须保持中文可见，禁止出现乱码。
-- **产品范围**:页面的新增、删除、合并必须先更新 `docs/PRD.md` 与路由真源,未更新文档不得改 `route-manifest.ts`
-- **文件大小阈值**:单文件超过 **400 行**触发拆分评审;超过 **600 行**强制拆分,不接受"这个文件特殊"的理由
-- **全局配置总线**:配置不得散落在页面/脚本/服务内部,一律走 config-bus
-- **真实数据驱动**:无真实后端数据时用空态/引导态,禁止假业务数字与 mock 残留
-- **全局日志**:Runtime 使用模块级 `logger = logging.getLogger(__name__)`,前端使用全局日志服务,禁止无日志的关键路径
-
-- **保证全局性**：所有新开发必须遵循统一架构、统一规范、统一目录边界，避免局部特例破坏整体一致性。
-- **全局采用中文注释**：新增注释必须使用中文，并保持简洁，只解释代码意图、边界和复杂逻辑。
-- **全局异常处理以及日志记录**：所有异常必须被捕获、记录并转换为可见反馈；日志格式和错误处理方式必须统一。
-- **全局配置总线**：所有配置必须通过统一配置入口或配置总线管理，禁止页面、脚本、服务各自保存一套配置。
-- **禁止伪业务范围回流**：不得把订单、退款、商品、重 CRM、团队协作后台重新写回当前产品主线。
-- **禁止高风险环境伪装**：设备管理只允许管理真实 PC 工作区、浏览器实例和执行环境。
-- **UI 设计采用 Stitch 设计系统**：当前默认通过 Stitch CLI 生成设计参考，禁止在界面里掺入大量英文占位和开发者语气文案。
-- **UI 交互必须有异常、日志和状态反馈**：禁止静默失败或只在控制台输出错误。
-- **UI 设计必须适配不同屏幕尺寸**：禁止只针对桌面宽屏设计，必须考虑紧凑窗口和不同分辨率的适配。
-- **UI 设计必须有视觉层次和引导**：禁止把功能堆在一起，必须通过视觉设计引导用户操作。
-- **UI 设计必须与产品定位一致**：禁止把产品漂回旧后台口径、假数据演示、旧壳路径或失控的自动化范围。
-- **UI 交互要有极高体验感**：要好看、流畅、易用，禁止出现卡顿、闪烁、错位等问题。
-- **UI设计以及交互可以参考**：https://github.com/DavidHDev/react-bits.git以及 https://www.unicorn.studio
-- **禁止在 UI 层直接拼接业务规则**：必须通过服务层接口处理业务逻辑。
-- **UI 交互必须至少覆盖加载中、空状态、正常状态、错误状态**: 必须处理异常、日志、重试、取消和状态反馈；必须同步处理缓存失效、任务刷新与全局状态更新；必须补齐至少一条改动相关测试。
-- **UI设计要求至少覆盖桌面宽屏和紧凑窗口两种布局，特别是时间线、任务队列、状态栏、Detail Panel等核心交互组件**。
-- **UI设计必须与当前产品定位一致**，禁止把产品漂回旧后台口径、假数据演示、旧壳路径或失控的自动化范围。
-- **UI要有设计感**，禁止直接把功能堆在一起，必须有合理的视觉层次和交互引导。
-- **UI必须有明确的状态反馈**，禁止让用户无感知地等待或不确定操作结果。
-- **UI要有一致的风格和交互模式**，禁止同一页面或功能里出现多种不同的设计语言或交互方式。
-- **禁止在未核对 `docs/ARCHITECTURE-BOOTSTRAP.md` 的情况下擅自创建 `apps/desktop`、`apps/py-runtime` 目录或扩展路由、模块和模型**。
-- **禁止在未核对 `docs/PRD.md` 和 `docs/UI-DESIGN-PRD.md` 的情况下擅自扩页或改产品定位**。
-- **禁止新增“看起来像真实结果”的假业务数字**：无真实后端数据时，必须使用中性空态或引导态。
-- **禁止绕过授权开发后续功能**：授权、一机一码、目录初始化、Runtime 健康检查必须走真实链路。
-- **禁止账号、设备、工作区、浏览器实例与执行环境做假绑定**：它们必须是真实对象。
-- **禁止任何自动化、发布、渲染或 AI 长任务没有超时、失败提示和重试路径**：必须保证用户可见的反馈和重试机制。
-- **禁止在未核对 `docs/superpowers/plans/` 和 `docs/superpowers/specs/` 中相关计划和设计的情况下，直接进入实现阶段**。
-- **UI 代码必须优先按页面、composable、helpers、types、styles 分层拆分；禁止把页面状态、服务调用和样式堆进单个超大文件**。
-- **所有数据请求必须统一通过 Runtime 适配层发起；禁止组件内直接 fetch**。
-- **样式必须优先使用设计令牌和 CSS Variables；同一改动需同时考虑 Light / Dark 双主题**。
-- **Python 代码必须遵循统一规范**：包括文件头、导入顺序、类型标注、命名、日志、异常记录、事务控制、错误处理、配置管理和改动原则。
-- **后端开发完成要给到明确的接口文档给到前端，前端开发完成要给到明确的接口调用文档给到后端，禁止接口不明确导致的前后端对接问题**。
-- **接口文档以及调用文档必须包含接口地址、请求方法、请求参数、返回结果、错误码和示例，禁止模糊不清的接口说明**。
-- **前后端接口必须保持一致，禁止接口变更导致的前后端不兼容问题**。
-- **前后端接口必须有版本控制，禁止接口变更导致的版本冲突问题**。
-- **前后端接口文档唯一且及时更新以及追加，禁止接口文档过时导致的对接问题**。
-- **前后端接口必须有明确的错误处理机制，禁止接口调用失败导致的用户体验问题**。
-
-### 6.2 Runtime 分层
-
-- 路由层 → 服务层 → 仓储层 → tasks / media / ai,单向依赖,不得反向
-- 路由层只做入参/出参,禁止编排业务流程
-- 异常必须用 `log.exception(...)` 记录完整 traceback,禁止 `log.error(str(e))`
-- 所有顶层入口必须捕获异常转换为业务错误,避免进程崩溃
-
-### 6.3 前端
-
-- 页面按 `page / composable / helpers / types / styles` 拆分
-- 数据请求统一通过 Runtime 适配层,禁止组件内直接 fetch
-- 样式优先使用设计令牌与 CSS Variables,考虑 Light/Dark 双主题
-- `@` 别名指向 `apps/desktop/src/`
-
-### 6.4 授权
-
-- 离线授权链路先跑通再优化体验,禁止绕过授权开发后续功能
-- 授权失败态与过期态必须有明确 UI 路径,不得静默退化
-
-## 七、开发流程与协作规范
-
-### 7.6 Superpowers 工作流(分级触发)
-
-不是所有任务都需要 plan + spec 全流程。按任务影响面分三档:
-
-**S 档(必须走完整 plan + spec)**:
-- 跨模块改动(同时改前端 + Runtime + 数据模型)
-- 新增数据模型或修改主模型链
-- 新增页面或修改路由真源
-- 外部集成(新三方 API、新 AI 模型)
-
-**M 档(只需 plan,可跳过 spec)**:
-- 单模块内的新功能
-- 既有数据模型的非破坏性扩展
-
-**L 档(直接开工,在 PR 描述里说清楚即可)**:
-- Bug 修复
-- 单组件/单接口的小改
-- 文档、配置、测试补齐
-
-**Superpowers skills 对应**:
-- 规划:`superpowers:writing-plans`
-- 执行:`superpowers:executing-plans`
-- 审查:`superpowers:requesting-code-reviews`
-- 调试:`superpowers:systematic-debugging`
-- 完成:`superpowers:finishing-a-development-branch`
-
-## 八、决策三问(Linus 风格)
-
-每次重大决策前自问:
-
-1. **这是现实问题还是想象问题?** — 拒绝过度设计
-2. **有没有更简单的做法?** — 始终寻找最简方案
-3. **会破坏什么?** — 向后兼容是铁律
+- 全局文案、注释、交互提示使用中文；代码标识符使用英文。
+- UTF-8 无 BOM；文档、注释、字符串必须保持中文可见，禁止乱码。
+- 单文件超过 **400 行**触发拆分评审；超过 **600 行**强制拆分。
+- 页面新增、删除、合并或正式路由变更，必须先更新 `docs/PRD.md`、`docs/ARCHITECTURE-BOOTSTRAP.md` 与路由真源。
+- 禁止把产品范围漂回订单、退款、商品、重 CRM、团队协作后台或高风险环境伪装。
+- 禁止新增“看起来像真实结果”的假业务数字；无真实后端数据时使用中性空态或引导态。
+- 授权、一机一码、目录初始化、Runtime 健康检查必须走真实链路，禁止绕过授权开发后续功能。
+- 配置必须走 Runtime 配置入口或前端 config-bus，禁止散落在页面、脚本或服务内部。
+- UI 必须覆盖加载中、空状态、正常状态、错误状态；涉及任务还要有运行、取消、失败、重试和日志入口。
+- UI 必须覆盖桌面宽屏和紧凑窗口，尤其是时间线、任务队列、状态栏、Detail Panel。
+- 样式优先设计令牌和 CSS Variables；同一改动同时考虑 Light / Dark。
+- 所有数据请求统一通过 Runtime 适配层，禁止组件内直接拼业务 API 或业务规则。
+- 后端接口变更必须同步接口/调用说明，包含地址、方法、参数、返回、错误码和示例；前后端契约测试要同步更新。
 
 ---
 
-## 九、Git 规范
+## 6. Runtime 开发规则
 
-- 功能开发在 `feature/<task-name>` 分支
-- 提交前必须通过代码审查(Claude 自审或委派 review)
-- 提交信息格式:`<类型>: <描述>`(中文)
-- 类型:`feat` / `fix` / `docs` / `refactor` / `chore` / `test`
-- **禁止**:force push 到共享分支、修改已 push 的历史
-
----
-
-## 十、代码规范速查
-
-### Python
-
-- 文件头:`from __future__ import annotations`
-- 类型:完整标注,使用 `|` 联合类型
-- 日志:`log = logging.getLogger(__name__)`,异常用 `log.exception(...)`
-- 错误:UI 可感知错误转中文并带 `error_code`,不暴露 traceback
-
-### Vue / TypeScript
-
-- 页面按 `page / composable / helpers / types / styles` 拆分
-- 数据请求统一走 Runtime 适配层
-- 样式优先 CSS Variables + 设计令牌
-- 别名 `@` → `apps/desktop/src/`
+- 依赖方向固定：`api/routes -> services -> repositories -> domain/persistence`；`tasks`、`media`、`ai` 作为服务层调用的系统能力，禁止反向依赖路由或页面。
+- 路由层只做入参校验、服务调用和出参包装，不编排复杂业务流程。
+- 新 Python 文件使用 `from __future__ import annotations`，导入顺序为标准库、第三方、本地模块。
+- 模块级日志使用 `log = logging.getLogger(__name__)`；异常必须用 `log.exception(...)` 保留 traceback，禁止只 `log.error(str(e))`。
+- UI 可感知错误必须转换为中文消息和稳定 `error_code`，不得向用户暴露 traceback。
+- 超过 2 秒的 AI、渲染、发布、转写、导入、分析等操作必须走 task 机制并通过 WebSocket/任务接口反馈，禁止同步阻塞 HTTP。
+- CORS origin 必须通过 `RuntimeConfig.allowed_origins` / 环境变量配置，不要在路由里临时放宽，更不要使用 `*`。
+- 不要在 routes 中重新构建服务图；统一复用 `app.state` 中由 `create_app()` 注入的服务与仓储。
 
 ---
 
-## 十一、本文档的维护
+## 7. 前端开发规则
 
-本文档不是一次性产物。以下情况必须更新:
+- 页面根组件只负责装配；复杂状态、请求、推导和样式拆到 composable、helpers、types、styles、store 或 Runtime 服务层。
+- `@` 别名指向 `apps/desktop/src/`。
+- 修改正式页面必须同步核对 `route-manifest.ts`、`route-ids.ts`、`docs/PRD.md` 和 UI 文档；未经文档更新不得新增第 17 个正式页面。
+- 授权和项目上下文使用现有 stores / guards / ProjectContextGuard，不要在页面里写另一套判断。
+- Runtime 错误要展示中文原因、重试、日志/请求 ID；禁止只在 console 输出。
+- AI 输出必须可解释、可编辑、可重试、可回滚；覆盖用户内容必须有明确确认。
+- 不使用英文占位和开发者语气文案；空态必须告诉用户“当前没有什么”和“下一步可以做什么”。
 
-- 架构分层调整
-- AI 协作规则调整(如模型能力画像变化)
-- 新增硬性工程约束
-- 决策三问得出"需要破坏向后兼容"的结论时
+---
 
-每季度由 Claude 主导一次整体 review,修剪过时条款,避免文档堆积成化石。
+## 8. 测试与验证
 
-## graphify
+- 功能改动至少跑“改动相关测试 + 1 条主链路回归”。
+- 前端改动优先覆盖页面状态、Runtime DTO 契约、store 行为、关键交互和响应式布局。
+- Runtime 改动优先覆盖服务层、仓储/模型、任务状态、接口信封和 contracts。
+- 文档更新后至少做文本级一致性检查，确认产品范围、16 页结构、术语和命令未冲突。
+- 如果某条测试、脚本或依赖不存在，不要伪称已验证；说明缺失事实和已完成的替代检查。
 
-This project has a graphify knowledge graph at graphify-out/.
+---
 
-Rules:
-- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
-- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
-- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+## 9. Git 与交付
+
+- 功能开发使用 `feature/<task-name>` 分支；禁止 force push 到共享分支或修改已 push 历史。
+- 提交信息格式：`<类型>: <中文描述>`，类型包括 `feat`、`fix`、`docs`、`refactor`、`chore`、`test`。
+- 提交前必须进行代码审查（Claude 自审或委派 review），并在交付说明中如实列出运行过的验证命令和结果。
+
+---
+
+## 10. 维护本文件
+
+以下情况必须更新本文件：
+
+- 架构分层、启动链路、测试命令或目录边界变化。
+- 新增硬性工程约束或 Superpowers 流程变化。
+- Runtime 信封、错误码、任务/WebSocket 协议发生兼容性变化。
+- graphify 入口、文档真源或 16 页产品范围发生调整。
