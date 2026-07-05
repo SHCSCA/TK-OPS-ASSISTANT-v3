@@ -152,6 +152,16 @@ export function useAIEditingWorkspaceActions(options: UseAIEditingWorkspaceActio
   }
 
   async function handleDeleteSelectedClip(): Promise<void> {
+    const clip = options.timeline.value?.tracks
+      .flatMap((track) => track.clips)
+      .find((candidate) => candidate.id === options.workspaceStore.selectedClipId);
+    const clipLabel = clip?.label || clip?.id || "当前片段";
+    const confirmed = await requestDesktopConfirm(
+      `确认删除“${clipLabel}”吗？删除后可通过时间线工具栏撤销。`,
+      { title: "删除时间线片段" }
+    );
+    if (!confirmed) return;
+
     await options.workspaceStore.deleteSelectedClip();
   }
 

@@ -188,12 +188,14 @@
             <WorkspacePreviewStage
               class="stage-panel preview-panel"
               :preview-context="previewContext"
+              :preview-ratio="previewRatio"
               :timeline="timeline"
               :is-playing="isPlaying"
               :play-progress="playProgress"
               :playhead-ms="playheadMs"
               @play="handlePlay"
               @pause="handlePause"
+              @ratio-change="workspaceStore.setPreviewRatio"
               @seek="handleSetPlayhead"
               @retry-preview="handleRetry"
             />
@@ -347,6 +349,7 @@ const {
   playheadMs,
   precheck,
   previewContext,
+  previewRatio,
   saveState,
   selectedClip,
   selectedClipId,

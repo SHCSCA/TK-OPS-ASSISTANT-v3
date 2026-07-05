@@ -29,16 +29,16 @@
           <button
             data-testid="workspace-preview-ratio-9-16"
             type="button"
-            :aria-pressed="String(previewRatio === '9:16')"
-            @click="previewRatio = '9:16'"
+            :aria-pressed="String(props.previewRatio === '9:16')"
+            @click="emit('ratio-change', '9:16')"
           >
             9:16
           </button>
           <button
             data-testid="workspace-preview-ratio-16-9"
             type="button"
-            :aria-pressed="String(previewRatio === '16:9')"
-            @click="previewRatio = '16:9'"
+            :aria-pressed="String(props.previewRatio === '16:9')"
+            @click="emit('ratio-change', '16:9')"
           >
             16:9
           </button>
@@ -54,20 +54,26 @@
         <div
           class="workspace-preview-stage__canvas"
           data-testid="workspace-preview-canvas"
-          :data-ratio="previewRatio"
+          :data-ratio="props.previewRatio"
           aria-label="预览画布"
         >
           <div class="workspace-preview-stage__screen">
             <div class="workspace-preview-stage__canvas-meta">
               <span data-testid="workspace-preview-truth">{{ previewContext.truthLabel }}</span>
-              <small>{{ previewRatio }}</small>
+              <small>{{ props.previewRatio }}</small>
             </div>
             <video
               v-if="previewContext.previewMode === 'media' && previewContext.mediaKind === 'video' && previewContext.mediaUrl"
+              ref="mediaElement"
               class="workspace-preview-stage__video"
               controls
               data-testid="workspace-preview-video"
               :src="previewContext.mediaUrl"
+              @ended="handleMediaEnded"
+              @loadedmetadata="handleMediaLoadedMetadata"
+              @pause="handleMediaPaused"
+              @play="handleMediaPlayed"
+              @timeupdate="handleMediaTimeUpdate"
             />
             <section v-else class="workspace-preview-stage__content">
               <strong>{{ headline }}</strong>
@@ -172,28 +178,47 @@
           <strong>音频素材预览</strong>
           <p>{{ previewContext.description }}</p>
         </div>
-        <audio controls data-testid="workspace-preview-audio" :src="previewContext.mediaUrl" />
+        <audio
+          ref="mediaElement"
+          controls
+          data-testid="workspace-preview-audio"
+          :src="previewContext.mediaUrl"
+          @ended="handleMediaEnded"
+          @loadedmetadata="handleMediaLoadedMetadata"
+          @pause="handleMediaPaused"
+          @play="handleMediaPlayed"
+          @timeupdate="handleMediaTimeUpdate"
+        />
       </div>
     </footer>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 
 import type { WorkspaceTimelineDto } from "@/types/runtime";
 import type { WorkspacePreviewContext } from "./workspacePreviewContext";
 import { formatWorkspaceTime } from "./workspaceTimelineViewModel";
 
-const props = defineProps<{
+type WorkspacePreviewRatio = "9:16" | "16:9";
+
+const props = withDefaults(defineProps<{
   previewContext: WorkspacePreviewContext;
   timeline: WorkspaceTimelineDto | null;
   isPlaying?: boolean;
   playProgress?: number;
   playheadMs?: number;
-}>();
+  previewRatio?: WorkspacePreviewRatio;
+}>(), {
+  isPlaying: false,
+  playProgress: 0,
+  playheadMs: 0,
+  previewRatio: "9:16"
+});
 
-const previewRatio = ref<"9:16" | "16:9">("9:16");
+const mediaElement = ref<HTMLMediaElement | null>(null);
+const isSyncingMediaPosition = ref(false);
 
 const headline = computed(() => {
   return props.previewContext.headline;
@@ -231,8 +256,88 @@ const emit = defineEmits<{
   play: [];
   pause: [];
   seek: [positionMs: number];
+  "ratio-change": [ratio: WorkspacePreviewRatio];
   "retry-preview": [];
 }>();
+
+watch(
+  () => [
+    props.playheadMs,
+    props.previewContext.mediaKind,
+    props.previewContext.mediaUrl,
+    props.previewContext.clip?.id
+  ] as const,
+  () => {
+    void syncMediaElementToPlayhead();
+  },
+  { flush: "post" }
+);
+
+async function syncMediaElementToPlayhead(): Promise<void> {
+  await nextTick();
+  const media = mediaElement.value;
+  const targetSeconds = resolveMediaCurrentTimeSeconds();
+  if (!media || targetSeconds === null) return;
+
+  if (Math.abs(media.currentTime - targetSeconds) < 0.25) return;
+
+  isSyncingMediaPosition.value = true;
+  try {
+    media.currentTime = targetSeconds;
+    await nextTick();
+  } catch {
+    // 忽略浏览器在媒体元信息未就绪时拒绝 seek 的瞬时异常。
+  } finally {
+    isSyncingMediaPosition.value = false;
+  }
+}
+
+function resolveMediaCurrentTimeSeconds(): number | null {
+  if (props.previewContext.previewMode !== "media" || !props.previewContext.clip) return null;
+  const playheadMs = Math.max(0, props.playheadMs ?? 0);
+  const relativeMs = Math.max(0, playheadMs - props.previewContext.clip.startMs);
+  const clipDurationMs = Math.max(0, props.previewContext.clip.durationMs);
+  const mediaDurationMs = resolveMediaDurationMs();
+  const upperBoundMs = mediaDurationMs ?? (clipDurationMs > 0 ? clipDurationMs : relativeMs);
+  const boundedMs = Math.min(relativeMs, upperBoundMs);
+  return boundedMs / 1000;
+}
+
+function resolveMediaDurationMs(): number | null {
+  const media = mediaElement.value;
+  if (media && Number.isFinite(media.duration) && media.duration > 0) {
+    return Math.round(media.duration * 1000);
+  }
+  return null;
+}
+
+function handleMediaPlayed(): void {
+  emit("play");
+}
+
+function handleMediaLoadedMetadata(): void {
+  void syncMediaElementToPlayhead();
+}
+
+function handleMediaPaused(): void {
+  if (!isSyncingMediaPosition.value) {
+    emit("pause");
+  }
+}
+
+function handleMediaEnded(): void {
+  emit("pause");
+}
+
+function handleMediaTimeUpdate(event: Event): void {
+  if (isSyncingMediaPosition.value || props.previewContext.previewMode !== "media" || !props.previewContext.clip) return;
+  const media = event.target as HTMLMediaElement | null;
+  if (!media || !Number.isFinite(media.currentTime)) return;
+  const clip = props.previewContext.clip;
+  const relativeMs = Math.round(media.currentTime * 1000);
+  const nextPlayheadMs = Math.min(clip.startMs + clip.durationMs, clip.startMs + relativeMs);
+  emit("seek", Math.max(0, nextPlayheadMs));
+}
 
 function handleSeekInput(event: Event): void {
   const input = event.target as HTMLInputElement;

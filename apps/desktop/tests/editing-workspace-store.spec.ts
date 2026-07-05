@@ -316,7 +316,8 @@ describe("M05 AI 剪辑工作台 store", () => {
     expect(store.status).toBe("ready");
     expect(store.selectedTrackId).toBe("managed-video-storyboard");
     expect(store.selectedClipId).toBeNull();
-    expect(store.saveState?.source).toBe("clip_delete");
+    expect(store.saveState?.source).toBe("timeline_undo");
+    expect(store.saveState?.message).toContain("已删除片段");
   });
 
   it("分割选中片段时使用当前播放头并保留左半段选中", async () => {

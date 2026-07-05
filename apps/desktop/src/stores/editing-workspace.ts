@@ -62,6 +62,8 @@ export type EditingWorkspaceAssetStatus = "idle" | "loading" | "ready" | "error"
 
 export type MagicCutSuggestionStatus = "idle" | "loading" | "ready" | "applying" | "error";
 
+export type WorkspacePreviewRatio = "9:16" | "16:9";
+
 export type EditingWorkspaceMovePreview = {
   gesture: "move";
   clipId: string;
@@ -94,6 +96,7 @@ type EditingWorkspaceState = {
   precheck: TimelinePrecheckDto | null;
   preview: TimelinePreviewDto | null;
   previewError: RuntimeRequestErrorShape | null;
+  previewRatio: WorkspacePreviewRatio;
   previewRequestId: number;
   projectId: string;
   playheadMs: number;
@@ -121,6 +124,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
     precheck: null,
     preview: null,
     previewError: null,
+    previewRatio: "9:16",
     previewRequestId: 0,
     projectId: "",
     playheadMs: 0,
@@ -224,6 +228,9 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         };
         return [];
       }
+    },
+    setPreviewRatio(ratio: WorkspacePreviewRatio): void {
+      this.previewRatio = ratio;
     },
     async createDraft(projectId?: string, name = "主时间线"): Promise<WorkspaceTimelineDto | null> {
       const pid = projectId || this.projectId;
@@ -640,6 +647,7 @@ export const useEditingWorkspaceStore = defineStore("editing-workspace", {
         const result = await deleteWorkspaceClip(this.selectedClipId);
         this.applyTimelineResult(result);
         this.applyTimelineEditHistory(undoSnapshot);
+        this.applyTimelineHistorySaveState(result, "timeline_undo", "已删除片段，可通过时间线工具栏撤销。");
         await this.refreshTimelinePreview();
         return result.timeline;
       } catch (error) {
