@@ -70,13 +70,15 @@
         </div>
       </header>
 
-      <div v-if="currentProjectId" class="workspace-semantic-labels">
-        <span>素材池</span>
-        <span>预览与校验</span>
-        <span>基础属性</span>
-        <span>基础工具</span>
-        <span>时间线</span>
-      </div>
+      <WorkspaceActionStrip
+        v-if="currentProjectId"
+        :can-redo="canRedoTimelineEdit"
+        :can-undo="canUndoTimelineEdit"
+        :export-readiness="exportReadiness"
+        :is-generating="isGenerating"
+        :precheck="precheck"
+        :preview-context="previewContext"
+      />
 
       <div v-if="!currentProjectId" class="dashboard-alert" data-tone="warning">
         <span class="material-symbols-outlined">warning</span>
@@ -308,6 +310,7 @@ import ProjectContextGuard from "@/components/common/ProjectContextGuard.vue";
 import Button from "@/components/ui/Button/Button.vue";
 import Chip from "@/components/ui/Chip/Chip.vue";
 import WorkspaceAICapabilityRecovery from "@/modules/workspace/WorkspaceAICapabilityRecovery.vue";
+import WorkspaceActionStrip from "@/modules/workspace/WorkspaceActionStrip.vue";
 import WorkspaceAssetRail from "@/modules/workspace/WorkspaceAssetRail.vue";
 import WorkspaceCommandFeedbackBar from "@/modules/workspace/WorkspaceCommandFeedbackBar.vue";
 import WorkspaceEditingStatusBar from "@/modules/workspace/WorkspaceEditingStatusBar.vue";
@@ -322,6 +325,10 @@ import { useWorkspaceCommandTasks } from "@/modules/workspace/useWorkspaceComman
 import { useMagicCutReadiness } from "@/modules/workspace/useMagicCutReadiness";
 import { useWorkspacePlayback } from "@/modules/workspace/useWorkspacePlayback";
 import { useWorkspaceShellDetailContext } from "@/modules/workspace/useWorkspaceShellDetailContext";
+import {
+  resolveTimelinePrecheckIssueCount,
+  resolveWorkspaceExportReadiness
+} from "@/modules/workspace/workspaceExportReadiness";
 import { evaluateTimelineClipActions } from "@/modules/workspace/workspaceTimelineActions";
 import { useAICapabilityStore } from "@/stores/ai-capability";
 import { isMagicCutRecoveryMessage, useEditingWorkspaceStore } from "@/stores/editing-workspace";
@@ -464,6 +471,14 @@ const assembleDisabled = computed(() => !currentProjectId.value || status.value 
 const precheckDisabled = computed(() => !timeline.value || status.value === "loading" || isGenerating.value);
 const generateDisabled = computed(
   () => !timeline.value || status.value === "loading" || isGenerating.value || !magicCutReadiness.value.available
+);
+const exportReadiness = computed(() =>
+  resolveWorkspaceExportReadiness({
+    issueCount: resolveTimelinePrecheckIssueCount(precheck.value),
+    precheck: precheck.value,
+    saveState: saveState.value,
+    timeline: timeline.value
+  })
 );
 const timelineActionState = computed(() =>
   evaluateTimelineClipActions({

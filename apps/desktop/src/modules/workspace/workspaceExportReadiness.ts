@@ -23,6 +23,13 @@ export type WorkspaceExportRoute = {
   };
 };
 
+export function resolveTimelinePrecheckIssueCount(precheck: TimelinePrecheckDto | null): number {
+  if (!precheck) return 0;
+  return precheck.issueDetails && precheck.issueDetails.length > 0
+    ? precheck.issueDetails.length
+    : precheck.issues?.length ?? 0;
+}
+
 type ResolveWorkspaceExportReadinessInput = {
   issueCount: number;
   precheck: TimelinePrecheckDto | null;
@@ -72,7 +79,7 @@ export function resolveWorkspaceExportReadiness(input: ResolveWorkspaceExportRea
       canRequestExport: false,
       description: "先处理预检问题。",
       status: "precheck_blocked",
-      title: `发现 ${input.issueCount} 个问题`
+      title: input.issueCount > 0 ? `发现 ${input.issueCount} 个问题` : "预检需处理"
     };
   }
 

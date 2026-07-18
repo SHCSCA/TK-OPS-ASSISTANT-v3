@@ -413,7 +413,9 @@ describe("workspace layout taxonomy contract", () => {
     expect(previewStyleContract).not.toContain("max-height: 190px");
     expect(preview).toContain('data-testid="workspace-preview-media-note"');
     expect(preview).toContain("可播放素材使用播放器控件检查");
-    expect(page).toContain("<span>预览与校验</span>");
+    expect(page).toContain("<WorkspaceActionStrip");
+    expect(page).toContain(':export-readiness="exportReadiness"');
+    expect(page).toContain(':preview-context="previewContext"');
     expect(page).toContain('<p class="panel-label">预览与校验</p>');
     expect(page).not.toContain("<span>播放器</span>");
     expect(page).not.toContain('<p class="panel-label">播放器</p>');

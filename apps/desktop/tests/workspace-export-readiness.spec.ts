@@ -44,6 +44,10 @@ describe("M05 导出就绪卡", () => {
         text: "发现 2 个问题"
       },
       {
+        props: { saveState: saveState(true), precheck: precheck("warning", []) },
+        text: "预检需处理"
+      },
+      {
         props: { saveState: saveState(true), precheck: precheck("ready", [], "stale-timeline") },
         text: "先执行本地预检"
       },

@@ -171,7 +171,7 @@ import type {
 import type { WorkspacePreviewContext } from "./workspacePreviewContext";
 import WorkspaceInspectorClipActions from "./WorkspaceInspectorClipActions.vue";
 import WorkspaceMagicCutSuggestions from "./WorkspaceMagicCutSuggestions.vue";
-import { resolveWorkspaceExportReadiness } from "./workspaceExportReadiness";
+import { resolveTimelinePrecheckIssueCount, resolveWorkspaceExportReadiness } from "./workspaceExportReadiness";
 import { workspaceStatusLabel } from "./workspaceTimelineViewModel";
 
 const props = withDefaults(defineProps<{
@@ -298,7 +298,7 @@ const precheckIssues = computed<Array<TimelinePrecheckIssueDetailDto | string>>(
   return detailIssues.length > 0 ? detailIssues : props.precheck?.issues ?? [];
 });
 
-const precheckIssueCount = computed(() => precheckIssues.value.length);
+const precheckIssueCount = computed(() => resolveTimelinePrecheckIssueCount(props.precheck));
 
 const exportReadiness = computed(() => {
   return resolveWorkspaceExportReadiness({
