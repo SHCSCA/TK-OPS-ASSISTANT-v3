@@ -76,7 +76,7 @@ const statusLabel = computed(() => {
 const note = computed(() => {
   if (props.blockedMessage) return props.blockedMessage;
   if (!props.hasTimeline) return "等待时间线草稿后可执行智能粗剪。";
-  return "智能粗剪可用，执行结果将回写当前时间线草稿。";
+  return "智能粗剪会先生成建议，审阅确认后再应用到时间线。";
 });
 </script>
 

@@ -39,6 +39,9 @@ describe("WorkspaceAIActions", () => {
 
     const ready = mountActions({ status: "ready" });
     expect(ready.text()).toContain("可用");
+    expect(ready.text()).toContain("智能粗剪会先生成建议，审阅确认后再应用到时间线。");
+    expect(ready.text()).not.toContain("回写当前时间线");
+    expect(ready.text()).not.toContain("直接修改时间线");
     expect(ready.text()).not.toContain("AI 魔法剪");
     expect(ready.text()).not.toContain("Blocked");
     expect(ready.text()).not.toContain("Disabled");
