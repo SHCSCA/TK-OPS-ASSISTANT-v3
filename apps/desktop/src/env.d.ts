@@ -9,6 +9,7 @@ declare module "*.vue" {
 
 interface ImportMetaEnv {
   readonly VITE_RUNTIME_BASE_URL?: string;
+  readonly VITE_RUNTIME_SESSION_TOKEN?: string;
 }
 
 interface ImportMeta {

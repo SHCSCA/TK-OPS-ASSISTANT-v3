@@ -4,9 +4,9 @@ from fastapi.testclient import TestClient
 
 
 def test_tasks_contract_lists_active_tasks_with_json_envelope(
-    runtime_client: TestClient,
+    licensed_runtime_client: TestClient,
 ) -> None:
-    response = runtime_client.get("/api/tasks")
+    response = licensed_runtime_client.get("/api/tasks")
 
     assert response.status_code == 200
     payload = response.json()
@@ -15,8 +15,10 @@ def test_tasks_contract_lists_active_tasks_with_json_envelope(
     assert isinstance(payload["data"], list)
 
 
-def test_tasks_contract_returns_404_for_unknown_task(runtime_client: TestClient) -> None:
-    response = runtime_client.get("/api/tasks/missing-task")
+def test_tasks_contract_returns_404_for_unknown_task(
+    licensed_runtime_client: TestClient,
+) -> None:
+    response = licensed_runtime_client.get("/api/tasks/missing-task")
 
     assert response.status_code == 404
     payload = response.json()

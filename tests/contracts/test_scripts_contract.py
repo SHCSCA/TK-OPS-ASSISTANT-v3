@@ -120,11 +120,13 @@ class FakeAITextGenerationService:
         )
 
 
-def test_script_document_contracts_use_scripts_prefix_and_expected_shape(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = FakeAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_script_document_contracts_use_scripts_prefix_and_expected_shape(
+    runtime_client: TestClient,
+) -> None:
+    runtime_client.app.state.ai_text_generation_service = FakeAITextGenerationService(
+        runtime_client.app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     create_response = client.post(
         '/api/dashboard/projects',
@@ -228,11 +230,13 @@ def test_script_document_contracts_use_scripts_prefix_and_expected_shape(runtime
     assert generate_payload['data']['lastOperation']['aiJobStatus'] == 'succeeded'
 
 
-def test_script_rewrite_contract_keeps_json_envelope(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = FakeAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_script_rewrite_contract_keeps_json_envelope(
+    runtime_client: TestClient,
+) -> None:
+    runtime_client.app.state.ai_text_generation_service = FakeAITextGenerationService(
+        runtime_client.app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     create_response = client.post(
         '/api/dashboard/projects',
@@ -270,11 +274,13 @@ def test_script_rewrite_contract_keeps_json_envelope(runtime_app) -> None:
     assert rewrite_payload['data']['lastOperation']['aiJobStatus'] == 'succeeded'
 
 
-def test_script_versions_title_variants_and_segment_rewrite_contract(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = FakeAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_script_versions_title_variants_and_segment_rewrite_contract(
+    runtime_client: TestClient,
+) -> None:
+    runtime_client.app.state.ai_text_generation_service = FakeAITextGenerationService(
+        runtime_client.app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     create_response = client.post(
         '/api/dashboard/projects',

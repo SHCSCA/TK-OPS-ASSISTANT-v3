@@ -122,10 +122,10 @@ def test_dashboard_project_delete_contract_returns_deleted_summary_and_clears_co
 
 
 def test_dashboard_summary_contract_exposes_recent_tasks_pending_items_and_risk_summary(
-    runtime_app,
+    runtime_client: TestClient,
     monkeypatch,
 ) -> None:
-    client = TestClient(runtime_app)
+    client = runtime_client
     create_response = client.post(
         '/api/dashboard/projects',
         json={'name': 'Summary Project', 'description': 'summary contract'},
@@ -134,7 +134,7 @@ def test_dashboard_summary_contract_exposes_recent_tasks_pending_items_and_risk_
     project_id = create_response.json()['data']['id']
 
     monkeypatch.setattr(
-        runtime_app.state.task_manager,
+        runtime_client.app.state.task_manager,
         'list_active',
         lambda: [
             type(

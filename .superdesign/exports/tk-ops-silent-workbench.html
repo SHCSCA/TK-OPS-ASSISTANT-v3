@@ -1,0 +1,417 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1600, initial-scale=1.0">
+    <title>TK-OPS 静默创作台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-bg-canvas: #0A0B0F;
+            --color-bg-surface: #12141A;
+            --color-bg-elevated: #1A1D26;
+            --color-bg-muted: #16181F;
+            --color-text-primary: #EDEFF5;
+            --color-text-secondary: #A8ADBA;
+            --color-text-tertiary: #6B7183;
+            --color-brand-primary: #00BCD4;
+            --color-brand-secondary: #7000FF;
+            --color-success: #22D39A;
+            --color-warning: #F5B740;
+            --color-danger: #FF5A63;
+            --color-info: #5B8CFF;
+            --font-family-sans: 'Inter', system-ui, sans-serif;
+            --font-family-mono: 'JetBrains Mono', monospace;
+            --titlebar-height: 48px;
+            --sidebar-width-collapsed: 64px;
+            --detail-rail-width: 44px;
+            --statusbar-height: 28px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family-sans);
+            background: var(--color-bg-canvas);
+            color: var(--color-text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-rows: var(--titlebar-height) 1fr var(--statusbar-height);
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .app-workspace {
+            display: grid;
+            grid-template-columns: var(--sidebar-width-collapsed) 1fr var(--detail-rail-width);
+            overflow: hidden;
+        }
+
+        .content-host {
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 12px 16px;
+            gap: 12px;
+        }
+
+        .workspace-stage {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: 240px 1fr;
+            grid-template-rows: minmax(480px, 1fr) 240px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .stage-panel {
+            background: var(--color-bg-surface);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .timeline-area {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            background: #0f1722;
+            border: 1px solid rgba(117, 139, 166, 0.22);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 99px;
+        }
+
+        .ai-action-btn {
+            background: linear-gradient(135deg, var(--color-brand-primary), var(--color-brand-secondary));
+            transition: all 0.2s ease;
+        }
+
+        .detail-rail {
+            background: var(--color-bg-surface);
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 12px;
+            gap: 16px;
+        }
+
+        .rail-item {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            color: var(--color-text-tertiary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .rail-item:hover, .rail-item.active {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--color-brand-primary);
+        }
+
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .asset-thumb {
+            aspect-ratio: 16/10;
+            background: #0A0B0F;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .asset-thumb:hover { border-color: var(--color-brand-primary); }
+
+        .playhead-line {
+            position: absolute;
+            top: 0;
+            left: 152px;
+            width: 1px;
+            height: 100%;
+            background: var(--color-warning);
+            z-index: 10;
+        }
+
+        .playhead-line::after {
+            content: '';
+            position: absolute;
+            top: 28px;
+            left: -5px;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 6px solid var(--color-warning);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <!-- 1. Title Bar -->
+        <sd-component componentid="76d7b7a9-0e0c-47bc-908c-f7590f3e3674" name="ShellTitleBar" props="{&quot;isCollapsed&quot;: true, &quot;detailOpen&quot;: false}"></sd-component>
+
+        <div class="app-workspace">
+            <!-- 2. Sidebar (Collapsed) -->
+            <sd-component componentid="0dcf6b19-fade-495c-afc4-83ee235d7d50" name="ShellSidebar" props="{&quot;isCollapsed&quot;: true, &quot;activeItem&quot;: &quot;ai_editing_workspace&quot;}"></sd-component>
+
+            <!-- 3. Content Host -->
+            <main class="content-host">
+                <!-- Compact Page Header (40px) -->
+                <header class="h-10 shrink-0 flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-2">
+                            <iconify-icon icon="lucide:movie" class="text-lg text-[#00BCD4]"></iconify-icon>
+                            <h1 class="text-[15px] font-semibold text-[#EDEFF5]">AI 剪辑工作台</h1>
+                        </div>
+                        <div class="h-4 w-px bg-white/10"></div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[13px] text-[#6B7183]">项目:</span>
+                            <span class="text-[13px] text-[#A8ADBA] font-medium">TikTok_Unbox_0719</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button class="h-8 px-3 ai-action-btn rounded-md text-[13px] font-medium text-white flex items-center gap-2">
+                            <iconify-icon icon="lucide:wand-2" class="text-base"></iconify-icon>
+                            智能粗剪
+                        </button>
+                        <button class="h-8 px-3 bg-[#00BCD4]/10 border border-[#00BCD4]/30 rounded-md text-[13px] font-medium text-[#00BCD4] flex items-center gap-2 hover:bg-[#00BCD4]/20 transition-colors">
+                            <iconify-icon icon="lucide:save" class="text-base"></iconify-icon>
+                            保存
+                        </button>
+                        <button id="header-more-btn" class="w-8 h-8 flex items-center justify-center text-[#A8ADBA] hover:text-white">
+                            <iconify-icon icon="lucide:more-vertical" class="text-lg"></iconify-icon>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Workspace Stage -->
+                <div class="workspace-stage">
+                    <!-- Asset Rail - Thumbnail First -->
+                    <div class="flex flex-col min-h-0">
+                        <div class="stage-panel flex-1 p-3">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <iconify-icon icon="lucide:library" class="text-[#6B7183]"></iconify-icon>
+                                    <span class="text-[12px] font-bold text-[#A8ADBA] uppercase tracking-wide">素材</span>
+                                </div>
+                                <button class="text-[11px] text-[#00BCD4] font-medium">同步</button>
+                            </div>
+                            <div class="flex-1 overflow-y-auto custom-scrollbar">
+                                <div class="asset-grid">
+                                    <div class="asset-thumb">
+                                        <div class="absolute inset-0 bg-[#1A1D26] flex items-center justify-center">
+                                            <iconify-icon icon="lucide:video" class="text-xl text-white/20"></iconify-icon>
+                                        </div>
+                                        <div class="absolute bottom-1 right-1 bg-black/60 px-1 rounded text-[9px] text-white">00:15</div>
+                                    </div>
+                                    <div class="asset-thumb">
+                                        <div class="absolute inset-0 bg-[#1A1D26] flex items-center justify-center">
+                                            <iconify-icon icon="lucide:video" class="text-xl text-white/20"></iconify-icon>
+                                        </div>
+                                        <div class="absolute bottom-1 right-1 bg-black/60 px-1 rounded text-[9px] text-white">01:22</div>
+                                    </div>
+                                    <div class="asset-thumb">
+                                        <div class="absolute inset-0 bg-[#1A1D26] flex items-center justify-center">
+                                            <iconify-icon icon="lucide:video" class="text-xl text-white/20"></iconify-icon>
+                                        </div>
+                                        <div class="absolute bottom-1 right-1 bg-black/60 px-1 rounded text-[9px] text-white">00:45</div>
+                                    </div>
+                                    <div class="asset-thumb border-dashed bg-transparent flex flex-col items-center justify-center">
+                                        <iconify-icon icon="lucide:plus" class="text-[#6B7183]"></iconify-icon>
+                                        <span class="text-[10px] text-[#6B7183] mt-1">导入</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview Stage - Maximized -->
+                    <div class="flex flex-col min-h-0">
+                        <div class="stage-panel flex-1 bg-[#0A0B0F] p-0 relative">
+                             <div class="absolute top-3 left-3 z-20 flex gap-2">
+                                <span class="px-2 py-0.5 bg-black/40 border border-white/10 rounded-full text-[10px] text-white/80">9:16</span>
+                                <span class="px-2 py-0.5 bg-[#00BCD4]/20 border border-[#00BCD4]/30 rounded-full text-[10px] text-[#00BCD4]">4K预览</span>
+                             </div>
+                             <div class="flex-1 flex items-center justify-center">
+                                <div class="aspect-[9/16] h-[92%] bg-[#171f2c] rounded border border-white/5 shadow-2xl relative flex flex-col">
+                                    <div class="flex-1 flex items-center justify-center">
+                                         <iconify-icon icon="lucide:play-circle" class="text-5xl text-white/10"></iconify-icon>
+                                    </div>
+                                    <div class="absolute bottom-10 left-0 right-0 px-4 text-center">
+                                        <div class="text-sm text-white drop-shadow-lg font-medium tracking-tight">欢迎使用 TK-OPS 静默创作模式</div>
+                                    </div>
+                                </div>
+                             </div>
+                             <div class="h-1.5 bg-white/5 w-full relative group cursor-pointer">
+                                <div class="absolute left-0 top-0 h-full bg-[#00BCD4] w-[35%] transition-all"></div>
+                                <div class="absolute left-[35%] -top-1 w-3 h-3 bg-white rounded-full shadow-lg scale-0 group-hover:scale-100 transition-transform"></div>
+                             </div>
+                             <div class="flex items-center justify-between px-3 h-10 border-t border-white/5 bg-[#12141A]/80 backdrop-blur-sm">
+                                <div class="flex items-center gap-3">
+                                    <button class="text-[#A8ADBA] hover:text-white transition-colors"><iconify-icon icon="lucide:skip-back" class="text-lg"></iconify-icon></button>
+                                    <button class="text-white"><iconify-icon icon="lucide:play" class="text-xl"></iconify-icon></button>
+                                    <button class="text-[#A8ADBA] hover:text-white transition-colors"><iconify-icon icon="lucide:skip-forward" class="text-lg"></iconify-icon></button>
+                                    <span class="text-[12px] font-mono text-[#A8ADBA] ml-1">00:12:45 / 00:45:00</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button class="w-7 h-7 flex items-center justify-center rounded hover:bg-white/5 text-[#6B7183]"><iconify-icon icon="lucide:settings-2" class="text-base"></iconify-icon></button>
+                                    <button class="w-7 h-7 flex items-center justify-center rounded hover:bg-white/5 text-[#6B7183]"><iconify-icon icon="lucide:maximize" class="text-base"></iconify-icon></button>
+                                </div>
+                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Timeline Area -->
+                    <div class="timeline-area relative">
+                        <div class="playhead-line"></div>
+                        <!-- Toolbar -->
+                        <div class="flex items-center justify-between px-3 py-1.5 bg-[#171b24] border-b border-white/5">
+                            <div class="flex items-center gap-4">
+                                <div class="flex items-center gap-1.5 bg-white/5 p-1 rounded-md border border-white/10">
+                                    <button class="w-7 h-7 flex items-center justify-center bg-[#00BCD4] text-white rounded-sm"><iconify-icon icon="lucide:mouse-pointer-2" class="text-sm"></iconify-icon></button>
+                                    <button class="w-7 h-7 flex items-center justify-center text-[#6B7183]"><iconify-icon icon="lucide:scissors" class="text-sm"></iconify-icon></button>
+                                    <button class="w-7 h-7 flex items-center justify-center text-[#6B7183]"><iconify-icon icon="lucide:trash-2" class="text-sm"></iconify-icon></button>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <iconify-icon icon="lucide:magnet" class="text-[#00BCD4] text-sm"></iconify-icon>
+                                    <iconify-icon icon="lucide:undo-2" class="text-[#6B7183] text-sm"></iconify-icon>
+                                    <iconify-icon icon="lucide:redo-2" class="text-[#6B7183] text-sm"></iconify-icon>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-2 bg-white/5 px-2 py-1 rounded border border-white/10">
+                                    <button class="text-[#6B7183]"><iconify-icon icon="lucide:minus" class="text-xs"></iconify-icon></button>
+                                    <span class="text-[11px] font-mono text-[#A8ADBA] w-10 text-center">100%</span>
+                                    <button class="text-[#6B7183]"><iconify-icon icon="lucide:plus" class="text-xs"></iconify-icon></button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Timeline Viewport -->
+                        <div class="flex-1 flex flex-col min-h-0 bg-[#0A0B0F] overflow-hidden">
+                            <div class="h-7 border-b border-white/5 bg-[#12141A] flex items-center">
+                                <div class="w-36 h-full border-r border-white/5 flex items-center px-3">
+                                    <span class="text-[10px] text-[#6B7183] font-bold tracking-tighter">TRACKS</span>
+                                </div>
+                                <div class="flex-1 flex items-center relative h-full">
+                                    <span class="absolute left-0 top-1 text-[10px] text-[#6B7183] pl-2">00:00</span>
+                                    <span class="absolute left-1/4 top-1 text-[10px] text-[#6B7183]">00:15</span>
+                                    <span class="absolute left-1/2 top-1 text-[10px] text-[#6B7183]">00:30</span>
+                                </div>
+                            </div>
+                            <div class="flex-1 overflow-y-auto custom-scrollbar">
+                                <!-- Track 1 -->
+                                <div class="h-12 border-b border-white/5 flex">
+                                    <div class="w-36 flex items-center gap-2 px-3 border-r border-white/5 bg-[#16181F]/50">
+                                        <iconify-icon icon="lucide:video" class="text-[#38bdf8] text-sm"></iconify-icon>
+                                        <span class="text-[11px] text-[#A8ADBA] truncate">视频 1</span>
+                                    </div>
+                                    <div class="flex-1 relative">
+                                        <div class="absolute left-10 top-2 h-8 w-48 bg-[#38bdf8]/20 border-l-2 border-[#38bdf8] rounded-r flex items-center px-2">
+                                            <span class="text-[10px] text-[#38bdf8] truncate">Clip_A.mp4</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Track 2 -->
+                                <div class="h-12 border-b border-white/5 flex">
+                                    <div class="w-36 flex items-center gap-2 px-3 border-r border-white/5 bg-[#16181F]/50">
+                                        <iconify-icon icon="lucide:mic" class="text-[#22c55e] text-sm"></iconify-icon>
+                                        <span class="text-[11px] text-[#A8ADBA] truncate">配音 1</span>
+                                    </div>
+                                    <div class="flex-1 relative">
+                                        <div class="absolute left-10 top-2 h-8 w-64 bg-[#22c55e]/20 border-l-2 border-[#22c55e] rounded-r flex items-center px-2">
+                                            <iconify-icon icon="lucide:audio-lines" class="text-[#22c55e] text-sm mr-2"></iconify-icon>
+                                            <span class="text-[10px] text-[#22c55e] truncate">TTS_Chinese_Female.wav</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Track 3 -->
+                                <div class="h-10 border-b border-white/5 flex">
+                                    <div class="w-36 flex items-center gap-2 px-3 border-r border-white/5 bg-[#16181F]/50">
+                                        <iconify-icon icon="lucide:subtitles" class="text-[#fb7185] text-sm"></iconify-icon>
+                                        <span class="text-[11px] text-[#A8ADBA] truncate">字幕 1</span>
+                                    </div>
+                                    <div class="flex-1 relative">
+                                        <div class="absolute left-10 top-2 h-6 w-32 bg-[#fb7185]/20 border-l-2 border-[#fb7185] rounded-r flex items-center px-2">
+                                            <span class="text-[10px] text-[#fb7185] truncate">你好，欢迎使用。</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simplified Footer Status (Show icons first) -->
+                <footer class="h-9 shrink-0 flex items-center justify-between gap-4 px-3 bg-[#12141A] border border-white/10 rounded-lg shadow-lg">
+                    <div class="flex items-center gap-6">
+                         <div class="flex items-center gap-2" title="播放进度">
+                             <iconify-icon icon="lucide:clock" class="text-[#6B7183] text-sm"></iconify-icon>
+                             <span class="text-[11px] font-mono text-[#EDEFF5]">00:12:45</span>
+                         </div>
+                         <div class="flex items-center gap-2" title="选中对象">
+                             <iconify-icon icon="lucide:mouse-pointer" class="text-[#00BCD4] text-sm"></iconify-icon>
+                             <span class="text-[11px] text-[#A8ADBA]">Clip_A.mp4</span>
+                         </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                         <div class="flex items-center gap-1.5">
+                             <span class="w-1.5 h-1.5 rounded-full bg-[#22C55E]"></span>
+                             <span class="text-[11px] text-[#A8ADBA]">Runtime 已连接</span>
+                         </div>
+                         <div class="h-4 w-px bg-white/10"></div>
+                         <div class="flex items-center gap-2 text-[#6B7183]">
+                             <iconify-icon icon="lucide:database" class="text-sm"></iconify-icon>
+                             <iconify-icon icon="lucide:cpu" class="text-sm"></iconify-icon>
+                             <iconify-icon icon="lucide:history" class="text-sm"></iconify-icon>
+                         </div>
+                    </div>
+                </footer>
+            </main>
+
+            <!-- 4. Detail Panel - Closed as 44px Rail -->
+            <aside class="detail-rail">
+                <button class="rail-item active" title="检查器">
+                    <iconify-icon icon="lucide:info" class="text-lg"></iconify-icon>
+                </button>
+                <button class="rail-item" title="AI 建议">
+                    <iconify-icon icon="lucide:sparkles" class="text-lg"></iconify-icon>
+                </button>
+                <button class="rail-item" title="操作日志">
+                    <iconify-icon icon="lucide:scroll-text" class="text-lg"></iconify-icon>
+                </button>
+                <div class="mt-auto mb-4">
+                    <button class="rail-item" title="展开面板">
+                        <iconify-icon icon="lucide:panel-right-open" class="text-lg"></iconify-icon>
+                    </button>
+                </div>
+            </aside>
+        </div>
+
+        <!-- 5. Global Status Bar (28px) -->
+        <sd-component componentid="7cf3e9f0-caf2-474c-a291-f8d514fd2733" name="ShellStatusBar" props="{&quot;detailOpen&quot;: false}"></sd-component>
+    </div>
+</body></html>

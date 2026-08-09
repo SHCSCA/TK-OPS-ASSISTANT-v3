@@ -1,32 +1,26 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
 
 def test_settings_diagnostics_returns_system_check_report(
     monkeypatch,
-    runtime_client: TestClient,
-    runtime_data_dir: Path,
+    licensed_runtime_client: TestClient,
 ) -> None:
     monkeypatch.setattr(
-        "services.settings_service.get_ffprobe_availability",
-        lambda: type(
+        "services.diagnostics.runtime_diagnostics_service.resolve_ffprobe",
+        lambda **_: type(
             "FfprobeAvailabilityStub",
             (),
             {
                 "status": "ready",
-                "path": "C:/TK-OPS/resources/bin/ffprobe/windows-x64/ffprobe.exe",
                 "source": "bundled",
-                "version": "ffprobe version test",
                 "error_code": None,
-                "error_message": None,
             },
         )(),
     )
 
-    response = runtime_client.get("/api/settings/diagnostics")
+    response = licensed_runtime_client.get("/api/settings/diagnostics")
 
     assert response.status_code == 200
     payload = response.json()
@@ -34,59 +28,49 @@ def test_settings_diagnostics_returns_system_check_report(
     data = payload["data"]
     assert data["overallStatus"] in {"ready", "warning"}
     assert data["checkedAt"]
-    assert data["databasePath"] == str(runtime_data_dir / "runtime.db")
-    assert {item["id"] for item in data["items"]} >= {
-        "license.status",
-        "runtime.health",
-        "database.sqlite",
-        "directory.workspace",
-        "directory.cache",
-        "directory.logs",
-        "media.ffprobe",
-        "ai.provider",
-        "ai.video_transcription",
-        "websocket.task_bus",
+    assert data["databasePath"] == ""
+    assert {item["id"] for item in data["items"]} == {
+        "runtime.status",
+        "database.schema",
+        "directories.status",
+        "media-tools.status",
     }
-    ffprobe_item = next(item for item in data["items"] if item["id"] == "media.ffprobe")
-    assert ffprobe_item["status"] == "ready"
-    assert ffprobe_item["summary"] == "已检测到 FFprobe。"
-    assert "bundled" in ffprobe_item["detail"]
-    video_analysis_item = next(item for item in data["items"] if item["id"] == "ai.video_transcription")
-    assert video_analysis_item["status"] == "warning"
-    assert video_analysis_item["summary"] == "视频解析模型未启用。"
+    media_item = next(
+        item for item in data["items"] if item["id"] == "media-tools.status"
+    )
+    assert media_item["status"] in {"ready", "warning"}
 
 
 def test_settings_diagnostics_marks_ffprobe_warning_when_tool_is_missing(
     monkeypatch,
-    runtime_client: TestClient,
+    licensed_runtime_client: TestClient,
 ) -> None:
     monkeypatch.setattr(
-        "services.settings_service.get_ffprobe_availability",
-        lambda: type(
+        "services.diagnostics.runtime_diagnostics_service.resolve_ffprobe",
+        lambda **_: type(
             "FfprobeAvailabilityStub",
             (),
             {
                 "status": "unavailable",
-                "path": None,
                 "source": "fallback",
-                "version": None,
                 "error_code": "media.ffprobe_unavailable",
-                "error_message": "FFprobe 未安装或未配置到可执行路径。",
             },
         )(),
     )
 
-    response = runtime_client.get("/api/settings/diagnostics")
+    response = licensed_runtime_client.get("/api/settings/diagnostics")
 
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["overallStatus"] == "warning"
-    ffprobe_item = next(item for item in data["items"] if item["id"] == "media.ffprobe")
-    assert ffprobe_item["status"] == "warning"
-    assert ffprobe_item["actionLabel"] == "准备媒体工具"
+    media_item = next(
+        item for item in data["items"] if item["id"] == "media-tools.status"
+    )
+    assert media_item["status"] == "warning"
+    assert media_item["actionLabel"] == "重新检测"
 
 
-def test_settings_diagnostics_rejects_unconnected_transcription_provider(
+def test_legacy_ai_capability_write_is_retired_for_unconnected_provider(
     runtime_client: TestClient,
 ) -> None:
     settings_response = runtime_client.get("/api/settings/ai-capabilities")
@@ -105,14 +89,16 @@ def test_settings_diagnostics_rejects_unconnected_transcription_provider(
         "/api/settings/ai-capabilities",
         json={"capabilities": capabilities},
     )
-    assert update_response.status_code == 400
-    assert update_response.json()["ok"] is False
+    assert update_response.status_code == 410
+    payload = update_response.json()
+    assert payload["ok"] is False
+    assert payload["error_code"] == "legacy.write.unsupported"
 
 
-def test_settings_diagnostics_accepts_multimodal_video_transcription_model(
-    runtime_client: TestClient,
+def test_legacy_ai_capability_and_secret_writes_are_retired(
+    licensed_runtime_client: TestClient,
 ) -> None:
-    settings_response = runtime_client.get("/api/settings/ai-capabilities")
+    settings_response = licensed_runtime_client.get("/api/settings/ai-capabilities")
     capabilities = settings_response.json()["data"]["capabilities"]
     for item in capabilities:
         if item["capabilityId"] == "asset_analysis":
@@ -126,24 +112,15 @@ def test_settings_diagnostics_accepts_multimodal_video_transcription_model(
                 }
             )
 
-    update_response = runtime_client.put(
+    update_response = licensed_runtime_client.put(
         "/api/settings/ai-capabilities",
         json={"capabilities": capabilities},
     )
-    assert update_response.status_code == 200
-    secret_response = runtime_client.put(
+    assert update_response.status_code == 410
+    assert update_response.json()["error_code"] == "legacy.write.unsupported"
+    secret_response = licensed_runtime_client.put(
         "/api/settings/ai-capabilities/providers/volcengine/secret",
         json={"apiKey": "sk-test", "baseUrl": "https://ark.cn-beijing.volces.com/api/v3"},
     )
-    assert secret_response.status_code == 200
-
-    response = runtime_client.get("/api/settings/diagnostics")
-
-    assert response.status_code == 200
-    video_analysis_item = next(
-        item for item in response.json()["data"]["items"]
-        if item["id"] == "ai.video_transcription"
-    )
-    assert video_analysis_item["status"] == "ready"
-    assert video_analysis_item["summary"] == "视频解析模型已配置。"
-    assert "doubao-seed-2.0-pro" in video_analysis_item["detail"]
+    assert secret_response.status_code == 410
+    assert secret_response.json()["error_code"] == "legacy.write.unsupported"

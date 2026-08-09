@@ -34,7 +34,9 @@ def _make_services(tmp_path: Path) -> tuple[AccountService, DeviceWorkspaceServi
 @pytest.mark.asyncio
 async def test_account_binding_upsert_masks_sensitive_metadata(tmp_path: Path) -> None:
     account_service, device_service, account_repository, _ = _make_services(tmp_path)
-    account = account_service.create_account(AccountCreateInput(name="Creator A"))
+    account = account_service.create_account(
+        AccountCreateInput(name="Creator A", status="ready")
+    )
     workspace = device_service.create_workspace(
         DeviceWorkspaceCreateInput(name="Main Browser", root_path=str(tmp_path / "browser"))
     )
@@ -72,19 +74,21 @@ async def test_account_status_change_broadcasts_websocket_event(
 
     monkeypatch.setattr("services.account_service.ws_manager.broadcast", _broadcast)
 
-    account = account_service.create_account(AccountCreateInput(name="Creator B", status="active"))
+    account = account_service.create_account(
+        AccountCreateInput(name="Creator B", status="ready")
+    )
     updated = account_service.update_account(
         account.id,
-        AccountUpdateInput(status="paused"),
+        AccountUpdateInput(status="attention"),
     )
-    assert updated.status == "paused"
+    assert updated.status == "attention"
 
     await asyncio.sleep(0.05)
     assert broadcast_calls
     event = broadcast_calls[0]
     assert event["type"] == "account.status.changed"
     assert event["accountId"] == account.id
-    assert event["status"] == "paused"
+    assert event["status"] == "attention"
 
 
 @pytest.mark.asyncio
@@ -128,7 +132,7 @@ def test_account_publish_readiness_requires_username_before_publish(tmp_path: Pa
     account_service, _, _, _ = _make_services(tmp_path)
 
     account = account_service.create_account(
-        AccountCreateInput(name="Creator C", status="active")
+        AccountCreateInput(name="Creator C", status="ready")
     )
 
     assert account.publishReadiness.canPublish is False
@@ -151,7 +155,7 @@ def test_account_publish_readiness_reports_ready_with_active_binding(tmp_path: P
     account = account_service.create_account(
         AccountCreateInput(
             name="Creator D",
-            status="active",
+            status="ready",
             username="creator_d",
             authExpiresAt="2099-01-01T00:00:00Z",
         )
@@ -213,7 +217,7 @@ def test_workspace_runtime_summary_reports_bindings_and_ready_without_browser(
     account = account_service.create_account(
         AccountCreateInput(
             name="Creator E",
-            status="active",
+            status="ready",
             username="creator_e",
         )
     )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 
@@ -8,6 +9,8 @@ from fastapi.testclient import TestClient
 
 from ai.providers.errors import ProviderHTTPException
 from ai.providers.speech_to_text_openai import SpeechToTextResult
+from schemas.ai_capabilities import AICapabilityConfigDto
+from services.ai_capability_service import AICapabilityService
 from services.ai_text_generation_service import GeneratedTextResult
 from services.video_deconstruction_prompt import (
     VIDEO_DECONSTRUCTION_JSON_SCHEMA_TEXT,
@@ -19,53 +22,70 @@ SEGMENT_WITHOUT_TRANSCRIPT_MESSAGE = "未配置可用视频解析模型，已使
 TRANSCRIPT_SKIPPED_BY_MULTIMODAL_MESSAGE = "多模态视频拆解已生成语音与画面时间轴，未单独执行转录。"
 STRUCTURE_BLOCKED_MESSAGE = "视频分段尚未成功，结构提取已阻塞；请先完成分段后重试。"
 APPLY_BLOCKED_MESSAGE = "视频结构提取尚未成功，无法应用到项目；请先完成结构提取后重试。"
+
+
 def _stage_by_id(stages: list[dict[str, object]], stage_id: str) -> dict[str, object]:
     return next(item for item in stages if item["stageId"] == stage_id)
 
 
+def _legacy_ai_service(client: TestClient) -> AICapabilityService:
+    """仅为旧视频拆解服务装配测试状态，不经过已退役的 HTTP 写接口。"""
+
+    service = client.app.state.ai_capability_service
+    assert isinstance(service, AICapabilityService)
+    return service
+
+
+def _update_legacy_capabilities(
+    client: TestClient,
+    update_item: Callable[[dict[str, object]], dict[str, object]],
+) -> AICapabilityService:
+    service = _legacy_ai_service(client)
+    capabilities = [
+        AICapabilityConfigDto.model_validate(
+            update_item(item.model_dump(mode="json"))
+        )
+        for item in service.get_settings().capabilities
+    ]
+    service.update_capabilities(capabilities)
+    return service
+
+
 def _enable_video_transcription(client: TestClient) -> None:
-    settings_response = client.get("/api/settings/ai-capabilities")
-    capabilities = settings_response.json()["data"]["capabilities"]
-    for item in capabilities:
+    def update(item: dict[str, object]) -> dict[str, object]:
         if item["capabilityId"] == "video_transcription":
             item["enabled"] = True
             item["provider"] = "openai"
             item["model"] = "whisper-1"
-    update_response = client.put("/api/settings/ai-capabilities", json={"capabilities": capabilities})
-    assert update_response.status_code == 200
-    secret_response = client.put(
-        "/api/settings/ai-capabilities/providers/openai/secret",
-        json={"apiKey": "sk-test-video-transcription"},
+        return item
+
+    service = _update_legacy_capabilities(client, update)
+    service.set_provider_secret(
+        "openai",
+        api_key="sk-test-video-transcription",
     )
-    assert secret_response.status_code == 200
 
 
 def _enable_multimodal_asset_analysis(client: TestClient) -> None:
-    settings_response = client.get("/api/settings/ai-capabilities")
-    capabilities = settings_response.json()["data"]["capabilities"]
-    for item in capabilities:
+    def update(item: dict[str, object]) -> dict[str, object]:
         if item["capabilityId"] == "asset_analysis":
             item["enabled"] = True
             item["provider"] = "volcengine"
             item["model"] = "doubao-seed-2.0-pro"
         if item["capabilityId"] == "video_transcription":
             item["enabled"] = False
-    update_response = client.put("/api/settings/ai-capabilities", json={"capabilities": capabilities})
-    assert update_response.status_code == 200
-    secret_response = client.put(
-        "/api/settings/ai-capabilities/providers/volcengine/secret",
-        json={
-            "apiKey": "sk-test-volcengine",
-            "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
-        },
+        return item
+
+    service = _update_legacy_capabilities(client, update)
+    service.set_provider_secret(
+        "volcengine",
+        api_key="sk-test-volcengine",
+        base_url="https://ark.cn-beijing.volces.com/api/v3",
     )
-    assert secret_response.status_code == 200
 
 
 def _enable_multimodal_video_transcription_with_legacy_asset_analysis(client: TestClient) -> None:
-    settings_response = client.get("/api/settings/ai-capabilities")
-    capabilities = settings_response.json()["data"]["capabilities"]
-    for item in capabilities:
+    def update(item: dict[str, object]) -> dict[str, object]:
         if item["capabilityId"] == "video_transcription":
             item["enabled"] = True
             item["provider"] = "volcengine"
@@ -77,20 +97,21 @@ def _enable_multimodal_video_transcription_with_legacy_asset_analysis(client: Te
             item["agentRole"] = "素材分析师"
             item["systemPrompt"] = "# 素材分析 Agent\n\n请输出 Markdown 素材分析报告。"
             item["userPromptTemplate"] = "请分析以下素材内容：{{content}}"
-    update_response = client.put("/api/settings/ai-capabilities", json={"capabilities": capabilities})
-    assert update_response.status_code == 200
-    secret_response = client.put(
-        "/api/settings/ai-capabilities/providers/volcengine/secret",
-        json={
-            "apiKey": "sk-test-volcengine",
-            "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
-        },
+        return item
+
+    service = _update_legacy_capabilities(client, update)
+    service.set_provider_secret(
+        "volcengine",
+        api_key="sk-test-volcengine",
+        base_url="https://ark.cn-beijing.volces.com/api/v3",
     )
-    assert secret_response.status_code == 200
 
 
-def test_video_deconstruction_stages_surface_current_blocker(runtime_app, tmp_path: Path) -> None:
-    client = TestClient(runtime_app)
+def test_video_deconstruction_stages_surface_current_blocker(
+    runtime_client: TestClient,
+    tmp_path: Path,
+) -> None:
+    client = runtime_client
     project_id = client.post(
         "/api/dashboard/projects",
         json={"name": "Video Stage Project", "description": "Stage tests"},
@@ -183,8 +204,12 @@ def test_video_deconstruction_stages_surface_current_blocker(runtime_app, tmp_pa
     assert structure_stage["errorMessage"] is None
 
 
-def test_video_deconstruction_apply_to_project_persists_versions(runtime_app, tmp_path: Path) -> None:
-    client = TestClient(runtime_app)
+def test_video_deconstruction_apply_to_project_persists_versions(
+    runtime_client: TestClient,
+    tmp_path: Path,
+) -> None:
+    app = runtime_client.app
+    client = runtime_client
     project_id = client.post(
         "/api/dashboard/projects",
         json={"name": "Video Apply Project", "description": "Apply extraction"},
@@ -211,7 +236,8 @@ def test_video_deconstruction_apply_to_project_persists_versions(runtime_app, tm
     assert blocked_apply_response.status_code == 409
     blocked_apply_payload = blocked_apply_response.json()
     assert blocked_apply_payload["ok"] is False
-    assert blocked_apply_payload["error"] == APPLY_BLOCKED_MESSAGE
+    assert blocked_apply_payload["error"] == "请求状态发生冲突"
+    assert APPLY_BLOCKED_MESSAGE not in blocked_apply_payload["error"]
     assert blocked_apply_payload["error_code"] == "task.conflict"
 
     deconstruct_response = client.post(f"/api/video-deconstruction/videos/{video_id}/deconstruct")
@@ -227,9 +253,9 @@ def test_video_deconstruction_apply_to_project_persists_versions(runtime_app, tm
     assert apply_payload["scriptRevision"] == 1
     assert apply_payload["status"] == "applied"
 
-    scripts = runtime_app.state.script_repository.list_versions(project_id)
-    storyboards = runtime_app.state.storyboard_repository.list_versions(project_id)
-    project = runtime_app.state.dashboard_repository.get_project(project_id)
+    scripts = app.state.script_repository.list_versions(project_id)
+    storyboards = app.state.storyboard_repository.list_versions(project_id)
+    project = app.state.dashboard_repository.get_project(project_id)
 
     assert len(scripts) == 1
     assert scripts[0].source == "video_extraction"
@@ -243,11 +269,11 @@ def test_video_deconstruction_apply_to_project_persists_versions(runtime_app, tm
 
 
 def test_video_deconstruction_transcribes_when_provider_is_configured(
-    runtime_app,
+    runtime_client: TestClient,
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    client = TestClient(runtime_app)
+    client = runtime_client
     _enable_video_transcription(client)
 
     def fake_transcribe(self, *, file_path: str, base_url: str, api_key: str | None, model: str, timeout_seconds: int = 120):
@@ -290,11 +316,11 @@ def test_video_deconstruction_transcribes_when_provider_is_configured(
 
 
 def test_video_deconstruction_uses_multimodal_model_without_transcription(
-    runtime_app,
+    runtime_client: TestClient,
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    client = TestClient(runtime_app)
+    client = runtime_client
     _enable_multimodal_asset_analysis(client)
 
     captured: dict[str, object] = {}
@@ -423,11 +449,11 @@ def test_video_deconstruction_uses_multimodal_model_without_transcription(
 
 
 def test_video_deconstruction_prefers_configured_video_parser_over_legacy_asset_analysis(
-    runtime_app,
+    runtime_client: TestClient,
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    client = TestClient(runtime_app)
+    client = runtime_client
     _enable_multimodal_video_transcription_with_legacy_asset_analysis(client)
 
     calls: list[str] = []
@@ -530,10 +556,10 @@ def test_video_deconstruction_prefers_configured_video_parser_over_legacy_asset_
 
 
 def test_video_deconstruction_does_not_treat_file_metadata_as_standard_result(
-    runtime_app,
+    runtime_client: TestClient,
     tmp_path: Path,
 ) -> None:
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     project_id = client.post(
         "/api/dashboard/projects",

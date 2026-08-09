@@ -1,19 +1,44 @@
-> 更新日期：2026-07-04；对应应用版本以根 `package.json#version` 为准。本文以当前 `main` 代码为接口真源，记录已落地 Runtime 接口与前端调用关系。M05 AI 剪辑工作台已补齐创作链路汇入、受管轨道装配、默认 9:16 预览、选中片段真实媒体预览、资产来源视图、本地预检、播放头分割、步进移动与基础裁剪状态链路。
+> legacy 冻结日期：2026-07-26。本文只记录当前旧 `/api/...` 与旧 Desktop 调用关系，不再作为新接口真源。P0-B 开始后，新增 `/api/v1` 契约只维护在 `docs/api/v1/`；旧接口仅允许按 `docs/P0-ACCOUNT-FOUNDATION-COMPATIBILITY-MATRIX.md` 迁移为同服务层薄转发。
 
-# Runtime API 与前端调用真源
+# legacy Runtime API 与旧 Desktop 调用索引
 
-**当前状态（2026-07-04）**: Runtime 已覆盖 `search / prompt-templates / license / dashboard / scripts / storyboards / workspace / video-deconstruction / voice / subtitles / assets / accounts / devices / automation / publishing / renders / review / settings / tasks / ws / ai-capabilities / ai-providers`。`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致（190 / 190）；`workspace.timeline.assemble / workspace.clip.insert_asset / workspace.magic_cut_suggestions / voice.audio / voice.profiles.refresh / volcengine_tts2 / ai-capability secret` 已回流到本文。§21-24 的 AI Provider 调用层架构定义与分阶段路线图继续保留为后续实现真源。
-**接口版本**: V1（统一 JSON 信封，无独立版本号前缀）
-**唯一真源约束**: 后端路由、服务、前端 `runtime-client.ts`、Pinia store、契约测试发生变化时，必须在同一次改动中更新本文件。
+**当前状态**：P0-F 已将正式 Desktop 切换到账号工作区 Route Manifest 和领域 `/api/v1` Client；legacy 路由不再由正式页面调用。本文只保留兼容、诊断和退出依据。非生产模式暂留旧账号对象、分组与成员读取，账号对象及分组/成员写入均不解析业务 Body 并统一返回 410；生产模式不注册该组未迁移路由。
+**接口版本**：legacy，无版本号前缀。
+**维护约束**：P0-B 以前仅修正文档错误；P0-B 以后只记录旧接口到 v1 的兼容关系和退出状态，禁止继续追加新业务能力。
 **编码约束**: 本文档必须使用 UTF-8 无 BOM 保存，所有读取、生成、校验脚本都按 UTF-8 处理，避免中文出现乱码。
+**历史内容说明**：本文中“新增”“后续”“实施路线图”和 Provider 规划等措辞均为旧实现时期的历史记录，不再形成现行要求；目标接口、错误码和实施顺序只以批准的 P0 规格及 `docs/api/v1/` 为准。
 
 ---
+
+## P0-C 账号纵向链迁移记录
+
+本节只记录 legacy 到 v1 的退出关系，不重复 v1 请求或响应契约。完整真源见 [账号 API v1](api/v1/accounts.md) 与 [账号定位、知识与品牌 API v1](api/v1/account-knowledge.md)。正式 Desktop 已在 P0-F 解除旧调用。
+
+| legacy 范围 | v1 落点 | 兼容结论 |
+| --- | --- | --- |
+| `/api/accounts` 集合与详情 | `/api/v1/accounts`、`/api/v1/accounts/{account_id}` | DTO、五状态、修订和幂等语义不同；旧读取无薄映射且仅非生产注册，旧写入统一 410 |
+| 旧删除、刷新统计与发布 readiness | `/archive`、`/restore`、`/health`、`/health-checks` | 删除改为归档，恢复必须真实复检；无映射 |
+| `/api/accounts/{account_id}/binding` | `/api/v1/accounts/{account_id}/connection/*` | v1 强制 `DeviceWorkspace -> BrowserInstance -> ExecutionBinding` 同账号一致性；无映射 |
+| 旧账号分组 | 无 | 不属于当前账号工作区产品主线，不迁移；非生产模式只保留分组与成员读取，全部写入均返回 410 且明确无替代接口 |
+| 旧项目、脚本、资产与设置中的定位/知识字段 | `/positioning/*`、`/knowledge/*` | v1 使用账号版本、受控来源和不可变快照；无映射 |
+| 旧主题、资产标签和发布表单默认值 | `/brand-kit`、`/publish-defaults` | v1 使用账号聚合修订与明确校验；无映射 |
+| `/api/tasks/{task_id}` | `/api/v1/accounts/{account_id}/tasks/{task_id}` | 旧任务适配只处理系统作用域；P0-C 账号任务不能经 legacy 查询或取消 |
+
+P0-C 阶段验收时新增接口静态库存为 31 个；P0-D 新增 `workspace-activation` 与 `connection/candidates` 2 个账号 HTTP；P0-E 新增 Provider、模型、能力、Prompt、合成模板、路由和账号 Recipe 共 35 个 HTTP。该段数字只保留阶段历史，不代表当前库存；当前数量与契约唯一以 `docs/api/v1/README.md` 为准。本文不会为这些接口复制示例，避免 legacy 索引与 v1 真源再次分叉。
+
+### P0-D Desktop 调用迁移
+
+- 账号生命周期、工作区激活与连接调用统一位于 `apps/desktop/src/app/runtime-client/accounts.ts`。
+- 定位集合、定位版本详情、知识来源、索引、快照和 BrandKit 调用统一位于 `apps/desktop/src/app/runtime-client/account-knowledge.ts`。
+- Bootstrap、配置、任务和事件分别进入对应领域客户端；P0-D 新页面禁止导入旧的单文件 Runtime Client，也禁止组件直接 `fetch`。
+- 账号切换先读取 `workspace-context`，预建目标事件订阅与界面资源并原子提交订阅、配置和路由，再调用 `workspace-activation` 并补拉最终上下文；迟到响应按切换世代丢弃。提交前失败回滚原账号，提交后刷新失败保留目标账号并提供刷新重试。
+- `connection/candidates` 只读取真实同账号执行绑定候选；空数组进入引导态，不创建假工作区或假绑定。
 
 ## 1. 全局约定
 
 ### 1.1 基础规则
 
-- Runtime 基础地址：桌面端默认本地 `http://127.0.0.1:8000`
+- Runtime 基础地址：本节历史示例使用开发地址 `http://127.0.0.1:8000`；正式 Desktop 从 Tauri Supervisor 获取动态 `http://127.0.0.1:<port>`
 - 成功信封：
 
 ```json
@@ -29,9 +54,13 @@
 {
   "ok": false,
   "error": "中文可见错误",
-  "error_code": "task.conflict"
+  "error_code": "task.conflict",
+  "requestId": "req_legacy_optional",
+  "details": {}
 }
 ```
+
+`requestId` 与 `details` 是 legacy 可选字段；不得复制到 `/api/v1` 信封。
 
 - 时间字段统一使用 ISO 8601 / UTC。
 - 文档中的“当前前端调用点”优先写 `runtime-client.ts` 函数名；若当前页面或 store 尚未直接消费，会明确写“当前前端未直接调用”。
@@ -48,9 +77,9 @@
 | `error_code` | 场景 | 说明 |
 | --- | --- | --- |
 | `request.validation_failed` | 请求体验证失败 | 统一由 `error_response(..., error_code=...)` 返回 |
-| `runtime.not-ready` | Runtime 自检未通过 | 适用于版本、依赖、数据库等启动前检查 |
-| `runtime.port-not-listening` | Runtime 端口未监听 | 适用于 `/api/bootstrap/runtime-selfcheck` 的端口检查；监听中返回 `ok`，未监听返回 `warning` |
-| `license.not_activated` | 许可证未激活 | 适用于 `GET /api/bootstrap/readiness` 的阻断项 |
+| `runtime.not.ready` | Runtime 服务尚未就绪 | 兼容适配器无法解析对应 v1 服务时返回 |
+| `legacy.write.unsupported` | legacy 写入或集合读取已经退出 | 返回 HTTP 410；存在替代接口时在 `details.replacement` 提供迁移目标，已退出产品范围的资源提供“无替代接口”说明 |
+| `LICENSE_MISSING` | 许可证缺失 | 作为 `GET /api/bootstrap/readiness` 的数据阻断码返回，不是 HTTP `error_code` |
 | `project.not_found` | 项目不存在 | 适用于 dashboard / script / storyboard 等项目主链 |
 | `task.not_found` | 长任务不存在 | 适用于 `/api/tasks/{task_id}` |
 | `task.conflict` | 长任务不可取消或状态冲突 | 适用于 `/api/tasks/{task_id}/cancel` |
@@ -111,9 +140,9 @@
 
 ## 1.5 文档-代码差异矩阵（V1）
 
-- HTTP 文档路由数（提取）：190
-- HTTP 代码路由数（去重）：190
-- HTTP 文档与代码一致：190
+- HTTP 文档路由数（提取）：193
+- HTTP 代码路由数（去重）：193
+- HTTP 文档与代码一致：193
 - HTTP 代码未写入文档（需补充）：0
 - HTTP 文档有但代码未见（需补齐）：0
 
@@ -121,7 +150,7 @@
 
 | 状态 | 数量 | 说明 |
 | --- | --- | --- |
-| 已实现并已文档化 | 190 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
+| 已实现并已文档化 | 193 | 当前所有 HTTP 接口明细均已在 `apps/py-runtime` 与本文档对齐 |
 | 已实现但未文档化 | 0 | 本轮已补齐 `bootstrap / dashboard / settings / devices / ai-providers` 新增运行时接口登记 |
 | 文档已写但未实现 | 0 | 本轮已补齐 `/api/video-deconstruction` 文档要求的 7 个接口，并完成剩余接口登记 |
 | 字段仍可继续细化 | 若干 | 主要是高级接口的错误码、更多响应示例和边界说明 |
@@ -210,27 +239,28 @@
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `POST /api/bootstrap/initialize-directories` | 无；按当前 settings/config 与 runtime data root 创建并校验目录 | `BootstrapDirectoryReportDto`：`rootDir`、`databasePath`、`status`、`directories[]`、`checkedAt` | `500` | `initializeDirectories` |
-| `POST /api/bootstrap/runtime-selfcheck` | 无；执行端口、版本、依赖、数据库聚合自检 | `RuntimeSelfCheckReportDto`：`status`、`runtimeVersion`、`checkedAt`、`items[]` | `500`；端口项未监听时返回 `runtime.port-not-listening` | `runtimeSelfCheck` |
-| `GET /api/bootstrap/readiness` | 无；聚合许可证、目录初始化、Runtime 自检、媒体依赖，返回首启可继续状态与阻断项 | `BootstrapReadinessDto`：`status`、`canContinue`、`items[]`、`blockers[]` | `500`；许可证未激活时返回阻断项并标记 `license.not_activated` | 当前前端未直接调用 |
+| `POST /api/bootstrap/runtime-selfcheck` | 无；兼容层将数据库、目录、媒体工具和 Runtime 检查写入持久任务队列 | HTTP `202`；`RuntimeSelfCheckReportDto`：`status=queued`、`runtimeVersion`、`checkedAt`、`items[]`，其中 `detail` 含持久任务 ID | `401`、`403`、`409`、`503` | `runtimeSelfCheck` |
+| `GET /api/bootstrap/readiness` | 无；聚合许可证、目录初始化、Runtime 自检、媒体依赖，返回首启可继续状态与阻断项 | `BootstrapReadinessDto`：`status`、`canContinue`、`items[]`、`blockers[]` | `503`；许可证缺失时正常返回阻断项并标记数据码 `LICENSE_MISSING` | 当前前端未直接调用 |
 
-**端口检查语义**
+**持久自检语义**
 
-- 监听中返回 `ok`。
-- 未监听返回 `warning`，`errorCode` 为 `runtime.port-not-listening`。
+- 接口只负责接受自检命令，不在请求周期内同步执行全部检查。
+- HTTP `202` 表示任务已经进入持久队列，不表示自检最终成功。
+- 客户端应通过任务接口和事件订阅跟踪进度，并在完成后重新获取 Bootstrap 最终状态。
 
 ```json
 {
   "ok": true,
   "data": {
-    "status": "ok",
+    "status": "queued",
     "runtimeVersion": "0.3.4",
     "checkedAt": "2026-04-17T12:00:00Z",
     "items": [
       {
-        "key": "port",
-        "label": "端口检查",
-        "status": "ok",
-        "detail": "端口 8000 已处于监听状态",
+        "key": "persistent-task",
+        "label": "Runtime 自检",
+        "status": "queued",
+        "detail": "自检任务已进入持久队列：task-id",
         "errorCode": null,
         "checkedAt": "2026-04-17T12:00:00Z"
       }
@@ -427,13 +457,13 @@
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/prompt-templates` | 查询参数：`kind?` | `PromptTemplateDto[]` | `422`、`500` | `listPromptTemplates` |
-| `POST /api/prompt-templates` | `PromptTemplateInput`：`kind`、`name`、`description`、`content` | `PromptTemplateDto` | `422`、`500` | `createPromptTemplate` |
-| `PUT /api/prompt-templates/{template_id}` | 路径参数：`template_id`；`PromptTemplateUpdateInput`：`kind`、`name`、`description`、`content` | `PromptTemplateDto` | `404`、`422`、`500` | `updatePromptTemplate` |
-| `DELETE /api/prompt-templates/{template_id}` | 路径参数：`template_id` | `{"deleted": true}` | `404` | `deletePromptTemplate` |
+| `POST /api/prompt-templates` | legacy 写入已退出；不解析业务 Body | HTTP 410，指向 `POST /api/v1/system/prompt-profiles` | `legacy.write.unsupported` | 旧客户端需迁移 |
+| `PUT /api/prompt-templates/{template_id}` | legacy 原地覆盖已退出；不解析业务 Body | HTTP 410，指向 Prompt 新版本接口 | `legacy.write.unsupported` | 旧客户端需迁移 |
+| `DELETE /api/prompt-templates/{template_id}` | legacy 物理删除已退出 | HTTP 410；Prompt 版本不可删除 | `legacy.write.unsupported` | 旧客户端需迁移 |
 
 **当前差异**
 
-- 已修复：前端 `runtime-client.ts` 使用 `PUT /api/prompt-templates/{template_id}`，输入字段与后端 `kind/name/description/content` 保持一致。
+- P0-E 后旧 Prompt 写入已退出；新 Desktop 只使用不可变 Prompt Profile 版本接口。
 
 **示例**
 
@@ -1588,6 +1618,10 @@ waveform 缺少音频：
 
 ## 11. M10 账号管理
 
+> 本节是 legacy 历史契约。P0-C 账号 v1 已由 `docs/api/v1/accounts.md` 接管，正式 Desktop 已在 P0-F 解除下列调用。下列接口、DTO 和示例不得用于实现新账号工作区。
+>
+> 非生产模式继续保留账号列表、账号详情、分组列表与分组成员读取。账号对象以及分组/成员的全部写入均不声明或解析业务 Body，并直接返回 HTTP 410 `legacy.write.unsupported`；生产模式不注册整组旧账号路由。
+
 **核心返回 DTO**: `AccountDto`、`AccountGroupDto`、`AccountRefreshStatsDto`、`AccountBindingDto`、`AccountPublishReadinessDto`
 
 **当前契约要点**
@@ -1610,19 +1644,19 @@ waveform 缺少音频：
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/accounts` | 查询参数：`status?`、`platform?`、`group_id?`、`q?` | `AccountDto[]`；每项包含 `publishReadiness` | `500` | `fetchAccounts` |
-| `POST /api/accounts` | `AccountCreateInput`：`name`、`platform`、`username?`、`status?` 等 | `AccountDto` | `422` | `createAccount` |
+| `POST /api/accounts` | legacy 写入已退出 | HTTP 410，指向 `POST /api/v1/accounts` | `legacy.write.unsupported` | 正式前端已解除 |
 | `GET /api/accounts/{account_id}` | 路径参数：`account_id` | `AccountDto`；包含 `publishReadiness` | `404` | 当前前端未直接调用 |
-| `PATCH /api/accounts/{account_id}` | `AccountUpdateInput` | `AccountDto`；包含最新 `publishReadiness` | `404`、`422` | 当前前端未直接调用 |
-| `DELETE /api/accounts/{account_id}` | 路径参数：`account_id` | 删除结果对象 | `404` | `deleteAccount` |
-| `POST /api/accounts/{account_id}/refresh-stats` | 路径参数：`account_id`；执行一次真实账号发布校验并更新时间戳 | `AccountRefreshStatsDto`：`id`、`status`、`updatedAt`、`providerStatus`、`publishReadiness` | `404` | `refreshAccountStats` |
-| `PUT /api/accounts/{account_id}/binding` | `AccountBindingUpsertInput`：`browserInstanceId`、`status?`、`source?`、`metadataJson?` | `AccountBindingDto` | `404`、`422` | `setAccountBinding` |
+| `PATCH /api/accounts/{account_id}` | legacy 任意更新已退出 | HTTP 410，指向 v1 账号更新 | `legacy.write.unsupported` | 当前前端未直接调用 |
+| `DELETE /api/accounts/{account_id}` | legacy 物理删除已退出 | HTTP 410，指向 v1 归档 | `legacy.write.unsupported` | 正式前端已解除 |
+| `POST /api/accounts/{account_id}/refresh-stats` | legacy 统计刷新已退出 | HTTP 410，指向 v1 健康检查任务 | `legacy.write.unsupported` | 正式前端已解除 |
+| `PUT /api/accounts/{account_id}/binding` | legacy 伪绑定写入已退出 | HTTP 410，指向 v1 真实连接绑定 | `legacy.write.unsupported` | 正式前端已解除 |
 | `GET /api/accounts/groups` | 无 | `AccountGroupDto[]` | `500` | `fetchAccountGroups` |
-| `POST /api/accounts/groups` | `AccountGroupCreateInput`：`name`、`description?`、`color?` | `AccountGroupDto` | `422` | 当前前端未直接调用 |
-| `PATCH /api/accounts/groups/{group_id}` | `AccountGroupUpdateInput` | `AccountGroupDto` | `404`、`422` | 当前前端未直接调用 |
-| `DELETE /api/accounts/groups/{group_id}` | 路径参数：`group_id` | 删除结果对象 | `404` | 当前前端未直接调用 |
+| `POST /api/accounts/groups` | legacy 分组写入已退出；不解析业务 Body | HTTP 410，无替代接口 | `legacy.write.unsupported` | 当前前端未直接调用 |
+| `PATCH /api/accounts/groups/{group_id}` | 路径参数：`group_id`；不解析业务 Body | HTTP 410，无替代接口 | `legacy.write.unsupported` | 当前前端未直接调用 |
+| `DELETE /api/accounts/groups/{group_id}` | 路径参数：`group_id`；不解析业务 Body | HTTP 410，无替代接口 | `legacy.write.unsupported` | 当前前端未直接调用 |
 | `GET /api/accounts/groups/{group_id}/members` | 路径参数：`group_id` | `AccountDto[]` | `404` | 当前前端未直接调用 |
-| `POST /api/accounts/groups/{group_id}/members` | `AccountGroupMemberCreateInput`：`accountId` | 成功结果对象 | `404`、`422` | 当前前端未直接调用 |
-| `DELETE /api/accounts/groups/{group_id}/members/{account_id}` | 路径参数：`group_id`、`account_id` | 成功结果对象 | `404` | 当前前端未直接调用 |
+| `POST /api/accounts/groups/{group_id}/members` | 路径参数：`group_id`；不解析业务 Body | HTTP 410，无替代接口 | `legacy.write.unsupported` | 当前前端未直接调用 |
+| `DELETE /api/accounts/groups/{group_id}/members/{account_id}` | 路径参数：`group_id`、`account_id`；不解析业务 Body | HTTP 410，无替代接口 | `legacy.write.unsupported` | 当前前端未直接调用 |
 
 **示例**
 
@@ -2154,13 +2188,13 @@ waveform 缺少音频：
 
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
-| `GET /api/settings/health` | 无 | `RuntimeHealthSnapshotDto`：`runtime`、`aiProvider`、`renderQueue`、`publishingQueue`、`taskBus`、`license`、`lastSyncAt` | `500` | `fetchRuntimeHealth` |
+| `GET /api/settings/health` | 无 | `RuntimeHealthSnapshotDto`：`runtime`、`taskBus`、`license`、`lastSyncAt`、`service`、`version`、`now`、`mode`、`unavailableSections`；P0-B 不伪造 `aiProvider`、`renderQueue`、`publishingQueue` | `401`、`403`、`503` | `fetchRuntimeHealth` |
 | `GET /api/settings/config` | 无 | `AppSettingsDto`：`runtime`、`paths`、`logging`、`ai`、`media.ffprobePath/ffmpegPath`、`browser.executablePath`、`revision` | `500` | `fetchRuntimeConfig` |
-| `PUT /api/settings/config` | `AppSettingsUpdateInput`：`runtime.mode/workspaceRoot`、`paths.cacheDir/exportDir/logDir`、`logging.level`、`ai.provider/model/voice/subtitleMode`、`media.ffprobePath/ffmpegPath`、`browser.executablePath`；成功后广播 `config.changed` | `AppSettingsDto` | `422`、`500` | `updateRuntimeConfig` |
-| `GET /api/settings/diagnostics` | 无 | `RuntimeDiagnosticsDto`：`databasePath`、`logDir`、`revision`、`mode`、`healthStatus` | `500` | `fetchRuntimeDiagnostics` |
+| `PUT /api/settings/config` | 兼容层只允许修改 `logging.level`、`media.ffprobePath/ffmpegPath`、`browser.executablePath`；`runtime`、`paths` 或 `ai` 变更必须改用对应 v1 资源 | `AppSettingsDto`；成功后由配置总线持久化 `config.changed` 事件 | `410`、`422`、`500` | `updateRuntimeConfig` |
+| `GET /api/settings/diagnostics` | 无 | `RuntimeDiagnosticsDto`：兼容 DTO 保留 `revision`、`mode`、`healthStatus`、`items[]`；本地路径字段返回空字符串，避免暴露真实路径 | `401`、`403`、`503` | `fetchRuntimeDiagnostics` |
 | `GET /api/settings/diagnostics/media` | 无；读取 FFprobe/FFmpeg 可用性、路径、版本与最近检查时间 | `RuntimeMediaDiagnosticsDto`：`ffprobe.*`、`ffmpeg.*`、`checkedAt`；每个媒体工具对象包含 `status/path/source/version/errorCode/errorMessage` | `500`；工具异常时返回 `media.ffprobe_*` 或 `media.ffmpeg_*` 语义 | 当前前端未直接调用 |
-| `GET /api/settings/logs` | 查询参数：`kind?`、`since?`、`level?`、`limit?`；当前从 `runtime.jsonl` 读取结构化日志 | `RuntimeLogPageDto`：`items[]`、`nextCursor` | `422`、`500` | `fetchRuntimeLogs` |
-| `POST /api/settings/diagnostics/export` | 无；生成当前 settings / health / diagnostics / runtime.jsonl 的诊断包 | `DiagnosticsBundleDto`：`bundlePath`、`createdAt`、`entries[]` | `500` | `exportDiagnosticsBundle` |
+| `GET /api/settings/logs` | 旧集合读取已停用；日志只允许通过带 `log_id` 的 v1 定向读取 | 无；返回迁移提示 | `410` | `fetchRuntimeLogs` |
+| `POST /api/settings/diagnostics/export` | 旧 HTTP 导出已停用；后续由受控 Tauri 诊断导出承接 | 无；返回迁移提示 | `410` | `exportDiagnosticsBundle` |
 
 ### 17.2 AI 能力配置
 
@@ -2169,10 +2203,10 @@ waveform 缺少音频：
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/settings/ai-capabilities` | 无 | `AICapabilitySettingsDto`：`capabilities[]`、`providers[]` | `500` | `fetchAICapabilitySettings` |
-| `PUT /api/settings/ai-capabilities` | `AICapabilityConfigListInput`：`capabilities[]`；成功后广播 `ai-capability.changed` | `AICapabilitySettingsDto` | `422`、`500` | `updateAICapabilitySettings` |
+| `PUT /api/settings/ai-capabilities` | legacy 聚合写入已退出；不解析业务 Body | HTTP 410，指向 v1 Capability Route | `legacy.write.unsupported` | 旧客户端需迁移 |
 | `GET /api/settings/ai-capabilities/support-matrix` | 无 | `AICapabilitySupportMatrixDto` | `500` | `fetchAICapabilitySupportMatrix` |
-| `PUT /api/settings/ai-capabilities/providers/{provider_id}/secret` | `AIProviderSecretInput`：通用 Provider 使用 `apiKey`、`baseUrl?`；`volcengine_tts` 额外支持 `accessToken`、`appId`、`openApiAccessKey`、`openApiSecretKey`、`openApiRegion` | `AIProviderSecretStatusDto` | `404`、`422` | `updateAIProviderSecret` |
-| `POST /api/settings/ai-capabilities/providers/{provider_id}/health-check` | `AIProviderHealthCheckInput`：`model?` | `AIProviderHealthDto` | `404`、`422` | `checkAIProviderHealth` |
+| `PUT /api/settings/ai-capabilities/providers/{provider_id}/secret` | legacy 明文密钥写入已退出；不解析业务 Body | HTTP 410，指向 v1 Provider credential | `legacy.write.unsupported` | 旧客户端需迁移 |
+| `POST /api/settings/ai-capabilities/providers/{provider_id}/health-check` | legacy 同步检查已退出；不解析业务 Body | HTTP 410，指向 v1 Provider checks 任务 | `legacy.write.unsupported` | 旧客户端需迁移 |
 
 `support-matrix` 只返回启用模型，并按能力语义匹配：
 
@@ -2189,7 +2223,7 @@ waveform 缺少音频：
 | --- | --- | --- | --- | --- |
 | `GET /api/settings/ai-providers/catalog` | 无 | `AIProviderCatalogItemDto[]` | `500` | `fetchAIProviderCatalog` |
 | `GET /api/settings/ai-providers/{provider_id}/models` | 路径参数：`provider_id` | `AIModelCatalogItemDto[]` | `404` | `fetchAIProviderModels` |
-| `POST /api/settings/ai-providers/{provider_id}/models/refresh` | 路径参数：`provider_id`；OpenAI 兼容类读取 `{baseUrl}/models`，Ollama / OpenRouter 使用专用目录接口 | `AIModelCatalogRefreshResultDto` | `400`、`404`、`502`；缺密钥 `provider.model.refresh_missing_secret`，缺 Base URL `provider.model.refresh_missing_base_url` | `refreshAIProviderModels` |
+| `POST /api/settings/ai-providers/{provider_id}/models/refresh` | legacy 同步刷新已退出；不解析业务 Body | HTTP 410，指向 v1 model-discovery 任务 | `legacy.write.unsupported` | 旧客户端需迁移 |
 
 `AIProviderCatalogItemDto` 字段：
 
@@ -2223,8 +2257,8 @@ waveform 缺少音频：
 | 接口 | 请求参数 | 返回结果 | 错误码 | 当前前端调用点 |
 | --- | --- | --- | --- | --- |
 | `GET /api/ai-providers/health` | 无；读取最近一次聚合健康快照 | `AIProviderHealthOverviewDto`：`providers[]`、`refreshedAt` | `500` | `config-bus.ts`（`fetchProviderReadinessSilently` -> `fetchProviderHealth`） |
-| `POST /api/ai-providers/health/refresh` | 无；逐个 Provider 触发静默刷新，失败不会阻断 Runtime 启动 | `AIProviderHealthOverviewDto`：`providers[]`、`refreshedAt` | `500`；单 Provider 失败时记录 `provider.health.refresh_failed` | 当前前端未直接调用 |
-| `PUT /api/ai-providers/{provider_id}/models/{model_id}` | 路径参数：`provider_id`、`model_id`；`AIProviderModelUpsertInput`：`displayName`、`capabilityKinds`、`inputModalities[]`、`outputModalities[]`、`contextWindow?`、`defaultFor[]`、`enabled` | `AIProviderModelWriteReceiptDto`：`saved`、`wasUpsert`、`updatedAt`、`versionOrRevision`、`objectSummary`、`model` | `400`、`404`；能力缺失时返回 `provider.model.capability_required` | 当前前端未直接调用 |
+| `POST /api/ai-providers/health/refresh` | legacy 聚合刷新已退出；不解析业务 Body | HTTP 410，指向 v1 Provider checks 任务 | `legacy.write.unsupported` | 旧客户端需迁移 |
+| `PUT /api/ai-providers/{provider_id}/models/{model_id}` | legacy 原地模型覆盖已退出；不解析业务 Body | HTTP 410，指向 v1 Model patch | `legacy.write.unsupported` | 旧客户端需迁移 |
 
 **健康示例**
 
@@ -2233,26 +2267,10 @@ waveform 缺少音频：
   "ok": true,
   "data": {
     "runtime": {
-      "status": "online",
-      "port": 8000,
-      "uptimeMs": 1200,
-      "version": "0.3.4"
-    },
-    "aiProvider": {
-      "status": "configured",
-      "latencyMs": null,
-      "providerId": "openai",
-      "providerName": "OpenAI",
-      "lastChecked": null
-    },
-    "renderQueue": {
-      "running": 0,
-      "queued": 0,
-      "avgWaitMs": null
-    },
-    "publishingQueue": {
-      "pendingToday": 0,
-      "failedToday": 0
+      "status": "ready",
+      "port": 43127,
+      "uptimeMs": null,
+      "version": "0.4.8"
     },
     "taskBus": {
       "running": 0,
@@ -2265,10 +2283,15 @@ waveform 缺少音频：
       "expiresAt": null
     },
     "lastSyncAt": "2026-04-17T12:00:00Z",
-    "service": "online",
-    "version": "0.3.4",
+    "service": "ready",
+    "version": "0.4.8",
     "now": "2026-04-17T12:00:00Z",
-    "mode": "development"
+    "mode": "development",
+    "unavailableSections": [
+      "aiProvider",
+      "renderQueue",
+      "publishingQueue"
+    ]
   }
 }
 ```
@@ -2280,7 +2303,7 @@ waveform 缺少音频：
   "ok": true,
   "data": {
     "runtime": {
-      "mode": "desktop",
+      "mode": "development",
       "workspaceRoot": "C:/TKOPS/workspaces"
     },
     "paths": {
@@ -2348,7 +2371,7 @@ waveform 缺少音频：
 
 **前端 TaskBus 行为**
 
-- WebSocket 地址由 `VITE_RUNTIME_BASE_URL` 推导，默认连接 `ws://127.0.0.1:8000/api/ws`。
+- 本节 legacy WebSocket 在手动开发时由 `VITE_RUNTIME_BASE_URL` 推导，例如 `ws://127.0.0.1:8000/api/ws`；正式 Desktop 使用 Supervisor 动态地址与 `/api/v1/ws`。
 - 心跳间隔为 25 秒，发送文本 `ping`。
 - 可订阅 key 包括 `taskId`、`videoId`、`jobId`、`trackId`、`accountId`、`workspaceId`、`planId`、`projectId`。
 - 接收到带 `taskId` 的事件时，`task-bus.ts` 会同步更新 `tasks` Map；所有事件都会按 key 写入 `lastEvents`。
@@ -2490,7 +2513,7 @@ waveform 缺少音频：
 
 ## 20. 文档维护检查清单
 
-当你修改 Runtime 接口时，至少同步核对以下内容：
+当你修改 legacy Runtime 接口、兼容关系或退出状态时，至少同步核对以下内容：
 
 1. `apps/py-runtime/src/api/routes/`
 2. `apps/py-runtime/src/services/`
@@ -2498,13 +2521,15 @@ waveform 缺少音频：
 4. `apps/py-runtime/src/schemas/`
 5. `apps/desktop/src/types/runtime.ts`
 6. `apps/desktop/src/app/runtime-client.ts`
-7. 对应 Pinia store / 页面消费点
-8. `tests/contracts/` 与 `apps/desktop/tests/`
-9. 本文件 `docs/RUNTIME-API-CALLS.md`
+7. P0 新壳的 `apps/desktop/src/types/runtime/` 与 `apps/desktop/src/app/runtime-client/`
+8. P0 账号上下文的 `apps/desktop/src/app/account-context/`
+9. 对应 `modules/accounts/`、`modules/knowledge/`、Pinia store 与页面消费点
+10. `tests/contracts/` 与 `apps/desktop/tests/`
+11. 本文件 `docs/RUNTIME-API-CALLS.md`；新增 `/api/v1` 只更新 `docs/api/v1/`
 
 ### 20.1 当前代码一致性异常
 
-以下项目用于记录当前代码中已经存在或刚完成收口的 wrapper / 类型 / 路由差异；后续修复时必须同时改后端、前端、测试和本文档。
+以下项目用于记录 legacy 代码中已经存在或刚完成收口的 wrapper / 类型 / 路由差异；兼容修复时必须同时改后端、前端、测试和本文档，但不得用本节驱动新 v1 设计。
 
 | 模块 | 差异 | 当前处理 |
 | --- | --- | --- |
@@ -2520,9 +2545,9 @@ waveform 缺少音频：
 
 ---
 
-## 21. AI Provider 多模型调用层架构
+## 21. 历史设计参考：AI Provider 多模型调用层架构（非 P0 真源）
 
-> **本节定位**：为 Codex（后端）和 Gemini（前端）提供完整的多 AI Provider 调用层实现规格。Codex 读本节写代码，Gemini 读本节对齐前端状态。
+> **本节定位**：保留旧 AI Provider 实现审计上下文；P0-B 及后续实现不得把本节当作规格，必须以当前 P0 plan/spec 和 `docs/api/v1/` 为准。
 
 ### 21.1 现状与缺口总览
 
@@ -3001,7 +3026,7 @@ AI 调用层新增以下 `error_code`，Codex 在服务层抛出，Gemini 在前
 
 ---
 
-## 23. 分阶段实施路线图
+## 23. 历史资料：分阶段实施路线图（非现行契约）
 
 ### Phase 0：Provider 适配器骨架（Codex · 优先级最高）
 
@@ -3057,4 +3082,4 @@ class ProviderRuntimeConfig:
 
 ---
 
-> **文档版本**：2026-04-19 · review / workspace / subtitles / video-deconstruction / voice 契约对齐 · AI Provider 调用层架构定义首版 · 接口漂移清单 · 分阶段路线图
+> **legacy 快照版本**：2026-04-19 · 仅用于迁移审计，不驱动 `/api/v1` 实现

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, Integer, String, Text
+from sqlalchemy import CheckConstraint, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from domain.models.base import Base
@@ -14,6 +14,11 @@ class SystemConfig(Base):
     document: Mapped[str] = mapped_column(Text, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     updated_at: Mapped[str] = mapped_column(Text, nullable=False)
+    ai_config_revision: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default=text("0"),
+    )
 
 
 class SessionContext(Base):

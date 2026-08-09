@@ -1,16 +1,32 @@
-export type RouteNavGroup = "启动与总览" | "创作前置" | "创作与媒体" | "执行与治理" | "系统与 AI" | "HIDDEN";
+import type { RouteComponent } from "vue-router";
+
+import type { RouteId } from "@/app/router/route-ids";
+
+export type RouteNavSection =
+  | "strategy"
+  | "creation"
+  | "delivery"
+  | "system"
+  | "hidden";
+
+export type RouteMigrationState =
+  | "ready"
+  | "p0_foundation"
+  | "p1_pending"
+  | "p2_pending";
 
 export type RouteManifestItem = {
-  id: string;
+  id: RouteId;
   path: string;
   title: string;
-  navGroup: RouteNavGroup;
   icon: string;
-  pageType: string;
+  navOrder: number | null;
+  navSection: RouteNavSection;
+  scope: "system" | "account";
   requiresLicense: boolean;
-  requiresProjectContext: boolean;
-  detailPanelMode: string;
-  statusBarMode: string;
+  requiresRuntimeReady: boolean;
+  migrationState: RouteMigrationState;
+  detailPanelMode: "hidden" | "contextual" | "overlay";
   componentImport: string;
-  loadComponent: () => Promise<unknown>;
+  loadComponent: () => Promise<RouteComponent>;
 };

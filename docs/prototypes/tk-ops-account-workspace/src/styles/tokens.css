@@ -1,0 +1,68 @@
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --sidebar: #0d1726;
+  --sidebar-hover: rgba(255, 255, 255, 0.055);
+  --canvas: #f5f7fa;
+  --surface: #ffffff;
+  --muted: #eef2f6;
+  --muted-strong: #e5eaf0;
+  --text-primary: #111827;
+  --text-secondary: #5b6473;
+  --text-tertiary: #8b93a1;
+  --brand: #13b8c8;
+  --brand-soft: rgba(19, 184, 200, 0.1);
+  --primary: #6c4cf1;
+  --primary-soft: rgba(108, 76, 241, 0.1);
+  --success: #16a36a;
+  --success-soft: rgba(22, 163, 106, 0.1);
+  --warning: #d88a16;
+  --warning-soft: rgba(216, 138, 22, 0.11);
+  --danger: #d94b55;
+  --danger-soft: rgba(217, 75, 85, 0.1);
+  --border: rgba(15, 23, 42, 0.09);
+  --border-strong: rgba(15, 23, 42, 0.15);
+  --overlay: rgba(13, 23, 38, 0.46);
+  --shadow-popover: 0 18px 48px rgba(13, 23, 38, 0.2);
+  --shadow-modal: 0 24px 70px rgba(13, 23, 38, 0.24);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --sidebar: #080f1a;
+  --sidebar-hover: rgba(255, 255, 255, 0.06);
+  --canvas: #0b0f16;
+  --surface: #131a24;
+  --muted: #192230;
+  --muted-strong: #222d3c;
+  --text-primary: #eef2f7;
+  --text-secondary: #a7b0bf;
+  --text-tertiary: #707b8c;
+  --brand: #27c6d5;
+  --brand-soft: rgba(39, 198, 213, 0.11);
+  --primary: #8068f4;
+  --primary-soft: rgba(128, 104, 244, 0.12);
+  --success: #27c98c;
+  --success-soft: rgba(39, 201, 140, 0.11);
+  --warning: #f1b34e;
+  --warning-soft: rgba(241, 179, 78, 0.12);
+  --danger: #ff6670;
+  --danger-soft: rgba(255, 102, 112, 0.11);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --overlay: rgba(0, 0, 0, 0.58);
+  --shadow-popover: 0 18px 48px rgba(0, 0, 0, 0.42);
+  --shadow-modal: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+
+:root {
+  --font-sans: Inter, "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --sidebar-width: 248px;
+  --topbar-height: 64px;
+  --statusbar-height: 28px;
+  --radius-control: 8px;
+  --radius-panel: 11px;
+  --motion-fast: 150ms;
+  --motion-panel: 220ms;
+}

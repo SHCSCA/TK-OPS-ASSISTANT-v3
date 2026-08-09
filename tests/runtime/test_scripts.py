@@ -224,8 +224,10 @@ class JsonScriptAITextGenerationService:
         )
 
 
-def test_script_document_supports_manual_save_and_version_history(runtime_app) -> None:
-    client = TestClient(runtime_app)
+def test_script_document_supports_manual_save_and_version_history(
+    runtime_client: TestClient,
+) -> None:
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -266,10 +268,13 @@ def test_script_document_supports_manual_save_and_version_history(runtime_app) -
     assert saved_payload['lastOperation']['aiJobStatus'] is None
 
 
-def test_script_generation_and_rewrite_record_ai_jobs(runtime_app) -> None:
-    fake_service = FakeAITextGenerationService(runtime_app.state.ai_job_repository)
-    runtime_app.state.ai_text_generation_service = fake_service
-    client = TestClient(runtime_app)
+def test_script_generation_and_rewrite_record_ai_jobs(
+    runtime_client: TestClient,
+) -> None:
+    app = runtime_client.app
+    fake_service = FakeAITextGenerationService(app.state.ai_job_repository)
+    app.state.ai_text_generation_service = fake_service
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -317,11 +322,14 @@ def test_script_generation_and_rewrite_record_ai_jobs(runtime_app) -> None:
     assert fake_service.calls[1][0] == 'script_rewrite'
 
 
-def test_script_generation_and_rewrite_store_json_document_as_canonical_source(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = JsonScriptAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_script_generation_and_rewrite_store_json_document_as_canonical_source(
+    runtime_client: TestClient,
+) -> None:
+    app = runtime_client.app
+    app.state.ai_text_generation_service = JsonScriptAITextGenerationService(
+        app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -354,10 +362,13 @@ def test_script_generation_and_rewrite_store_json_document_as_canonical_source(r
     assert rewritten['documentJson']['segments'][0]['voiceover'] == '别让下午的咖啡变成一杯水。'
 
 
-def test_script_versions_title_variants_restore_and_segment_rewrite(runtime_app) -> None:
-    fake_service = FakeAITextGenerationService(runtime_app.state.ai_job_repository)
-    runtime_app.state.ai_text_generation_service = fake_service
-    client = TestClient(runtime_app)
+def test_script_versions_title_variants_restore_and_segment_rewrite(
+    runtime_client: TestClient,
+) -> None:
+    app = runtime_client.app
+    fake_service = FakeAITextGenerationService(app.state.ai_job_repository)
+    app.state.ai_text_generation_service = fake_service
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -437,4 +448,7 @@ def test_script_rewrite_requires_existing_saved_version(runtime_client: TestClie
     )
 
     assert rewrite_response.status_code == 400
-    assert rewrite_response.json()['error'] == '请先保存或生成脚本版本，再执行改写。'
+    payload = rewrite_response.json()
+    assert payload['error'] == '请求格式不正确'
+    assert payload['error_code'] == 'request.validation_failed'
+    assert '请先保存或生成脚本版本' not in str(payload)

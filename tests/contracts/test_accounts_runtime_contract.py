@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
+from httpx import Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 SRC_DIR = Path(__file__).resolve().parents[2] / "apps" / "py-runtime" / "src"
@@ -16,6 +17,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from accounts import router as accounts_router
+from app.exception_handlers import install_exception_handlers
 from domain.models import Base
 from persistence.engine import create_runtime_engine, create_session_factory
 from repositories.account_repository import AccountRepository
@@ -30,6 +32,13 @@ from services.device_workspace_service import DeviceWorkspaceService
 def _assert_ok(payload: dict[str, object]) -> object:
     assert payload["ok"] is True
     return payload["data"]
+
+
+def _assert_legacy_write_gone(response: Response) -> None:
+    assert response.status_code == 410
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error_code"] == "legacy.write.unsupported"
 
 
 def _build_app(tmp_path: Path) -> FastAPI:
@@ -55,7 +64,7 @@ def _build_app(tmp_path: Path) -> FastAPI:
     account = account_service.create_account(
         AccountCreateInput(
             name="Ready Account",
-            status="active",
+            status="ready",
             username="ready_account",
             authExpiresAt="2099-01-01T00:00:00Z",
         )
@@ -73,6 +82,7 @@ def _build_app(tmp_path: Path) -> FastAPI:
     app = FastAPI()
     app.state.account_service = account_service
     app.include_router(accounts_router)
+    install_exception_handlers(app)
 
     @app.exception_handler(StarletteHTTPException)
     async def handle_http_exception(
@@ -111,15 +121,71 @@ def test_accounts_list_contract_returns_publish_readiness(tmp_path: Path) -> Non
     assert account["publishReadiness"]["binding"]["status"] == "active"
 
 
-def test_account_refresh_stats_contract_returns_validation_result(tmp_path: Path) -> None:
+def test_legacy_account_mutations_return_gone(tmp_path: Path) -> None:
     client = TestClient(_build_app(tmp_path))
     account_id = _assert_ok(client.get("/api/accounts").json())[0]["id"]
 
-    response = client.post(f"/api/accounts/{account_id}/refresh-stats")
+    responses = (
+        client.post("/api/accounts", json={"name": "Legacy Create"}),
+        client.patch(
+            f"/api/accounts/{account_id}",
+            json={"name": "Legacy Patch"},
+        ),
+        client.put(
+            f"/api/accounts/{account_id}/binding",
+            json={"browserInstanceId": "legacy-workspace"},
+        ),
+        client.post(f"/api/accounts/{account_id}/refresh-stats"),
+        client.delete(f"/api/accounts/{account_id}"),
+    )
 
-    assert response.status_code == 200
-    result = _assert_ok(response.json())
-    assert result["id"] == account_id
-    assert result["providerStatus"] == "ready"
-    assert result["publishReadiness"]["canPublish"] is True
-    assert result["publishReadiness"]["lastValidatedAt"] is not None
+    for response in responses:
+        _assert_legacy_write_gone(response)
+
+
+def test_legacy_account_mutations_ignore_business_body(tmp_path: Path) -> None:
+    client = TestClient(_build_app(tmp_path))
+    account_id = _assert_ok(client.get("/api/accounts").json())[0]["id"]
+    requests = (
+        ("POST", "/api/accounts"),
+        ("PATCH", f"/api/accounts/{account_id}"),
+        ("PUT", f"/api/accounts/{account_id}/binding"),
+    )
+
+    for method, path in requests:
+        _assert_legacy_write_gone(client.request(method, path))
+        _assert_legacy_write_gone(
+            client.request(
+                method,
+                path,
+                content="{invalid-json",
+                headers={"content-type": "application/json"},
+            )
+        )
+
+
+def test_legacy_account_group_mutations_return_gone_for_any_body(
+    tmp_path: Path,
+) -> None:
+    client = TestClient(_build_app(tmp_path))
+    requests = (
+        ("POST", "/api/accounts/groups"),
+        ("PATCH", "/api/accounts/groups/legacy-group"),
+        ("DELETE", "/api/accounts/groups/legacy-group"),
+        ("POST", "/api/accounts/groups/legacy-group/members"),
+        (
+            "DELETE",
+            "/api/accounts/groups/legacy-group/members/legacy-account",
+        ),
+    )
+
+    for method, path in requests:
+        _assert_legacy_write_gone(client.request(method, path))
+        _assert_legacy_write_gone(
+            client.request(
+                method,
+                path,
+                content="{invalid-json",
+                headers={"content-type": "application/json"},
+            )
+        )

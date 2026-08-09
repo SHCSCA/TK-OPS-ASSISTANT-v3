@@ -1,0 +1,106 @@
+@media (max-width: 1200px) {
+  .shell-workspace,
+  .app-shell[data-detail-open="true"] .shell-workspace,
+  .app-shell[data-sidebar-collapsed="false"] .shell-workspace,
+  .app-shell[data-sidebar-collapsed="false"][data-detail-open="true"] .shell-workspace {
+    grid-template-columns: var(--sidebar-collapsed) minmax(0, 1fr) var(--detail-rail);
+  }
+
+  .sidebar-group p,
+  .nav-item span:last-child {
+    display: none;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 0;
+  }
+
+  .workspace-grid {
+    grid-template-columns: 180px minmax(420px, 1fr);
+    grid-template-rows: minmax(0, 1fr) 230px;
+  }
+
+  .asset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .voice-layout {
+    grid-template-columns: 160px minmax(0, 1fr) 180px;
+  }
+
+  .detail-host {
+    bottom: 0;
+    box-shadow: var(--shadow-panel);
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: var(--detail-rail);
+    z-index: 30;
+  }
+
+  .shell-workspace {
+    position: relative;
+  }
+
+  .app-shell[data-detail-open="true"] .detail-host {
+    width: 320px;
+  }
+}
+
+@media (max-width: 1050px) {
+  .page-canvas {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+
+  .object-bar__actions .button:not(.button--ai) span:last-child {
+    display: none;
+  }
+
+  .object-bar__actions .button:not(.button--ai) {
+    padding: 0;
+    width: 34px;
+  }
+
+  .title-bar__project,
+  .title-bar__divider {
+    display: none;
+  }
+
+  .subtitle-layout {
+    grid-template-columns: minmax(380px, 1fr) 300px;
+  }
+
+  .settings-layout {
+    grid-template-columns: 168px minmax(420px, 1fr);
+  }
+}
+
+@media (max-height: 760px) {
+  .workspace-grid {
+    grid-template-rows: minmax(0, 1fr) 210px;
+  }
+
+  .video-frame {
+    height: min(92%, 360px);
+  }
+
+  .timeline-row {
+    min-height: 42px;
+  }
+
+  .asset-library {
+    grid-auto-rows: 140px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}

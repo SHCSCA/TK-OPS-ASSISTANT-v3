@@ -54,7 +54,7 @@ def _prepare_ready_publish_account(
             platform="tiktok",
             username="publisher_ready",
             avatar_url=None,
-            status="active",
+            status="ready",
             auth_expires_at=None,
             follower_count=None,
             following_count=None,

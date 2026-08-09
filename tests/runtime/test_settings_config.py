@@ -5,12 +5,27 @@ from pathlib import Path
 
 from fastapi import Request
 from fastapi.testclient import TestClient
+from schemas.v1.bootstrap import LicenseStatusDto
+
+TEST_RUNTIME_BASE_URL = "http://127.0.0.1:43119"
+
+
+def _active_license_status() -> LicenseStatusDto:
+    return LicenseStatusDto(
+        status="active",
+        machineCode="TKOPS-ABCDE-FGHIJ-KLMNO-PQRST-TEST5",
+        machineCodeMasked="TKOPS-…-TEST5",
+        expiresAt=None,
+        activatedAt="2026-07-26T00:00:00Z",
+        blockingIssue=None,
+        revision=1,
+    )
 
 
 def test_settings_config_returns_default_document(
-    runtime_client: TestClient,
+    licensed_runtime_client: TestClient,
 ) -> None:
-    response = runtime_client.get("/api/settings/config")
+    response = licensed_runtime_client.get("/api/settings/config")
 
     assert response.status_code == 200
     payload = response.json()
@@ -33,68 +48,63 @@ def test_settings_config_returns_default_document(
 
 
 def test_settings_config_update_persists_across_app_recreation(
-    runtime_app,
+    licensed_runtime_client: TestClient,
     runtime_data_dir: Path,
+    monkeypatch,
 ) -> None:
-    client = TestClient(runtime_app)
-    update_payload = {
-        "runtime": {
-            "mode": "production",
-            "workspaceRoot": str(runtime_data_dir / "workspace"),
-        },
-        "paths": {
-            "cacheDir": str(runtime_data_dir / "cache-next"),
-            "exportDir": str(runtime_data_dir / "exports-next"),
-            "logDir": str(runtime_data_dir / "logs-next"),
-        },
-        "logging": {"level": "DEBUG"},
-        "ai": {
-            "provider": "openai",
-            "model": "gpt-5.4-mini",
-            "voice": "nova",
-            "subtitleMode": "precise",
-        },
-        "media": {
-            "ffprobePath": str(runtime_data_dir / "tools" / "ffprobe.exe"),
-            "ffmpegPath": str(runtime_data_dir / "tools" / "ffmpeg.exe"),
-        },
+    update_payload = licensed_runtime_client.get(
+        "/api/settings/config"
+    ).json()["data"]
+    update_payload["logging"]["level"] = "DEBUG"
+    update_payload["media"] = {
+        "ffprobePath": str(runtime_data_dir / "tools" / "ffprobe.exe"),
+        "ffmpegPath": str(runtime_data_dir / "tools" / "ffmpeg.exe"),
     }
 
-    write_response = client.put("/api/settings/config", json=update_payload)
+    write_response = licensed_runtime_client.put(
+        "/api/settings/config",
+        json=update_payload,
+    )
 
     assert write_response.status_code == 200
     written = write_response.json()
     assert written["ok"] is True
     assert written["data"]["revision"] == 2
     assert written["data"]["scope"] == "runtime_local"
-    assert written["data"]["runtime"]["mode"] == "production"
+    assert written["data"]["runtime"]["mode"] == "test"
     assert written["data"]["logging"]["level"] == "DEBUG"
-    assert written["data"]["ai"]["model"] == "gpt-5.4-mini"
+    assert written["data"]["ai"]["model"] == "gpt-5.4"
     assert written["data"]["media"]["ffprobePath"].endswith("ffprobe.exe")
     assert written["data"]["media"]["ffmpegPath"].endswith("ffmpeg.exe")
 
     from app.factory import create_app
 
-    reloaded_client = TestClient(create_app())
-    read_response = reloaded_client.get("/api/settings/config")
-
-    assert read_response.status_code == 200
-    payload = read_response.json()
-    assert payload["data"]["revision"] == 2
-    assert payload["data"]["runtime"]["workspaceRoot"] == str(
-        runtime_data_dir / "workspace"
+    reloaded_app = create_app()
+    monkeypatch.setattr(
+        reloaded_app.state.bootstrap_v1_service,
+        "get_license_status",
+        lambda **_: _active_license_status(),
     )
-    assert payload["data"]["paths"]["logDir"] == str(runtime_data_dir / "logs-next")
-    assert payload["data"]["ai"]["voice"] == "nova"
-    assert payload["data"]["media"]["ffprobePath"].endswith("ffprobe.exe")
-    assert payload["data"]["media"]["ffmpegPath"].endswith("ffmpeg.exe")
+    with TestClient(
+        reloaded_app,
+        base_url=TEST_RUNTIME_BASE_URL,
+    ) as reloaded_client:
+        read_response = reloaded_client.get("/api/settings/config")
+
+        assert read_response.status_code == 200
+        payload = read_response.json()
+        assert payload["data"]["revision"] == 2
+        assert payload["data"]["logging"]["level"] == "DEBUG"
+        assert payload["data"]["ai"]["voice"] == "alloy"
+        assert payload["data"]["media"]["ffprobePath"].endswith("ffprobe.exe")
+        assert payload["data"]["media"]["ffmpegPath"].endswith("ffmpeg.exe")
 
 
-def test_settings_config_update_broadcasts_config_changed_event(
+def test_settings_config_update_writes_persistent_config_event(
     runtime_app,
+    licensed_runtime_client: TestClient,
     runtime_data_dir: Path,
 ) -> None:
-    client = TestClient(runtime_app)
     captured: list[dict[str, object]] = []
 
     async def fake_broadcast(message: dict[str, object]) -> None:
@@ -107,65 +117,67 @@ def test_settings_config_update_broadcasts_config_changed_event(
     original_broadcast = settings_service_module.ws_manager.broadcast
     settings_service_module.ws_manager.broadcast = fake_broadcast
     try:
-        response = client.put(
+        update_payload = licensed_runtime_client.get(
+            "/api/settings/config"
+        ).json()["data"]
+        update_payload["logging"]["level"] = "DEBUG"
+        update_payload["media"] = {
+            "ffprobePath": str(runtime_data_dir / "ffprobe.exe"),
+            "ffmpegPath": str(runtime_data_dir / "ffmpeg.exe"),
+        }
+        response = licensed_runtime_client.put(
             "/api/settings/config",
-            json={
-                "runtime": {
-                    "mode": "test",
-                    "workspaceRoot": str(runtime_data_dir / "workspace-broadcast"),
-                },
-                "paths": {
-                    "cacheDir": str(runtime_data_dir / "cache-broadcast"),
-                    "exportDir": str(runtime_data_dir / "exports-broadcast"),
-                    "logDir": str(runtime_data_dir / "logs-broadcast"),
-                },
-                "logging": {"level": "INFO"},
-                "ai": {
-                    "provider": "openai",
-                    "model": "gpt-5.4",
-                    "voice": "alloy",
-                    "subtitleMode": "balanced",
-                },
-                "media": {
-                    "ffprobePath": str(runtime_data_dir / "ffprobe.exe"),
-                    "ffmpegPath": str(runtime_data_dir / "ffmpeg.exe"),
-                },
-            },
+            json=update_payload,
         )
     finally:
         settings_service_module.ws_manager.broadcast = original_broadcast
 
     assert response.status_code == 200
-    assert captured
-    event = captured[-1]
-    assert event["schema_version"] == 1
-    assert event["type"] == "config.changed"
-    assert event["scope"] == "runtime_local"
-    assert event["revision"] == 2
-    assert event["updatedAt"]
-    assert event["changedKeys"] == ["runtime", "paths", "media"]
+    assert captured == []
+    snapshot = runtime_app.state.runtime_event_repository.load_replay_snapshot(
+        topic="system:config",
+        last_event_id=None,
+        after_sequence=0,
+        limit=20,
+    )
+    event = next(
+        item
+        for item in snapshot.events_after_cursor
+        if item.event_type == "config.changed"
+    )
+    assert event.revision == 2
+    assert set(event.payload["changedKeys"]) == {
+        "browser.executablePath",
+        "logging.level",
+        "media.ffmpegPath",
+        "media.ffprobePath",
+    }
 
 
 def test_settings_diagnostics_returns_non_sensitive_runtime_details(
-    runtime_client: TestClient,
-    runtime_data_dir: Path,
+    licensed_runtime_client: TestClient,
 ) -> None:
-    response = runtime_client.get("/api/settings/diagnostics")
+    response = licensed_runtime_client.get("/api/settings/diagnostics")
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["ok"] is True
     data = payload["data"]
-    assert data["databasePath"] == str(runtime_data_dir / "runtime.db")
-    assert data["cacheDir"] == str(runtime_data_dir / "cache")
-    assert data["logDir"] == str(runtime_data_dir / "logs")
+    assert data["databasePath"] == ""
+    assert data["cacheDir"] == ""
+    assert data["logDir"] == ""
     assert data["revision"] == 1
     assert data["mode"] == "test"
-    assert data["healthStatus"] == "online"
+    assert data["healthStatus"] == "ready"
     assert data["configScope"] == "runtime_local"
     assert data["overallStatus"] in {"ready", "warning"}
     assert data["checkedAt"]
-    assert data["items"]
+    assert {item["id"] for item in data["items"]} == {
+        "runtime.status",
+        "database.schema",
+        "directories.status",
+        "media-tools.status",
+    }
 
 
 def test_unhandled_runtime_errors_are_wrapped_with_request_id(
@@ -187,32 +199,16 @@ def test_unhandled_runtime_errors_are_wrapped_with_request_id(
 
 
 def test_settings_update_writes_structured_audit_log(
-    runtime_app,
+    licensed_runtime_client: TestClient,
     runtime_data_dir: Path,
 ) -> None:
-    client = TestClient(runtime_app)
-
-    response = client.put(
+    update_payload = licensed_runtime_client.get(
+        "/api/settings/config"
+    ).json()["data"]
+    update_payload["logging"]["level"] = "DEBUG"
+    response = licensed_runtime_client.put(
         "/api/settings/config",
-        json={
-            "runtime": {
-                "mode": "test",
-                "workspaceRoot": str(runtime_data_dir / "workspace"),
-            },
-            "paths": {
-                "cacheDir": str(runtime_data_dir / "cache"),
-                "exportDir": str(runtime_data_dir / "exports"),
-                "logDir": str(runtime_data_dir / "logs"),
-            },
-            "logging": {"level": "INFO"},
-            "ai": {
-                "provider": "openai",
-                "model": "gpt-5.4",
-                "voice": "alloy",
-                "subtitleMode": "balanced",
-            },
-            "media": {"ffprobePath": "", "ffmpegPath": ""},
-        },
+        json=update_payload,
     )
 
     assert response.status_code == 200
@@ -220,9 +216,18 @@ def test_settings_update_writes_structured_audit_log(
     log_path = runtime_data_dir / "logs" / "runtime.jsonl"
     assert log_path.exists()
 
-    audit_entry = json.loads(log_path.read_text(encoding="utf-8").strip().splitlines()[-1])
+    entries = [
+        json.loads(line)
+        for line in log_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    audit_entry = next(
+        entry
+        for entry in reversed(entries)
+        if entry["category"] == "audit" and entry["message"] == "config.updated"
+    )
     assert audit_entry["category"] == "audit"
     assert audit_entry["level"] == "INFO"
     assert audit_entry["requestId"]
-    assert audit_entry["message"] == "settings.updated"
+    assert audit_entry["message"] == "config.updated"
     assert audit_entry["context"]["revision"] == 2

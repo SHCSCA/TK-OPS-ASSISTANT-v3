@@ -1,6 +1,6 @@
 [package]
 name = "tk-ops-desktop"
-version = "0.4.7"
+version = "0.4.11"
 description = "TK-OPS desktop shell"
 authors = ["TK-OPS"]
 edition = "2021"
@@ -10,6 +10,22 @@ build = "build.rs"
 tauri-build = { version = "2.0.0", features = [] }
 
 [dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+hex = "0.4"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
 tauri = { version = "2.0.0", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
+
+[target.'cfg(windows)'.dependencies]
+tauri-plugin-single-instance = "2"
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+  "Win32_UI_WindowsAndMessaging"
+] }

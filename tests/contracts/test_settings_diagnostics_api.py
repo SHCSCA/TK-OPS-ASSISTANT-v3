@@ -4,9 +4,9 @@ from fastapi.testclient import TestClient
 
 
 def test_diagnostics_contract_exposes_check_report_items(
-    runtime_client: TestClient,
+    licensed_runtime_client: TestClient,
 ) -> None:
-    response = runtime_client.get("/api/settings/diagnostics")
+    response = licensed_runtime_client.get("/api/settings/diagnostics")
 
     assert response.status_code == 200
     payload = response.json()

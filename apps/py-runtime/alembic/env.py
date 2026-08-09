@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import os
+import logging
 import sys
-from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
@@ -10,21 +9,42 @@ from sqlalchemy import engine_from_config, pool
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from config.database import (  # noqa: E402
+    DatabasePathConfigurationError,
+    database_path_to_url,
+    resolve_database_path,
+    resolve_runtime_data_dir,
+)
 from domain.models import Base  # noqa: E402
 
 config = context.config
-
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name, disable_existing_loggers=False)
+log = logging.getLogger(__name__)
 
 target_metadata = Base.metadata
 
+_DEFAULT_INI_DATABASE_URL = "sqlite:///runtime.db"
+
 
 def _database_url() -> str:
-    database_path = os.environ.get("TK_OPS_DATABASE_PATH")
-    if database_path:
-        return f"sqlite:///{database_path}"
-    return str(config.get_main_option("sqlalchemy.url"))
+    attribute_url = config.attributes.get("database_url")
+    if attribute_url:
+        return str(attribute_url)
+
+    option_url = str(config.get_main_option("sqlalchemy.url") or "").strip()
+    if option_url and option_url != _DEFAULT_INI_DATABASE_URL:
+        return option_url
+
+    repo_root = Path(__file__).resolve().parents[3]
+    data_dir = resolve_runtime_data_dir(repo_root / ".runtime-data")
+    database_path = resolve_database_path(data_dir)
+    try:
+        database_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        log.exception("无法准备 Alembic 数据库目录")
+        raise DatabasePathConfigurationError(
+            "无法创建数据库目录，请检查 Runtime 数据目录权限"
+        ) from exc
+    return database_path_to_url(database_path)
 
 
 def run_migrations_offline() -> None:
@@ -48,11 +68,14 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
-    with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+    try:
+        with connectable.connect() as connection:
+            context.configure(connection=connection, target_metadata=target_metadata)
 
-        with context.begin_transaction():
-            context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
+    finally:
+        connectable.dispose()
 
 
 if context.is_offline_mode():

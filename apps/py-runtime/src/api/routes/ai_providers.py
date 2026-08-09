@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
+from api.routes.ai_legacy_support import reject_legacy_ai_write
 from schemas.envelope import ok_response
 from services.ai_capability_service import AICapabilityService
 
@@ -27,6 +28,14 @@ def get_ai_provider_models(provider_id: str, request: Request) -> dict[str, obje
 
 
 @router.post('/{provider_id}/models/refresh')
-def refresh_ai_provider_models(provider_id: str, request: Request) -> dict[str, object]:
-    result = get_ai_capability_service(request).refresh_provider_models(provider_id)
-    return ok_response(result.model_dump(mode='json'))
+def refresh_ai_provider_models(
+    provider_id: str,
+    request: Request,
+) -> None:
+    del provider_id
+    reject_legacy_ai_write(
+        request,
+        replacement=(
+            "POST /api/v1/system/providers/{provider_id}/model-discovery"
+        ),
+    )

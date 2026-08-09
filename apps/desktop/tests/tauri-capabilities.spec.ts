@@ -15,6 +15,10 @@ describe("Tauri capability 权限", () => {
           minWidth?: number;
           minHeight?: number;
           resizable?: boolean;
+          maximizable?: boolean;
+          minimizable?: boolean;
+          closable?: boolean;
+          decorations?: boolean;
         }>;
       };
     };
@@ -26,6 +30,10 @@ describe("Tauri capability 权限", () => {
     expect(mainWindow?.minWidth).toBeLessThanOrEqual(960);
     expect(mainWindow?.minHeight).toBeLessThanOrEqual(720);
     expect(mainWindow?.resizable).toBe(true);
+    expect(mainWindow?.maximizable).toBe(true);
+    expect(mainWindow?.minimizable).toBe(true);
+    expect(mainWindow?.closable).toBe(true);
+    expect(mainWindow?.decorations).toBe(true);
   });
 
   it("主窗口允许打开系统文件选择器", () => {
@@ -37,7 +45,7 @@ describe("Tauri capability 权限", () => {
     expect(capability.permissions).toContain("dialog:allow-open");
   });
 
-  it("允许资产预览通过 Tauri asset 协议读取用户本地素材", () => {
+  it("资产协议只允许读取 Runtime 账号资产目录", () => {
     const configPath = resolve(process.cwd(), "src-tauri", "tauri.conf.json");
     const config = JSON.parse(readFileSync(configPath, "utf8")) as {
       app?: {
@@ -53,8 +61,28 @@ describe("Tauri capability 权限", () => {
     const assetProtocol = config.app?.security?.assetProtocol;
 
     expect(assetProtocol?.enable).toBe(true);
-    expect(assetProtocol?.scope).toEqual(
-      expect.arrayContaining(["$HOME/**", "$PICTURE/**", "$VIDEO/**", "$DOCUMENT/**"])
+    expect(assetProtocol?.scope).toEqual([
+      "$APPLOCALDATA/runtime/accounts/**/*"
+    ]);
+    expect(assetProtocol?.scope).not.toEqual(
+      expect.arrayContaining([
+        "$HOME/**",
+        "$PICTURE/**",
+        "$VIDEO/**",
+        "$DOCUMENT/**"
+      ])
     );
+  });
+
+  it("测试通道使用独立应用标识，避免干扰正式实例", () => {
+    const defaultConfig = JSON.parse(
+      readFileSync(resolve(process.cwd(), "src-tauri", "tauri.conf.json"), "utf8")
+    ) as { identifier?: string };
+    const testConfig = JSON.parse(
+      readFileSync(resolve(process.cwd(), "src-tauri", "tauri.test.conf.json"), "utf8")
+    ) as { identifier?: string };
+
+    expect(testConfig.identifier).toBe("com.tkops.desktop.test");
+    expect(testConfig.identifier).not.toBe(defaultConfig.identifier);
   });
 });

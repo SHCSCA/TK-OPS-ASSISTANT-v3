@@ -67,7 +67,7 @@ def _make_search_service(tmp_path: Path) -> SearchService:
                 platform="tiktok",
                 username="alpha_creator",
                 avatar_url=None,
-                status="active",
+                status="ready",
                 auth_expires_at=None,
                 follower_count=1024,
                 following_count=128,

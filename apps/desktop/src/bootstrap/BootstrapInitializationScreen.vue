@@ -111,6 +111,7 @@ import { storeToRefs } from "pinia";
 import { computed, reactive, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
+import { resolveInternalRedirect } from "@/app/router/internal-redirect";
 import {
   applySettingsToBootstrapForm,
   cloneBootstrapSettingsInput,
@@ -157,18 +158,8 @@ async function handleSave(): Promise<void> {
     return;
   }
 
-  await router.replace(resolveRedirectTarget(route.query.redirect));
-}
-
-function resolveRedirectTarget(value: unknown): string {
-  if (typeof value !== "string" || value.length === 0) {
-    return "/dashboard";
-  }
-
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
+  await router.replace(
+    resolveInternalRedirect(route.query.redirect, "/dashboard")
+  );
 }
 </script>

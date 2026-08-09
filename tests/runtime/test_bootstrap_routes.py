@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
-from schemas.license import LicenseStatusDto
+from schemas.v1.bootstrap import LicenseBlockingIssueDto, LicenseStatusDto
 
 
 def test_initialize_directories_creates_runtime_paths_and_reports_status(
-    runtime_client: TestClient,
+    licensed_runtime_client: TestClient,
 ) -> None:
-    response = runtime_client.post("/api/bootstrap/initialize-directories")
+    response = licensed_runtime_client.post(
+        "/api/bootstrap/initialize-directories"
+    )
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["ok"] is True
     report = payload["data"]
     assert set(report) == {"rootDir", "databasePath", "status", "directories", "checkedAt"}
-    assert report["status"] == "ok"
+    assert report["status"] == "ready"
     assert report["rootDir"]
     assert report["databasePath"]
     assert report["directories"]
@@ -28,57 +30,49 @@ def test_initialize_directories_creates_runtime_paths_and_reports_status(
             "status",
             "message",
         }
-        assert item["path"]
+        assert item["path"] == ""
 
 
 def test_runtime_selfcheck_reports_structured_items(
-    runtime_client: TestClient,
-    monkeypatch,
+    licensed_runtime_client: TestClient,
 ) -> None:
-    monkeypatch.setattr(
-        "services.bootstrap_service._check_port_listening",
-        lambda port: (True, f"端口 {port} 已处于监听状态"),
+    response = licensed_runtime_client.post(
+        "/api/bootstrap/runtime-selfcheck"
     )
 
-    response = runtime_client.post("/api/bootstrap/runtime-selfcheck")
-
-    assert response.status_code == 200
+    assert response.status_code == 202
     payload = response.json()
     assert payload["ok"] is True
     report = payload["data"]
     assert set(report) == {"status", "runtimeVersion", "checkedAt", "items"}
     assert report["runtimeVersion"]
-    assert report["status"] == "ok"
-    assert report["items"]
-    for item in report["items"]:
-        assert set(item) == {
-            "key",
-            "label",
-            "status",
-            "detail",
-            "errorCode",
-            "checkedAt",
-        }
-        assert item["key"]
+    assert report["status"] == "queued"
+    assert len(report["items"]) == 1
+    item = report["items"][0]
+    assert set(item) == {
+        "key",
+        "label",
+        "status",
+        "detail",
+        "errorCode",
+        "checkedAt",
+    }
+    assert item["key"] == "persistent-task"
+    assert item["status"] == "queued"
+    assert "持久队列" in item["detail"]
 
 
-def test_runtime_selfcheck_warns_when_port_is_not_listening(
-    runtime_client: TestClient,
-    monkeypatch,
+def test_runtime_selfcheck_no_longer_returns_synchronous_port_results(
+    licensed_runtime_client: TestClient,
 ) -> None:
-    monkeypatch.setattr(
-        "services.bootstrap_service._check_port_listening",
-        lambda port: (False, f"端口 {port} 未检测到目标服务"),
+    response = licensed_runtime_client.post(
+        "/api/bootstrap/runtime-selfcheck"
     )
 
-    response = runtime_client.post("/api/bootstrap/runtime-selfcheck")
-
-    assert response.status_code == 200
+    assert response.status_code == 202
     payload = response.json()
     assert payload["ok"] is True
-    port_item = next(item for item in payload["data"]["items"] if item["key"] == "port")
-    assert port_item["status"] == "warning"
-    assert port_item["errorCode"] == "runtime.port-not-listening"
+    assert all(item["key"] != "port" for item in payload["data"]["items"])
 
 
 def test_bootstrap_readiness_reports_license_blocker_and_next_action(
@@ -86,21 +80,20 @@ def test_bootstrap_readiness_reports_license_blocker_and_next_action(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        runtime_client.app.state.bootstrap_service._license_service,
-        "get_status",
-        lambda request_id=None: LicenseStatusDto(
-            active=False,
-            restrictedMode=True,
-            machineCode="machine-1",
-            machineBound=False,
-            licenseType="perpetual",
-            maskedCode="",
+        runtime_client.app.state.bootstrap_v1_service,
+        "get_license_status",
+        lambda **_: LicenseStatusDto(
+            status="missing",
+            machineCode="TKOPS-ABCDE-FGHIJ-KLMNO-PQRST-TEST5",
+            machineCodeMasked="TKOPS-…-TEST5",
+            expiresAt=None,
             activatedAt=None,
+            blockingIssue=LicenseBlockingIssueDto(
+                code="LICENSE_MISSING",
+                message="许可证尚未激活",
+            ),
+            revision=0,
         ),
-    )
-    monkeypatch.setattr(
-        "services.bootstrap_service._check_port_listening",
-        lambda port: (True, f"端口 {port} 已处于监听状态"),
     )
 
     response = runtime_client.get("/api/bootstrap/readiness")
@@ -110,12 +103,22 @@ def test_bootstrap_readiness_reports_license_blocker_and_next_action(
     assert payload["ok"] is True
     report = payload["data"]
     assert report["canContinue"] is False
-    blockers = {item["key"]: item for item in report["blockers"]}
-    assert "license" in blockers
-    assert blockers["license"]["errorCode"] == "license.not_activated"
-    assert blockers["license"]["affectedTarget"] == "许可证"
-    assert blockers["license"]["nextStep"]
-    assert blockers["license"]["action"] == {
-        "key": "open-license-activation",
-        "label": "前往激活",
+    license_item = next(
+        item for item in report["items"] if item["key"] == "license"
+    )
+    assert license_item["errorCode"] == "LICENSE_MISSING"
+    assert license_item["action"] == {
+        "key": "open-bootstrap",
+        "label": "打开首启向导",
+    }
+    blocker = next(
+        item
+        for item in report["blockers"]
+        if item["errorCode"] == "LICENSE_MISSING"
+    )
+    assert blocker["affectedTarget"] == "bootstrap"
+    assert blocker["nextStep"]
+    assert blocker["action"] == {
+        "key": "open-bootstrap",
+        "label": "打开首启向导",
     }

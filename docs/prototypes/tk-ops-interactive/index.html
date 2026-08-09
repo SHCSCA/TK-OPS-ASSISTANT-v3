@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22%2300f0ff%22/><path d=%22M18 18h28v9H36v19h-9V27h-9z%22 fill=%22%23060b12%22/></svg>">
+    <title>TK-OPS 本地交互原型</title>
+    <link rel="stylesheet" href="styles/tokens.css">
+    <link rel="stylesheet" href="styles/base.css">
+    <link rel="stylesheet" href="styles/shell.css">
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/workspace.css">
+    <link rel="stylesheet" href="styles/pages.css">
+    <link rel="stylesheet" href="styles/compact.css">
+  </head>
+  <body>
+    <div id="app" class="app-shell" data-sidebar-collapsed="true" data-detail-open="false">
+      <header class="title-bar">
+        <div class="title-bar__brand">
+          <button class="icon-button" type="button" data-action="toggle-sidebar" aria-label="切换侧边栏">
+            <span class="icon" aria-hidden="true">menu</span>
+          </button>
+          <svg class="brand-mark" viewBox="0 0 32 32" aria-label="TK-OPS" role="img">
+            <rect class="brand-mark__plate" x="3" y="3" width="26" height="26" rx="7"></rect>
+            <path class="brand-mark__frame" d="M9 10h8.25c3.7 0 6.75 2.85 6.75 6.45S20.95 23 17.25 23H9z"></path>
+            <path class="brand-mark__cut" d="M13 10v13"></path>
+            <path class="brand-mark__signal" d="M17 13.1 21.6 16 17 18.9z"></path>
+          </svg>
+          <strong>TK-OPS</strong>
+        </div>
+
+        <div class="title-bar__context">
+          <span id="title-page">AI 剪辑工作台</span>
+          <span class="title-bar__divider"></span>
+          <span class="title-bar__project">原型项目</span>
+        </div>
+
+        <div class="title-bar__actions">
+          <button class="status-dot status-dot--ai" type="button" data-action="open-ai" aria-label="AI 状态" title="AI 已就绪"></button>
+          <button class="status-dot status-dot--runtime" type="button" data-action="open-runtime" aria-label="Runtime 状态" title="Runtime 已连接"></button>
+          <button class="icon-button" type="button" data-action="toggle-theme" aria-label="切换主题" title="切换主题">
+            <span class="icon" aria-hidden="true">dark_mode</span>
+          </button>
+          <button class="icon-button" type="button" data-action="toggle-command-menu" aria-label="打开原型控制菜单" title="原型控制">
+            <span class="icon" aria-hidden="true">more_vert</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="shell-workspace">
+        <aside id="sidebar" class="sidebar" aria-label="页面导航"></aside>
+        <main id="page-host" class="page-host" tabindex="-1"></main>
+        <aside id="detail-host" class="detail-host" aria-label="对象详情"></aside>
+      </div>
+
+      <footer id="global-status" class="global-status" aria-live="polite"></footer>
+    </div>
+
+    <div id="command-menu" class="command-menu" hidden>
+      <button type="button" data-action="run-task"><span class="icon">auto_awesome</span>运行任务</button>
+      <button type="button" data-action="simulate-error"><span class="icon">error</span>模拟错误</button>
+      <button type="button" data-action="clear-prototype"><span class="icon">restart_alt</span>重置原型</button>
+    </div>
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="scripts/config.js" defer></script>
+    <script src="scripts/data.js" defer></script>
+    <script src="scripts/logger.js" defer></script>
+    <script src="scripts/state.js" defer></script>
+    <script src="scripts/renderers/core-pages.js" defer></script>
+    <script src="scripts/renderers/media-pages.js" defer></script>
+    <script src="scripts/renderers/operations-pages.js" defer></script>
+    <script src="scripts/render.js" defer></script>
+    <script src="scripts/interactions.js" defer></script>
+    <script src="scripts/app.js" defer></script>
+  </body>
+</html>

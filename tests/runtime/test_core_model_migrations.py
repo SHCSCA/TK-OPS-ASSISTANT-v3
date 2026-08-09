@@ -19,7 +19,7 @@ def test_alembic_upgrade_creates_core_operational_tables(
     runtime_root = repo_root / "apps" / "py-runtime"
     config = Config(str(runtime_root / "alembic.ini"))
     config.set_main_option("script_location", str(runtime_root / "alembic"))
-    monkeypatch.setenv("TK_OPS_DATABASE_PATH", str(database_path))
+    config.attributes["database_url"] = f"sqlite:///{database_path.as_posix()}"
 
     cwd = Path.cwd()
     os.chdir(runtime_root)

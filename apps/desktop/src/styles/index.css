@@ -2,8 +2,5 @@
 @import "./motion/keyframes.css";
 @import "./icons.css";
 @import "./base.css";
-@import "./bootstrap.css";
 @import "./shell.css";
-@import "./dashboard.css";
-@import "./video.css";
-@import "./workspace.css";
+@import "./bootstrap.css";

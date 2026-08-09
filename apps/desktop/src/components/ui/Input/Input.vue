@@ -1,6 +1,8 @@
 <template>
   <div class="ui-input-wrapper">
-    <label v-if="label" class="ui-input__label">{{ label }}</label>
+    <label v-if="label" class="ui-input__label" :for="controlId">
+      {{ label }}
+    </label>
     <div
       class="ui-input__control"
       :class="{
@@ -16,6 +18,9 @@
       
       <textarea
         v-if="multiline"
+        :id="controlId"
+        :aria-describedby="hint ? hintId : undefined"
+        :aria-invalid="error || undefined"
         class="ui-input__field ui-input__field--textarea"
         :disabled="disabled"
         :placeholder="placeholder"
@@ -26,6 +31,9 @@
       />
       <input
         v-else
+        :id="controlId"
+        :aria-describedby="hint ? hintId : undefined"
+        :aria-invalid="error || undefined"
         class="ui-input__field"
         :disabled="disabled"
         :placeholder="placeholder"
@@ -39,18 +47,26 @@
         <slot name="trailing" />
       </span>
     </div>
-    <div v-if="hint" class="ui-input__hint" :class="{ 'is-error': error }">
+    <div
+      v-if="hint"
+      :id="hintId"
+      class="ui-input__hint"
+      :class="{ 'is-error': error }"
+    >
       {{ hint }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-withDefaults(
+import { computed, useId } from "vue";
+
+const props = withDefaults(
   defineProps<{
     disabled?: boolean;
     error?: boolean;
     hint?: string;
+    id?: string;
     label?: string;
     modelValue?: string;
     multiline?: boolean;
@@ -69,6 +85,10 @@ withDefaults(
     type: "text"
   }
 );
+
+const generatedId = useId();
+const controlId = computed(() => props.id?.trim() || generatedId);
+const hintId = computed(() => `${controlId.value}-hint`);
 
 const emit = defineEmits<{
   (event: "update:modelValue", value: string): void;

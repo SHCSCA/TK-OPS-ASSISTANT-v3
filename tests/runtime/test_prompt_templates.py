@@ -1,50 +1,61 @@
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
+LEGACY_PROMPT_WRITES = (
+    ("POST", "/api/prompt-templates"),
+    ("PUT", "/api/prompt-templates/template-one"),
+    ("DELETE", "/api/prompt-templates/template-one"),
+)
 
-def test_prompt_template_crud(runtime_app) -> None:
-    client = TestClient(runtime_app)
 
-    create_response = client.post(
-        '/api/prompt-templates',
+def test_legacy_prompt_template_list_remains_read_only(
+    runtime_client: TestClient,
+) -> None:
+    response = runtime_client.get("/api/prompt-templates")
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "data": []}
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    LEGACY_PROMPT_WRITES,
+    ids=lambda value: str(value),
+)
+def test_legacy_prompt_template_writes_require_versioned_v1_api(
+    runtime_client: TestClient,
+    method: str,
+    path: str,
+) -> None:
+    response = runtime_client.request(
+        method,
+        path,
+        content=b"{ definitely-not-json",
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 410
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error_code"] == "legacy.write.unsupported"
+
+
+def test_legacy_prompt_rejection_does_not_create_template(
+    runtime_client: TestClient,
+) -> None:
+    rejected = runtime_client.post(
+        "/api/prompt-templates",
         json={
-            'kind': 'script',
-            'name': '脚本改写模板',
-            'description': '用于脚本段落改写',
-            'content': '请基于当前段落和要求输出新版本。',
+            "kind": "script",
+            "name": "旧接口模板",
+            "description": "不得写入",
+            "content": "不得保存的正文",
         },
     )
 
-    assert create_response.status_code == 200
-    created = create_response.json()['data']
-    assert created['kind'] == 'script'
-    template_id = created['id']
-
-    list_response = client.get('/api/prompt-templates', params={'kind': 'script'})
-    assert list_response.status_code == 200
-    listed = list_response.json()['data']
-    assert len(listed) == 1
-    assert listed[0]['id'] == template_id
-
-    update_response = client.put(
-        f'/api/prompt-templates/{template_id}',
-        json={
-            'kind': 'script',
-            'name': '脚本改写模板-更新',
-            'description': '更新后的模板说明',
-            'content': '只输出修改后的完整脚本。',
-        },
-    )
-
-    assert update_response.status_code == 200
-    updated = update_response.json()['data']
-    assert updated['name'] == '脚本改写模板-更新'
-
-    delete_response = client.delete(f'/api/prompt-templates/{template_id}')
-    assert delete_response.status_code == 200
-    assert delete_response.json()['data']['deleted'] is True
-
-    empty_response = client.get('/api/prompt-templates')
-    assert empty_response.status_code == 200
-    assert empty_response.json()['data'] == []
+    assert rejected.status_code == 410
+    listed = runtime_client.get("/api/prompt-templates")
+    assert listed.status_code == 200
+    assert listed.json()["data"] == []

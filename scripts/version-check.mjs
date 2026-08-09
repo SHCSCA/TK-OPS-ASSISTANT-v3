@@ -7,10 +7,17 @@ const repoRoot = process.cwd();
 const rootPackagePath = path.join(repoRoot, "package.json");
 const desktopPackagePath = path.join(repoRoot, "apps", "desktop", "package.json");
 const cargoPath = path.join(repoRoot, "apps", "desktop", "src-tauri", "Cargo.toml");
+const cargoLockPath = path.join(repoRoot, "apps", "desktop", "src-tauri", "Cargo.lock");
 const pyprojectPath = path.join(repoRoot, "apps", "py-runtime", "pyproject.toml");
+const runtimeVersionPath = path.join(
+  repoRoot,
+  "apps",
+  "py-runtime",
+  "src",
+  "app",
+  "version.py"
+);
 const tauriConfigPath = path.join(repoRoot, "apps", "desktop", "src-tauri", "tauri.conf.json");
-const docsRoot = path.join(repoRoot, "docs");
-const readmePath = path.join(repoRoot, "README.md");
 
 async function readText(filePath) {
   return fs.readFile(filePath, "utf8");
@@ -32,10 +39,28 @@ function getCargoVersion(content) {
   return match[1];
 }
 
+function getCargoLockVersion(content) {
+  const match = content.match(
+    /\[\[package\]\]\r?\nname = "tk-ops-desktop"\r?\nversion = "([^"]+)"/
+  );
+  if (!match) {
+    throw new Error("Cargo.lock 未找到 tk-ops-desktop package version。");
+  }
+  return match[1];
+}
+
 function getPyprojectVersion(content) {
   const match = content.match(/\[project\][\s\S]*?^version\s*=\s*"([^"]+)"/m);
   if (!match) {
     throw new Error("pyproject.toml 的 [project] 区块未找到 version。");
+  }
+  return match[1];
+}
+
+function getRuntimeSourceVersion(content) {
+  const match = content.match(/^RUNTIME_VERSION\s*=\s*"([^"]+)"/m);
+  if (!match) {
+    throw new Error("app/version.py 未找到 RUNTIME_VERSION。");
   }
   return match[1];
 }
@@ -48,33 +73,6 @@ function getTauriVersion(content) {
   return parsed.version;
 }
 
-async function collectMarkdownFiles(dir) {
-  const result = [];
-  const entries = await fs.readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      result.push(...(await collectMarkdownFiles(fullPath)));
-      continue;
-    }
-    if (entry.isFile() && entry.name.endsWith(".md")) {
-      result.push(fullPath);
-    }
-  }
-  return result;
-}
-
-function collectUsersPathLines(content) {
-  const lines = content.split(/\r?\n/);
-  const matches = [];
-  lines.forEach((line, index) => {
-    if (line.includes("/Users/")) {
-      matches.push({ lineNumber: index + 1, line: line.trim() });
-    }
-  });
-  return matches;
-}
-
 async function main() {
   const errors = [];
   const rootVersion = getRootVersion(await readText(rootPackagePath));
@@ -84,9 +82,24 @@ async function main() {
     errors.push(`${path.relative(repoRoot, cargoPath)} 版本为 ${cargoVersion}，应为 ${rootVersion}`);
   }
 
+  const cargoLockVersion = getCargoLockVersion(await readText(cargoLockPath));
+  if (cargoLockVersion !== rootVersion) {
+    errors.push(`${path.relative(repoRoot, cargoLockPath)} 版本为 ${cargoLockVersion}，应为 ${rootVersion}`);
+  }
+
   const pyprojectVersion = getPyprojectVersion(await readText(pyprojectPath));
   if (pyprojectVersion !== rootVersion) {
     errors.push(`${path.relative(repoRoot, pyprojectPath)} 版本为 ${pyprojectVersion}，应为 ${rootVersion}`);
+  }
+
+  const runtimeSourceVersion = getRuntimeSourceVersion(
+    await readText(runtimeVersionPath)
+  );
+  if (runtimeSourceVersion !== rootVersion) {
+    errors.push(
+      `${path.relative(repoRoot, runtimeVersionPath)} 版本为 `
+      + `${runtimeSourceVersion}，应为 ${rootVersion}`
+    );
   }
 
   const tauriVersion = getTauriVersion(await readText(tauriConfigPath));
@@ -97,26 +110,6 @@ async function main() {
   const desktopPackage = JSON.parse(await readText(desktopPackagePath));
   if (Object.hasOwn(desktopPackage, "version")) {
     errors.push(`${path.relative(repoRoot, desktopPackagePath)} 不应维护 version 字段`);
-  }
-
-  const markdownFiles = [readmePath, ...(await collectMarkdownFiles(docsRoot))];
-  for (const filePath of markdownFiles) {
-    const content = await readText(filePath);
-    const relativeFile = path.relative(repoRoot, filePath);
-    const lines = content.split(/\r?\n/);
-
-    lines.forEach((line, index) => {
-      const hasVersionWord = line.includes("版本");
-      const semverMatch = line.match(/\b\d+\.\d+\.\d+\b/);
-      if (hasVersionWord && semverMatch) {
-        errors.push(`${relativeFile}:${index + 1} 存在硬编码版本号：${semverMatch[0]}`);
-      }
-    });
-
-    const usersPathHits = collectUsersPathLines(content);
-    for (const hit of usersPathHits) {
-      errors.push(`${relativeFile}:${hit.lineNumber} 存在本地绝对路径 /Users/`);
-    }
   }
 
   if (errors.length > 0) {

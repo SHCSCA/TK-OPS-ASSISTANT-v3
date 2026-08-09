@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel
+
+AccountStatus = Literal["draft", "unbound", "ready", "attention", "archived"]
 
 
 class AccountSuggestedActionDto(BaseModel):
@@ -31,7 +35,7 @@ class AccountCreateInput(BaseModel):
     platform: str = "tiktok"
     username: str | None = None
     avatarUrl: str | None = None
-    status: str = "active"
+    status: AccountStatus = "draft"
     authExpiresAt: str | None = None
     followerCount: int | None = None
     followingCount: int | None = None
@@ -45,7 +49,7 @@ class AccountUpdateInput(BaseModel):
     platform: str | None = None
     username: str | None = None
     avatarUrl: str | None = None
-    status: str | None = None
+    status: AccountStatus | None = None
     authExpiresAt: str | None = None
     followerCount: int | None = None
     followingCount: int | None = None

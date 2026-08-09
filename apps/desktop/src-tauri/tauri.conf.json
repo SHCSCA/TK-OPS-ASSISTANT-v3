@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "TK-OPS",
-  "version": "0.4.7",
+  "version": "0.4.11",
   "identifier": "com.tkops.desktop",
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run prepare:media-tools && npm run build",
+    "beforeDevCommand": "npm run prepare:runtime-sidecar && npm run prepare:media-tools && npm run dev",
+    "beforeBuildCommand": "npm run prepare:runtime-sidecar && npm run prepare:media-tools && npm run build",
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:1420"
   },
@@ -14,12 +14,7 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "$HOME/**",
-          "$DESKTOP/**",
-          "$DOCUMENT/**",
-          "$DOWNLOAD/**",
-          "$PICTURE/**",
-          "$VIDEO/**"
+          "$APPLOCALDATA/runtime/accounts/**/*"
         ]
       }
     },
@@ -32,16 +27,24 @@
         "minWidth": 960,
         "minHeight": 720,
         "resizable": true,
-        "decorations": false
+        "maximizable": true,
+        "minimizable": true,
+        "closable": true,
+        "decorations": true
       }
     ]
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "resources": [
-      "resources/bin/ffprobe/windows-x64/ffprobe.exe"
+    "targets": [
+      "nsis"
     ],
+    "resources": {
+      "binaries/tk-ops-runtime-x86_64-pc-windows-msvc.exe": "resources/runtime/tk-ops-runtime.exe",
+      "resources/bin/ffprobe/windows-x64/ffprobe.exe": "resources/bin/ffprobe/windows-x64/ffprobe.exe",
+      "resources/runtime/runtime-supervisor.bootstrap.json": "resources/runtime/runtime-supervisor.bootstrap.json",
+      "resources/runtime/tk-ops-runtime.manifest.json": "resources/runtime/tk-ops-runtime.manifest.json"
+    },
     "icon": [
       "../../../tkops.ico"
     ]

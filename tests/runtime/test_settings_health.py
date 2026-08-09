@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
-import zipfile
 from fastapi.testclient import TestClient
 
 from app.config import load_runtime_config
 
 
-def test_settings_health_returns_runtime_snapshot(runtime_client: TestClient) -> None:
-    client = runtime_client
+def test_settings_health_returns_runtime_snapshot(
+    licensed_runtime_client: TestClient,
+) -> None:
+    client = licensed_runtime_client
 
     response = client.get("/api/settings/health")
 
@@ -18,57 +18,63 @@ def test_settings_health_returns_runtime_snapshot(runtime_client: TestClient) ->
     payload = response.json()
     assert payload["ok"] is True
     data = payload["data"]
-    assert data["service"] == "online"
+    assert data["service"] == "ready"
     assert set(data["runtime"]) == {"status", "port", "uptimeMs", "version"}
-    assert set(data["aiProvider"]) == {"status", "latencyMs", "providerId", "providerName", "lastChecked"}
-    assert set(data["renderQueue"]) == {"running", "queued", "avgWaitMs"}
-    assert set(data["publishingQueue"]) == {"pendingToday", "failedToday"}
     assert set(data["taskBus"]) == {"running", "queued", "blocked", "failed24h"}
     assert set(data["license"]) == {"status", "expiresAt"}
+    assert data["unavailableSections"] == [
+        "aiProvider",
+        "renderQueue",
+        "publishingQueue",
+    ]
     assert payload["data"]["version"]
     assert payload["data"]["now"]
     assert payload["data"]["mode"] == "test"
 
 
-def test_settings_logs_supports_since_filter(runtime_client: TestClient) -> None:
-    response = runtime_client.get(
+def test_settings_logs_collection_is_retired(
+    licensed_runtime_client: TestClient,
+) -> None:
+    response = licensed_runtime_client.get(
         "/api/settings/logs",
         params={"since": "2020-01-01T00:00:00Z", "limit": 2},
     )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["ok"] is True
-    assert isinstance(payload["data"]["items"], list)
-
-
-def test_settings_logs_rejects_bad_since(runtime_client: TestClient) -> None:
-    response = runtime_client.get("/api/settings/logs", params={"since": "not-a-time"})
-
-    assert response.status_code == 422
+    assert response.status_code == 410
     payload = response.json()
     assert payload["ok"] is False
-    assert payload["error"] == "请求参数校验失败"
+    assert payload["error_code"] == "legacy.write.unsupported"
 
 
-def test_settings_diagnostics_export_creates_local_zip(runtime_client: TestClient) -> None:
-    response = runtime_client.post("/api/settings/diagnostics/export")
+def test_settings_logs_does_not_reintroduce_legacy_query_validation(
+    licensed_runtime_client: TestClient,
+) -> None:
+    response = licensed_runtime_client.get(
+        "/api/settings/logs",
+        params={"since": "not-a-time"},
+    )
 
-    assert response.status_code == 200
+    assert response.status_code == 410
     payload = response.json()
-    assert payload["ok"] is True
-    path = Path(payload["data"]["bundlePath"])
-    assert path.exists()
-    with zipfile.ZipFile(path) as archive:
-        assert "settings.json" in archive.namelist()
-        assert "health.json" in archive.namelist()
-        assert "diagnostics.json" in archive.namelist()
+    assert payload["ok"] is False
+    assert payload["error_code"] == "legacy.write.unsupported"
 
 
-def test_settings_media_diagnostics_reports_ffprobe_state(runtime_app) -> None:
-    client = TestClient(runtime_app)
+def test_settings_diagnostics_export_is_restricted_to_tauri(
+    licensed_runtime_client: TestClient,
+) -> None:
+    response = licensed_runtime_client.post("/api/settings/diagnostics/export")
 
-    response = client.get("/api/settings/diagnostics/media")
+    assert response.status_code == 410
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error_code"] == "legacy.write.unsupported"
+
+
+def test_settings_media_diagnostics_reports_ffprobe_state(
+    licensed_runtime_client: TestClient,
+) -> None:
+    response = licensed_runtime_client.get("/api/settings/diagnostics/media")
 
     assert response.status_code == 200
     payload = response.json()
@@ -93,28 +99,29 @@ def test_settings_media_diagnostics_reports_ffprobe_state(runtime_app) -> None:
 
 
 def test_settings_diagnostics_reports_invalid_ffmpeg_config_without_500(
-    runtime_app,
+    licensed_runtime_client: TestClient,
     runtime_data_dir: Path,
 ) -> None:
-    client = TestClient(runtime_app)
-    current = client.get("/api/settings/config").json()["data"]
+    current = licensed_runtime_client.get("/api/settings/config").json()["data"]
     current["media"]["ffmpegPath"] = str(runtime_data_dir / "missing" / "ffmpeg.exe")
-    update_response = client.put("/api/settings/config", json=current)
+    update_response = licensed_runtime_client.put(
+        "/api/settings/config",
+        json=current,
+    )
     assert update_response.status_code == 200
 
-    response = client.get("/api/settings/diagnostics")
+    response = licensed_runtime_client.get("/api/settings/diagnostics/media")
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["ok"] is True
-    ffmpeg_item = next(
-        item for item in payload["data"]["items"] if item["id"] == "media.ffmpeg"
-    )
-    assert ffmpeg_item["status"] == "failed"
-    assert "FFmpeg" in ffmpeg_item["summary"]
+    assert payload["data"]["ffmpeg"]["status"] != "ready"
+    assert payload["data"]["ffmpeg"]["path"] is None
 
 
-def test_settings_health_allows_desktop_origins(runtime_client: TestClient) -> None:
+def test_settings_health_allows_desktop_origins(
+    licensed_runtime_client: TestClient,
+) -> None:
     allowed_origins = [
         "http://127.0.0.1:1420",
         "http://localhost:1420",
@@ -127,7 +134,7 @@ def test_settings_health_allows_desktop_origins(runtime_client: TestClient) -> N
     ]
 
     for origin in allowed_origins:
-        response = runtime_client.get(
+        response = licensed_runtime_client.get(
             "/api/settings/health",
             headers={"Origin": origin},
         )
@@ -135,7 +142,7 @@ def test_settings_health_allows_desktop_origins(runtime_client: TestClient) -> N
         assert response.status_code == 200
         assert response.headers.get("access-control-allow-origin") == origin
 
-    preflight_response = runtime_client.options(
+    preflight_response = licensed_runtime_client.options(
         "/api/settings/config",
         headers={
             "Origin": "http://127.0.0.1:5174",
@@ -143,7 +150,7 @@ def test_settings_health_allows_desktop_origins(runtime_client: TestClient) -> N
             "Access-Control-Request-Headers": "content-type",
         },
     )
-    blocked_response = runtime_client.get(
+    blocked_response = licensed_runtime_client.get(
         "/api/settings/health",
         headers={"Origin": "http://evil.example"},
     )
@@ -154,7 +161,7 @@ def test_settings_health_allows_desktop_origins(runtime_client: TestClient) -> N
         == "http://127.0.0.1:5174"
     )
     assert "GET" in preflight_response.headers.get("access-control-allow-methods", "")
-    assert blocked_response.status_code == 200
+    assert blocked_response.status_code == 403
     assert blocked_response.headers.get("access-control-allow-origin") is None
 
 
@@ -202,23 +209,18 @@ def test_runtime_config_rejects_unsafe_allowed_origins(
     assert "http://127.0.0.1:6008#debug" not in config.allowed_origins
 
 
-def test_settings_health_reads_real_ai_provider_snapshot(runtime_app) -> None:
+def test_settings_health_does_not_expose_unmigrated_ai_provider_snapshot(
+    runtime_app,
+    licensed_runtime_client: TestClient,
+) -> None:
     runtime_app.state.ai_capability_service.refresh_provider_health()
-    client = TestClient(runtime_app)
 
-    response = client.get("/api/settings/health")
+    response = licensed_runtime_client.get("/api/settings/health")
 
     assert response.status_code == 200
-    payload = response.json()["data"]["aiProvider"]
-    assert payload["providerId"] == "openai"
-    assert payload["status"] in {
-        "not_configured",
-        "missing_secret",
-        "ready",
-        "offline",
-        "refresh_failed",
-        "unsupported",
-    }
+    payload = response.json()["data"]
+    assert "aiProvider" not in payload
+    assert "aiProvider" in payload["unavailableSections"]
 
 
 def test_provider_health_refresh_emits_ai_capability_changed_event(runtime_app) -> None:
@@ -262,19 +264,25 @@ def test_runtime_lifespan_skips_ai_provider_refresh_in_test_mode(
     runtime_app,
     monkeypatch,
 ) -> None:
-    scheduled: list[object] = []
+    refreshed: list[object] = []
 
-    def fake_create_task(coro):
-        scheduled.append(coro)
-        coro.close()
-        return object()
+    async def fake_refresh_provider_health(
+        container,
+        *,
+        blocking_cancel_grace_seconds: float,
+    ) -> None:
+        assert blocking_cancel_grace_seconds > 0
+        refreshed.append(container)
 
-    monkeypatch.setattr(asyncio, "create_task", fake_create_task)
+    monkeypatch.setattr(
+        "app.factory._refresh_provider_health",
+        fake_refresh_provider_health,
+    )
 
     with TestClient(runtime_app):
         pass
 
-    assert scheduled == []
+    assert refreshed == []
 
 
 def test_runtime_lifespan_schedules_ai_provider_refresh_outside_test_mode(
@@ -285,16 +293,22 @@ def test_runtime_lifespan_schedules_ai_provider_refresh_outside_test_mode(
 
     from app.factory import create_app
 
-    scheduled: list[object] = []
+    refreshed: list[object] = []
 
-    def fake_create_task(coro):
-        scheduled.append(coro)
-        coro.close()
-        return object()
+    async def fake_refresh_provider_health(
+        container,
+        *,
+        blocking_cancel_grace_seconds: float,
+    ) -> None:
+        assert blocking_cancel_grace_seconds > 0
+        refreshed.append(container)
 
-    monkeypatch.setattr(asyncio, "create_task", fake_create_task)
+    monkeypatch.setattr(
+        "app.factory._refresh_provider_health",
+        fake_refresh_provider_health,
+    )
 
     with TestClient(create_app()):
         pass
 
-    assert len(scheduled) == 1
+    assert len(refreshed) == 1

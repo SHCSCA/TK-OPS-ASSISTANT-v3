@@ -2,11 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
-from schemas.ai_capabilities import (
-    AICapabilityConfigListInput,
-    AIProviderHealthCheckInput,
-    AIProviderSecretInput,
-)
+from api.routes.ai_legacy_support import reject_legacy_ai_write
 from schemas.envelope import ok_response
 from services.ai_capability_service import AICapabilityService
 
@@ -33,40 +29,39 @@ def get_ai_capability_support_matrix(request: Request) -> dict[str, object]:
 
 @router.put('')
 def update_ai_capability_settings(
-    payload: AICapabilityConfigListInput,
     request: Request,
-) -> dict[str, object]:
-    settings = get_ai_capability_service(request).update_capabilities(payload.capabilities)
-    return ok_response(settings.model_dump(mode='json'))
+) -> None:
+    reject_legacy_ai_write(
+        request,
+        replacement=(
+            "PUT /api/v1/system/capability-routes/{capability_key}"
+        ),
+    )
 
 
 @router.put('/providers/{provider_id}/secret')
 def set_provider_secret(
     provider_id: str,
-    payload: AIProviderSecretInput,
     request: Request,
-) -> dict[str, object]:
-    status = get_ai_capability_service(request).set_provider_secret(
-        provider_id,
-        api_key=payload.apiKey,
-        base_url=payload.baseUrl,
-        access_token=payload.accessToken,
-        app_id=payload.appId,
-        open_api_access_key=payload.openApiAccessKey,
-        open_api_secret_key=payload.openApiSecretKey,
-        open_api_region=payload.openApiRegion,
+) -> None:
+    del provider_id
+    reject_legacy_ai_write(
+        request,
+        replacement=(
+            "PUT /api/v1/system/providers/{provider_id}/credential"
+        ),
     )
-    return ok_response(status.model_dump(mode='json'))
 
 
 @router.post('/providers/{provider_id}/health-check')
 def check_provider_health(
     provider_id: str,
     request: Request,
-    payload: AIProviderHealthCheckInput | None = None,
-) -> dict[str, object]:
-    status = get_ai_capability_service(request).check_provider_health(
-        provider_id,
-        model=payload.model if payload else None,
+) -> None:
+    del provider_id
+    reject_legacy_ai_write(
+        request,
+        replacement=(
+            "POST /api/v1/system/providers/{provider_id}/checks"
+        ),
     )
-    return ok_response(status.model_dump(mode='json'))

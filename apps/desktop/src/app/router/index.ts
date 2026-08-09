@@ -8,9 +8,10 @@ import {
 } from "vue-router";
 import type { Pinia } from "pinia";
 
-import { useLicenseStore } from "@/stores/license";
-import { useProjectStore } from "@/stores/project";
+import { useP0BootstrapStore } from "@/modules/system/bootstrap-store";
 
+import { resolveInternalRedirect } from "./internal-redirect";
+import { createLegacyRedirects } from "./legacy-redirects";
 import { routeIds } from "./route-ids";
 import { routeManifest } from "./route-manifest";
 
@@ -21,36 +22,33 @@ function createRoutes(): RouteRecordRaw[] {
     component: item.loadComponent,
     meta: {
       detailPanelMode: item.detailPanelMode,
-      navGroup: item.navGroup,
-      pageType: item.pageType,
+      migrationState: item.migrationState,
+      navOrder: item.navOrder,
+      navSection: item.navSection,
       requiresLicense: item.requiresLicense,
+      requiresRuntimeReady: item.requiresRuntimeReady,
       routeId: item.id,
-      statusBarMode: item.statusBarMode,
+      scope: item.scope,
       title: item.title
     }
   }));
 
   return [
-    { path: "/", redirect: "/dashboard" },
+    {
+      path: "/",
+      redirect: "/workspace"
+    },
     ...pages,
-    { path: "/:pathMatch(.*)*", redirect: "/dashboard" }
+    ...createLegacyRedirects(),
+    {
+      path: "/:pathMatch(.*)*",
+      redirect: "/workspace"
+    }
   ];
 }
 
 function findRouteItem(route: RouteLocationNormalized) {
   return routeManifest.find((item) => item.id === route.name);
-}
-
-function resolveRedirectTarget(value: unknown): string {
-  if (typeof value !== "string" || value.length === 0) {
-    return "/dashboard";
-  }
-
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
 }
 
 export function createAppRouter(
@@ -63,43 +61,48 @@ export function createAppRouter(
   });
 
   router.beforeEach(async (to) => {
-    const licenseStore = useLicenseStore(pinia);
-    const projectStore = useProjectStore(pinia);
-    const target = findRouteItem(to);
-    if (!target) {
-      return true;
-    }
-
-    if (licenseStore.status === "idle") {
-      await licenseStore.loadStatus();
-    }
-
-    if (target.id === routeIds.setupLicenseWizard && licenseStore.active && !to.query.preview) {
-      return resolveRedirectTarget(to.query.redirect);
-    }
-
-    if (target.requiresLicense && !licenseStore.active) {
-      return {
-        path: "/setup/license",
-        query: {
-          redirect: to.fullPath
-        }
-      };
-    }
-
-    if (target.requiresProjectContext) {
-      if (projectStore.status === "idle") {
-        await projectStore.load();
-      }
-      // Removed hard redirect to /dashboard.
-      // Individual pages will handle missing context via ProjectContextGuard.
-    }
-
-    return true;
+    return guardP0Route(pinia, to);
   });
 
   return router;
 }
 
+async function guardP0Route(
+  pinia: Pinia,
+  to: RouteLocationNormalized
+) {
+  const target = findRouteItem(to);
+  if (!target) return true;
+
+  const bootstrapStore = useP0BootstrapStore(pinia);
+  if (bootstrapStore.phase === "idle") {
+    await bootstrapStore.load();
+  }
+  if (
+    target.id === routeIds.setupLicenseWizard
+    && bootstrapStore.phase === "ready"
+    && !to.query.preview
+  ) {
+    return resolveInternalRedirect(to.query.redirect, "/workspace");
+  }
+  if (
+    (
+      target.requiresLicense
+      || target.requiresRuntimeReady
+    )
+    && bootstrapStore.phase !== "ready"
+  ) {
+    return {
+      path: "/setup/license",
+      query: { redirect: to.fullPath }
+    };
+  }
+  return true;
+}
+
 export * from "./route-ids";
 export * from "./route-manifest";
+export {
+  LEGACY_MIGRATION_QUERY_KEY,
+  resolveLegacyMigrationMessage
+} from "./legacy-redirects";

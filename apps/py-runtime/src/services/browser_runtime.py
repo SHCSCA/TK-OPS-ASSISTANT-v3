@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import json
 import logging
 import os
@@ -7,12 +8,14 @@ import signal
 import socket
 import subprocess
 import time
+from ctypes import wintypes
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 log = logging.getLogger(__name__)
 
@@ -61,6 +64,9 @@ class BrowserRuntime(Protocol):
         ...
 
     def launch_supported(self) -> bool:
+        ...
+
+    def navigate(self, *, debug_port: int, url: str) -> None:
         ...
 
 
@@ -191,6 +197,7 @@ class LocalBrowserRuntime:
                     process.wait(timeout=5)
             elif self._is_process_alive(process_id):
                 os.kill(process_id, signal.SIGTERM)
+                self._wait_for_process_exit(process_id, timeout_seconds=5.0)
         except OSError as exc:
             log.exception("停止浏览器进程失败")
             return BrowserRuntimeHealth(
@@ -207,12 +214,52 @@ class LocalBrowserRuntime:
             process_id=process_id,
         )
 
+    def _wait_for_process_exit(
+        self,
+        process_id: int,
+        *,
+        timeout_seconds: float,
+    ) -> None:
+        deadline = time.monotonic() + timeout_seconds
+        while time.monotonic() < deadline:
+            if not self._is_process_alive(process_id):
+                return
+            time.sleep(0.05)
+
     def launch_supported(self) -> bool:
         try:
             self._resolve_executable_path()
         except BrowserRuntimeError:
             return False
         return True
+
+    def navigate(self, *, debug_port: int, url: str) -> None:
+        if not url.startswith("https://www.tiktok.com/"):
+            raise BrowserRuntimeError(
+                "browser_instance.navigation_forbidden",
+                "浏览器导航目标不在允许的平台范围内。",
+            )
+        endpoint = (
+            f"http://127.0.0.1:{debug_port}/json/new?{quote(url, safe=':/?=&')}"
+        )
+        try:
+            request = Request(endpoint, method="PUT")  # noqa: S310
+            with urlopen(request, timeout=2) as response:  # noqa: S310
+                payload = json.loads(response.read().decode("utf-8"))
+            target_id = payload.get("id") if isinstance(payload, dict) else None
+            if isinstance(target_id, str) and target_id:
+                activate = Request(
+                    f"http://127.0.0.1:{debug_port}/json/activate/{target_id}",
+                    method="GET",
+                )
+                with urlopen(activate, timeout=2):  # noqa: S310
+                    pass
+        except (OSError, URLError, json.JSONDecodeError) as exc:
+            log.exception("导航受控浏览器失败")
+            raise BrowserRuntimeError(
+                "browser_instance.navigation_failed",
+                "无法在受控浏览器中打开 TikTok，请检查浏览器状态后重试。",
+            ) from exc
 
     def _resolve_executable_path(self) -> str:
         configured = (self._executable_path_provider() or "").strip()
@@ -233,6 +280,8 @@ class LocalBrowserRuntime:
         process = self._processes.get(process_id)
         if process is not None:
             return process.poll() is None
+        if os.name == "nt":
+            return _is_windows_process_alive(process_id)
         try:
             os.kill(process_id, 0)
         except OSError:
@@ -286,6 +335,26 @@ def _allocate_local_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         return int(sock.getsockname()[1])
+
+
+def _is_windows_process_alive(process_id: int) -> bool:
+    process_query_limited_information = 0x1000
+    still_active = 259
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(
+        process_query_limited_information,
+        False,
+        process_id,
+    )
+    if not handle:
+        return False
+    try:
+        exit_code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return False
+        return exit_code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def _default_browser_candidates() -> list[str]:

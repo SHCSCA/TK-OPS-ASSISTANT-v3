@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final
+from typing import Callable, Final
 
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -21,6 +21,9 @@ class StoredLicenseGrant:
     signed_payload: str
     masked_code: str
     activated_at: str | None
+
+
+BeforeLicenseCommit = Callable[[Session, StoredLicenseGrant], None]
 
 
 class LicenseRepository:
@@ -45,23 +48,35 @@ class LicenseRepository:
             activated_at=row.activated_at,
         )
 
-    def save(self, grant: StoredLicenseGrant) -> StoredLicenseGrant:
+    def save(
+        self,
+        grant: StoredLicenseGrant,
+        *,
+        before_commit: BeforeLicenseCommit | None = None,
+    ) -> StoredLicenseGrant:
         with self._session_factory() as session:
-            session.merge(
-                LicenseGrant(
-                    id=LICENSE_ROW_ID,
-                    active=int(grant.active),
-                    restricted_mode=int(grant.restricted_mode),
-                    machine_id=grant.machine_code,
-                    machine_code=grant.machine_code,
-                    machine_bound=int(grant.machine_bound),
-                    activation_mode="offline_signed",
-                    license_type=grant.license_type,
-                    signed_payload=grant.signed_payload,
-                    masked_code=grant.masked_code,
-                    activated_at=grant.activated_at,
+            try:
+                session.merge(
+                    LicenseGrant(
+                        id=LICENSE_ROW_ID,
+                        active=int(grant.active),
+                        restricted_mode=int(grant.restricted_mode),
+                        machine_id=grant.machine_code,
+                        machine_code=grant.machine_code,
+                        machine_bound=int(grant.machine_bound),
+                        activation_mode="offline_signed",
+                        license_type=grant.license_type,
+                        signed_payload=grant.signed_payload,
+                        masked_code=grant.masked_code,
+                        activated_at=grant.activated_at,
+                    )
                 )
-            )
-            session.commit()
+                session.flush()
+                if before_commit is not None:
+                    before_commit(session, grant)
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
 
         return grant

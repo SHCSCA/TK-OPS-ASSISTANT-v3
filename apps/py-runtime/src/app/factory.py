@@ -2,515 +2,379 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
-from uuid import uuid4
 
 from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from sqlalchemy.engine import Engine
 
-from api.routes import (
-    accounts_router,
-    ai_capabilities_router,
-    ai_provider_runtime_router,
-    ai_providers_router,
-    assets_router,
-    automation_router,
-    bootstrap_router,
-    dashboard_router,
-    device_workspaces_router,
-    license_router,
-    prompt_templates_router,
-    publishing_router,
-    renders_router,
-    review_router,
-    search_router,
-    scripts_router,
-    settings_router,
-    storyboards_router,
-    subtitles_router,
-    tasks_router,
-    video_deconstruction_router,
-    voice_router,
-    workspace_router,
-    ws_router,
+from api.dependencies.request_context import install_request_context_middleware
+from app.config import (
+    RuntimeConfig,
+    is_production_mode,
+    load_runtime_bootstrap_config,
+    load_runtime_config,
 )
-from ai.providers import dispatch_tts
-from app.config import load_runtime_config
-from app.logging import configure_logging, log_event, pop_request_id, push_request_id
-from app.secret_store import build_secret_store
-from persistence.engine import create_runtime_engine, create_session_factory, initialize_domain_schema
-from repositories.account_repository import AccountRepository
-from repositories.ai_capability_repository import AICapabilityRepository
-from repositories.ai_job_repository import AIJobRepository
-from repositories.asset_repository import AssetRepository
-from repositories.automation_repository import AutomationRepository
-from repositories.dashboard_repository import DashboardRepository
-from repositories.device_workspace_repository import DeviceWorkspaceRepository
-from repositories.imported_video_repository import ImportedVideoRepository
-from repositories.license_repository import LicenseRepository
-from repositories.prompt_template_repository import PromptTemplateRepository
-from repositories.publishing_repository import PublishingRepository
-from repositories.render_repository import RenderRepository
-from repositories.review_repository import ReviewRepository
-from repositories.script_repository import ScriptRepository
-from repositories.storyboard_repository import StoryboardRepository
-from repositories.subtitle_repository import SubtitleRepository
-from repositories.system_config_repository import SystemConfigRepository
-from repositories.timeline_repository import TimelineRepository
-from repositories.video_deconstruction_repository import VideoDeconstructionRepository
-from repositories.voice_profile_repository import VoiceProfileRepository
-from repositories.voice_repository import VoiceRepository
-from schemas.envelope import error_response
-from services.account_service import AccountService
-from services.ai_text_generation_service import AITextGenerationService
-from services.asset_service import AssetService
-from services.automation_service import AutomationService
-from services.browser_runtime import LocalBrowserRuntime
-from services.bootstrap_service import BootstrapService
-from services.ai_capability_service import AICapabilityService
-from services.dashboard_service import DashboardService
-from services.device_workspace_service import DeviceWorkspaceService
-from services.license_activation_base import LicenseActivationUnavailableError
-from services.license_service import LicenseService
-from services.machine_code import MachineCodeService
-from services.prompt_template_service import PromptTemplateService
-from services.publishing_service import PublishingService
-from services.render_service import RenderService
-from services.review_service import ReviewService
-from services.search_service import SearchService
-from services.script_service import ScriptService
-from services.settings_service import SettingsService
-from services.storyboard_service import StoryboardService
-from services.subtitle_service import SubtitleService
-from services.task_manager import task_manager
-from services.video_deconstruction_service import VideoDeconstructionService
-from services.video_import_service import VideoImportService
-from services.video_multimodal_analysis_service import VideoMultimodalAnalysisService
-from services.video_transcription_service import VideoTranscriptionService
-from services.voice_artifact_store import VoiceArtifactStore
-from services.voice_service import VoiceService
-from services.workspace_assembly import WorkspaceAssemblyService
-from services.workspace_service import WorkspaceService
+from app.container import (
+    RuntimeContainer,
+    RuntimeDependencyOverrides,
+    build_runtime_container,
+)
+from app.container_state import attach_container_state
+from app.exception_handlers import install_exception_handlers
+from app.lifecycle import prepare_runtime_database
+from app.logging import configure_logging, log_event
+from app.pre_write_startup_recovery import (
+    PreWriteStartupRecoveryCoordinator,
+    PreWriteStartupRecoveryError,
+)
+from app.route_registry import register_routes
+from app.runtime_background import RuntimeBackgroundServices
+from app.security_middleware import install_v1_security_middleware
+from app.secret_store import SecretStore, build_secret_store
+from app.shutdown_deadline import ShutdownDeadline, wait_task_until
+from app.write_gate import (
+    RuntimeWriteGate,
+    RuntimeWriteGateState,
+    install_runtime_write_gate_middleware,
+)
+from persistence.engine import create_runtime_engine
+from persistence.migration import MigrationReport
+from persistence.migration.compatibility import (
+    write_runtime_compatibility_evidence,
+)
+from persistence.migration.cutover import DurableCutoverJournal
 
 log = logging.getLogger(__name__)
 
-LICENSE_IMPORT_ERROR: ModuleNotFoundError | None = None
-LICENSE_DEPENDENCY_UNAVAILABLE_MESSAGE = "许可证激活依赖未就绪，请检查运行时依赖与授权配置"
-REQUEST_VALIDATION_FAILED_MESSAGE = "请求参数校验失败"
-REQUEST_FAILED_MESSAGE = "请求处理失败"
-INTERNAL_SERVER_ERROR_MESSAGE = "系统内部错误，请稍后重试"
 
-try:
-    from services.license_activation import OfflineLicenseActivationAdapter
-except ModuleNotFoundError as exc:  # pragma: no cover
-    LICENSE_IMPORT_ERROR = exc
-    OfflineLicenseActivationAdapter = None  # type: ignore[assignment]
-
-
-class UnavailableLicenseActivationAdapter:
-    def __init__(self, detail: str) -> None:
-        self._detail = detail
-
-    def activate(self, activation_code: str, *, machine_code: str):
-        raise LicenseActivationUnavailableError(self._detail)
-
-
-def _error_code_for_status(status_code: int) -> str | None:
-    if status_code == 400:
-        return "request.invalid_payload"
-    if status_code == 404:
-        return "runtime.resource_not_found"
-    if status_code == 405:
-        return "runtime.method_not_allowed"
-    if status_code == 409:
-        return "task.conflict"
-    if status_code == 422:
-        return "request.validation_failed"
-    if status_code >= 500:
-        return "runtime.internal_error"
-    return None
-
-
-def create_app() -> FastAPI:
-    runtime_config = load_runtime_config()
-    secret_store = build_secret_store(runtime_config)
-    engine = create_runtime_engine(runtime_config.database_path)
-    initialize_domain_schema(engine)
-    session_factory = create_session_factory(engine)
-
-    settings_repository = SystemConfigRepository(session_factory=session_factory)
-    license_repository = LicenseRepository(session_factory=session_factory)
-    imported_video_repository = ImportedVideoRepository(session_factory=session_factory)
-    prompt_template_repository = PromptTemplateRepository(session_factory=session_factory)
-    video_deconstruction_repository = VideoDeconstructionRepository(session_factory=session_factory)
-    dashboard_repository = DashboardRepository(session_factory=session_factory)
-    ai_capability_repository = AICapabilityRepository(session_factory=session_factory)
-    ai_job_repository = AIJobRepository(session_factory=session_factory)
-    script_repository = ScriptRepository(session_factory=session_factory)
-    storyboard_repository = StoryboardRepository(session_factory=session_factory)
-    asset_repository = AssetRepository(session_factory=session_factory)
-    account_repository = AccountRepository(session_factory=session_factory)
-    device_workspace_repository = DeviceWorkspaceRepository(session_factory=session_factory)
-    automation_repository = AutomationRepository(session_factory=session_factory)
-    publishing_repository = PublishingRepository(session_factory=session_factory)
-    render_repository = RenderRepository(session_factory=session_factory)
-    review_repository = ReviewRepository(session_factory=session_factory)
-    voice_repository = VoiceRepository(session_factory=session_factory)
-    voice_profile_repository = VoiceProfileRepository(session_factory=session_factory)
-    subtitle_repository = SubtitleRepository(session_factory=session_factory)
-    timeline_repository = TimelineRepository(session_factory=session_factory)
-
-    license_import_error = (
-        f"{type(LICENSE_IMPORT_ERROR).__name__}: {LICENSE_IMPORT_ERROR}"
-        if LICENSE_IMPORT_ERROR is not None
-        else None
+def create_app(
+    *,
+    dependency_overrides: RuntimeDependencyOverrides | None = None,
+) -> FastAPI:
+    bootstrap_config = load_runtime_bootstrap_config()
+    configure_logging(bootstrap_config.data_dir / "logs")
+    runtime_config = load_runtime_config(bootstrap_config)
+    migration_report = prepare_runtime_database(runtime_config)
+    startup_recovery = PreWriteStartupRecoveryCoordinator(
+        database_path=runtime_config.database_path,
+        migration_report=migration_report,
     )
-    activation_adapter = (
-        OfflineLicenseActivationAdapter(
-            public_key_path=runtime_config.license_public_key_path,
+    engine: Engine | None = None
+    failure_stage = "secret_store"
+
+    try:
+        secret_store = build_secret_store(runtime_config)
+        failure_stage = "database_engine"
+        engine = create_runtime_engine(runtime_config.database_path)
+        failure_stage = "runtime_container"
+        return _build_runtime_app(
+            runtime_config=runtime_config,
+            migration_report=migration_report,
+            secret_store=secret_store,
+            engine=engine,
+            startup_recovery=startup_recovery,
+            dependency_overrides=dependency_overrides,
         )
-        if OfflineLicenseActivationAdapter is not None
-        else UnavailableLicenseActivationAdapter(
-            LICENSE_DEPENDENCY_UNAVAILABLE_MESSAGE,
+    except PreWriteStartupRecoveryError:
+        raise
+    except Exception as exc:
+        startup_recovery.recover_sync(
+            exc,
+            engine=engine,
+            failure_stage=failure_stage,
         )
-    )
+        raise
 
-    machine_code_service = MachineCodeService()
-    license_service = LicenseService(
+
+def _build_runtime_app(
+    *,
+    runtime_config: RuntimeConfig,
+    migration_report: MigrationReport,
+    secret_store: SecretStore,
+    engine: Engine,
+    startup_recovery: PreWriteStartupRecoveryCoordinator,
+    dependency_overrides: RuntimeDependencyOverrides | None = None,
+) -> FastAPI:
+    container = build_runtime_container(
         runtime_config=runtime_config,
-        repository=license_repository,
-        activation_adapter=activation_adapter,
-        machine_code_service=machine_code_service,
+        migration_report=migration_report,
+        secret_store=secret_store,
+        engine=engine,
+        dependency_overrides=dependency_overrides,
     )
-    settings_service = SettingsService(
+    background_services = RuntimeBackgroundServices(container.kernel)
+    write_gate = _build_runtime_write_gate(
         runtime_config=runtime_config,
-        repository=settings_repository,
-        render_repository=render_repository,
-        publishing_repository=publishing_repository,
-        task_manager=task_manager,
-        license_service=license_service,
+        migration_report=migration_report,
     )
-    bootstrap_service = BootstrapService(
-        runtime_config=runtime_config,
-        settings_service=settings_service,
-        license_service=license_service,
-        session_factory=session_factory,
-    )
-    dashboard_service = DashboardService(dashboard_repository, task_manager=task_manager)
-    ai_capability_service = AICapabilityService(
-        ai_capability_repository,
-        secret_store,
-    )
-    settings_service.bind_ai_capability_service(ai_capability_service)
-    # 启动阶段先读取配置，确保媒体工具路径同步到统一解析器。
-    current_settings = settings_service.get_settings()
-    ai_text_generation_service = AITextGenerationService(
-        capability_service=ai_capability_service,
-        ai_job_repository=ai_job_repository,
-    )
-    video_transcription_service = VideoTranscriptionService(
-        capability_service=ai_capability_service,
-    )
-    video_multimodal_analysis_service = VideoMultimodalAnalysisService(
-        ai_text_generation_service=ai_text_generation_service,
-    )
-    prompt_template_service = PromptTemplateService(prompt_template_repository)
-    script_service = ScriptService(
-        dashboard_service=dashboard_service,
-        repository=script_repository,
-        ai_job_repository=ai_job_repository,
-        ai_text_generation_service=ai_text_generation_service,
-        prompt_template_repository=prompt_template_repository,
-    )
-    storyboard_service = StoryboardService(
-        dashboard_service=dashboard_service,
-        repository=storyboard_repository,
-        ai_job_repository=ai_job_repository,
-        ai_text_generation_service=ai_text_generation_service,
-        script_service=script_service,
-    )
-    video_deconstruction_service = VideoDeconstructionService(
-        imported_video_repository=imported_video_repository,
-        stage_repository=video_deconstruction_repository,
-        transcription_service=video_transcription_service,
-        multimodal_analysis_service=video_multimodal_analysis_service,
-        task_manager=task_manager,
-    )
-    asset_service = AssetService(
-        repository=asset_repository,
-        task_manager=task_manager,
-    )
-    account_service = AccountService(
-        account_repository,
-        binding_repository=device_workspace_repository,
-    )
-    device_workspace_service = DeviceWorkspaceService(
-        device_workspace_repository,
-        browser_runtime=LocalBrowserRuntime(
-            executable_path_provider=lambda: settings_service.get_settings().browser.executablePath
-        ),
-    )
-    automation_service = AutomationService(automation_repository)
-    publishing_service = PublishingService(
-        publishing_repository,
-        account_repository=account_repository,
-        device_workspace_repository=device_workspace_repository,
-    )
-    render_service = RenderService(
-        render_repository,
-        timeline_repository=timeline_repository,
-        runtime_config=runtime_config,
-    )
-    review_service = ReviewService(
-        review_repository,
-        dashboard_repository=dashboard_repository,
-        script_repository=script_repository,
-        storyboard_repository=storyboard_repository,
-        publishing_repository=publishing_repository,
-        ai_job_repository=ai_job_repository,
-    )
-    voice_artifact_store = VoiceArtifactStore(settings_service=settings_service)
-    voice_service = VoiceService(
-        repository=voice_repository,
-        profile_repository=voice_profile_repository,
-        task_manager=task_manager,
-        ai_capability_service=ai_capability_service,
-        tts_dispatcher=dispatch_tts,
-        voice_artifact_store=voice_artifact_store,
-    )
-    subtitle_service = SubtitleService(
-        subtitle_repository,
-        voice_repository=voice_repository,
-    )
-    workspace_service = WorkspaceService(
-        timeline_repository,
-        asset_repository=asset_repository,
-        task_manager=task_manager,
-        ai_text_generation_service=ai_text_generation_service,
-    )
-    workspace_assembly_service = WorkspaceAssemblyService(
-        timeline_repository=timeline_repository,
-        script_repository=script_repository,
-        storyboard_repository=storyboard_repository,
-        voice_repository=voice_repository,
-        subtitle_repository=subtitle_repository,
-        workspace_service=workspace_service,
-    )
-    video_import_service = VideoImportService(
-        repository=imported_video_repository,
-        stage_repository=video_deconstruction_repository,
-        task_manager=task_manager,
-    )
-    search_service = SearchService(session_factory=session_factory)
-    configure_logging(Path(current_settings.paths.logDir), current_settings.logging.level)
-    if license_import_error:
-        log.warning("许可证服务依赖未就绪: %s", license_import_error)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        if runtime_config.mode != "test":
-            async def _refresh_provider_health() -> None:
-                try:
-                    await asyncio.to_thread(ai_capability_service.refresh_provider_health)
-                except Exception:
-                    log.exception("启动后刷新 AI Provider 健康快照失败")
-
-            asyncio.create_task(_refresh_provider_health())
-        yield
+        provider_health_handle: asyncio.Task[None] | None = None
+        write_gate_opened = False
+        startup_failure_handled = False
+        try:
+            await background_services.start()
+            write_gate.open()
+            write_gate_opened = True
+            log_event(
+                "system",
+                "runtime.started",
+                context={
+                    "mode": container.current_settings.runtime.mode,
+                    "schemaRevision": migration_report.target_revision,
+                    "databaseReady": runtime_config.database_path.is_file(),
+                },
+            )
+            if runtime_config.mode != "test":
+                provider_health_handle = asyncio.create_task(
+                    _refresh_provider_health(
+                        container,
+                        blocking_cancel_grace_seconds=min(
+                            1.0,
+                            container.kernel.policy.shutdown_grace_seconds,
+                        ),
+                    ),
+                    name="runtime-provider-health-refresh",
+                )
+            yield
+        except BaseException as exc:
+            write_gate.fail_closed("Runtime 启动未完成，写入保持关闭")
+            if not write_gate_opened:
+                startup_failure_handled = True
+                await startup_recovery.recover_async(
+                    exc,
+                    background_services=background_services,
+                    engine=engine,
+                    failure_stage="background_start",
+                )
+            raise
+        finally:
+            if not startup_failure_handled:
+                await _shutdown_runtime_services(
+                    container=container,
+                    background_services=background_services,
+                    write_gate=write_gate,
+                    engine=engine,
+                    provider_health_handle=provider_health_handle,
+                )
 
     app = FastAPI(
-        title='TK-OPS Runtime',
-        summary='TK-OPS creative chain foundation runtime',
+        title="TK-OPS Runtime",
+        summary="TK-OPS 账号级 AI 内容生产 Runtime",
         version=runtime_config.version,
         lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(runtime_config.allowed_origins),
-        allow_methods=['*'],
-        allow_headers=['*'],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "Idempotency-Key",
+            "If-Match",
+            "X-Operation-ID",
+        ],
+        expose_headers=["X-Request-ID", "X-Operation-ID"],
     )
-    app.state.runtime_config = runtime_config
-    app.state.secret_store = secret_store
-    app.state.runtime_engine = engine
-    app.state.session_factory = session_factory
-    app.state.settings_repository = settings_repository
-    app.state.license_repository = license_repository
-    app.state.imported_video_repository = imported_video_repository
-    app.state.prompt_template_repository = prompt_template_repository
-    app.state.video_deconstruction_repository = video_deconstruction_repository
-    app.state.dashboard_repository = dashboard_repository
-    app.state.ai_capability_repository = ai_capability_repository
-    app.state.ai_job_repository = ai_job_repository
-    app.state.script_repository = script_repository
-    app.state.storyboard_repository = storyboard_repository
-    app.state.asset_repository = asset_repository
-    app.state.account_repository = account_repository
-    app.state.device_workspace_repository = device_workspace_repository
-    app.state.automation_repository = automation_repository
-    app.state.publishing_repository = publishing_repository
-    app.state.render_repository = render_repository
-    app.state.review_repository = review_repository
-    app.state.voice_repository = voice_repository
-    app.state.voice_profile_repository = voice_profile_repository
-    app.state.subtitle_repository = subtitle_repository
-    app.state.timeline_repository = timeline_repository
-    app.state.license_service = license_service
-    app.state.license_import_error = license_import_error
-    app.state.settings_service = settings_service
-    app.state.bootstrap_service = bootstrap_service
-    app.state.dashboard_service = dashboard_service
-    app.state.ai_capability_service = ai_capability_service
-    app.state.ai_text_generation_service = ai_text_generation_service
-    app.state.video_transcription_service = video_transcription_service
-    app.state.script_service = script_service
-    app.state.storyboard_service = storyboard_service
-    app.state.prompt_template_service = prompt_template_service
-    app.state.video_deconstruction_service = video_deconstruction_service
-    app.state.asset_service = asset_service
-    app.state.account_service = account_service
-    app.state.device_workspace_service = device_workspace_service
-    app.state.automation_service = automation_service
-    app.state.publishing_service = publishing_service
-    app.state.render_service = render_service
-    app.state.review_service = review_service
-    app.state.voice_artifact_store = voice_artifact_store
-    app.state.voice_service = voice_service
-    app.state.subtitle_service = subtitle_service
-    app.state.workspace_service = workspace_service
-    app.state.workspace_assembly_service = workspace_assembly_service
-    app.state.video_import_service = video_import_service
-    app.state.task_manager = task_manager
-    app.state.search_service = search_service
+    attach_container_state(app, container)
+    app.state.runtime_write_gate = write_gate
+    install_runtime_write_gate_middleware(app, write_gate)
+    install_v1_security_middleware(app)
+    install_request_context_middleware(app)
+    install_exception_handlers(app)
+    register_routes(app, container)
 
-    @app.middleware('http')
-    async def request_context_middleware(request, call_next):  # type: ignore[no-untyped-def]
-        request_id = uuid4().hex
-        request.state.request_id = request_id
-        token = push_request_id(request_id)
+    return app
 
+
+async def _shutdown_runtime_services(
+    *,
+    container: RuntimeContainer,
+    background_services: RuntimeBackgroundServices,
+    write_gate: RuntimeWriteGate,
+    engine: Engine,
+    provider_health_handle: asyncio.Task[None] | None,
+) -> None:
+    if (
+        write_gate.snapshot().state
+        is not RuntimeWriteGateState.FAILED_CLOSED
+    ):
+        write_gate.close_for_shutdown()
+    shutdown_deadline = ShutdownDeadline.start(
+        container.kernel.policy.shutdown_grace_seconds
+    )
+    cancelled_error: asyncio.CancelledError | None = None
+    try:
+        if provider_health_handle is not None:
+            provider_budget = min(
+                1.0,
+                shutdown_deadline.remaining_seconds() * 0.15,
+            )
+            try:
+                await _stop_provider_health(
+                    provider_health_handle,
+                    deadline=shutdown_deadline.capped(provider_budget),
+                )
+            except asyncio.CancelledError as exc:
+                cancelled_error = exc
+                log.warning(
+                    "Runtime 停机等待 Provider 健康刷新时收到取消请求"
+                )
         try:
-            response = await call_next(request)
-        except Exception:
-            pop_request_id(token)
-            raise
+            await background_services.shutdown(deadline=shutdown_deadline)
+        except asyncio.CancelledError as exc:
+            cancelled_error = cancelled_error or exc
+            log.warning(
+                "Runtime 后台服务停机时收到取消请求，持久状态将在下次恢复"
+            )
+            try:
+                await background_services.shutdown(deadline=shutdown_deadline)
+            except asyncio.CancelledError:
+                log.warning(
+                    "Runtime 后台服务停机再次被取消，不再阻塞进程退出"
+                )
+            except Exception:
+                log.exception("Runtime 后台服务取消后再次停机失败")
+    finally:
+        _dispose_runtime_engine(engine)
+    if cancelled_error is not None:
+        raise cancelled_error
 
-        response.headers['X-Request-ID'] = request_id
-        pop_request_id(token)
-        return response
 
-    @app.exception_handler(RequestValidationError)
-    async def handle_validation_error(request, exc: RequestValidationError):  # type: ignore[no-untyped-def]
-        request_id = getattr(request.state, 'request_id', uuid4().hex)
-        log_event(
-            'system',
-            'request.validation_failed',
-            level=logging.WARNING,
-            request_id=request_id,
-            context={
-                'path': request.url.path,
-                'method': request.method,
-                'errors': exc.errors(),
-            },
-        )
-        return JSONResponse(
-            status_code=422,
-            content=error_response(
-                REQUEST_VALIDATION_FAILED_MESSAGE,
-                request_id=request_id,
-                details=exc.errors(),
-                error_code='request.validation_failed',
-            ),
-        )
+def _build_runtime_write_gate(
+    *,
+    runtime_config: RuntimeConfig,
+    migration_report: MigrationReport,
+) -> RuntimeWriteGate:
+    cutover_event_id = migration_report.cutover_event_id
+    journal_path = migration_report.cutover_journal_path
+    if not cutover_event_id or not journal_path:
+        raise RuntimeError("Runtime 迁移报告缺少 cutover 写门证据")
+    journal = DurableCutoverJournal(Path(journal_path))
 
-    @app.exception_handler(StarletteHTTPException)
-    async def handle_http_exception(request, exc: StarletteHTTPException):  # type: ignore[no-untyped-def]
-        request_id = getattr(request.state, 'request_id', uuid4().hex)
-        message = exc.detail if isinstance(exc.detail, str) else REQUEST_FAILED_MESSAGE
-        level = logging.ERROR if exc.status_code >= 500 else logging.WARNING
-        error_code = getattr(exc, 'error_code', None) or _error_code_for_status(exc.status_code)
-        details = getattr(exc, 'details', None)
-        log_event(
-            'system',
-            'request.http_error',
-            level=level,
-            request_id=request_id,
-            context={
-                'path': request.url.path,
-                'method': request.method,
-                'statusCode': exc.status_code,
-                'detail': message,
-            },
-        )
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=error_response(
-                message,
-                request_id=request_id,
-                details=details,
-                error_code=error_code,
-            ),
-        )
-
-    @app.exception_handler(Exception)
-    async def handle_unexpected_exception(request, exc: Exception):  # type: ignore[no-untyped-def]
-        request_id = getattr(request.state, 'request_id', uuid4().hex)
-        log_event(
-            'system',
-            'request.unhandled_exception',
-            level=logging.ERROR,
-            request_id=request_id,
-            context={
-                'path': request.url.path,
-                'method': request.method,
-                'errorType': exc.__class__.__name__,
-            },
-        )
-        return JSONResponse(
-            status_code=500,
-            content=error_response(
-                INTERNAL_SERVER_ERROR_MESSAGE,
-                request_id=request_id,
-                error_code='runtime.internal_error',
-            ),
-        )
-
-    app.include_router(accounts_router)
-    app.include_router(ai_capabilities_router)
-    app.include_router(ai_provider_runtime_router)
-    app.include_router(ai_providers_router)
-    app.include_router(assets_router)
-    app.include_router(automation_router)
-    app.include_router(bootstrap_router)
-    app.include_router(dashboard_router)
-    app.include_router(device_workspaces_router)
-    app.include_router(license_router)
-    app.include_router(prompt_templates_router)
-    app.include_router(publishing_router)
-    app.include_router(renders_router)
-    app.include_router(review_router)
-    app.include_router(search_router)
-    app.include_router(scripts_router)
-    app.include_router(settings_router)
-    app.include_router(storyboards_router)
-    app.include_router(subtitles_router)
-    app.include_router(tasks_router)
-    app.include_router(video_deconstruction_router)
-    app.include_router(voice_router)
-    app.include_router(workspace_router)
-    app.include_router(ws_router)
-
-    log_event(
-        'system',
-        'runtime.started',
-        context={
-            'mode': current_settings.runtime.mode,
-            'databasePath': str(runtime_config.database_path),
+    compatibility_path = (
+        Path(migration_report.compatibility_evidence_path)
+        if migration_report.compatibility_evidence_path
+        else runtime_config.migration.compatibility_evidence_path
+    )
+    if compatibility_path is None:
+        raise RuntimeError("Runtime 迁移配置缺少 Schema 兼容证据路径")
+    compatibility = write_runtime_compatibility_evidence(
+        compatibility_path,
+        runtime_version=runtime_config.version,
+        migration_log_id=migration_report.log_id,
+        cutover_event_id=cutover_event_id,
+        database_fingerprint=migration_report.post_migration_fingerprint,
+        target_revision=migration_report.target_revision,
+        minimum_revision=migration_report.schema_read_min_revision,
+        require_artifact_build_id=(
+            runtime_config.managed_sidecar
+            and is_production_mode(runtime_config.mode)
+        ),
+    )
+    journal.append(
+        cutover_event_id=cutover_event_id,
+        log_id=migration_report.log_id,
+        stage="compatibility_evidence_written",
+        evidence={
+            "sha256": compatibility.sha256,
+            "artifactBuildId": compatibility.artifact_build_id,
+            "rollbackEligible": compatibility.rollback_eligible,
+            **compatibility.schema_range.to_dict(),
         },
     )
-    return app
+
+    def write_transition(
+        stage: str,
+        evidence: Mapping[str, object],
+    ) -> None:
+        journal.append(
+            cutover_event_id=cutover_event_id,
+            log_id=migration_report.log_id,
+            stage=stage,
+            evidence=dict(evidence),
+        )
+
+    return RuntimeWriteGate(
+        cutover_event_id=cutover_event_id,
+        transition_writer=write_transition,
+    )
+
+
+async def _refresh_provider_health(
+    container: RuntimeContainer,
+    *,
+    blocking_cancel_grace_seconds: float,
+) -> None:
+    handle = asyncio.create_task(
+        asyncio.to_thread(
+            container.services.ai_capability.refresh_provider_health,
+        ),
+        name="runtime-provider-health-worker",
+    )
+    try:
+        await asyncio.shield(handle)
+    except asyncio.CancelledError:
+        try:
+            completed, _ = await asyncio.wait(
+                {handle},
+                timeout=blocking_cancel_grace_seconds,
+            )
+        except asyncio.CancelledError:
+            handle.add_done_callback(_consume_provider_health_result)
+            raise
+        if completed:
+            _consume_provider_health_result(handle)
+        else:
+            log.warning(
+                "AI Provider 健康刷新未在停机宽限期内收尾，将由后台线程完成",
+                extra={
+                    "grace_seconds": blocking_cancel_grace_seconds,
+                },
+            )
+            handle.add_done_callback(_consume_provider_health_result)
+        raise
+    except Exception:
+        log.exception("启动后刷新 AI Provider 健康快照失败")
+
+
+async def _stop_provider_health(
+    handle: asyncio.Task[None],
+    *,
+    deadline: ShutdownDeadline,
+) -> None:
+    if not handle.done():
+        handle.cancel()
+    completed = await wait_task_until(handle, deadline)
+    if not completed:
+        log.warning("Runtime 停机不再等待 AI Provider 健康刷新")
+        handle.add_done_callback(_consume_provider_health_result)
+        return
+    _consume_provider_health_result(handle)
+
+
+def _consume_provider_health_result(handle: asyncio.Task[object]) -> None:
+    if handle.cancelled():
+        return
+    try:
+        error = handle.exception()
+    except Exception:
+        log.exception("读取 AI Provider 健康刷新后台结果失败")
+        return
+    if error is not None:
+        log.error(
+            "AI Provider 健康刷新后台任务失败",
+            exc_info=(type(error), error, error.__traceback__),
+        )
+
+
+def _dispose_runtime_engine(engine: Engine) -> None:
+    try:
+        engine.dispose()
+    except Exception:
+        log.exception("Runtime 停机释放数据库引擎失败")

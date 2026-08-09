@@ -55,7 +55,7 @@ def _build_app(tmp_path: Path) -> tuple[FastAPI, str, str]:
     account = account_service.create_account(
         AccountCreateInput(
             name="Device Bound Account",
-            status="active",
+            status="ready",
             username="bound_account",
         )
     )

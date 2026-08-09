@@ -1,0 +1,280 @@
+.legacy-route-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--status-info) 34%, var(--border-default));
+  border-radius: var(--radius-lg);
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--status-info) 8%, var(--surface-secondary));
+  font: var(--font-body-sm);
+}
+
+.legacy-route-notice > .material-symbols-outlined {
+  color: var(--status-info);
+  font-size: 20px;
+}
+
+.legacy-route-notice p {
+  margin: 0;
+}
+
+.legacy-route-notice button,
+.account-detail-panel button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.legacy-route-notice button {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+}
+
+.legacy-route-notice button:hover,
+.account-detail-panel button:hover {
+  color: var(--text-primary);
+  background: var(--color-bg-hover);
+}
+
+.legacy-route-notice button .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.account-detail-overlay {
+  position: fixed;
+  z-index: var(--z-modal-backdrop);
+  inset: 0;
+}
+
+.account-detail-overlay__backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: color-mix(in srgb, var(--text-primary) 28%, transparent);
+  cursor: default;
+}
+
+.account-detail-panel {
+  position: absolute;
+  z-index: var(--z-modal);
+  top: 0;
+  right: 0;
+  display: grid;
+  width: min(390px, calc(100vw - 76px));
+  height: 100%;
+  align-content: start;
+  gap: var(--space-6);
+  overflow-y: auto;
+  padding: var(--space-6);
+  border-left: 1px solid var(--border-default);
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-lg);
+  animation: account-detail-enter var(--motion-normal) var(--ease-decelerate);
+}
+
+.account-detail-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.account-detail-panel__header p,
+.account-detail-panel__header h2,
+.account-detail-panel__identity p,
+.account-detail-panel h3 {
+  margin: 0;
+}
+
+.account-detail-panel__header p {
+  color: var(--text-tertiary);
+  font: var(--font-caption);
+}
+
+.account-detail-panel__header h2 {
+  margin-top: var(--space-1);
+  font: var(--font-title-lg);
+}
+
+.account-detail-panel__header button {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+}
+
+.account-detail-panel__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-secondary);
+}
+
+.account-detail-panel__identity > span {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border-radius: var(--radius-full);
+  color: var(--color-text-on-brand);
+  background: var(--gradient-ai-primary);
+  font-weight: 700;
+}
+
+.account-detail-panel__identity strong {
+  font: var(--font-body-md);
+  font-weight: 700;
+}
+
+.account-detail-panel__identity p {
+  margin-top: var(--space-1);
+  color: var(--text-secondary);
+  font: var(--font-body-sm);
+}
+
+.account-detail-panel h3 {
+  margin-bottom: var(--space-3);
+  font: var(--font-title-sm);
+}
+
+.account-detail-panel__readiness,
+.account-detail-panel__facts {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--border-default);
+}
+
+.account-detail-panel__readiness > div,
+.account-detail-panel__facts > div {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-secondary);
+}
+
+.account-detail-panel dt,
+.account-detail-panel dd {
+  margin: 0;
+  font: var(--font-body-sm);
+}
+
+.account-detail-panel dt {
+  color: var(--text-tertiary);
+}
+
+.account-detail-panel dd {
+  color: var(--text-primary);
+}
+
+.account-detail-panel__task-state {
+  margin: 0;
+  color: var(--text-tertiary);
+  font: var(--font-body-sm);
+  line-height: 1.5;
+}
+
+.account-detail-panel__task-state.is-error {
+  color: var(--status-danger);
+}
+
+.account-detail-panel__tasks {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account-detail-panel__tasks li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-secondary);
+}
+
+.account-detail-panel__tasks li div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.account-detail-panel__tasks strong,
+.account-detail-panel__tasks small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-detail-panel__tasks strong {
+  color: var(--text-primary);
+  font: var(--font-body-sm);
+  font-weight: 650;
+}
+
+.account-detail-panel__tasks small {
+  color: var(--text-tertiary);
+  font: var(--font-caption);
+}
+
+.account-detail-panel__tasks > li > span {
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  padding: 3px 7px;
+  color: var(--text-tertiary);
+  background: var(--surface-primary);
+  font: var(--font-caption);
+}
+
+.account-detail-panel__tasks > li > span.is-working {
+  color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+}
+
+.account-detail-panel__tasks > li > span.is-success {
+  color: var(--status-success);
+}
+
+.account-detail-panel__tasks > li > span.is-danger {
+  color: var(--status-danger);
+}
+
+@keyframes account-detail-enter {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@media (max-width: 959px) {
+  .account-detail-overlay {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-detail-panel {
+    animation: none;
+  }
+}

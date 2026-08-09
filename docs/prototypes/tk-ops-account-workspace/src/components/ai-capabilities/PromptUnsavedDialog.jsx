@@ -1,0 +1,4 @@
+export function PromptUnsavedDialog({ onResolve, open }) {
+  if (!open) return null;
+  return <div className="modal-backdrop" role="presentation"><section aria-labelledby="prompt-unsaved-title" aria-modal="true" className="batch-dialog prompt-unsaved-dialog" role="dialog"><header className="dialog-header"><div><span className="dialog-eyebrow">未保存修改</span><h2 id="prompt-unsaved-title">切换 Prompt 前处理修改</h2></div></header><div className="unsaved-dialog__body"><p>当前 Prompt 内容已修改。你可以保存为新版本，或放弃本次修改。</p></div><footer className="dialog-actions"><button className="ghost-button" onClick={() => onResolve("cancel")} type="button">继续编辑</button><button className="secondary-button" onClick={() => onResolve("discard")} type="button">放弃并切换</button><button className="primary-button" onClick={() => onResolve("save")} type="button">保存并切换</button></footer></section></div>;
+}

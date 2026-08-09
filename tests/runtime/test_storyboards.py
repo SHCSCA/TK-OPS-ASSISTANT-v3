@@ -350,11 +350,14 @@ class PlainMarkdownAITextGenerationService:
         )
 
 
-def test_storyboard_generation_uses_current_script_and_persists_versions(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = FakeAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_storyboard_generation_uses_current_script_and_persists_versions(
+    runtime_client: TestClient,
+) -> None:
+    app = runtime_client.app
+    app.state.ai_text_generation_service = FakeAITextGenerationService(
+        app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -419,11 +422,14 @@ def test_storyboard_generation_uses_current_script_and_persists_versions(runtime
     assert saved_payload['lastOperation']['aiJobStatus'] is None
 
 
-def test_storyboard_generation_stores_json_document_and_derives_scenes(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = JsonStoryboardAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_storyboard_generation_stores_json_document_and_derives_scenes(
+    runtime_client: TestClient,
+) -> None:
+    app = runtime_client.app
+    app.state.ai_text_generation_service = JsonStoryboardAITextGenerationService(
+        app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -450,11 +456,14 @@ def test_storyboard_generation_stores_json_document_and_derives_scenes(runtime_a
     assert version['scenes'][1]['subtitle'] == '一杯撑完整个下午'
 
 
-def test_storyboard_generation_replaces_continuation_placeholders_with_source_script(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = ScriptAndContinuationStoryboardAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_storyboard_generation_replaces_continuation_placeholders_with_source_script(
+    runtime_client: TestClient,
+) -> None:
+    app = runtime_client.app
+    app.state.ai_text_generation_service = ScriptAndContinuationStoryboardAITextGenerationService(
+        app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -482,11 +491,14 @@ def test_storyboard_generation_replaces_continuation_placeholders_with_source_sc
     assert second_scene['subtitle'] == 'This lamp made me cancel my dinner plan.'
 
 
-def test_storyboard_generation_accepts_fenced_json_provider_output(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = FencedJsonAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_storyboard_generation_accepts_fenced_json_provider_output(
+    runtime_client: TestClient,
+) -> None:
+    app = runtime_client.app
+    app.state.ai_text_generation_service = FencedJsonAITextGenerationService(
+        app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -513,11 +525,15 @@ def test_storyboard_generation_accepts_fenced_json_provider_output(runtime_app) 
     assert payload['currentVersion']['scenes'][1]['summary'] == '展示杯身和容量'
 
 
-def test_storyboard_generation_rejects_markdown_table_provider_output(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = MarkdownTableAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_storyboard_generation_rejects_markdown_table_provider_output(
+    runtime_client: TestClient,
+    caplog,
+) -> None:
+    app = runtime_client.app
+    app.state.ai_text_generation_service = MarkdownTableAITextGenerationService(
+        app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -534,7 +550,11 @@ def test_storyboard_generation_rejects_markdown_table_provider_output(runtime_ap
     generate_response = client.post(f'/api/storyboards/projects/{project_id}/generate')
 
     assert generate_response.status_code == 502
-    assert '分镜 Provider 未返回有效 JSON' in str(generate_response.json())
+    payload = generate_response.json()
+    assert payload['error'] == '请求处理失败'
+    assert payload['error_code'] == 'runtime.internal_error'
+    assert '分镜 Provider 未返回有效 JSON' not in str(payload)
+    assert '冰块落入透明杯' not in caplog.text
 
 
 def test_storyboard_markdown_parser_ignores_non_storyboard_document_headings() -> None:
@@ -566,11 +586,15 @@ def test_storyboard_markdown_parser_ignores_non_storyboard_document_headings() -
     assert scenes[1]['title'] == '镜头2 3-6秒'
 
 
-def test_storyboard_generation_rejects_unparsed_markdown_provider_output(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = PlainMarkdownAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_storyboard_generation_rejects_unparsed_markdown_provider_output(
+    runtime_client: TestClient,
+    caplog,
+) -> None:
+    app = runtime_client.app
+    app.state.ai_text_generation_service = PlainMarkdownAITextGenerationService(
+        app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -587,11 +611,17 @@ def test_storyboard_generation_rejects_unparsed_markdown_provider_output(runtime
     generate_response = client.post(f'/api/storyboards/projects/{project_id}/generate')
 
     assert generate_response.status_code == 502
-    assert '分镜 Provider 未返回有效 JSON' in str(generate_response.json())
+    payload = generate_response.json()
+    assert payload['error'] == '请求处理失败'
+    assert payload['error_code'] == 'runtime.internal_error'
+    assert '分镜 Provider 未返回有效 JSON' not in str(payload)
+    assert '没有结构化镜头表' not in caplog.text
 
 
-def test_storyboard_manual_save_preserves_markdown_source(runtime_app) -> None:
-    client = TestClient(runtime_app)
+def test_storyboard_manual_save_preserves_markdown_source(
+    runtime_client: TestClient,
+) -> None:
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',
@@ -623,11 +653,14 @@ def test_storyboard_manual_save_preserves_markdown_source(runtime_app) -> None:
     assert payload['currentVersion']['scenes'][0]['summary']
 
 
-def test_storyboard_shot_crud_templates_and_sync_from_script(runtime_app) -> None:
-    runtime_app.state.ai_text_generation_service = FakeAITextGenerationService(
-        runtime_app.state.ai_job_repository
+def test_storyboard_shot_crud_templates_and_sync_from_script(
+    runtime_client: TestClient,
+) -> None:
+    app = runtime_client.app
+    app.state.ai_text_generation_service = FakeAITextGenerationService(
+        app.state.ai_job_repository
     )
-    client = TestClient(runtime_app)
+    client = runtime_client
 
     project_response = client.post(
         '/api/dashboard/projects',

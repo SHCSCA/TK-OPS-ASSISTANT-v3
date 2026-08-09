@@ -363,7 +363,7 @@ class PublishingService:
                     ),
                 )
             )
-        elif account.status not in {"active", "ready"}:
+        elif account.status != "ready":
             items.append(
                 PrecheckItemResult(
                     code="account_readiness",

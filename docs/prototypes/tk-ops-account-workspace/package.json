@@ -1,0 +1,22 @@
+{
+  "name": "tk-ops-account-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test ../../../tests/prototypes/tk-ops-account-workspace.test.mjs ../../../tests/prototypes/deconstruction-tables.test.mjs ../../../tests/prototypes/ai-settings-contract.test.mjs ../../../tests/prototypes/empty-states-and-batch-inputs.test.mjs"
+  },
+  "dependencies": {
+    "@tabler/icons-react": "^3.45.0",
+    "@vitejs/plugin-react": "5.0.4",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "vite": "6.4.2"
+  },
+  "devDependencies": {
+    "@babel/types": "^7.29.7"
+  }
+}

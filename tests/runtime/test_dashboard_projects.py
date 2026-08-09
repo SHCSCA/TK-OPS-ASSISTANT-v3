@@ -18,8 +18,10 @@ def test_dashboard_summary_starts_without_projects(runtime_client: TestClient) -
     assert payload['data']['generatedAt']
 
 
-def test_project_creation_and_context_persist_across_app_recreation(runtime_app) -> None:
-    client = TestClient(runtime_app)
+def test_project_creation_and_context_persist_across_app_recreation(
+    runtime_client: TestClient,
+) -> None:
+    client = runtime_client
 
     create_response = client.post(
         '/api/dashboard/projects',
@@ -53,8 +55,11 @@ def test_project_creation_and_context_persist_across_app_recreation(runtime_app)
 
     from app.factory import create_app
 
-    reloaded_client = TestClient(create_app())
-    summary_response = reloaded_client.get('/api/dashboard/summary')
+    with TestClient(
+        create_app(),
+        base_url=str(runtime_client.base_url),
+    ) as reloaded_client:
+        summary_response = reloaded_client.get('/api/dashboard/summary')
 
     assert summary_response.status_code == 200
     summary = summary_response.json()['data']
@@ -67,8 +72,10 @@ def test_project_creation_and_context_persist_across_app_recreation(runtime_app)
     assert summary['currentAction']['targetProjectId'] == created['id']
 
 
-def test_dashboard_project_delete_soft_deletes_project_and_clears_context(runtime_app) -> None:
-    client = TestClient(runtime_app)
+def test_dashboard_project_delete_soft_deletes_project_and_clears_context(
+    runtime_client: TestClient,
+) -> None:
+    client = runtime_client
     create_response = client.post(
         '/api/dashboard/projects',
         json={'name': 'Delete Flow', 'description': 'soft delete'},
@@ -96,8 +103,11 @@ def test_dashboard_project_delete_soft_deletes_project_and_clears_context(runtim
     assert context_response.json()['data'] is None
 
 
-def test_dashboard_project_delete_blocks_when_active_task_exists(runtime_app, monkeypatch) -> None:
-    client = TestClient(runtime_app)
+def test_dashboard_project_delete_blocks_when_active_task_exists(
+    runtime_client: TestClient,
+    monkeypatch,
+) -> None:
+    client = runtime_client
     create_response = client.post(
         '/api/dashboard/projects',
         json={'name': 'Blocked Delete', 'description': 'active task guard'},
@@ -106,7 +116,7 @@ def test_dashboard_project_delete_blocks_when_active_task_exists(runtime_app, mo
     project_id = create_response.json()['data']['id']
     task_id = 'task-delete-guard'
     monkeypatch.setattr(
-        runtime_app.state.task_manager,
+        runtime_client.app.state.task_manager,
         'list_active',
         lambda: [
             type(
@@ -130,8 +140,11 @@ def test_dashboard_project_delete_blocks_when_active_task_exists(runtime_app, mo
     }
 
 
-def test_dashboard_summary_uses_active_task_as_current_action_and_risk_source(runtime_app, monkeypatch) -> None:
-    client = TestClient(runtime_app)
+def test_dashboard_summary_uses_active_task_as_current_action_and_risk_source(
+    runtime_client: TestClient,
+    monkeypatch,
+) -> None:
+    client = runtime_client
     create_response = client.post(
         '/api/dashboard/projects',
         json={'name': 'Task Summary', 'description': 'summary with active task'},
@@ -139,7 +152,7 @@ def test_dashboard_summary_uses_active_task_as_current_action_and_risk_source(ru
     assert create_response.status_code == 200
     project_id = create_response.json()['data']['id']
     monkeypatch.setattr(
-        runtime_app.state.task_manager,
+        runtime_client.app.state.task_manager,
         'list_active',
         lambda: [
             type(

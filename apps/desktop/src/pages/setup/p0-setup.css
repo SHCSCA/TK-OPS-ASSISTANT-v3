@@ -1,0 +1,405 @@
+.p0-setup-page {
+  display: grid;
+  min-width: 960px;
+  min-height: 100vh;
+  place-items: center;
+  padding: var(--space-8);
+  color: var(--text-primary);
+  background:
+    radial-gradient(
+      circle at 18% 16%,
+      color-mix(in srgb, var(--brand-primary) 10%, transparent),
+      transparent 34%
+    ),
+    var(--surface-primary);
+}
+
+.p0-setup-card {
+  width: min(100%, 760px);
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-2xl);
+  background: var(--surface-secondary);
+  box-shadow: var(--shadow-lg);
+}
+
+.p0-setup-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.p0-setup-header > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.p0-setup-header h1,
+.p0-setup-header p,
+.p0-setup-panel h2,
+.p0-setup-panel p,
+.p0-setup-complete h2,
+.p0-setup-complete p {
+  margin: 0;
+}
+
+.p0-setup-header h1 {
+  font: var(--font-title-lg);
+}
+
+.p0-setup-header p {
+  color: var(--text-secondary);
+  font: var(--font-body-sm);
+}
+
+.p0-setup-logo {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border-radius: var(--radius-lg);
+  color: var(--color-text-on-brand);
+  background: var(--gradient-ai-primary);
+  font: 700 13px/1 var(--font-family-sans);
+}
+
+.p0-setup-step {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  color: var(--brand-primary);
+  background: var(--color-bg-active);
+  font: var(--font-caption);
+}
+
+.p0-setup-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.p0-setup-progress span {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+  font: var(--font-caption);
+}
+
+.p0-setup-progress span:not(:last-child)::after {
+  position: absolute;
+  top: 50%;
+  right: var(--space-4);
+  left: 54%;
+  height: 1px;
+  content: "";
+  background: var(--border-default);
+}
+
+.p0-setup-progress i {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  font-style: normal;
+}
+
+.p0-setup-progress span[data-state="current"] {
+  color: var(--brand-primary);
+}
+
+.p0-setup-progress span[data-state="current"] i {
+  border-color: var(--brand-primary);
+  background: var(--color-bg-active);
+}
+
+.p0-setup-progress span[data-state="done"] {
+  color: var(--status-success);
+}
+
+.p0-setup-progress span[data-state="done"] i {
+  border-color: var(--status-success);
+}
+
+.p0-setup-panel {
+  padding: var(--space-8) var(--space-8) var(--space-6);
+}
+
+.p0-setup-panel__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.p0-setup-panel__heading > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.p0-setup-panel__heading span {
+  color: var(--brand-primary);
+  font: var(--font-mono-md);
+}
+
+.p0-setup-panel__heading h2,
+.p0-setup-complete h2 {
+  font: var(--font-title-lg);
+}
+
+.p0-setup-panel__heading small {
+  color: var(--text-tertiary);
+  font: var(--font-caption);
+}
+
+.p0-setup-panel > p,
+.p0-setup-complete p {
+  margin-top: var(--space-2);
+  color: var(--text-secondary);
+  font: var(--font-body-md);
+}
+
+.p0-setup-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.p0-setup-machine-code {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  justify-content: space-between;
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-primary);
+}
+
+.p0-setup-machine-code > div {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.p0-setup-machine-code span {
+  color: var(--text-secondary);
+  font: var(--font-caption);
+}
+
+.p0-setup-machine-code code {
+  overflow: hidden;
+  color: var(--text-primary);
+  font: var(--font-mono-md);
+  overflow-wrap: anywhere;
+}
+
+.p0-setup-machine-code small,
+.p0-setup-copy-feedback {
+  color: var(--text-tertiary);
+  font: var(--font-caption);
+}
+
+.p0-setup-copy-feedback {
+  display: block;
+  margin-top: var(--space-2);
+}
+
+.p0-setup-copy-feedback[data-state="success"] {
+  color: var(--status-success);
+}
+
+.p0-setup-copy-feedback[data-state="error"] {
+  color: var(--status-error);
+}
+
+.p0-setup-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+
+.p0-setup-checklist,
+.p0-setup-blockers {
+  display: grid;
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.p0-setup-checklist {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.p0-setup-checklist li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font: var(--font-body-sm);
+}
+
+.p0-setup-checklist .material-symbols-outlined {
+  color: var(--status-success);
+  font-size: 18px;
+}
+
+.p0-setup-checklist .material-symbols-outlined[data-state="failed"] {
+  color: var(--status-error);
+}
+
+.p0-setup-blockers {
+  gap: var(--space-2);
+}
+
+.p0-setup-blockers li {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid color-mix(in srgb, var(--status-warning) 28%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--status-warning) 7%, transparent);
+}
+
+.p0-setup-blockers strong {
+  font: var(--font-body-sm);
+}
+
+.p0-setup-blockers small {
+  color: var(--text-tertiary);
+  font: var(--font-caption);
+}
+
+.p0-setup-task {
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-primary);
+}
+
+.p0-setup-task > div {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+  font: var(--font-caption);
+}
+
+.p0-setup-task progress {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-full);
+  accent-color: var(--brand-primary);
+}
+
+.p0-setup-complete {
+  padding: var(--space-12) var(--space-8);
+  text-align: center;
+}
+
+.p0-setup-complete > .material-symbols-outlined {
+  margin-bottom: var(--space-3);
+  color: var(--status-success);
+  font-size: 42px;
+}
+
+.p0-setup-complete .ui-button {
+  margin-top: var(--space-6);
+}
+
+.p0-setup-loading,
+.p0-setup-error {
+  display: flex;
+  min-height: 280px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
+}
+
+.p0-setup-loading {
+  color: var(--text-secondary);
+  font: var(--font-body-md);
+}
+
+.p0-setup-error > .material-symbols-outlined,
+.p0-setup-inline-error > .material-symbols-outlined {
+  color: var(--status-error);
+}
+
+.p0-setup-error > div {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: var(--space-1);
+}
+
+.p0-setup-error strong {
+  font: var(--font-body-md);
+}
+
+.p0-setup-error small,
+.p0-setup-inline-error small {
+  display: block;
+  color: var(--text-tertiary);
+  font: var(--font-caption);
+}
+
+.p0-setup-inline-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0 var(--space-6) var(--space-6);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--status-error);
+  background: color-mix(in srgb, var(--status-error) 8%, transparent);
+  font: var(--font-body-sm);
+}
+
+.p0-setup-spin {
+  animation: p0-setup-spin 900ms linear infinite;
+}
+
+@keyframes p0-setup-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1100px) {
+  .p0-setup-page {
+    padding: var(--space-5);
+  }
+
+  .p0-setup-form {
+    grid-template-columns: 1fr;
+  }
+
+  .p0-setup-machine-code {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .p0-setup-machine-code .ui-button {
+    align-self: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .p0-setup-spin {
+    animation: none;
+  }
+}

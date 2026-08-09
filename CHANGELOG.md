@@ -2,6 +2,112 @@
 
 ## Unreleased
 
+### 0.4.11 P0-G 验收补齐与冷启动加固
+
+- 新增两条独立真实 Runtime Playwright 场景：执行环境首次创建失败后保留原对象和任务上下文重试；监督登录 `preparing` 阶段取消后，会话与后台任务真实进入取消终态。
+- 登录导航移入可取消的后台执行边界，取消后不再继续推进为等待用户登录；界面保留“登录已取消”和“重新开始登录”的可恢复状态。
+- E2E Runtime 增加仅测试入口可用的一次性浏览器启动失败与登录导航阻塞控制，生产 Runtime 不暴露故障注入 API。
+- Windows GUI smoke 改为从本次 portable ZIP 全新解压目录冷启动，并连续确认同一有效窗口句柄后再测试标准窗口控制；9 项证据同时绑定 Desktop 与 portable SHA-256。
+- 版本按已外发测试包的补丁规则从 `0.4.10` 升为 `0.4.11`；八个 pending Route 未伪开放，继续归入 P0-H / P0-I。
+
+### 0.4.10 Production 加固与真实发布门禁
+
+- 加固机器身份、许可证、执行环境失败重试、监督登录取消、Runtime 启停日志与发布 manifest v2；错误与制品身份均进入可追踪证据。
+- 修复 PyInstaller 混入不兼容 `MSVCP140.dll` 的 Runtime 崩溃，打包 Sidecar 排除 `greenlet` 并通过真实启动检查。
+- 首启 E2E 增加受控真实进程与端口所有权测试，避免依赖测试机浏览器多进程实现；生产浏览器链保持严格所有权验证。
+- 修复安装包 smoke 的时序抖动、阶段诊断与 Windows PowerShell UTF-8 输出；GUI 8 项和安装包连续门禁通过。
+- 修复打包许可证 smoke 漏传 Runtime `artifactBuildId`，现已校验 manifest 与二进制哈希，并完成真实签发、激活与复核。
+- 全量结果：Runtime `932 passed, 1 skipped`；Desktop 33 个文件、149 项；TypeScript、Rust 21 项、首启 E2E 3 项、账号兼容 E2E 7 项全部通过。
+- 0.4.10 test-channel manifest 已绑定 10 份测试证据与 4 个制品；免安装 ZIP SHA-256 `A7D369B24790486079E5F60A30DBBC961480AC7D7526BEA5B94236491CA3A3D9`，NSIS SHA-256 `FCB79C4863F87D0E312584C95BE795CEDA6CB3C4653FE6B20437ADBB89FCDC9F`。
+- 当前工作树为 dirty，仅交付测试候选；Production 仍需目标机器真实 TikTok 可见监督登录证据与干净提交重建。
+
+### 0.4.9 Windows 单入口免安装包修复
+
+- 免安装 ZIP 根目录只保留 `tk-ops-desktop.exe` 一个用户入口，Python Runtime 收进 `resources/runtime/` 内部资源目录并继续由 Desktop 自动启动。
+- Runtime Supervisor 改为启动经过 manifest 与 SHA-256 校验的资源绝对路径；安装包与免安装包使用同一内部 Runtime 布局。
+- Windows GUI smoke 新增根目录单 EXE 门禁，防止后续构建再次把内部 sidecar 暴露为第二个入口。
+- 按已外发测试包的补丁规则将版本从 `0.4.8` 升级为 `0.4.9`；新制品已重新生成 Runtime manifest、release manifest 和 SHA-256。
+- `0.4.9` Desktop 33 个测试文件、147 项测试、类型检查、首启 E2E 3 项、Rust 21 项、GUI smoke 8 项及安装包 smoke 通过；免安装 ZIP SHA-256 为 `8C04D57CF8AF756BDCF0ECFBE5C41A6004DD7104D203C2A2D43E7D8503757F2F`。
+
+### 版本治理
+
+- 将下一次缺陷修复交付的项目版本从 `0.4.7` 提升为 `0.4.8`，并新增统一的主版本、次版本、补丁版本判定与发布门禁。
+- 根 `package.json` 作为正式版本唯一真源；Tauri、Cargo 和 Python Runtime 源版本同步更新，Runtime manifest 与 EXE 继续由真实构建生成，禁止手工伪改构建信息。
+
+### 0.4.8 未保存决策与定位版本体验修复
+
+- 修复未保存内容弹窗的控制器上下文丢失问题；“取消”“放弃并继续”“保存并继续”现在只接受一次决策，并在账号切换期间保留页面守卫。
+- 新增账号定位历史版本详情接口、加载与错误恢复状态；版本列表改为目标受众、内容支柱和表达风格的语义摘要，并支持查看完整详情、复制哈希和基于历史版本生成新草稿。
+- 当前定位卡片同步显示真实受众、内容支柱和风格标签；历史泛化摘要保持只读兼容，不伪造旧数据。
+- 修复账号目录后台刷新期间菜单残留与 E2E 导航竞态，系统设置和账号管理继续通过真实壳层入口切换。
+- 修复 Windows Runtime 仅持有外部浏览器 PID 时过早判定停止失败的问题；终止后进行有界退出等待，并用 Windows 进程退出码确认真实状态。
+- Runtime 源版本改由统一版本同步脚本维护，sidecar `--version` 不再读取虚拟环境中的陈旧安装元数据；0.4.8 构建前后均执行版本一致性门禁。
+- 完整兼容 E2E 7 项通过，覆盖账号隔离、定位 v1→v2、三种未保存决策、执行环境、AI 配置、归档恢复、十三容器和双主题 PC 布局。
+- 0.4.8 测试通道制品已通过 GUI 与安装包 smoke：免安装 ZIP SHA-256 `79A567D585E0DB06EA5F859F7AB6542D93727534DFE22E11D64D112CC5692445`；NSIS SHA-256 `84E4F19B963269A7C9E38C4A1C4BDCC322E2C259547EB0C1FCF7D12CA4160E4F`。
+
+### P0-F 正式路由与 Windows 桌面交付
+
+- 正式 Route Manifest 已切换为十三个页面容器和十个账号级入口；旧 Project、Timeline、剪辑、独立配音 / 字幕 / 渲染 / 自动化 URL 只做一次性迁移重定向，不再进入旧业务页面。
+- 落地 Windows Runtime sidecar、Tauri Supervisor、单实例、动态 loopback 端口、内存会话令牌、生产数据目录、启动超时、有限重启、优雅退出和 Windows Job Object 进程树清理。
+- 强化迁移启动恢复：迁移实际变更且 durable journal 尚未开放写门时才允许恢复；写门开放后禁止覆盖当前数据库，失败证据只暴露稳定错误码、revision 与 SQLite 错误类别。
+- 修复 Windows 受限 `PATH` 下机器码采集与 `\\?\\` 规范路径传入 Python 导致的 SQLite `SQLITE_CANTOPEN`；正式应用无需系统 Python 即可离线启动 Runtime。
+- 修复 Desktop 冷启动时早于 Supervisor ready 获取连接的竞态：启动页现在保持加载并以 250ms 间隔有界等待最多 90 秒，Runtime ready 后自动继续，永久错误仍立即进入可恢复错误态。
+- 修正首启授权交互：完整机器码由 Runtime 根据当前 PC 稳定硬件信息自动生成并只读展示，支持一键复制；Desktop 激活时只提交许可证密钥，由 Runtime 强制绑定本机机器码。
+- 恢复 Windows 原生标题栏，免安装应用提供标准最小化、最大化与关闭按钮。
+- 修复许可证签发私钥与 Runtime 内嵌公钥失配：统一正式公钥，签发前增加密钥对一致性门禁，密钥初始化拒绝覆盖，测试不再改写真实签发私钥。
+- 本轮修正复验通过：Runtime 定向 28 项、Desktop 111 项、全局前端类型检查、239 模块生产构建和真实 Sidecar smoke 均通过。
+- 完成 P0 全量验收：Desktop 107 项、全局 `vue-tsc`、239 模块生产构建、7 条真实 Runtime E2E、Rust 17 项、Sidecar smoke、NSIS 安装包 smoke，以及 Light / Dark 与两档 PC 窗口视觉检查均通过。
+- NSIS 制品：`TK-OPS_0.4.7_x64-setup.exe`，大小 `30,984,341` 字节，SHA-256 `E75501CA8BBA51A610ED411CEFD1B09844FF3A9EACCA8824AEA09F41EF688F75`。
+- 本地文件知识源桥接未在 P0-F 内伪实现；当前继续失败封闭并保留重试，转入 P1 单独设计与验收。
+
+### P0-E AI 配置纵向链
+
+- 新增 Alembic `0020_p0e_ai_vertical_chain`，补齐 Prompt 聚合修订与账号 AI Recipe 内容摘要，并在任何 SQLite DDL 前完成 legacy Recipe JSON 预校验。
+- 落地 Provider、Model、Capability、Capability Route、Prompt Profile、Composition Template 与 Account AI Recipe 的 v1 Runtime 服务、35 个 HTTP 接口和领域级 Desktop Client / Store。
+- Provider 凭据正文只进入系统安全存储；读取仅返回 `credentialSummary`。任务快照、事件、日志和普通写幂等记录继续拒绝凭据、Prompt 正文与本地路径。
+- 落地 Provider 健康检查、模型发现、模型能力验证三类持久任务，以及 Provider 健康、能力契约、Prompt / Template 版本和 AI 配置修订共同约束的路由与 Recipe 激活门。
+- 落地低噪音 AI 与系统设置、五步 Provider 向导、Prompt / 合成模板版本工作面及账号 AI Recipe 编辑入口，覆盖加载、首次使用、空、依赖阻断、长任务、错误、重试和未保存守卫。
+- P0-E 阶段范围 Runtime 71 项、Desktop 41 项均取得通过证据；DTO 收口后额外 14 项 Desktop 回归通过。`build:p0` 处理 530 个模块并通过，P0-E 新路径类型错误为 0，113 个相关文件通过 UTF-8、无 BOM 与 500 行门禁。
+
+### P0-D Desktop 账号上下文
+
+- 拆分 Desktop Runtime Client / Types，Bootstrap、账号、定位知识、系统配置、任务和事件统一进入领域客户端，新页面不直接请求 Runtime。
+- 新增工作区激活和同账号真实连接候选接口，`AccountDto` 补齐定位摘要与最近使用时间；当前 v1 库存为 46 个 HTTP + 1 个 WebSocket。
+- 落地 Account Context、最近账号与页面恢复、未保存守卫、迟到响应隔离、可逆切换事务、账号事件重订阅和当前账号归档清理。
+- 落地受控 P0 Route Manifest、首启门、新账号壳、账号切换器、状态反馈和宽屏 / 紧凑 PC 布局；该受控清单已在 P0-F 切换为正式路由真源。
+- 落地账号管理、六步向导、真实连接、复制、归档恢复，以及定位、知识规则、来源、索引、快照和 BrandKit 的真实 Runtime 页面。
+- P0-D 阶段验收通过：Runtime 38 项、Desktop 50 项均取得通过证据；P0-D 新路径类型错误为 0，`build:p0` 处理 468 个模块并通过，真实 Runtime 完成授权、双账号隔离、页面恢复、归档清理和两档 PC 窗口 E2E。
+- 真实 E2E 修复开发编排器未传递预期 Host 的启动缺口；浏览器验收结束时 Console 为 0 错误、0 警告。当时登记的 79 个 legacy 类型错误已在 P0-F 正式切换时清零。
+
+### P0-C 账号纵向链
+
+- 新增 Alembic `0019_p0_account_vertical_chain`，以加法迁移接管账号五状态、知识快照标签和普通写幂等记录；只保守补齐缺失的空知识库与保守发布默认值，不伪造来源、快照、连接或 ready。
+- 落地账号创建、详情、工作区上下文、六步向导、白名单配置复制、归档、恢复健康复检与 readiness 服务，并强制账号聚合修订和全层账号作用域。
+- 落地真实 `DeviceWorkspace -> BrowserInstance -> ExecutionBinding` 连接、绑定与诊断链路，拒绝跨账号对象、假绑定和不一致执行证据。
+- 落地定位版本、知识规则、六类知识来源、正文/公共 HTTPS 真实索引、不可变快照、BrandKit 和发布默认值；file 来源可创建，但在受控文件桥实现前明确失败并保留重试路径，该桥已转入 P1。
+- 新增 `account.health_check`、`account.restore_health_check`、`account.connection_check` 和 `knowledge.index` 四个可取消持久任务类型，覆盖超时、失败、重启策略、日志和账号 Topic 状态反馈。
+- 配置总线新增账号分页、普通写幂等 TTL 和三个知识索引策略键；知识索引任务冻结创建时配置修订与策略，避免在途任务配置漂移。
+- 新增 31 个账号范围 `/api/v1` HTTP 接口，当前静态库存达到 44 个 HTTP + 1 个 WebSocket；同步账号、知识、任务事件、错误、配置和 legacy 退出关系文档。
+- P0-C 阶段范围 175 项均已取得通过证据：最后一次完整运行 `169 passed, 6 failed in 123.31s`，剩余 6 项修正测试断言后定向复验 `6 passed in 23.52s`；接口库存、编译、差异和 UTF-8 门禁同步通过。
+
+### P0-B Runtime v1 内核
+
+- 新增 13 个 `/api/v1` HTTP 接口和 1 个 WebSocket 入口，统一 Runtime Session、Host / Origin、许可证门、成功/失败信封、错误码与 `log_id`。
+- 将任务切换为 SQLite 持久化真源，覆盖快照 v2、处理器版本、幂等、超时、取消、重试、重启恢复和有界停机。
+- 新增账号范围 Topic、sequence、outbox、断线重放、HTTP 最终状态补拉，以及 Bootstrap、系统设置和任务 legacy 薄适配器。
+- 强化结构化日志与诊断安全，脱敏 Token、Prompt、Provider body 和本地路径，并对动态 Validation 键失败封闭。
+- 新增 Alembic `0018_p0_runtime_kernel`，收紧任务与事件约束，并保护 SQLite 跨 revision 有数据降级的失败原子性。
+- P0-B 最终阶段验收通过：41 个定向测试文件 `239 passed, 1 skipped in 171.75s`；391 个 Python 文件编译、接口库存、差异和 UTF-8 门禁通过。
+
+### P0-A 账号基础与数据库接管
+
+- 统一 Runtime 与 Alembic 数据库路径、迁移配置、启动与迁移结构化日志和启动生命周期。
+- 新增已知 legacy 匿名结构指纹、跨进程迁移锁、DB / WAL / SHM 备份恢复与目标 Schema 契约校验。
+- 新增 Alembic `0015–0017`，以加法方式预建账号基础、AI 配置、持久任务和事件对象，并保守迁移旧数据。
+- 生产 Runtime 在创建 Engine、Repository 和 Service 前执行正式迁移；未知 Schema 只读失败，不再由正常启动隐式 repair。
+- 产品、架构、项目状态、兼容矩阵和 legacy API 索引同步到账号工作区 P0 主线。
+- P0-A 唯一一次阶段测试通过：14 个定向测试文件共 `94 passed`；Python `compileall`、差异和 UTF-8 门禁通过。
+
 ### M05 AI 剪辑工作台体验收敛
 
 - 预览舞台画幅切换从局部组件状态提升为工作台状态，9:16 / 16:9 选择可由页面与 Store 统一承接。

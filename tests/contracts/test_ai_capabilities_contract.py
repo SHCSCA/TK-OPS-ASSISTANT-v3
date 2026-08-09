@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 
-def test_ai_capability_mutations_broadcast_changed_events(
+def test_legacy_ai_capability_mutations_are_rejected_without_side_effects(
     runtime_client: TestClient,
     monkeypatch,
 ) -> None:
@@ -16,71 +16,33 @@ def test_ai_capability_mutations_broadcast_changed_events(
 
     monkeypatch.setattr("services.ai_capability_service.ws_manager.broadcast", fake_broadcast)
 
-    settings_response = runtime_client.get("/api/settings/ai-capabilities")
-    assert settings_response.status_code == 200
-    capabilities = settings_response.json()["data"]["capabilities"]
-    capabilities[0]["model"] = "gpt-5.4"
+    before = runtime_client.get("/api/settings/ai-capabilities")
+    assert before.status_code == 200
 
-    update_response = runtime_client.put(
-        "/api/settings/ai-capabilities",
-        json={"capabilities": capabilities},
+    responses = (
+        runtime_client.put(
+            "/api/settings/ai-capabilities",
+            json={"capabilities": []},
+        ),
+        runtime_client.put(
+            "/api/settings/ai-capabilities/providers/openai/secret",
+            json={"apiKey": "sk-contract-openai-123456"},
+        ),
+        runtime_client.put(
+            "/api/ai-providers/openai/models/contract-writer",
+            json={"displayName": "Contract Writer"},
+        ),
+        runtime_client.post("/api/ai-providers/health/refresh"),
     )
-    assert update_response.status_code == 200
 
-    secret_response = runtime_client.put(
-        "/api/settings/ai-capabilities/providers/openai/secret",
-        json={"apiKey": "sk-contract-openai-123456"},
-    )
-    assert secret_response.status_code == 200
+    for response in responses:
+        assert response.status_code == 410
+        assert response.json()["error_code"] == "legacy.write.unsupported"
 
-    model_response = runtime_client.put(
-        "/api/ai-providers/openai/models/contract-writer",
-        json={
-            "displayName": "Contract Writer",
-            "capabilityKinds": ["text_generation"],
-            "inputModalities": ["text"],
-            "outputModalities": ["text"],
-            "contextWindow": 32000,
-            "defaultFor": ["script_generation"],
-            "enabled": True,
-        },
-    )
-    assert model_response.status_code == 200
-
-    refresh_response = runtime_client.post("/api/ai-providers/health/refresh")
-    assert refresh_response.status_code == 200
-
-    assert len(captured) == 4
-
-    update_event, secret_event, model_event, refresh_event = captured
-    assert update_event["schema_version"] == 1
-    assert update_event["type"] == "ai-capability.changed"
-    assert update_event["reason"] == "capability_config_updated"
-    assert update_event["scope"] == "runtime_local"
-    assert update_event["providerIds"]
-    assert capabilities[0]["capabilityId"] in update_event["capabilityIds"]
-
-    assert secret_event["reason"] == "provider_secret_updated"
-    assert secret_event["providerIds"] == ["openai"]
-    assert secret_event["capabilityIds"]
-
-    assert model_event["reason"] == "provider_model_upserted"
-    assert model_event["providerIds"] == ["openai"]
-    assert "script_generation" in model_event["capabilityIds"]
-
-    assert refresh_event["reason"] == "provider_health_refreshed"
-    assert "openai" in refresh_event["providerIds"]
-    assert set(refresh_event["capabilityIds"]) == {
-        "script_generation",
-        "script_rewrite",
-        "storyboard_generation",
-        "tts_generation",
-        "subtitle_alignment",
-        "video_transcription",
-        "video_generation",
-        "asset_analysis",
-        "magic_cut",
-    }
+    after = runtime_client.get("/api/settings/ai-capabilities")
+    assert after.status_code == 200
+    assert after.json()["data"] == before.json()["data"]
+    assert captured == []
 
 
 def test_ai_capability_settings_contract_uses_settings_prefix_and_expected_shape(
@@ -142,37 +104,16 @@ def test_ai_provider_secret_and_health_contract_return_expected_shapes(
         json={'apiKey': 'sk-contract-openai-123456'},
     )
 
-    assert secret_response.status_code == 200
-    secret_payload = secret_response.json()
-    assert set(secret_payload) == {'ok', 'data'}
-    assert secret_payload['ok'] is True
-    assert set(secret_payload['data']) == {
-        'provider',
-        'label',
-        'configured',
-        'maskedSecret',
-        'baseUrl',
-        'secretSource',
-        'supportsTextGeneration',
-        'readiness',
-        'lastCheckedAt',
-        'errorCode',
-        'errorMessage',
-        'scope',
-    }
-    assert secret_payload['data']['provider'] == 'openai'
-
     health_response = runtime_client.post(
         '/api/settings/ai-capabilities/providers/openai/health-check',
         json={'model': 'gpt-5.4'},
     )
 
-    assert health_response.status_code == 200
-    health_payload = health_response.json()
-    assert set(health_payload) == {'ok', 'data'}
-    assert health_payload['ok'] is True
-    assert set(health_payload['data']) == {'provider', 'status', 'message', 'model', 'checkedAt', 'latencyMs'}
-    assert health_payload['data']['provider'] == 'openai'
+    for response in (secret_response, health_response):
+        assert response.status_code == 410
+        payload = response.json()
+        assert payload['ok'] is False
+        assert payload['error_code'] == 'legacy.write.unsupported'
 
 
 def test_ai_provider_catalog_contract_exposes_multi_provider_registry(
@@ -278,15 +219,15 @@ def test_domestic_provider_model_catalog_marks_media_capabilities(
 
 
 def test_hidden_ai_provider_model_refresh_contract_returns_error_envelope(
-    runtime_app,
+    runtime_client: TestClient,
 ) -> None:
-    client = TestClient(runtime_app)
+    client = runtime_client
     response = client.post('/api/settings/ai-providers/ollama/models/refresh')
 
-    assert response.status_code == 404
+    assert response.status_code == 410
     payload = response.json()
     assert payload['ok'] is False
-    assert payload['error'] == '当前版本暂未接入该 AI Provider。'
+    assert payload['error_code'] == 'legacy.write.unsupported'
 
 
 def test_ai_capability_support_matrix_contract_maps_capabilities_to_models(
@@ -370,7 +311,8 @@ def test_unknown_ai_provider_uses_chinese_error_envelope(
     assert response.status_code == 404
     payload = response.json()
     assert payload['ok'] is False
-    assert payload['error'] == '当前版本暂未接入该 AI Provider。'
+    assert payload['error'] == '请求的接口不存在'
+    assert payload['error_code'] == 'runtime.resource_not_found'
     assert payload['requestId']
 
 def test_ai_provider_health_aggregate_contract_returns_expected_shape(
@@ -396,7 +338,7 @@ def test_ai_provider_health_aggregate_contract_returns_expected_shape(
     }
 
 
-def test_ai_provider_model_upsert_contract_returns_write_receipt_and_model_shape(
+def test_legacy_ai_provider_model_upsert_requires_versioned_v1_api(
     runtime_client: TestClient,
 ) -> None:
     response = runtime_client.put(
@@ -412,33 +354,7 @@ def test_ai_provider_model_upsert_contract_returns_write_receipt_and_model_shape
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 410
     payload = response.json()
-    assert set(payload) == {'ok', 'data'}
-    assert payload['ok'] is True
-    assert set(payload['data']) == {
-        'saved',
-        'wasUpsert',
-        'updatedAt',
-        'versionOrRevision',
-        'objectSummary',
-        'model',
-    }
-    assert payload['data']['saved'] is True
-    assert payload['data']['wasUpsert'] is False
-    assert payload['data']['objectSummary'] == {
-        'provider': 'openai',
-        'modelId': 'contract-writer',
-        'displayName': 'Contract Writer',
-    }
-    assert set(payload['data']['model']) == {
-        'modelId',
-        'displayName',
-        'provider',
-        'capabilityTypes',
-        'inputModalities',
-        'outputModalities',
-        'contextWindow',
-        'defaultFor',
-        'enabled',
-    }
+    assert payload['ok'] is False
+    assert payload['error_code'] == 'legacy.write.unsupported'

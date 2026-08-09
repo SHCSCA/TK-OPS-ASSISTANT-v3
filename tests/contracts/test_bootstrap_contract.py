@@ -3,8 +3,12 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 
-def test_bootstrap_contract_covers_reports_and_envelope(runtime_client: TestClient) -> None:
-    response = runtime_client.post("/api/bootstrap/initialize-directories")
+def test_bootstrap_contract_covers_reports_and_envelope(
+    licensed_runtime_client: TestClient,
+) -> None:
+    response = licensed_runtime_client.post(
+        "/api/bootstrap/initialize-directories"
+    )
 
     assert response.status_code == 200
     payload = response.json()
@@ -23,19 +27,45 @@ def test_bootstrap_contract_covers_reports_and_envelope(runtime_client: TestClie
     }
 
 
-def test_bootstrap_contract_surfaces_server_error(runtime_client: TestClient, monkeypatch) -> None:
-    def _boom() -> object:
+def test_bootstrap_contract_surfaces_server_error(
+    licensed_runtime_client: TestClient,
+    monkeypatch,
+) -> None:
+    def _boom(**_: object) -> object:
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(runtime_client.app.state.settings_service, "get_settings", _boom)
+    monkeypatch.setattr(
+        licensed_runtime_client.app.state.bootstrap_v1_service,
+        "initialize_directories",
+        _boom,
+    )
 
-    client = TestClient(runtime_client.app, raise_server_exceptions=False)
+    client = TestClient(
+        licensed_runtime_client.app,
+        base_url=str(licensed_runtime_client.base_url),
+        raise_server_exceptions=False,
+    )
     response = client.post("/api/bootstrap/initialize-directories")
 
     assert response.status_code == 500
     payload = response.json()
     assert payload["ok"] is False
     assert payload["error"]
+
+
+def test_bootstrap_write_contract_requires_active_license(
+    runtime_client: TestClient,
+) -> None:
+    for path in (
+        "/api/bootstrap/initialize-directories",
+        "/api/bootstrap/runtime-selfcheck",
+    ):
+        response = runtime_client.post(path)
+
+        assert response.status_code == 403
+        payload = response.json()
+        assert payload["ok"] is False
+        assert payload["error_code"] == "license.invalid"
 
 
 def test_bootstrap_readiness_contract_returns_blockers_and_actions(

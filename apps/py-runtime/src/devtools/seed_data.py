@@ -444,7 +444,7 @@ def _insert_seed_graph(
         platform="tiktok",
         username="@tkops_demo",
         avatar_url=None,
-        status="healthy",
+        status="ready",
         auth_expires_at=None,
         follower_count=0,
         following_count=0,

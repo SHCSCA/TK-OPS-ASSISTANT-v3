@@ -1,0 +1,89 @@
+.ai-runtime-grid,
+.ai-diagnostics-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ai-runtime-card.is-wide { grid-column: 1 / -1; }
+
+.ai-runtime-card > header .material-symbols-outlined {
+  color: var(--brand-primary);
+}
+
+.ai-config-values {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.ai-log-lookup form {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ai-log-excerpt {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.ai-log-excerpt > header {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.ai-compact-warning { color: var(--status-warning); }
+
+.sr-only {
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@keyframes ai-pulse {
+  0%,
+  100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (min-width: 1280px) {
+  .ai-table-detail-layout:has(.ai-detail-panel, .ai-matrix) {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+
+@media (max-width: 1279px) {
+  .ai-system-page { padding: var(--space-5); }
+
+  .ai-detail-panel,
+  .ai-matrix {
+    box-shadow: var(--shadow-lg);
+  }
+
+  .ai-runtime-grid,
+  .ai-diagnostics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023px) {
+  .ai-system-page { padding: var(--space-4); }
+  .ai-primary-tabs { overflow-x: auto; }
+
+  .ai-config-editor-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+
+  .ai-form-grid,
+  .ai-choice-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-state-skeleton span { animation: none; }
+}

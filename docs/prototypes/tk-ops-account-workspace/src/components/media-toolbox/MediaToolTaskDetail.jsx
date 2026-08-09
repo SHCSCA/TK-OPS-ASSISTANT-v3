@@ -1,0 +1,7 @@
+import { IconFolderOpen, IconPlayerStop, IconRefresh } from "@tabler/icons-react";
+import { getMediaTool } from "../../data/mediaTools.js";
+
+export function MediaToolTaskDetail({ media, task }) {
+  const tool = getMediaTool(task.toolId);
+  return <div className="detail-stack"><div className="detail-summary"><span>{tool?.name}</span><strong>{task.status === "completed" ? "任务完成" : task.status === "failed" ? "任务失败" : "任务执行中"}</strong><small>{task.id}</small></div><section className="detail-section"><h3>进度</h3><div className="progress-track progress-track--large"><i style={{ width: `${task.progress}%` }} /></div><p>{task.progress}% · {task.updated}</p></section>{task.error ? <div className="detail-alert detail-alert--danger"><strong>失败原因</strong><p>{task.error}</p></div> : null}{task.outputPath ? <section className="detail-section"><h3>输出位置</h3><p>{task.outputPath}</p><button className="detail-action" onClick={() => media.completeTask(task.id)} type="button"><IconFolderOpen size={16} />打开输出 · 演示</button></section> : null}<div className="detail-button-row">{task.status === "failed" ? <button className="primary-button" onClick={() => media.retryTask(task.id)} type="button"><IconRefresh size={16} />重试任务</button> : null}{["queued", "running"].includes(task.status) ? <button className="secondary-button danger-outline" onClick={() => media.cancelTask(task.id)} type="button"><IconPlayerStop size={16} />取消任务</button> : null}</div></div>;
+}

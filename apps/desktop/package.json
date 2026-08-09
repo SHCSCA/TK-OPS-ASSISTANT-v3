@@ -6,9 +6,15 @@
     "dev": "vite",
     "build": "vite build",
     "prepare:media-tools": "node scripts/prepare-media-tools.mjs",
+    "prepare:runtime-sidecar": "node ../../scripts/prepare-runtime-sidecar.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "node scripts/run-active-vitest.mjs",
+    "test:compat": "node scripts/run-active-vitest.mjs --category compatibility",
+    "test:inventory": "node scripts/validate-test-inventory.mjs",
+    "test:e2e": "playwright test first-run.e2e.ts p0-g-recovery.e2e.ts",
+    "test:e2e:compat": "playwright test account-workspace.e2e.ts",
+    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
@@ -22,6 +28,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
+    "@playwright/test": "1.61.1",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^25.6.0",
     "@vitejs/plugin-vue": "^6.0.1",
@@ -29,6 +36,7 @@
     "jsdom": "^26.1.0",
     "typescript": "^5.8.3",
     "vite": "^7.1.5",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "vue-tsc": "^3.3.8"
   }
 }

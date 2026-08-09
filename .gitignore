@@ -42,9 +42,12 @@ Thumbs.db
 .codex/
 apps/desktop/src-tauri/gen/
 apps/desktop/src-tauri/resources/bin/ffprobe/windows-x64/ffprobe.exe
+apps/desktop/src-tauri/binaries/tk-ops-runtime-*.exe
+apps/desktop/src-tauri/resources/runtime/tk-ops-runtime.manifest.json
 apps/desktop/.media-tools-tmp/
 apps/desktop/tool/ffmpeg/
 apps/desktop/tool/ffmpeg-*/
+apps/py-runtime/.sidecar-build/
 
 # Playwright local artifacts
 .playwright-cli/
@@ -53,4 +56,11 @@ apps/desktop/tool/ffmpeg-*/
 .superpowers/
 output/
 test-results/
+playwright-report/
 __debug_caps.py
+
+# Superdesign 临时组件
+.superdesign/tmp/
+
+# Pytest 阶段验收临时目录
+.pytest-tmp/

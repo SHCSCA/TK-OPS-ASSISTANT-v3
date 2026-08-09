@@ -1,8 +1,17 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+
+from domain.models.account import Account
+from tests.runtime.p0c_account_integration_support import (
+    create_account,
+    mutation_headers,
+    seed_eligible_execution_environment,
+    session,
+)
 
 
 def _assert_ok(payload: dict[str, object]) -> object:
@@ -15,6 +24,69 @@ def _assert_deleted_envelope(response) -> None:  # type: ignore[no-untyped-def]
     assert response.status_code == 200
     data = _assert_ok(response.json())
     assert data == {"deleted": True}
+
+
+def _prepare_v1_account_connection(
+    runtime_client: TestClient,
+    *,
+    name: str,
+    username: str | None,
+    key: str,
+    root: Path,
+    mark_ready: bool = False,
+) -> dict[str, object]:
+    account_id, revision = create_account(
+        runtime_client,
+        name=name,
+        idempotency_key=f"idem-contract-{key}-account",
+    )
+    if username is not None:
+        patched = runtime_client.patch(
+            f"/api/v1/accounts/{account_id}",
+            headers=mutation_headers(revision=revision),
+            json={"username": username},
+        )
+        assert patched.status_code == 200, patched.text
+        revision = int(patched.json()["meta"]["revision"])
+
+    environment_id, eligibility_revision, workspace_id, browser_id = (
+        seed_eligible_execution_environment(
+        runtime_client,
+        account_id=account_id,
+        key=key,
+        root=root,
+        )
+    )
+    now = datetime.now(UTC)
+
+    bound = runtime_client.put(
+        f"/api/v1/accounts/{account_id}/connection/binding",
+        headers=mutation_headers(
+            revision=revision,
+            idempotency_key=f"idem-contract-{key}-binding",
+        ),
+        json={
+            "environmentId": environment_id,
+            "eligibilityRevision": eligibility_revision,
+        },
+    )
+    assert bound.status_code == 200, bound.text
+
+    if mark_ready:
+        with session(runtime_client) as database:
+            account = database.get(Account, account_id)
+            assert account is not None
+            account.status = "ready"
+            account.wizard_completed_at = now.isoformat()
+            account.status_reason_code = None
+            database.commit()
+    return {
+        "id": account_id,
+        "name": name,
+        "workspaceId": workspace_id,
+        "browserInstanceId": browser_id,
+        "connection": bound.json()["data"],
+    }
 
 
 def test_assets_contract_covers_groups_batch_ops_and_thumbnail_fields(
@@ -104,13 +176,21 @@ def test_assets_contract_covers_groups_batch_ops_and_thumbnail_fields(
 
 
 def test_accounts_and_devices_contract_cover_binding_and_logs(
-    runtime_client: TestClient,
+    licensed_runtime_client: TestClient,
+    tmp_path: Path,
 ) -> None:
-    workspace_response = runtime_client.post(
-        "/api/devices/browser-instances",
-        json={"name": "Local Workspace", "root_path": "D:/tkops/workspaces/main"},
+    runtime_client = licensed_runtime_client
+    account = _prepare_v1_account_connection(
+        runtime_client,
+        name="Creator A",
+        username="creator_a",
+        key="account-device",
+        root=tmp_path,
     )
-    assert workspace_response.status_code == 201
+    workspace_response = runtime_client.get(
+        f"/api/devices/browser-instances/{account['workspaceId']}"
+    )
+    assert workspace_response.status_code == 200
     workspace = _assert_ok(workspace_response.json())
     assert {
         "id",
@@ -123,35 +203,19 @@ def test_accounts_and_devices_contract_cover_binding_and_logs(
         "updated_at",
     }.issubset(workspace)
 
-    account_response = runtime_client.post(
-        "/api/accounts",
-        json={"name": "Creator A", "platform": "tiktok", "username": "creator_a"},
-    )
-    assert account_response.status_code == 200
-    account = _assert_ok(account_response.json())
-
-    binding_response = runtime_client.put(
-        f"/api/accounts/{account['id']}/binding",
-        json={
-            "browserInstanceId": workspace["id"],
-            "status": "active",
-            "source": "manual",
-            "metadataJson": '{"token":"secret","profile":"main"}',
-        },
-    )
-    assert binding_response.status_code == 200
-    binding = _assert_ok(binding_response.json())
+    binding = account["connection"]
     assert set(binding) == {
-        "id",
         "accountId",
-        "browserInstanceId",
-        "status",
-        "source",
-        "maskedMetadataJson",
-        "createdAt",
-        "updatedAt",
+        "deviceWorkspace",
+        "browserInstance",
+        "executionBinding",
+        "lastCheck",
+        "healthStatus",
+        "authStatus",
+        "revision",
     }
-    assert "secret" not in (binding["maskedMetadataJson"] or "")
+    assert binding["executionBinding"]["id"] == "binding_account-device"
+    assert "secret" not in str(binding)
 
     binding_list = runtime_client.get("/api/devices/bindings")
     assert binding_list.status_code == 200
@@ -207,26 +271,19 @@ def test_automation_contract_covers_pause_and_resume(runtime_client: TestClient)
     _assert_deleted_envelope(runtime_client.delete(f"/api/automation/tasks/{task['id']}"))
 
 
-def test_publishing_contract_covers_calendar_and_receipts(runtime_client: TestClient) -> None:
-    account_response = runtime_client.post(
-        "/api/accounts",
-        json={"name": "Creator A", "platform": "tiktok", "username": "creator_a"},
+def test_publishing_contract_covers_calendar_and_receipts(
+    licensed_runtime_client: TestClient,
+    tmp_path: Path,
+) -> None:
+    runtime_client = licensed_runtime_client
+    account = _prepare_v1_account_connection(
+        runtime_client,
+        name="Creator A",
+        username="creator_a",
+        key="publishing-calendar",
+        root=tmp_path,
+        mark_ready=True,
     )
-    assert account_response.status_code == 200
-    account = _assert_ok(account_response.json())
-
-    workspace_response = runtime_client.post(
-        "/api/devices/browser-instances",
-        json={"name": "?????", "root_path": str(Path.cwd())},
-    )
-    assert workspace_response.status_code == 201
-    workspace = _assert_ok(workspace_response.json())
-
-    binding_response = runtime_client.put(
-        f"/api/accounts/{account['id']}/binding",
-        json={"browserInstanceId": workspace["id"], "status": "active"},
-    )
-    assert binding_response.status_code == 200
 
     first = runtime_client.post(
         "/api/publishing/plans",

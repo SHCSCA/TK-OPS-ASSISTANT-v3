@@ -1,0 +1,67 @@
+.media-tool-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.media-tool-grid > button {
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  display: flex;
+  gap: 11px;
+  min-height: 74px;
+  padding: 13px;
+  text-align: left;
+  transition: background var(--motion-fast), border-color var(--motion-fast);
+}
+
+.media-tool-grid > button:hover { background: var(--muted); border-color: var(--border-strong); }
+.media-tool-grid > button > span { align-items: center; background: var(--brand-soft); border-radius: 8px; color: var(--brand); display: flex; height: 34px; justify-content: center; width: 34px; }
+.media-tool-grid > button > div { display: flex; flex-direction: column; min-width: 0; }
+.media-tool-grid strong { font-size: 12px; }
+.media-tool-grid small { color: var(--text-tertiary); font-size: 9.5px; line-height: 15px; margin-top: 4px; }
+
+.wizard-step-strip {
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 12px 20px;
+}
+
+.wizard-step-strip span { align-items: center; color: var(--text-tertiary); display: flex; font-size: 10px; gap: 6px; justify-content: center; }
+.wizard-step-strip b { align-items: center; background: var(--muted); border-radius: 50%; display: flex; font-size: 9px; height: 20px; justify-content: center; width: 20px; }
+.wizard-step-strip span.is-active { color: var(--brand); }
+.wizard-step-strip span.is-active b { background: var(--brand-soft); }
+.media-wizard__body { min-height: 220px; padding: 20px; }
+.configuration-summary { background: var(--muted); border-radius: 9px; display: flex; flex-direction: column; margin-top: 14px; padding: 13px; }
+.configuration-summary span,
+.configuration-summary small { color: var(--text-tertiary); font-size: 9.5px; }
+.configuration-summary strong { font-size: 11.5px; margin: 4px 0; }
+.rights-confirmation { align-items: flex-start; background: var(--warning-soft); border: 1px solid color-mix(in srgb, var(--warning) 25%, var(--border)); border-radius: 10px; color: var(--warning); display: flex; gap: 13px; padding: 15px; }
+.rights-confirmation > div { display: flex; flex-direction: column; }
+.rights-confirmation p { color: var(--text-secondary); font-size: 10.5px; line-height: 18px; margin: 5px 0 14px; }
+.rights-confirmation label { align-items: center; color: var(--text-primary); display: flex; font-size: 11px; font-weight: 620; gap: 8px; }
+.rights-confirmation input { accent-color: var(--brand); height: 15px; width: 15px; }
+.task-review { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+.task-review > span { background: var(--muted); border-radius: 8px; display: flex; flex-direction: column; min-width: 0; padding: 11px; }
+.task-review small { color: var(--text-tertiary); font-size: 9px; }
+.task-review strong { font-size: 11px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.media-task-list { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.media-task-row { align-items: center; border-bottom: 1px solid var(--border); display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) 94px 100px 118px; min-height: 64px; padding: 8px 12px; }
+.media-task-row:last-child { border-bottom: 0; }
+.media-task-row--failed { box-shadow: inset 3px 0 0 var(--danger); }
+.media-task-main { align-items: center; background: transparent; border: 0; display: flex; gap: 10px; min-width: 0; padding: 0; text-align: left; }
+.media-task-main > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.media-task-main strong { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.media-task-main small { color: var(--text-tertiary); font-size: 9.5px; margin-top: 3px; }
+.media-task-icon { align-items: center; background: var(--brand-soft); border-radius: 8px; color: var(--brand); display: flex; height: 34px; justify-content: center; width: 34px; }
+.media-task-progress { background: var(--muted-strong); border-radius: 999px; height: 5px; overflow: hidden; }
+.media-task-progress i { background: var(--brand); display: block; height: 100%; }
+.media-task-row--failed .media-task-progress i { background: var(--danger); }
+.media-task-row--completed .media-task-progress i { background: var(--success); }
+.media-task-actions { display: flex; justify-content: flex-end; }
+.detail-button-row { display: flex; gap: 8px; }
+.danger-outline { color: var(--danger); }

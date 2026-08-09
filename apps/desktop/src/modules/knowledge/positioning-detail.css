@@ -1,0 +1,207 @@
+.positioning-detail-backdrop {
+  position: fixed;
+  z-index: var(--z-modal-backdrop);
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: var(--color-bg-overlay);
+}
+
+.sk-active-summary__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.sk-active-summary__heading,
+.sk-version-row__heading,
+.sk-editor-heading,
+.sk-compact-actions,
+.sk-tag-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sk-active-summary__heading,
+.sk-editor-heading {
+  justify-content: space-between;
+}
+
+.sk-editor-heading {
+  align-items: flex-start;
+}
+
+.sk-editor-heading p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font: var(--font-body-sm);
+}
+
+.sk-tag-row {
+  margin-top: var(--space-2);
+}
+
+.sk-tag-row span {
+  color: var(--brand-primary);
+  font: var(--font-body-xs);
+}
+
+.sk-compact-actions {
+  margin-top: var(--space-2);
+}
+
+.positioning-detail-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, calc(100vw - 72px));
+  height: 100%;
+  border-left: 1px solid var(--border-default);
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-lg);
+}
+
+.positioning-detail-panel__header,
+.positioning-detail-panel__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.positioning-detail-panel__header h2 {
+  margin: var(--space-1) 0 0;
+  font: var(--font-title-lg);
+}
+
+.positioning-detail-panel__body {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+.positioning-detail-summary,
+.positioning-detail-section {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-primary);
+}
+
+.positioning-detail-summary > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.positioning-detail-summary time,
+.positioning-detail-meta dt {
+  color: var(--text-tertiary);
+  font: var(--font-body-xs);
+}
+
+.positioning-detail-section h3,
+.positioning-detail-section p {
+  margin: 0;
+}
+
+.positioning-detail-section h3 {
+  font: var(--font-title-sm);
+}
+
+.positioning-detail-section p {
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+  font: var(--font-body-sm);
+}
+
+.positioning-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.positioning-detail-tags span {
+  padding: 4px 9px;
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  background: var(--surface-secondary);
+  font: var(--font-body-xs);
+}
+
+.positioning-detail-tags--tone span {
+  color: var(--brand-primary);
+  background: color-mix(in srgb, var(--brand-primary) 12%, transparent);
+}
+
+.positioning-detail-meta {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.positioning-detail-meta div {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.positioning-detail-meta dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font: var(--font-body-sm);
+}
+
+.positioning-hash-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.positioning-copy-error {
+  color: var(--status-error) !important;
+  font: var(--font-body-xs) !important;
+}
+
+.positioning-detail-state {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--space-3);
+  flex: 1;
+  padding: var(--space-8);
+  text-align: center;
+}
+
+.positioning-detail-state p,
+.positioning-detail-state small {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.positioning-detail-state--error .material-symbols-outlined {
+  color: var(--status-error);
+}
+
+.positioning-detail-panel__actions {
+  justify-content: flex-end;
+  margin-top: auto;
+  border-top: 1px solid var(--border-default);
+  border-bottom: 0;
+}
+
+@media (max-width: 1080px) {
+  .positioning-detail-panel {
+    width: min(460px, calc(100vw - 48px));
+  }
+}

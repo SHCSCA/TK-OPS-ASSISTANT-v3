@@ -43,8 +43,11 @@ def _stage_by_id(stages: list[dict[str, object]], stage_id: str) -> dict[str, ob
     return next(item for item in stages if item["stageId"] == stage_id)
 
 
-def test_video_deconstruction_stages_and_rerun_contract(runtime_app, tmp_path: Path) -> None:
-    client = TestClient(runtime_app)
+def test_video_deconstruction_stages_and_rerun_contract(
+    runtime_client: TestClient,
+    tmp_path: Path,
+) -> None:
+    client = runtime_client
     project_id = client.post(
         "/api/dashboard/projects",
         json={"name": "Video Contract", "description": "Stage contract"},
@@ -118,8 +121,11 @@ def test_video_deconstruction_stages_and_rerun_contract(runtime_app, tmp_path: P
     assert rerun_payload["data"]["status"] == "queued"
 
 
-def test_video_deconstruction_documented_routes_contract(runtime_app, tmp_path: Path) -> None:
-    client = TestClient(runtime_app)
+def test_video_deconstruction_documented_routes_contract(
+    runtime_client: TestClient,
+    tmp_path: Path,
+) -> None:
+    client = runtime_client
     project_id = client.post(
         "/api/dashboard/projects",
         json={"name": "Video Documented Contract", "description": "Doc route contract"},

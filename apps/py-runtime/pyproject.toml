@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tk-ops-runtime"
-version = "0.4.7"
+version = "0.4.11"
 description = "TK-OPS Python runtime skeleton"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -15,7 +15,9 @@ dependencies = [
   "sqlalchemy>=2.0,<3.0",
   "alembic>=1.16,<2.0",
   "pydantic>=2.11,<3.0",
-  "cryptography>=45.0,<46.0"
+  "cryptography>=45.0,<46.0",
+  "psutil>=6,<7",
+  "tzdata>=2025.2"
 ]
 
 [project.optional-dependencies]
@@ -23,6 +25,9 @@ dev = [
   "httpx>=0.28,<1.0",
   "pytest>=8.3,<9.0",
   "pytest-asyncio>=0.25,<1.0"
+]
+packaging = [
+  "pyinstaller>=6.16,<7.0"
 ]
 
 [tool.setuptools]

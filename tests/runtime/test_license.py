@@ -9,6 +9,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+LEGACY_RUNTIME_BASE_URL = "http://127.0.0.1:43119"
+TEST_MACHINE_CODE = "TKOPS-TEST1-TEST2-TEST3-TEST4-TEST5"
+
 try:
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -42,8 +45,8 @@ def _configure_license_keys(
     runtime_data_dir: Path,
     monkeypatch,
     *,
-    machine_code: str = "TKOPS-TEST1-TEST2-TEST3-TEST4-TEST5",
-) -> None:
+    machine_code: str = TEST_MACHINE_CODE,
+) -> Ed25519PrivateKey:
     private_key = Ed25519PrivateKey.generate()
     public_key = private_key.public_key()
     public_key_path = runtime_data_dir / "license-public.pem"
@@ -66,19 +69,21 @@ def test_license_status_returns_default_restricted_state(
     assert response.status_code == 200
     payload = response.json()
     assert payload["ok"] is True
-    assert payload["data"]["active"] is False
-    assert payload["data"]["restrictedMode"] is True
-    assert payload["data"]["machineCode"]
-    assert payload["data"]["machineBound"] is False
-    assert payload["data"]["licenseType"] == "perpetual"
-    assert payload["data"]["maskedCode"] == ""
-    assert payload["data"]["activatedAt"] is None
+    status = payload["data"]
+    assert status["active"] is False
+    assert status["restrictedMode"] is True
+    assert status["machineCode"]
+    assert status["machineCode"] == status["maskedCode"]
+    assert "*" in status["machineCode"]
+    assert status["machineBound"] is False
+    assert status["licenseType"] == "local_device"
+    assert status["activatedAt"] is None
 
 
 def test_license_status_persists_machine_id_across_app_recreation(
     runtime_app,
 ) -> None:
-    client = TestClient(runtime_app)
+    client = TestClient(runtime_app, base_url=LEGACY_RUNTIME_BASE_URL)
     first_response = client.get("/api/license/status")
 
     assert first_response.status_code == 200
@@ -86,7 +91,10 @@ def test_license_status_persists_machine_id_across_app_recreation(
 
     from app.factory import create_app
 
-    reloaded_client = TestClient(create_app())
+    reloaded_client = TestClient(
+        create_app(),
+        base_url=LEGACY_RUNTIME_BASE_URL,
+    )
     second_response = reloaded_client.get("/api/license/status")
 
     assert second_response.status_code == 200
@@ -103,14 +111,15 @@ def test_license_activate_persists_grant_across_app_recreation(
     private_key = _configure_license_keys(runtime_data_dir, monkeypatch)
     from app.factory import create_app
 
-    client = TestClient(create_app())
-    machine_code = client.get("/api/license/status").json()["data"]["machineCode"]
-    activation_code = _issue_activation_code(machine_code, private_key)
-
-    activate_response = client.post(
-        "/api/license/activate",
-        json={"activationCode": activation_code},
-    )
+    activation_code = _issue_activation_code(TEST_MACHINE_CODE, private_key)
+    with TestClient(
+        create_app(),
+        base_url=LEGACY_RUNTIME_BASE_URL,
+    ) as client:
+        activate_response = client.post(
+            "/api/license/activate",
+            json={"activationCode": activation_code},
+        )
 
     assert activate_response.status_code == 200
     activated = activate_response.json()
@@ -118,21 +127,29 @@ def test_license_activate_persists_grant_across_app_recreation(
     assert activated["data"]["active"] is True
     assert activated["data"]["restrictedMode"] is False
     assert activated["data"]["machineBound"] is True
-    assert activated["data"]["licenseType"] == "perpetual"
-    assert activated["data"]["maskedCode"].startswith(activation_code[:4])
+    assert activated["data"]["licenseType"] == "local_device"
+    assert (
+        activated["data"]["machineCode"]
+        == activated["data"]["maskedCode"]
+    )
+    assert "*" in activated["data"]["machineCode"]
     assert activated["data"]["activatedAt"]
 
     from app.factory import create_app
 
-    reloaded_client = TestClient(create_app())
-    read_response = reloaded_client.get("/api/license/status")
+    with TestClient(
+        create_app(),
+        base_url=LEGACY_RUNTIME_BASE_URL,
+    ) as reloaded_client:
+        read_response = reloaded_client.get("/api/license/status")
 
     assert read_response.status_code == 200
     payload = read_response.json()
     assert payload["data"]["active"] is True
     assert payload["data"]["restrictedMode"] is False
     assert payload["data"]["machineBound"] is True
-    assert payload["data"]["licenseType"] == "perpetual"
+    assert payload["data"]["licenseType"] == "local_device"
+    assert payload["data"]["machineCode"] == payload["data"]["maskedCode"]
 
 
 def test_license_activation_rejects_blank_code_with_error_envelope(
@@ -162,7 +179,8 @@ def test_license_activate_returns_503_when_activation_dependency_is_unavailable(
     assert response.status_code == 503
     payload = response.json()
     assert payload["ok"] is False
-    assert payload["error"] == "许可证激活依赖未就绪，请检查运行时依赖与授权配置"
+    assert payload["error"] == "许可证安全存储不可用"
+    assert payload["error_code"] == "license.store.unavailable"
     assert payload["requestId"]
 
 
@@ -174,22 +192,25 @@ def test_license_activation_rejects_machine_code_mismatch(
     private_key = _configure_license_keys(runtime_data_dir, monkeypatch)
     from app.factory import create_app
 
-    client = TestClient(create_app())
+    with TestClient(
+        create_app(),
+        base_url=LEGACY_RUNTIME_BASE_URL,
+    ) as client:
+        response = client.post(
+            "/api/license/activate",
+            json={
+                "activationCode": _issue_activation_code(
+                    "TKOPS-OTHER1-OTHER2-OTHER3-OTHER4-OTHER5",
+                    private_key,
+                )
+            },
+        )
 
-    response = client.post(
-        "/api/license/activate",
-        json={
-            "activationCode": _issue_activation_code(
-                "TKOPS-OTHER1-OTHER2-OTHER3-OTHER4-OTHER5",
-                private_key,
-            )
-        },
-    )
-
-    assert response.status_code == 400
+    assert response.status_code == 403
     payload = response.json()
     assert payload["ok"] is False
-    assert payload["error"] == "机器码不匹配"
+    assert payload["error"] == "许可证与本机不匹配"
+    assert payload["error_code"] == "license.machine.mismatch"
     assert payload["requestId"]
 
 
@@ -224,16 +245,24 @@ def test_license_activation_rejects_invalid_signature(
     private_key = _configure_license_keys(runtime_data_dir, monkeypatch)
     from app.factory import create_app
 
-    client = TestClient(create_app())
-    machine_code = client.get("/api/license/status").json()["data"]["machineCode"]
-    invalid_code = _issue_activation_code(machine_code, Ed25519PrivateKey.generate())
+    invalid_code = _issue_activation_code(
+        TEST_MACHINE_CODE,
+        Ed25519PrivateKey.generate(),
+    )
+    with TestClient(
+        create_app(),
+        base_url=LEGACY_RUNTIME_BASE_URL,
+    ) as client:
+        response = client.post(
+            "/api/license/activate",
+            json={"activationCode": invalid_code},
+        )
 
-    response = client.post("/api/license/activate", json={"activationCode": invalid_code})
-
-    assert response.status_code == 400
+    assert response.status_code == 403
     payload = response.json()
     assert payload["ok"] is False
-    assert payload["error"] == "签名校验失败"
+    assert payload["error"] == "许可证无效"
+    assert payload["error_code"] == "license.invalid"
     assert payload["requestId"]
 
 
@@ -245,14 +274,20 @@ def test_license_events_write_structured_audit_logs(
     private_key = _configure_license_keys(runtime_data_dir, monkeypatch)
     from app.factory import create_app
 
-    client = TestClient(create_app())
-
-    status_response = client.get("/api/license/status")
-    machine_code = status_response.json()["data"]["machineCode"]
-    activate_response = client.post(
-        "/api/license/activate",
-        json={"activationCode": _issue_activation_code(machine_code, private_key)},
-    )
+    with TestClient(
+        create_app(),
+        base_url=LEGACY_RUNTIME_BASE_URL,
+    ) as client:
+        status_response = client.get("/api/license/status")
+        activate_response = client.post(
+            "/api/license/activate",
+            json={
+                "activationCode": _issue_activation_code(
+                    TEST_MACHINE_CODE,
+                    private_key,
+                )
+            },
+        )
 
     assert status_response.status_code == 200
     assert activate_response.status_code == 200
@@ -265,5 +300,5 @@ def test_license_events_write_structured_audit_logs(
         for line in log_path.read_text(encoding="utf-8").strip().splitlines()
     ]
     messages = [entry["message"] for entry in entries if entry["category"] == "audit"]
-    assert "license.status_loaded" in messages
-    assert "license.activated" in messages
+    assert "bootstrap.license_status_read" in messages
+    assert "bootstrap.license_activated" in messages

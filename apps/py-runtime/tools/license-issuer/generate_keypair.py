@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -29,13 +29,28 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
     output_dir = args.output_dir.resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    private_key = Ed25519PrivateKey.generate()
     private_key_path = output_dir / "license-private.pem"
     public_key_path = output_dir / "license-public.pem"
-    private_key_path.write_bytes(export_private_key_pem(private_key))
-    public_key_path.write_bytes(export_public_key_pem(private_key))
+    existing_paths = [
+        path
+        for path in (private_key_path, public_key_path)
+        if path.exists()
+    ]
+    if existing_paths:
+        print("密钥文件已存在，已拒绝覆盖。", file=sys.stderr)
+        for path in existing_paths:
+            print(f"现有文件：{path}", file=sys.stderr)
+        print("许可证密钥对只能初始化一次；轮换前必须先制定兼容与重新签发方案。", file=sys.stderr)
+        return 1
+
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        private_key = Ed25519PrivateKey.generate()
+        private_key_path.write_bytes(export_private_key_pem(private_key))
+        public_key_path.write_bytes(export_public_key_pem(private_key))
+    except OSError as exc:
+        print(f"写入许可证密钥对失败：{exc}", file=sys.stderr)
+        return 1
 
     print(f"私钥已生成：{private_key_path}")
     print(f"公钥已生成：{public_key_path}")

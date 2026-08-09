@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
-from pathlib import Path
-import zipfile
 
 def test_health_contract_uses_settings_prefix_and_json_envelope(
-    runtime_client: TestClient,
+    licensed_runtime_client: TestClient,
 ) -> None:
-    client = runtime_client
+    client = licensed_runtime_client
 
     response = client.get("/api/settings/health")
 
@@ -17,9 +15,6 @@ def test_health_contract_uses_settings_prefix_and_json_envelope(
     assert payload["ok"] is True
     assert set(payload["data"]) == {
         "runtime",
-        "aiProvider",
-        "renderQueue",
-        "publishingQueue",
         "taskBus",
         "license",
         "lastSyncAt",
@@ -27,46 +22,44 @@ def test_health_contract_uses_settings_prefix_and_json_envelope(
         "version",
         "now",
         "mode",
+        "unavailableSections",
     }
+    assert payload["data"]["unavailableSections"] == [
+        "aiProvider",
+        "renderQueue",
+        "publishingQueue",
+    ]
 
 
-def test_logs_endpoint_supports_query_filter_and_pagination(
-    runtime_client: TestClient,
+def test_legacy_logs_collection_requires_v1_log_lookup(
+    licensed_runtime_client: TestClient,
 ) -> None:
-    response = runtime_client.get(
+    response = licensed_runtime_client.get(
         "/api/settings/logs",
         params={"limit": 5, "kind": "system", "level": "INFO"},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 410
     payload = response.json()
-    assert payload["ok"] is True
-    assert set(payload["data"]) == {"items", "nextCursor"}
-    assert isinstance(payload["data"]["items"], list)
+    assert payload["ok"] is False
+    assert payload["error_code"] == "legacy.write.unsupported"
 
 
-def test_diagnostics_export_contract_returns_zip_bundle(
-    runtime_client: TestClient,
+def test_legacy_diagnostics_export_requires_controlled_tauri_export(
+    licensed_runtime_client: TestClient,
 ) -> None:
-    response = runtime_client.post("/api/settings/diagnostics/export")
+    response = licensed_runtime_client.post("/api/settings/diagnostics/export")
 
-    assert response.status_code == 200
+    assert response.status_code == 410
     payload = response.json()
-    assert payload["ok"] is True
-    data = payload["data"]
-    assert set(data) == {"bundlePath", "createdAt", "entries"}
-    assert Path(data["bundlePath"]).exists()
-    with zipfile.ZipFile(data["bundlePath"]) as bundle:
-        names = set(bundle.namelist())
-        assert "settings.json" in names
-        assert "health.json" in names
-        assert "diagnostics.json" in names
+    assert payload["ok"] is False
+    assert payload["error_code"] == "legacy.write.unsupported"
 
 
 def test_media_diagnostics_contract_uses_settings_prefix_and_expected_shape(
-    runtime_client: TestClient,
+    licensed_runtime_client: TestClient,
 ) -> None:
-    response = runtime_client.get("/api/settings/diagnostics/media")
+    response = licensed_runtime_client.get("/api/settings/diagnostics/media")
 
     assert response.status_code == 200
     payload = response.json()

@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "startupTimeoutMs": 90000,
+  "healthPollIntervalMs": 250,
+  "healthRequestTimeoutMs": 900,
+  "restart": {
+    "maxAttempts": 3,
+    "initialDelayMs": 500,
+    "maxDelayMs": 5000
+  },
+  "diagnostics": {
+    "tailLines": 200
+  },
+  "shutdownGraceMs": 1800,
+  "portSelectionAttempts": 4
+}

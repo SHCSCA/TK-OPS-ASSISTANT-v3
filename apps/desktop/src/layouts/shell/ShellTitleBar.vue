@@ -76,17 +76,6 @@
         </button>
       </div>
 
-      <div class="shell-window-controls">
-        <button class="icon-button" title="最小化" @click="handleMinimize">
-          <span class="material-symbols-outlined">remove</span>
-        </button>
-        <button class="icon-button" title="最大化或还原" @click="handleToggleMaximize">
-          <span class="material-symbols-outlined">crop_square</span>
-        </button>
-        <button class="icon-button window-close" title="关闭" @click="handleClose">
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
     </div>
   </div>
 </template>
@@ -133,36 +122,6 @@ const runtimeStatusTone = computed(() => {
 
 const licenseChipTone = computed(() => (props.licenseLabel.includes("激活") ? "brand" : "warning"));
 
-function handleWindowError(action: string, error: unknown) {
-  console.warn(`[Tauri 模拟] ${action} 未在当前环境执行。`, error);
-}
-
-async function handleMinimize() {
-  try {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().minimize();
-  } catch (error) {
-    handleWindowError("最小化", error);
-  }
-}
-
-async function handleToggleMaximize() {
-  try {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().toggleMaximize();
-  } catch (error) {
-    handleWindowError("最大化切换", error);
-  }
-}
-
-async function handleClose() {
-  try {
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().close();
-  } catch (error) {
-    handleWindowError("关闭", error);
-  }
-}
 </script>
 
 <style scoped>
@@ -300,16 +259,12 @@ async function handleClose() {
   white-space: nowrap;
 }
 
-.shell-actions, .shell-window-controls {
+.shell-actions {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
   gap: 4px;
   -webkit-app-region: no-drag;
-}
-
-.shell-window-controls {
-  flex: 0 0 auto;
 }
 
 .icon-button {
@@ -338,11 +293,6 @@ async function handleClose() {
 
 .icon-button .material-symbols-outlined {
   font-size: 18px;
-}
-
-.window-close:hover {
-  background: var(--color-danger);
-  color: #fff;
 }
 
 /* 适配窄屏 */

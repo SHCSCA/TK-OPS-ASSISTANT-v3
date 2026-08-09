@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+
+from domain.models.account import Account
+from tests.runtime.p0c_account_integration_support import (
+    seed_eligible_execution_environment,
+)
 
 
 def _assert_ok(payload: dict[str, object]) -> object:
@@ -12,15 +18,15 @@ def _assert_ok(payload: dict[str, object]) -> object:
 
 def _create_ready_account(runtime_client: TestClient) -> dict[str, object]:
     response = runtime_client.post(
-        "/api/accounts",
+        "/api/v1/accounts",
+        headers={"Idempotency-Key": "idem-contract-publishing-account"},
         json={
             "name": "发布账号 A",
             "platform": "tiktok",
             "username": "publisher_a",
-            "status": "active",
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     return _assert_ok(response.json())
 
 
@@ -30,17 +36,41 @@ def _bind_workspace(
     account_id: str,
     root_path: str,
 ) -> None:
-    workspace_response = runtime_client.post(
-        "/api/devices/browser-instances",
-        json={"name": "发布工作区", "root_path": root_path},
+    now = datetime.now(UTC)
+    with runtime_client.app.state.session_factory() as session:
+        account = session.get(Account, account_id)
+        assert account is not None
+        revision = int(account.revision)
+
+    environment_id, eligibility_revision, _, _ = (
+        seed_eligible_execution_environment(
+            runtime_client,
+            account_id=account_id,
+            key="contract-publishing",
+            root=Path(root_path),
+        )
     )
-    assert workspace_response.status_code == 201
-    workspace = _assert_ok(workspace_response.json())
+
     binding_response = runtime_client.put(
-        f"/api/accounts/{account_id}/binding",
-        json={"browserInstanceId": workspace["id"], "status": "active"},
+        f"/api/v1/accounts/{account_id}/connection/binding",
+        headers={
+            "If-Match": str(revision),
+            "Idempotency-Key": "idem-contract-publishing-binding",
+        },
+        json={
+            "environmentId": environment_id,
+            "eligibilityRevision": eligibility_revision,
+        },
     )
     assert binding_response.status_code == 200
+
+    with runtime_client.app.state.session_factory() as session:
+        account = session.get(Account, account_id)
+        assert account is not None
+        account.status = "ready"
+        account.wizard_completed_at = now.isoformat()
+        account.status_reason_code = None
+        session.commit()
 
 
 def test_publishing_contract_exposes_precheck_blockers(runtime_client: TestClient) -> None:
@@ -89,7 +119,11 @@ def test_publishing_contract_exposes_precheck_blockers(runtime_client: TestClien
     assert error["error_code"] == "publishing.precheck_failed"
 
 
-def test_publishing_contract_exposes_receipt_summary(runtime_client: TestClient, tmp_path: Path) -> None:
+def test_publishing_contract_exposes_receipt_summary(
+    licensed_runtime_client: TestClient,
+    tmp_path: Path,
+) -> None:
+    runtime_client = licensed_runtime_client
     workspace_root = tmp_path / "publish-workspace"
     workspace_root.mkdir()
     account = _create_ready_account(runtime_client)

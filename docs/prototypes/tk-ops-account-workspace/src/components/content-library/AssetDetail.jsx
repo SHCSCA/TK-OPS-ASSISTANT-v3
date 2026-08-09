@@ -1,0 +1,9 @@
+import { IconExternalLink, IconFileSearch, IconRefresh } from "@tabler/icons-react";
+
+export function AssetDetail({ asset, navigate, notify }) {
+  return <div className="detail-stack"><div className="asset-detail-preview"><strong>{typeLabels[asset.type]}</strong><span>{asset.previewUrl ? "真实预览可用" : "无预览，显示类型信息"}</span><small>{statusLabels[asset.status]}</small></div><section className="detail-section"><h3>资产信息</h3><dl className="compact-dl"><div><dt>用途</dt><dd>{asset.purpose}</dd></div><div><dt>来源</dt><dd>{asset.source}</dd></div><div><dt>版本</dt><dd>{asset.version}</dd></div>{Object.entries(asset.metadata || {}).map(([key, value]) => <div key={key}><dt>{metadataLabels[key] || key}</dt><dd>{value}</dd></div>)}</dl></section><section className="detail-section"><h3>来源与引用</h3><dl className="compact-dl"><div><dt>内容对象</dt><dd>{asset.contentItemId || "无"}</dd></div><div><dt>生产批次</dt><dd>{asset.batchId || "无"}</dd></div><div><dt>来源任务</dt><dd>{asset.sourceTaskId || "无"}</dd></div></dl>{asset.contentItemId ? <button className="detail-action" onClick={() => navigate("scripts")} type="button"><IconExternalLink size={17} />打开关联内容</button> : null}</section><section className="detail-section"><h3>本地文件</h3><p className="file-path">{asset.filePath || "文件路径不可用"}</p>{asset.status === "missing" ? <button className="detail-action" onClick={() => notify("文件定位器已打开 · 演示", "info")} type="button"><IconRefresh size={17} />重新定位文件</button> : <button className="detail-action" onClick={() => notify("资产来源记录已展开", "info")} type="button"><IconFileSearch size={17} />查看配置与日志</button>}</section></div>;
+}
+
+const typeLabels = { audio: "音频", document: "文档", image: "图片", video: "视频" };
+const statusLabels = { failed: "处理失败", missing: "文件缺失", ready: "可用", running: "生成中" };
+const metadataLabels = { dimensions: "尺寸", documentType: "文档类型", duration: "时长", format: "格式", resolution: "分辨率" };

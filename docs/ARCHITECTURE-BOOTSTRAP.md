@@ -1,344 +1,519 @@
 # TK-OPS 实现骨架引导文档
 
-| 字段 | 内容 |
-| --- | --- |
-| 文档版本 | 跟随工程主版本（真源：`package.json#version`） |
-| 当前工程版本 | 见根 `package.json#version` |
+## 1. 文档定位
 
-## 1. 文档定位与优先级
+本文是 TK-OPS 当前阶段的实现骨架真源，只定义目标目录、路由、模块职责、Runtime 资源边界和核心模型落点。产品范围以 `docs/PRD.md` 为准，视觉与布局以 `docs/UI-DESIGN-PRD.md` 为准，工程约束以 `AGENTS.md` 为准。
 
-### 1.1 文档定位
+本文取代旧的 16 页路由与 `Timeline` 中枢架构。脚本与选题、分镜规划和视频拆解允许按当前账号工作区边界迁移回新路由；AI 剪辑工作台、手动多轨时间线和其余旧页面树不得重新接入。
 
-本文档是 TK-OPS 当前阶段的实现骨架真源，用于补齐 [docs/PRD.md](./PRD.md) 与 [docs/UI-DESIGN-PRD.md](./UI-DESIGN-PRD.md) 之间尚未固定的目录树、路由清单、模块边界和模型落点。
+## 2. 技术主线
 
-本文档不负责重新定义产品范围，也不负责替代 UI 视觉规范。它只回答四类问题：
+- 桌面壳：Tauri 2 + Vue 3 + TypeScript + Vite。
+- 前端状态与路由：Pinia + Vue Router。
+- 业务 Runtime：Python + FastAPI + SQLAlchemy + Alembic。
+- 本地数据：SQLite + 账号范围的本地工作区目录。
+- 通信：HTTP 获取当前状态，WebSocket 推送任务与状态变化。
+- 媒体流水线：独立生成、转码、字幕烧录、封面与自动合成服务。
+- AI：多 Provider 能力适配层。
 
-- 新目录应该落在哪里。
-- 16 个页面路由应该如何命名和归属。
-- Runtime 的入口分组应该如何稳定切分。
-- 核心持久化模型应该归属到哪里，并主要服务哪些页面与服务。
+## 3. 目录边界
 
-### 1.2 冲突处理顺序
-
-当文档之间出现冲突时，按以下顺序处理：
-
-1. 产品范围、页面目标、能力边界以 [docs/PRD.md](./PRD.md) 为准。
-2. 视觉语言、壳层结构、页面布局、设计令牌以 [docs/UI-DESIGN-PRD.md](./UI-DESIGN-PRD.md) 为准。
-3. 目录树、路由归属、模块责任、模型落点以本文档为准。
-4. 协作流程、工程硬约束、交付规则以 [AGENTS.md](../AGENTS.md) 为准。
-
-### 1.3 文档边界
-
-- 本轮只定义稳定命名、落点和边界，不定义数据库字段级 schema。
-- 本轮只定义资源归属和路由分组，不扩展具体 endpoint 粒度。
-- 本轮定义目标目录骨架与边界；当前仓库已创建目录骨架，但业务实现尚未落地。
-
-## 2. 当前仓库现状与目标状态
-
-### 2.1 当前仓库现状
-
-当前仓库仍以文档与实现骨架为主，产品真源、UI 真源和协作手册已存在，且以下实现目录骨架已创建：
+新生产实现只允许落在：
 
 - `apps/desktop`
 - `apps/py-runtime`
-- `apps/desktop/tests`
-- `tests/runtime`
-- `tests/contracts`
+- `tests`
+- `docs`
 
-### 2.2 目标状态
+`desktop_app/` 只可作为迁移和历史模型参考，不得重新进入运行、联调、打包或发布链路。
 
-后续实现必须统一落在新的实现骨架下，不回退到旧壳路径，也不在仓库根目录散落页面、脚本或业务模型。
-
-重要说明：
-
-- 下述目录树已在仓库中创建骨架，当前不代表业务实现已经完整落地。
-- 若后续新增路径尚未创建，应在获批实现任务中按本文档创建。
-- 不得因为业务文件尚未落地，就把新实现塞回旧目录、单文件脚本或历史壳层目录。
-
-## 3. 目标目录树
-
-### 3.1 顶层结构
+### 3.1 Desktop 目标结构
 
 ```text
-apps/
-  desktop/
-    src/
-      app/
-        router/
-      layouts/
-      pages/
-      modules/
-      components/
-      stores/
-      styles/
-      types/
-  py-runtime/
-    src/
-      api/
-        routes/
-      app/
-      domain/
-        models/
-      services/
-      repositories/
-      schemas/
-      tasks/
-      media/
-      ai/
-        providers/
-      persistence/
-tests/
-  desktop/
-  runtime/
-  contracts/
+apps/desktop/src/
+├── app/
+│   ├── router/
+│   ├── runtime-client/
+│   └── account-context/
+├── layouts/
+│   └── account-workspace/
+├── pages/
+│   ├── setup/
+│   ├── workspace-home/
+│   ├── strategy-knowledge/
+│   ├── script-topic/
+│   ├── storyboard-planning/
+│   ├── video-deconstruction/
+│   ├── batch-production/
+│   ├── content-library/
+│   ├── media-toolbox/
+│   ├── publishing/
+│   ├── review/
+│   └── settings/
+├── modules/
+│   ├── accounts/
+│   ├── ai-recipes/
+│   ├── knowledge/
+│   ├── planning/
+│   ├── scripts/
+│   ├── storyboards/
+│   ├── video-deconstruction/
+│   ├── media-tools/
+│   ├── production/
+│   ├── composition/
+│   ├── publishing/
+│   ├── review/
+│   └── system/
+├── components/
+├── composables/
+├── stores/
+├── styles/
+└── types/
 ```
 
-### 3.2 `apps/desktop` 目录责任
+页面状态、服务调用、helpers、types 和 styles 必须按职责拆分。组件不得直接 `fetch`，所有请求统一通过 Runtime 适配层。
 
-| 目录 | 责任 |
-| --- | --- |
-| `apps/desktop/src/app/router/` | 路由真源、路由清单、路由守卫、导航分组和路由级元信息。 |
-| `apps/desktop/src/layouts/` | Tauri 桌面壳、页面模板、Title Bar、Sidebar、Detail Panel、Status Bar 等布局层。 |
-| `apps/desktop/src/pages/` | 16 个正式页面的页面根组件，只承载页面装配，不堆积复杂业务逻辑。 |
-| `apps/desktop/src/modules/` | 按业务域拆分的页面内模块、面板、可复用业务视图与 composables。 |
-| `apps/desktop/src/components/` | 跨域共享的通用 UI 组件和基础交互组件。 |
-| `apps/desktop/src/stores/` | Pinia 状态管理、全局上下文、任务广播、配置状态和项目上下文状态。 |
-| `apps/desktop/src/styles/` | 全局样式入口、设计令牌、主题变量、排版和基础工具类。 |
-| `apps/desktop/src/types/` | UI 类型、DTO 类型、路由类型和前端消费的协议类型，不重建持久化业务模型。 |
+### 3.2 Runtime 目标结构
 
-### 3.3 `apps/py-runtime` 目录责任
+```text
+apps/py-runtime/src/
+├── api/
+│   ├── routes/
+│   ├── dependencies/
+│   └── websocket/
+├── app/
+├── domain/
+│   └── models/
+├── services/
+│   ├── accounts/
+│   ├── ai-recipes/
+│   ├── provider-profiles/
+│   ├── model-profiles/
+│   ├── prompt-profiles/
+│   ├── capability-routes/
+│   ├── composition-templates/
+│   ├── knowledge/
+│   ├── planning/
+│   ├── scripts/
+│   ├── storyboards/
+│   ├── video-deconstruction/
+│   ├── media-tools/
+│   ├── assets/
+│   ├── production/
+│   ├── composition/
+│   ├── publishing/
+│   └── review/
+├── repositories/
+├── schemas/
+├── tasks/
+├── media/
+├── ai/
+│   └── providers/
+├── persistence/
+├── config/
+├── logging/
+└── errors/
+```
 
-| 目录 | 责任 |
-| --- | --- |
-| `apps/py-runtime/src/api/routes/` | FastAPI 路由入口，按资源前缀分组注册，不在此处堆积业务流程。 |
-| `apps/py-runtime/src/app/` | Runtime 启动、配置、依赖注入、日志初始化、应用级上下文。 |
-| `apps/py-runtime/src/domain/models/` | SQLAlchemy 持久化实体和领域模型定义。 |
-| `apps/py-runtime/src/services/` | 领域编排与应用服务，承接页面请求、任务调度和跨模型流程。 |
-| `apps/py-runtime/src/repositories/` | 数据访问层，封装查询、写入和持久化细节。 |
-| `apps/py-runtime/src/schemas/` | 请求响应 schema、DTO、序列化与反序列化对象。 |
-| `apps/py-runtime/src/tasks/` | 长任务、队列任务、后台执行任务与重试流程。 |
-| `apps/py-runtime/src/media/` | 渲染、转码、拼接、封面导出、字幕烧录等媒体流水线。 |
-| `apps/py-runtime/src/ai/providers/` | AI Provider 适配层，按能力接口接入脚本、视频、TTS、字幕和资产分析能力。 |
-| `apps/py-runtime/src/persistence/` | 数据库引擎、会话、迁移入口、存储初始化和持久化基础设施。 |
+UI 只表达状态和意图。账号隔离、业务规则、事务、缓存失效、任务编排和错误转换必须在 Runtime 服务层完成。
 
-### 3.4 `tests` 目录责任
+P0-A 已落地的数据库启动骨架：
 
-| 目录 | 责任 |
-| --- | --- |
-| `apps/desktop/tests/` | 路由、页面装配、状态管理、交互契约和前端关键链路测试。 |
-| `tests/runtime/` | Runtime 路由、服务、模型、任务和媒体链路测试。 |
-| `tests/contracts/` | 前后端协议契约测试，覆盖 JSON 信封、路由映射、资源前缀和关键 DTO 对齐。 |
+```text
+apps/py-runtime/src/
+├── app/
+│   ├── config.py
+│   ├── factory.py
+│   ├── lifecycle.py
+│   └── logging.py
+├── config/
+│   ├── database.py
+│   └── migration.py
+└── persistence/migration/
+    ├── legacy_baseline.py
+    ├── fingerprint.py
+    ├── lock.py
+    ├── backup.py
+    ├── runner.py
+    └── target_*.py
+```
 
-## 4. 前端路由清单与路由契约
+该骨架是正式生产启动路径，不得重新合并回 `persistence/engine.py` 或启动时隐式 repair。
 
-### 4.1 路由真源位置
+## 4. 路由真源
 
-前端路由真源建议统一放在：
-
-- `apps/desktop/src/app/router/route-manifest.ts`
-- `apps/desktop/src/app/router/route-ids.ts`
-- `apps/desktop/src/app/router/guards/`
-
-### 4.2 `RouteManifestItem` 契约
-
-`RouteManifestItem` 是前端路由的稳定契约，后续页面实现和导航系统必须基于这组字段，不在页面内另起一套命名。
+### 4.1 Route IDs
 
 ```ts
-type RouteManifestItem = {
-  id: string
-  path: string
-  title: string
-  navGroup: string
-  icon: string
-  pageType: string
-  requiresLicense: boolean
-  requiresProjectContext: boolean
-  detailPanelMode: string
-  statusBarMode: string
-  componentImport: string
-}
+export const routeIds = {
+  setupLicenseWizard: "setup_license_wizard",
+  accountWorkspaceHome: "account_workspace_home",
+  accountStrategyKnowledge: "account_strategy_knowledge",
+  accountScriptTopic: "account_script_topic",
+  accountStoryboardPlanning: "account_storyboard_planning",
+  accountVideoDeconstruction: "account_video_deconstruction",
+  accountBatchProduction: "account_batch_production",
+  accountContentLibrary: "account_content_library",
+  accountMediaToolbox: "account_media_toolbox",
+  accountPublishing: "account_publishing",
+  accountReview: "account_review",
+  accountManagement: "account_management",
+  aiSystemSettings: "ai_system_settings"
+} as const;
 ```
 
-字段说明：
+### 4.2 路由表
 
-| 字段 | 含义 |
-| --- | --- |
-| `id` | 稳定路由标识，供导航、权限、状态恢复和日志使用。 |
-| `path` | 路由 URL，后续不应随意变更。 |
-| `title` | 页面中文名称。 |
-| `navGroup` | Sidebar 顶层分组，必须与 UI 真源一致。 |
-| `icon` | 图标系统中的稳定图标标识。 |
-| `pageType` | 页面类型，如 `wizard`、`dashboard`、`editor`、`workspace`、`queue`、`settings`。 |
-| `requiresLicense` | 是否要求通过授权校验后才能进入。 |
-| `requiresProjectContext` | 是否要求已有当前项目上下文。 |
-| `detailPanelMode` | Detail Panel 默认模式，如 `hidden`、`contextual`、`asset`、`binding`、`logs`、`settings`。 |
-| `statusBarMode` | Status Bar 默认模式，如 `setup`、`overview`、`editing`、`tasks`、`publishing`、`rendering`、`review`、`system`。 |
-| `componentImport` | 页面组件建议导入路径，供路由懒加载和实现命名参考。 |
-
-### 4.3 16 个正式路由清单
-
-导航分组必须与 [docs/UI-DESIGN-PRD.md](./UI-DESIGN-PRD.md) 当前口径保持一致：
-
-- 启动与总览
-- 创作前置
-- 创作与媒体
-- 执行与治理
-- 系统与 AI
-
-| Route ID | Path | 页面名称 | 导航分组 | 页面组件命名规范 | `componentImport` |
-| --- | --- | --- | --- | --- | --- |
-| `setup_license_wizard` | `/setup/license` | 首启与许可证向导 | 启动与总览 | `SetupLicenseWizardPage.vue` | `@/pages/setup/SetupLicenseWizardPage.vue` |
-| `creator_dashboard` | `/dashboard` | 创作总览 | 启动与总览 | `CreatorDashboardPage.vue` | `@/pages/dashboard/CreatorDashboardPage.vue` |
-| `script_topic_center` | `/scripts/topics` | 脚本与选题中心 | 创作前置 | `ScriptTopicCenterPage.vue` | `@/pages/scripts/ScriptTopicCenterPage.vue` |
-| `storyboard_planning_center` | `/storyboards/planning` | 分镜规划中心 | 创作前置 | `StoryboardPlanningCenterPage.vue` | `@/pages/storyboards/StoryboardPlanningCenterPage.vue` |
-| `ai_editing_workspace` | `/workspace/editing` | AI 剪辑工作台 | 创作与媒体 | `AIEditingWorkspacePage.vue` | `@/pages/workspace/AIEditingWorkspacePage.vue` |
-| `video_deconstruction_center` | `/video/deconstruction` | 视频拆解中心 | 创作前置 | `VideoDeconstructionCenterPage.vue` | `@/pages/video/VideoDeconstructionCenterPage.vue` |
-| `voice_studio` | `/voice/studio` | 配音中心 | 创作与媒体 | `VoiceStudioPage.vue` | `@/pages/voice/VoiceStudioPage.vue` |
-| `subtitle_alignment_center` | `/subtitles/alignment` | 字幕对齐中心 | 创作与媒体 | `SubtitleAlignmentCenterPage.vue` | `@/pages/subtitles/SubtitleAlignmentCenterPage.vue` |
-| `asset_library` | `/assets/library` | 资产中心 | 创作与媒体 | `AssetLibraryPage.vue` | `@/pages/assets/AssetLibraryPage.vue` |
-| `account_management` | `/accounts` | 账号管理 | 执行与治理 | `AccountManagementPage.vue` | `@/pages/accounts/AccountManagementPage.vue` |
-| `device_workspace_management` | `/devices/workspaces` | 设备与工作区管理 | 执行与治理 | `DeviceWorkspaceManagementPage.vue` | `@/pages/devices/DeviceWorkspaceManagementPage.vue` |
-| `automation_console` | `/automation/console` | 自动化执行中心 | 执行与治理 | `AutomationConsolePage.vue` | `@/pages/automation/AutomationConsolePage.vue` |
-| `publishing_center` | `/publishing/center` | 发布中心 | 执行与治理 | `PublishingCenterPage.vue` | `@/pages/publishing/PublishingCenterPage.vue` |
-| `render_export_center` | `/renders/export` | 渲染与导出中心 | 创作与媒体 | `RenderExportCenterPage.vue` | `@/pages/renders/RenderExportCenterPage.vue` |
-| `review_optimization_center` | `/review/optimization` | 复盘与优化中心 | 执行与治理 | `ReviewOptimizationCenterPage.vue` | `@/pages/review/ReviewOptimizationCenterPage.vue` |
-| `ai_system_settings` | `/settings/ai-system` | AI 与系统设置 | 系统与 AI | `AISystemSettingsPage.vue` | `@/pages/settings/AISystemSettingsPage.vue` |
-
-### 4.4 路由实现约束
-
-- 所有正式页面都必须出现在统一路由清单中。
-- 页面组件命名统一采用 `PascalCase + Page.vue`。
-- `apps/desktop/src/pages/` 下只放页面根组件，不在页面根组件内重建完整业务域。
-- 页面级复杂逻辑优先下沉到 `apps/desktop/src/modules/`、`apps/desktop/src/stores/` 和 Runtime 服务层。
-- 未经文档更新，不得新增第 17 个正式页面，也不得随意拆出平级主路由。
-
-## 5. Runtime 模块边界与 API 前缀
-
-### 5.1 统一协议约束
-
-Runtime 返回协议继续沿用 [docs/PRD.md](./PRD.md) 已确定的统一 JSON 信封：
-
-- 成功：`{ "ok": true, "data": ... }`
-- 失败：`{ "ok": false, "error": "..." }`
-
-本文档不发明第二套返回协议。
-
-Runtime CORS 白名单必须通过 `RuntimeConfig.allowed_origins` 统一注入，不允许在路由或页面中临时放宽。默认白名单覆盖 Tauri 桌面壳、`tauri://localhost`、`http://tauri.localhost` 以及本地 Vite 调试端口 `5173` / `5174`。如需追加本机调试 origin，使用 `TK_OPS_RUNTIME_ALLOWED_ORIGINS` 传入逗号分隔的精确 origin；历史 `TK_OPS_ALLOWED_ORIGINS` 仅作兼容读取。配置值禁止使用 `*`，也禁止携带 path、query 或 fragment，非法值必须被忽略并记录日志。
-
-### 5.2 API 前缀分组
-
-下列前缀只定义资源归属和路由边界，不在本轮展开字段级 schema 或 endpoint 细节。
-
-| API 前缀 | 资源归属 | 主要服务页面或能力 |
-| --- | --- | --- |
-| `/api/license` | 授权激活、校验、受限模式、机器绑定 | `setup_license_wizard` |
-| `/api/dashboard` | 仪表总览、最近项目、待办、健康摘要 | `creator_dashboard` |
-| `/api/scripts` | 选题、标题、脚本、文案、版本 | `script_topic_center` |
-| `/api/storyboards` | 分镜、镜头规划、节奏、脚本映射 | `storyboard_planning_center` |
-| `/api/workspace` | 时间线、片段编排、工作台状态 | `ai_editing_workspace` |
-| `/api/video-deconstruction` | 导入视频、转写、切段、结构拆解 | `video_deconstruction_center` |
-| `/api/voice` | TTS、音色、试音、音轨版本 | `voice_studio` |
-| `/api/subtitles` | 字幕生成、对齐、样式、时间码校正 | `subtitle_alignment_center` |
-| `/api/assets` | 资产检索、引用、版本、预览 | `asset_library` |
-| `/api/accounts` | 账号对象、分组、状态、绑定关系 | `account_management` |
-| `/api/devices` | 工作区、浏览器实例、健康检查、执行环境 | `device_workspace_management` |
-| `/api/automation` | 采集、回复、同步、校验和队列任务 | `automation_console` |
-| `/api/publishing` | 发布计划、预检、执行、回执 | `publishing_center` |
-| `/api/renders` | 渲染任务、导出配置、转码与恢复 | `render_export_center` |
-| `/api/review` | 复盘摘要、异常回看、优化建议 | `review_optimization_center` |
-| `/api/settings` | Provider、模型、目录、日志、系统配置 | `ai_system_settings` |
-
-### 5.3 Runtime 模块边界
-
-为避免把 FastAPI 路由层写成巨型业务文件，后续实现必须遵守以下分层：
-
-1. `api/routes/` 只做入参接收、出参返回、错误转换和服务调用。
-2. `services/` 负责业务流程、任务编排和跨模型协同。
-3. `repositories/` 负责数据库读写和查询封装。
-4. `tasks/` 负责长任务执行、重试、队列与恢复。
-5. `media/` 负责渲染、转码和文件导出能力。
-6. `ai/providers/` 负责多 Provider 适配和能力路由。
-
-## 6. 核心模型清单与归属
-
-### 6.1 核心原则
-
-- 持久化业务模型统一放在 `apps/py-runtime/src/domain/models/`。
-- 前端只维护对应 UI 类型和 DTO 类型，统一放在 `apps/desktop/src/types/`，不在页面层重建另一套持久化模型。
-- 页面消费 Runtime 返回的结构化对象，不直接拼接底层实体字段。
-
-### 6.2 核心模型表
-
-| 模型 | 归属目录 | 主要职责 | 主要被哪些页面或服务消费 |
+| Route ID | URL | 页面组件 | 账号要求 |
 | --- | --- | --- | --- |
-| `Project` | `apps/py-runtime/src/domain/models/` | 作为项目根对象聚合创作上下文、任务、版本和资产引用。 | `creator_dashboard`、`script_topic_center`、`storyboard_planning_center`、`ai_editing_workspace`、`review_optimization_center`、`ProjectService` |
-| `Script` | `apps/py-runtime/src/domain/models/` | 保存脚本正文、标题、文案、版本和来源信息。 | `script_topic_center`、`storyboard_planning_center`、`ScriptService`、`AI ScriptProvider` |
-| `Storyboard` | `apps/py-runtime/src/domain/models/` | 保存分镜结构、镜头节奏、视觉提示和脚本映射。 | `storyboard_planning_center`、`ai_editing_workspace`、`StoryboardService` |
-| `Timeline` | `apps/py-runtime/src/domain/models/` | 管理时间线工程、轨道关系、片段编排和导出上下文。 | `ai_editing_workspace`、`render_export_center`、`TimelineService` |
-| `VoiceTrack` | `apps/py-runtime/src/domain/models/` | 管理 TTS 或导入音轨、音色版本和时间线音频引用。 | `voice_studio`、`ai_editing_workspace`、`VoiceService` |
-| `SubtitleTrack` | `apps/py-runtime/src/domain/models/` | 管理字幕段、时间码、样式、版本和对齐状态。 | `subtitle_alignment_center`、`ai_editing_workspace`、`SubtitleService` |
-| `Asset` | `apps/py-runtime/src/domain/models/` | 管理视频、图片、音频、封面和模板等资产对象。 | `asset_library`、`ai_editing_workspace`、`video_deconstruction_center`、`AssetService` |
-| `Account` | `apps/py-runtime/src/domain/models/` | 表示 TikTok 账号对象、分组、状态和发布目标。 | `account_management`、`publishing_center`、`automation_console`、`AccountService` |
-| `DeviceWorkspace` | `apps/py-runtime/src/domain/models/` | 表示真实 PC 工作区、浏览器实例和执行环境。 | `device_workspace_management`、`publishing_center`、`automation_console`、`DeviceWorkspaceService` |
-| `ExecutionBinding` | `apps/py-runtime/src/domain/models/` | 连接账号、设备工作区与执行任务的稳定绑定关系。 | `account_management`、`device_workspace_management`、`publishing_center`、`automation_console`、`ExecutionBindingService` |
-| `AutomationTask` | `apps/py-runtime/src/domain/models/` | 表示采集、回复、同步、校验等自动化任务。 | `automation_console`、`review_optimization_center`、`AutomationService`、`AutomationTaskRunner` |
-| `PublishPlan` | `apps/py-runtime/src/domain/models/` | 表示发布计划、发布时间、预检结果和目标账号。 | `publishing_center`、`account_management`、`PublishingService` |
-| `RenderTask` | `apps/py-runtime/src/domain/models/` | 表示渲染、转码、导出任务与其状态流转。 | `render_export_center`、`ai_editing_workspace`、`RenderService`、`MediaPipelineService` |
-| `LicenseGrant` | `apps/py-runtime/src/domain/models/` | 表示许可证授权状态、机器绑定和校验记录。 | `setup_license_wizard`、`AISystemSettings` 诊断区、`LicenseService` |
-| `AIJobRecord` | `apps/py-runtime/src/domain/models/` | 记录 AI 调用能力、模型、耗时、结果状态和失败原因。 | `script_topic_center`、`voice_studio`、`subtitle_alignment_center`、`review_optimization_center`、`AIOrchestrationService` |
+| `setup_license_wizard` | `/setup/license` | `pages/setup/SetupLicenseWizardPage.vue` | 否 |
+| `account_workspace_home` | `/workspace` | `pages/workspace-home/AccountWorkspaceHomePage.vue` | 是 |
+| `account_strategy_knowledge` | `/strategy-knowledge` | `pages/strategy-knowledge/AccountStrategyKnowledgePage.vue` | 是 |
+| `account_script_topic` | `/scripts` | `pages/script-topic/AccountScriptTopicPage.vue` | 是 |
+| `account_storyboard_planning` | `/storyboards` | `pages/storyboard-planning/AccountStoryboardPlanningPage.vue` | 是 |
+| `account_video_deconstruction` | `/video-deconstruction` | `pages/video-deconstruction/AccountVideoDeconstructionPage.vue` | 是 |
+| `account_batch_production` | `/production/batches` | `pages/batch-production/AccountBatchProductionPage.vue` | 是 |
+| `account_content_library` | `/content-library` | `pages/content-library/AccountContentLibraryPage.vue` | 是 |
+| `account_media_toolbox` | `/media-tools` | `pages/media-toolbox/AccountMediaToolboxPage.vue` | 是 |
+| `account_publishing` | `/publishing` | `pages/publishing/AccountPublishingPage.vue` | 是 |
+| `account_review` | `/review` | `pages/review/AccountReviewPage.vue` | 是 |
+| `account_management` | `/settings/accounts` | `pages/settings/accounts/AccountManagementPage.vue` | 否 |
+| `ai_system_settings` | `/settings/ai-system` | `pages/settings/AISystemSettingsPage.vue` | 否 |
 
-### 6.3 前端类型约束
+### 4.3 路由守卫
 
-前端只允许维护以下类型层：
+路由进入顺序：
 
-- 路由类型：放在 `apps/desktop/src/types/router/`
-- UI 视图模型：放在 `apps/desktop/src/types/view-models/`
-- Runtime DTO：放在 `apps/desktop/src/types/dto/`
-- 共享状态类型：放在 `apps/desktop/src/types/state/`
+1. 检查许可证与 Runtime 初始化。
+2. 系统页可在无当前账号时打开。
+3. 账号工作区页面要求有效 `current_account_id`。
+4. 当前账号失效时进入账号选择状态，不自动使用任意其他账号。
+5. 账号切换后恢复该账号最近页面；无记录时进入 `/workspace`。
 
-前端不应做的事：
+旧 Route IDs 和 URL 只能提供一次性迁移重定向，不得继续承载业务页面。
 
-- 不在 `pages/` 内定义持久化业务模型。
-- 不在多个页面里重复定义 `Project`、`Timeline`、`Account` 等核心对象。
-- 不让页面自己推断实体归属关系，而应统一复用 DTO 和 store。
+## 5. Account Context
 
-## 7. V1 必做与预留
+### 5.1 前端上下文
 
-### 7.1 V1 必做
+统一 `AccountContextStore` 至少持有：
 
-以下内容属于 V1 首期必须固定的实施骨架：
+- `currentAccountId`
+- `switchStatus`
+- `lastRouteByAccount`
+- `accountRevision`
+- `pendingUnsavedGuard`
+- `subscriptionRevision`
 
-- 16 个正式页面路由与稳定 `Route ID`
-- `apps/desktop` 与 `apps/py-runtime` 的基础目录树
-- `RouteManifestItem` 这组稳定路由字段
-- Runtime 16 组资源前缀
-- 15 个核心持久化模型及其落点归属
-- 前端只维护 UI/DTO 类型、Runtime 持有持久化模型的边界
+账号切换事务：
 
-### 7.2 预留但本轮不落地
+```text
+检查未保存状态
+→ 保存 / 放弃 / 取消
+→ 进入 switching
+→ 取消旧账号可见请求
+→ 清理页面级选中与 AI 上下文
+→ 切换 Runtime account scope
+→ 重建缓存键与 WebSocket 订阅
+→ 拉取目标账号壳层数据
+→ 恢复目标账号最近页面
+→ 退出 switching
+```
 
-以下内容只保留扩展位，不作为本轮必须交付项：
+切换失败时保留原账号工作区，并显示中文错误、日志入口和重试。
 
-- 更重的媒体内核升级位
-- TikTok 之外的多平台扩展位
-- 更多 AI Provider 和模型适配位
-- 更细的 schema 字段和 endpoint 粒度
-- 更复杂的任务调度策略和分布式执行能力
+### 5.2 Runtime 范围
 
-### 7.3 执行约束
+所有账号级 API 必须从路径或强类型请求上下文获得 `account_id`。禁止由页面在请求体中随意覆盖授权范围。
 
-- 预留位不能被误当成 V1 首期交付承诺。
-- 新增目录、路由、模型前，先检查是否已被本文档固定。
-- 如果后续实现需要扩展正式页面、资源前缀或核心模型，应先更新本文档，再进入实现。
+仓储方法必须显式接收 `account_id`，例如：
 
-## 8. 文档验收检查表
+```python
+async def list_batches(account_id: UUID, filters: BatchFilters) -> list[ProductionBatch]:
+    ...
+```
 
-在后续实现或继续扩展本文档前，应至少检查：
+缓存键、任务关联、日志字段、文件目录和 WebSocket 主题必须包含同一账号范围。
 
-1. `docs/ARCHITECTURE-BOOTSTRAP.md` 是否作为实现骨架真源被引用。
-2. 正式路由数量是否仍为 16。
-3. 路由 ID 是否与 [docs/PRD.md](./PRD.md) 完全一致。
-4. 导航分组是否与 [docs/UI-DESIGN-PRD.md](./UI-DESIGN-PRD.md) 当前分组一致。
-5. 文档是否明确说明“目标目录树是未来结构，不代表当前仓库已落地”。
-6. 是否坚持沿用 [docs/PRD.md](./PRD.md) 中既有 JSON 信封，而没有发明第二套返回协议。
-7. 每个核心模型是否都能在本文档里找到明确归属目录和主要消费者。
+### 5.3 账号状态机
+
+账号状态只允许以下转换：
+
+```text
+draft -> unbound -> ready
+unbound <-> attention
+ready <-> attention
+draft | unbound | ready | attention -> archived
+archived -> unbound | ready | attention
+```
+
+归档只改变账号可用状态，不删除内容、知识来源、任务日志或发布记录。恢复时必须重新执行授权、工作区、知识库和 Provider 健康检查，再决定目标状态。账号配置复制由服务层生成新账号草稿，只复制白名单字段，禁止复制授权、凭据、绑定和历史实体。
+
+## 6. Runtime API 资源边界
+
+所有接口使用 `/api/v1` 版本前缀。
+
+| 前缀 | 职责 |
+| --- | --- |
+| `/api/v1/bootstrap` | 许可证、目录初始化、Runtime 与媒体工具健康 |
+| `/api/v1/accounts` | 真实账号列表、创建草稿、状态、切换准备与账号级摘要 |
+| `/api/v1/accounts/{account_id}/connection` | 真实账号授权、工作区、浏览器实例与执行绑定健康 |
+| `/api/v1/accounts/{account_id}/ai-recipe` | 账号 AI 创作档案、继承来源、校验与版本 |
+| `/api/v1/accounts/{account_id}/publish-defaults` | 账号发布默认值与约束 |
+| `/api/v1/accounts/{account_id}/positioning` | 定位版本与发布约束 |
+| `/api/v1/accounts/{account_id}/knowledge` | 来源、索引、规则、快照与引用 |
+| `/api/v1/accounts/{account_id}/plans` | 内容计划、栏目、选题与节奏 |
+| `/api/v1/accounts/{account_id}/content-items` | 创作前内容对象、选题来源、采用状态与版本摘要 |
+| `/api/v1/accounts/{account_id}/scripts` | 策划简报、脚本版本、AI 作业、采用与恢复 |
+| `/api/v1/accounts/{account_id}/storyboards` | 脚本版本引用、分镜版本、镜头重生成、采用与同步 |
+| `/api/v1/accounts/{account_id}/video-deconstructions` | 视频来源、阶段任务、脚本 / 关键词 / 关键帧 / 结构结果与选择性回流 |
+| `/api/v1/accounts/{account_id}/batches` | 批次创建、队列项、阶段、取消、重试、单条生产与确认 |
+| `/api/v1/accounts/{account_id}/contents` | 内容变体、视频 / 图片 / 音频 / 文档资产、用途、来源和版本 |
+| `/api/v1/accounts/{account_id}/media-tool-tasks` | 媒体工具任务、权利确认、进度、取消、重试与输出 |
+| `/api/v1/accounts/{account_id}/publishing` | 预检、排期、执行、回执与重试 |
+| `/api/v1/accounts/{account_id}/review` | 真实表现、建议、证据与回流动作 |
+| `/api/v1/system/providers` | Provider Profile、凭据引用、连接健康与系统默认 |
+| `/api/v1/system/models` | Provider 下的真实模型、启停、发现、手动录入与基础限制 |
+| `/api/v1/system/model-capabilities` | 供应商声明能力、适配器已接入能力、契约验证、来源、模式、参数边界与可用性 |
+| `/api/v1/system/capability-routes` | 产品 AI 能力到主模型、回退模型和 Prompt 的系统映射 |
+| `/api/v1/system/prompt-profiles` | 版本化系统提示、任务模板、变量、输出 Schema、视觉风格前缀与引用 |
+| `/api/v1/system/composition-templates` | 受控合成模板、类型、画幅、参数 Schema、预览与兼容能力 |
+| `/api/v1/system/media-tools` | 工具能力注册、依赖健康、支持输入输出与风险边界 |
+| `/api/v1/system` | 配置总线、工作区、执行环境、日志与诊断 |
+
+生产实现时必须在 `docs/api/v1/` 维护唯一接口文档，包含地址、方法、参数、返回、错误码和示例。
+
+## 7. WebSocket 与任务
+
+WebSocket 使用账号范围主题：
+
+- `account:{account_id}:tasks`
+- `account:{account_id}:creative`
+- `account:{account_id}:video-deconstructions`
+- `account:{account_id}:media-tools`
+- `account:{account_id}:batches`
+- `account:{account_id}:publishing`
+- `system:health`
+- `system:providers`
+- `system:ai-config`
+
+账号切换时取消旧账号可见订阅并建立新订阅。旧账号任务不取消，只从当前可见视图移除。重连后必须按 `last_event_id` 补拉，随后通过 HTTP 获取最终状态快照。
+
+统一任务状态：
+
+- `queued`
+- `running`
+- `cancelling`
+- `failed`
+- `completed`
+
+每个长任务包含超时、取消、阶段、进度、关联对象、日志引用、最小重试范围和最终结果。
+
+AI 生成进度事件至少包含 `event_type`、`progress`、`item_current`、`item_total`、`step`、`action` 和 `extra_info`。批次聚合器负责把镜头级进度换算为任务级进度；并发结果必须按镜头索引归并，单镜头失败不得覆盖其他镜头产物。
+
+## 8. 领域模型落点
+
+| 模型 | 主要职责 |
+| --- | --- |
+| `Account` | 真实 TikTok 账号与账号级工作区根对象 |
+| `AccountConnection` | 授权、工作区、浏览器实例、执行环境与健康状态 |
+| `PositioningProfile` | 受众、内容支柱、表达风格与版本 |
+| `AccountKnowledgeBase` | 账号独立知识空间与索引配置 |
+| `KnowledgeSource` | 来源、状态、版本、校验与引用 |
+| `KnowledgeSnapshot` | 生成任务使用的不可变知识快照 |
+| `BrandKit` | 品牌事实、视觉资产、CTA 和发布约束 |
+| `AccountAIRecipe` | 账号默认模型、风格、音色、模板、成本与回退策略 |
+| `AccountPublishDefaults` | 账号语言、时区、节奏和发布约束默认值 |
+| `ProviderProfile` | 系统级 Provider 连接、凭据引用与默认策略 |
+| `ModelProfile` | Provider 下的真实模型 ID、显示名、启用状态与基础限制 |
+| `ModelCapability` | 供应商声明能力、适配器已接入能力、契约验证、来源、参数边界和已知限制 |
+| `PromptProfile` | 版本化系统提示、任务模板、变量、输出 Schema、视觉风格前缀与引用 |
+| `CapabilityRoute` | 产品 AI 能力到主模型、回退模型和 Prompt 的系统映射 |
+| `CompositionTemplateProfile` | 合成模板类型、画幅、参数 Schema、预览、兼容能力和版本 |
+| `GenerationRun` | 单个批次的 AI 执行记录、配方版本与总用量 |
+| `GenerationStep` | 脚本、分镜、媒体、TTS、字幕和合成节点记录 |
+| `AIUsageRecord` | Provider、模型、耗时、成本、结果和错误关联 |
+| `ContentPlan` | 栏目、选题矩阵、节奏与批次入口 |
+| `ContentItem` | 单条内容的创作前对象，关联选题简报、脚本版本、分镜版本、来源和生产引用 |
+| `TopicBrief` | 选题标题、内容支柱、受众、角度、目标时长、来源和标签 |
+| `Script` | 策划简报、正文、结构、修订和采用记录 |
+| `Storyboard` | 已采用脚本引用、镜头计划、修订和采用记录 |
+| `VideoDeconstruction` | 账号级视频来源、阶段状态、Provider、日志与回流状态 |
+| `DeconstructionResult` | 带时间码的脚本、分组关键词、关键帧、结构段和来源证据 |
+| `MediaToolDefinition` | 系统级工具能力、输入输出、依赖、风险和可用性声明 |
+| `MediaToolTask` | 账号级工具任务、权利确认、配置快照、状态、输出和错误 |
+| `ProductionBatch` | 批量任务聚合、阶段、策略和日志 |
+| `BatchEntry` | 批次内单条执行队列项、就绪状态、阻断原因和输出引用 |
+| `ContentVariant` | 单条可发布内容的聚合根 |
+| `ContentItemReference` | 批次内容使用的脚本、分镜和知识快照不可变引用 |
+| `Asset` | 视频、图片、音频或文档资产，以及用途、来源、状态、版本和业务引用 |
+| `CompositionSpec` | Runtime 内部自动合成规则，不对应手动时间线 UI |
+| `VoiceTrack` | 配音文件、音色、版本与段落映射 |
+| `SubtitleTrack` | 字幕内容、样式、对齐结果与版本 |
+| `RenderTask` | 自动合成、字幕烧录、封面、转码与输出 |
+| `PublishTask` | 预检、排期、执行、回执与重试 |
+| `DeviceWorkspace` | 真实 PC 工作区与文件边界 |
+| `ExecutionBinding` | 账号、工作区、浏览器实例和执行环境绑定 |
+| `PerformanceSnapshot` | 真实发布表现和来源时间 |
+
+所有账号级模型必须有 `account_id`、创建与更新时间、版本或修订号。生成结果还必须包含定位版本、知识快照、Provider 和策略版本。
+
+## 9. 服务边界
+
+- `AccountLifecycleService`：创建草稿、真实连接、状态转换、配置复制、归档与恢复。
+- `AccountContextService`：切换准备、账号摘要和隔离验证。
+- `PositioningService`：定位版本、校验和回退。
+- `KnowledgeService`：来源导入、索引、冲突检测、快照和引用。
+- `ContentPlanningService`：栏目、选题矩阵、节奏和计划状态。
+- `ContentItemService`：单条创作对象、选题来源、阶段、版本摘要和生产引用。
+- `ScriptWorkflowService`：策划简报、脚本生成 / 改写、版本、采用、比较和恢复。
+- `StoryboardWorkflowService`：脚本引用、分镜生成、镜头级重生成、版本、同步和采用。
+- `VideoDeconstructionService`：视频来源、解析 / 转录、关键词、分段、结构提取、标准结果和选择性回流。
+- `MediaToolRegistry`：工具定义、依赖健康、输入输出与风险边界。
+- `MediaToolTaskService`：权利确认、任务创建、超时、取消、重试、输出资产和日志。
+- `AssetService`：账号资产类型、用途、来源、版本、缩略图、可用性、引用和工具输出入库。
+- `BatchProductionService`：建批、队列项、单条生产、阶段编排、取消、重试和确认。
+- `AIRecipeService`：系统默认、账号配方、批次覆盖、校验和版本。
+- `ProviderProfileService`：系统 Provider、凭据引用、连接测试和健康状态。
+- `ModelProfileService`：模型发现、手动录入、启停、基础限制和 Provider 归属。
+- `ModelCapabilityRegistry`：供应商声明与适配器能力归一、契约来源、验证状态、刷新、查询和参数边界校验。
+- `PromptProfileService`：Prompt 版本、变量、Schema、预览、引用关系和未保存冲突校验。
+- `CapabilityRouteService`：产品能力主模型、回退模型、Prompt、就绪状态和受影响页面解析。
+- `CompositionTemplateService`：模板清单、类型、画幅、参数 Schema、预览、兼容性和版本。
+- `ContentVariantService`：脚本、分镜、版本和审核状态。
+- `CompositionService`：镜头、配音、字幕、封面和自动合成。
+- `PublishingService`：真实绑定、预检、执行、回执和恢复。
+- `ReviewService`：表现证据、建议和显式回流。
+- `ConfigurationBus`：系统配置与账号覆盖项。
+- `TaskBus`：长任务、状态广播、日志和重试。
+
+事务边界由服务层显式控制。失败必须回滚并使用 `log.exception(...)` 记录，同时转换为安全的中文错误。
+
+## 10. Provider 接口
+
+- `ScriptProvider`
+- `ImageGenerationProvider`
+- `VideoGenerationProvider`
+- `TTSProvider`
+- `SubtitleAlignmentProvider`
+- `AssetAnalysisProvider`
+- `VideoAnalysisProvider`
+- `SpeechToTextProvider`
+- `EmbeddingProvider`
+
+Provider 由配置总线和 `ModelCapabilityRegistry` 选择与校验，页面不能直接知道供应商实现，也不能展示模型未声明支持的参数。调用记录账号、能力、模型、Provider、版本、知识快照、AI 配方版本、批次覆盖、耗时、成本、状态与失败原因。
+
+直接 API、OpenAI-compatible、ComfyUI 和 RunningHub 都通过适配层实现同一能力接口。适配方式不得泄漏到页面业务规则；页面只读取标准化能力、健康与任务状态。
+
+能力契约至少包含：
+
+- `declared_abilities`：供应商或工作流元数据声明的能力。
+- `adapter_abilities`：当前适配器真实实现并经过测试的能力。
+- `input_modalities` 与 `adapter_input_modalities`。
+- `parameter_schema`：时长、比例、分辨率、负向提示、原生音频、水印和并发等边界。
+- `contract_verified`、`verified_at`、`source_urls` 与 `contract_issues`。
+
+产品可用能力固定取 `declared_abilities ∩ adapter_abilities`，并要求 `contract_verified=true`。未验证模型只能在诊断详情中展示，不得成为默认 `CapabilityRoute`。Provider 拒绝或内容审核失败可以返回安全改写建议，但 Runtime 不得在无用户确认时静默重写 Prompt。
+
+## 11. 配置、日志与错误
+
+### 11.1 配置总线
+
+配置优先级：
+
+`系统默认 -> CapabilityRoute -> 账号覆盖 -> 单次批次策略`
+
+账号覆盖必须经过配置总线校验和持久化。页面、脚本、服务不得各自保存独立配置副本。
+
+Provider 原始密钥只能由系统级 `ProviderProfile` 引用安全存储；`AccountAIRecipe` 和 `ProductionBatch` 只能保存 `provider_profile_id`、模型 ID、配方版本与覆盖字段。
+
+固定脚本拆分方式、Prompt Profile 版本、视觉风格前缀、合成模板版本、TTS、BGM、能力参数和能力契约修订必须进入不可变任务配置快照。页面不得在运行中修改既有 `GenerationRun`；需要变更时创建新运行或重试修订。
+
+媒体工具依赖、可执行文件路径、支持来源和全局限制只允许进入系统配置与 `MediaToolRegistry`。账号只保存任务和输出，不保存独立工具路径；单次任务配置必须通过配置总线和工具定义校验。
+
+### 11.2 日志字段
+
+统一结构至少包含：
+
+- 时间、级别、模块、操作。
+- `account_id`、对象类型、对象 ID、任务 ID。
+- 阶段、耗时、Provider / Runtime 版本。
+- 模型、能力路由、Prompt / 模板版本、契约修订和重试来源。
+- 安全错误码、失败原因和关联日志 ID。
+- 媒体工具任务还需记录工具 id、输入来源类型、权利确认时间、输出资产和依赖版本；日志不得保存完整私密链接或未脱敏本地路径。
+
+日志不得记录密钥、令牌、完整凭据、完整 Prompt、供应商原始请求正文或未脱敏敏感路径。调试模式也只能记录字段名、长度、安全摘要和引用 ID。
+
+### 11.3 Runtime 信封
+
+- 成功：`{ "ok": true, "data": ..., "meta": ...? }`
+- 失败：`{ "ok": false, "error": "...", "error_code": "...", "log_id": "...?", "fieldErrors": ...?, "meta": ...? }`
+- 请求关联由响应 Header `X-Request-ID` 提供；`log_id` 只在用户可见错误或诊断记录已实际生成时返回，不伪造空日志引用。
+
+### 11.4 数据库配置与启动迁移
+
+数据库路径、迁移锁、备份目录、保留份数和超时必须通过统一配置入口解析。`TK_OPS_RUNTIME_DB_PATH` 与 legacy `TK_OPS_DATABASE_PATH` 指向不同文件时拒绝启动；相对路径固定锚定 Runtime 数据目录，不得依赖进程当前工作目录。
+
+生产启动顺序固定为：
+
+```text
+加载 Bootstrap 配置
+→ 配置结构化日志
+→ 加载完整配置
+→ 获取迁移锁
+→ 识别 Alembic revision 或已知 legacy 指纹
+→ 必要时备份 DB / WAL / SHM
+→ Alembic upgrade head
+→ 验证目标 Schema 契约
+→ 创建 Engine、Repository 和 Service
+→ Runtime 就绪
+```
+
+- 未知或部分匹配 Schema 只读失败，禁止 stamp、repair 或猜测补列。
+- 正常生产启动不得调用 `Base.metadata.create_all()`、`initialize_domain_schema()` 或隐式 Schema repair。
+- legacy normalizer 只允许存在于显式迁移 bridge 和测试辅助路径。
+- Runtime 容器尚未创建、业务写门尚未开放时，迁移失败才可恢复迁移前备份。
+- 写门开放后禁止自动覆盖当前数据库；P0-F 已完成回退 Runtime 制品兼容、维护态、`cutover_event_id` 和启动恢复证据，强制数据恢复仍必须经过单独的增量导出、重放与核对流程。
+
+## 12. 缓存与状态更新
+
+- 所有账号级缓存键以 `account_id` 开头。
+- 写操作成功后失效当前对象、依赖对象、页面摘要和任务列表。
+- 任务完成后由 WebSocket 推送修订号，前端补拉最终对象。
+- 账号切换增加 `accountRevision`，旧请求结果不得写入新账号状态。
+- 取消、失败和重试必须同步更新批次、内容变体、任务队列和壳层反馈。
+- 脚本采用或恢复后失效分镜就绪摘要；已存在分镜不得被静默覆盖，必须记录所基于的脚本修订。
+- 视频拆解回流后失效脚本、分镜、知识来源与创作摘要；媒体工具完成后失效当前账号内容库和工具任务列表。
+- Provider、模型、能力、Prompt 或模板更新后增加 `aiConfigRevision`，失效系统 AI 就绪摘要和受影响账号配方校验结果；运行中的任务继续使用创建时快照。
+
+## 13. 测试边界
+
+生产实现至少覆盖：
+
+1. 仓储与服务层账号隔离。
+2. 账号切换时旧请求和旧订阅不能污染新账号状态。
+3. 知识快照与生成记录可追溯。
+4. 批次取消、局部重试和幂等。
+5. 发布预检与真实回执状态转换。
+6. Runtime 信封、错误码和中文错误转换。
+7. Light / Dark、宽屏 / 紧凑窗口和页面状态。
+8. 账号状态转换、配置复制白名单、归档与恢复健康复检。
+9. Provider Profile、模型、Prompt 与账号 AI 配方不泄漏密钥或完整 Prompt，继承优先级确定。
+10. 模型声明能力与适配器能力交集、契约验证、参数 Schema、已确认内容 / 主题 / 固定脚本 / 已有素材输入、节点级取消、重试与回退幂等。
+11. 脚本版本采用、恢复、未保存守卫和分镜脚本修订一致性。
+12. 视频拆解阶段幂等、Provider / FFprobe 缺失、标准结果和选择性回流。
+13. 媒体工具权利确认、工具能力阻断、任务超时 / 取消 / 重试和输出账号隔离。
+14. 十入口导航、脚本 / 分镜 / 拆解 / 工具箱的宽屏、紧凑窗口与 Light / Dark。
+15. Provider 向导、模型发现 / 手动录入、能力路由、Prompt 版本与模板预览的加载、空、正常、错误和未保存状态。
+16. 固定脚本三种拆分方式、资产分析匹配、任务 / 镜头两级进度、并发归并和局部失败保留。
+
+## 14. 迁移与删除边界
+
+- P0-A 兼容边界以 `docs/P0-ACCOUNT-FOUNDATION-COMPATIBILITY-MATRIX.md` 为准。
+- 旧 `ai_editing_workspace`、配音、字幕、渲染、自动化等独立路由不得继续出现在主导航。
+- 旧 `script_topic_center`、`storyboard_planning_center`、`video_deconstruction_center` 可迁移到新的账号级路由，但必须补齐 `account_id` 范围、账号缓存键、任务主题和未保存守卫；不得原样接回旧壳。
+- 旧 `account_content_plan` 重定向到 `account_script_topic`，原栏目、选题与节奏数据迁移为 `ContentPlan` 和 `ContentItem`。
+- 链接下载和去水印属于新增生产能力，正式接入前必须单独完成依赖、平台条款、许可证、安全、接口与测试规格。
+- 旧 `Timeline` 数据若需保留，只能迁移或转换为内部 `CompositionSpec`，不能直接作为新 UI 编辑模型。
+- 删除旧路由和模型前必须另立实现计划，包含数据迁移、兼容期、回退点和测试。
+- 当前交互原型不修改生产目录、Runtime、数据库或真实接口。

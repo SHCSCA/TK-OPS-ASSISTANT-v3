@@ -241,6 +241,24 @@ def test_local_browser_runtime_requires_devtools_port_for_health() -> None:
     assert health.metadata["devtoolsReachable"] is False
 
 
+def test_local_browser_runtime_waits_for_external_process_to_exit() -> None:
+    process = subprocess.Popen(  # noqa: S603
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    runtime = LocalBrowserRuntime()
+    try:
+        health = runtime.stop(process_id=process.pid)
+    finally:
+        if process.poll() is None:
+            process.terminate()
+        process.wait(timeout=5)
+
+    assert health.alive is False
+    assert health.process_id == process.pid
+
+
 def test_local_browser_runtime_maps_immediate_exit_to_launch_failed(tmp_path: Path) -> None:
     runtime = LocalBrowserRuntime(
         executable_path_provider=lambda: sys.executable,

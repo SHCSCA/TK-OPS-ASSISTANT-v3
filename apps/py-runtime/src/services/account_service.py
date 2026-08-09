@@ -383,7 +383,7 @@ class AccountService:
     ) -> AccountPublishReadinessDto:
         binding_summary = self._build_binding_summary(binding)
 
-        if account.status not in {"active", "ready"}:
+        if account.status != "ready":
             return AccountPublishReadinessDto(
                 canPublish=False,
                 status="blocked",

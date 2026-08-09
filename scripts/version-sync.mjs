@@ -6,7 +6,16 @@ const repoRoot = process.cwd();
 
 const rootPackagePath = path.join(repoRoot, "package.json");
 const cargoPath = path.join(repoRoot, "apps", "desktop", "src-tauri", "Cargo.toml");
+const cargoLockPath = path.join(repoRoot, "apps", "desktop", "src-tauri", "Cargo.lock");
 const pyprojectPath = path.join(repoRoot, "apps", "py-runtime", "pyproject.toml");
+const runtimeVersionPath = path.join(
+  repoRoot,
+  "apps",
+  "py-runtime",
+  "src",
+  "app",
+  "version.py"
+);
 const tauriConfigPath = path.join(repoRoot, "apps", "desktop", "src-tauri", "tauri.conf.json");
 
 async function readText(filePath) {
@@ -38,12 +47,28 @@ function syncCargoVersion(content, version) {
   return content.replace(versionPattern, `version = "${version}"`);
 }
 
+function syncCargoLockVersion(content, version) {
+  const packagePattern = /(\[\[package\]\]\r?\nname = "tk-ops-desktop"\r?\nversion = ")[^"]+(")/;
+  if (!packagePattern.test(content)) {
+    throw new Error("Cargo.lock 中未找到 tk-ops-desktop package version。");
+  }
+  return content.replace(packagePattern, `$1${version}$2`);
+}
+
 function syncPyprojectVersion(content, version) {
   const versionPattern = /(\[project\][\s\S]*?^version\s*=\s*")([^"]*)(")/m;
   if (!versionPattern.test(content)) {
     throw new Error("pyproject.toml 的 [project] 区块未找到 version 字段。");
   }
   return content.replace(versionPattern, `$1${version}$3`);
+}
+
+function syncRuntimeVersion(content, version) {
+  const versionPattern = /^RUNTIME_VERSION\s*=\s*"[^"]*"/m;
+  if (!versionPattern.test(content)) {
+    throw new Error("app/version.py 中未找到 RUNTIME_VERSION。");
+  }
+  return content.replace(versionPattern, `RUNTIME_VERSION = "${version}"`);
 }
 
 function syncTauriVersion(content, version) {
@@ -64,9 +89,25 @@ async function main() {
     changedFiles.push(path.relative(repoRoot, cargoPath));
   }
 
+  const cargoLockNext = syncCargoLockVersion(
+    await readText(cargoLockPath),
+    rootVersion
+  );
+  if (await writeTextIfChanged(cargoLockPath, cargoLockNext)) {
+    changedFiles.push(path.relative(repoRoot, cargoLockPath));
+  }
+
   const pyprojectNext = syncPyprojectVersion(await readText(pyprojectPath), rootVersion);
   if (await writeTextIfChanged(pyprojectPath, pyprojectNext)) {
     changedFiles.push(path.relative(repoRoot, pyprojectPath));
+  }
+
+  const runtimeVersionNext = syncRuntimeVersion(
+    await readText(runtimeVersionPath),
+    rootVersion
+  );
+  if (await writeTextIfChanged(runtimeVersionPath, runtimeVersionNext)) {
+    changedFiles.push(path.relative(repoRoot, runtimeVersionPath));
   }
 
   const tauriNext = syncTauriVersion(await readText(tauriConfigPath), rootVersion);

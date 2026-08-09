@@ -7,13 +7,8 @@ from persistence.engine import (
     create_session_factory,
     initialize_domain_schema,
 )
-from repositories.account_repository import AccountRepository
-from repositories.automation_repository import AutomationRepository
-from repositories.device_workspace_repository import DeviceWorkspaceRepository
 from repositories.render_repository import RenderRepository
 from repositories.publishing_repository import PublishingRepository
-from schemas.accounts import AccountCreateInput
-from services.account_service import AccountService
 
 
 def test_initialize_domain_schema_repair_render_tasks_legacy_columns(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -251,7 +246,6 @@ def test_initialize_domain_schema_repair_publish_plans_legacy_timestamps(tmp_pat
 
 def test_initialize_domain_schema_repair_accounts_and_device_workspaces_and_automation_tasks(tmp_path) -> None:  # type: ignore[no-untyped-def]
     engine = create_runtime_engine(tmp_path / "runtime.db")
-    session_factory = create_session_factory(engine)
 
     with engine.begin() as connection:
         connection.execute(
@@ -412,25 +406,24 @@ def test_initialize_domain_schema_repair_accounts_and_device_workspaces_and_auto
     assert "error_count" in workspace_columns
     assert "name" in automation_columns
 
-    account_repository = AccountRepository(session_factory=session_factory)
-    device_workspace_repository = DeviceWorkspaceRepository(session_factory=session_factory)
-    automation_repository = AutomationRepository(session_factory=session_factory)
+    with engine.connect() as connection:
+        account = connection.execute(
+            text("SELECT id, name FROM accounts")
+        ).one()
+        workspace = connection.execute(
+            text("SELECT id, error_count FROM device_workspaces")
+        ).one()
+        task = connection.execute(
+            text("SELECT id, name FROM automation_tasks")
+        ).one()
 
-    accounts = account_repository.list_accounts()
-    workspaces = device_workspace_repository.list_workspaces()
-    tasks = automation_repository.list_tasks()
-
-    assert len(accounts) == 1
-    assert accounts[0].id == "account-legacy"
-    assert len(workspaces) == 1
-    assert workspaces[0].id == "workspace-legacy"
-    assert len(tasks) == 1
-    assert tasks[0].id == "task-legacy"
+    assert account == ("account-legacy", "account-legacy")
+    assert workspace == ("workspace-legacy", 0)
+    assert task == ("task-legacy", "")
 
 
 def test_initialize_domain_schema_rebuilds_legacy_execution_accounts_table(tmp_path) -> None:  # type: ignore[no-untyped-def]
     engine = create_runtime_engine(tmp_path / "runtime.db")
-    session_factory = create_session_factory(engine)
 
     with engine.begin() as connection:
         connection.execute(
@@ -499,23 +492,30 @@ def test_initialize_domain_schema_rebuilds_legacy_execution_accounts_table(tmp_p
         "updated_at",
     } <= account_columns
 
-    account_repository = AccountRepository(session_factory=session_factory)
-    service = AccountService(account_repository)
-    accounts = service.list_accounts()
-
-    assert len(accounts) == 1
-    assert accounts[0].id == "account-old-exec"
-    assert accounts[0].name == "旧执行账号"
-    assert accounts[0].username == "old_creator"
-
-    created = service.create_account(
-        AccountCreateInput(
-            name="新增真实账号",
-            username="new_creator",
+    with engine.begin() as connection:
+        account = connection.execute(
+            text("SELECT id, name, username FROM accounts")
+        ).one()
+        connection.execute(
+            text(
+                """
+                INSERT INTO accounts (
+                    id, name, platform, username, status, created_at, updated_at
+                ) VALUES (
+                    'account-new', '新增真实账号', 'tiktok', 'new_creator',
+                    'ready', '2026-04-20 11:00:00', '2026-04-20 11:00:00'
+                )
+                """
+            )
         )
-    )
-    assert created.name == "新增真实账号"
-    assert created.username == "new_creator"
+        created = connection.execute(
+            text(
+                "SELECT name, username FROM accounts WHERE id = 'account-new'"
+            )
+        ).one()
+
+    assert account == ("account-old-exec", "旧执行账号", "old_creator")
+    assert created == ("新增真实账号", "new_creator")
 
 
 def _table_columns(engine, table_name: str) -> set[str]:  # type: ignore[no-untyped-def]

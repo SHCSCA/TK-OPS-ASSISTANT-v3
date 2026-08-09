@@ -114,6 +114,8 @@ class SettingsService:
         previous = self._repository.load()
         previous_document = None if previous is None else previous.document
         document = payload.model_dump(mode="json")
+        if previous_document is not None and "configBus" in previous_document:
+            document["configBus"] = previous_document["configBus"]
         stored = self._repository.save(document)
         settings = self._to_settings_dto(stored)
         self._sync_media_tool_config(settings)

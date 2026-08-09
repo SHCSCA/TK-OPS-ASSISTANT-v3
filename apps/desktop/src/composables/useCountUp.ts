@@ -16,7 +16,9 @@ export function useCountUp(target: number | (() => number), durationMs = 1000) {
   const isAnimating = ref(false);
 
   const countStyle = {
-    "--target-num": typeof target === "function" ? target() : target,
+    "--target-num": String(
+      typeof target === "function" ? target() : target
+    ),
     animation: `number-count-up ${durationMs}ms var(--ease-decelerate) forwards`
   } as Record<string, string>;
 

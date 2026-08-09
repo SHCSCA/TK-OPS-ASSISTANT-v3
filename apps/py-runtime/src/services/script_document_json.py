@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
@@ -18,7 +19,7 @@ def parse_script_document_json(raw_text: str) -> JsonObject:
     _require_json_object(document, '脚本 JSON 根节点必须是对象。')
     segments = document.get('segments')
     if not isinstance(segments, list) or not segments:
-        log.warning('脚本 JSON 缺少 segments 字段 raw=%s', raw_text[:500])
+        _log_invalid_json('script_segments_missing', raw_text)
         raise HTTPException(status_code=502, detail='脚本 Provider 返回 JSON 但缺少有效分段脚本。')
     document.setdefault('schemaVersion', 'script_document_v1')
     return document
@@ -52,7 +53,7 @@ def parse_storyboard_document_json(raw_text: str) -> JsonObject:
     _require_json_object(document, '分镜 JSON 根节点必须是对象。')
     shots = document.get('shots')
     if not isinstance(shots, list) or not shots:
-        log.warning('分镜 JSON 缺少 shots 字段 raw=%s', raw_text[:500])
+        _log_invalid_json('storyboard_shots_missing', raw_text)
         raise HTTPException(status_code=502, detail='分镜 Provider 返回 JSON 但缺少有效镜头列表。')
     document.setdefault('schemaVersion', 'storyboard_document_v1')
     return document
@@ -110,8 +111,18 @@ def _extract_json_object(raw_text: str, *, error_detail: str) -> JsonObject:
         if isinstance(loaded, list):
             return {'shots': loaded}
 
-    log.warning('AI JSON 提取失败 raw=%s', normalized[:500])
+    _log_invalid_json('json_extract_failed', normalized)
     raise HTTPException(status_code=502, detail=error_detail)
+
+
+def _log_invalid_json(reason: str, raw_text: str) -> None:
+    digest = hashlib.sha256(raw_text.encode('utf-8')).hexdigest()[:16]
+    log.warning(
+        'AI JSON 校验失败 reason=%s length=%s sha256=%s',
+        reason,
+        len(raw_text),
+        digest,
+    )
 
 
 def _fenced_json_blocks(text: str) -> list[str]:
