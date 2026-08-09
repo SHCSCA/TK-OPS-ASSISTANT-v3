@@ -1,151 +1,228 @@
 # TK-OPS 项目状态总览
 
-> 更新日期：2026-07-05（当前应用版本以根 `package.json#version` 为准；本次复核已对齐 M05 创作链路汇入、受管轨道装配、受控 9:16 / 16:9 预览画幅、选中片段真实媒体预览、媒体播放头与时间线双向同步、本地预检状态链路、删除确认、智能粗剪建议审阅门禁与工作台布局分型）
-> 状态来源：根 `README.md`、`CHANGELOG.md`、`docs/` 真源文档、`docs/superpowers/` 实施记录、`docs/RUNTIME-API-CALLS.md`、`graphify-out/GRAPH_REPORT.md`，以及当前仓库代码与测试结构。
-> 本文只记录当前实现与文档对齐状态，不替代产品真源、UI 真源、架构真源或 Runtime API 真源。
+> 更新日期：2026-08-09
+> 当前阶段：P0-H 规格已批准，实施待开始；P0-G 0.4.11 仍为自动化测试候选
 
-## 1. 真源关系
+> 2026-08-02 复核结论：以下 P0-A 至 P0-F 记录保留为当时阶段证据，不再证明当前工作树或当前制品可交付。当前真实首启 E2E 与门禁外 Tauri 权限测试曾失败，且账号执行环境、监督登录、AI 真执行和八个 pending 页面尚未形成完整生产闭环。当前状态以 P0-G 阶段证据和 release manifest 为准。
+> 2026-08-09 更新：0.4.11 补齐环境失败恢复与登录准备取消 E2E，并改为从 portable ZIP 全新解压目录执行 GUI 冷启动门禁；P0-H 实现级规格已批准、实施待开始，真实 TikTok 目标机器证据与 P0-I 创作生产链仍未完成。
+> 本文记录当前实现与目标架构的差异，不替代产品、UI、架构或工程真源。
 
-| 事项 | 真源 |
+## 1. 文档真源
+
+| 事项 | 唯一真源 |
 | --- | --- |
-| 产品范围、页面树、能力边界 | `docs/PRD.md` |
-| UI 视觉语言、壳层结构、布局规则 | `docs/UI-DESIGN-PRD.md` |
-| 目录、路由、模块、模型落点 | `docs/ARCHITECTURE-BOOTSTRAP.md` |
-| 工程协作、实现硬约束 | `AGENTS.md`、`CLAUDE.md` |
-| Runtime 接口与前端调用关系 | `docs/RUNTIME-API-CALLS.md` |
-| 历史后端缺口快照 | `docs/BACKEND-REQUIREMENTS-2026-04-17.md`（2026-04-17 快照，不再作为 M10-M14 路由登记派工依据） |
-| 已审批实施计划与设计 | `docs/superpowers/plans/`、`docs/superpowers/specs/` |
-| 代码结构导航 | `graphify-out/GRAPH_REPORT.md` + `graphify-out/wiki/` |
-| V2 过渡性需求收口入口 | `docs/V2-PRODUCT-REQUIREMENTS-2026-04-20.md`、`docs/V2-FRONTEND-REQUIREMENTS-2026-04-20.md`、`docs/V2-BACKEND-REQUIREMENTS-2026-04-20.md`（验收后回流到 PRD / UI-DESIGN-PRD / RUNTIME-API-CALLS，再转入归档，不与上述主真源并列替代） |
+| 产品范围、页面容器、能力边界 | `docs/PRD.md` |
+| 视觉、壳层、布局和交互 | `docs/UI-DESIGN-PRD.md` |
+| 目录、路由、服务和模型落点 | `docs/ARCHITECTURE-BOOTSTRAP.md` |
+| 工程约束与协作流程 | `AGENTS.md` |
+| P0 实施范围与顺序 | `docs/superpowers/plans/2026-07-19-prototype-to-production-p0-account-foundation.md` |
+| P0 数据、接口、状态和验收契约 | `docs/superpowers/specs/2026-07-19-prototype-to-production-p0-account-foundation-design.md` |
+| 当前生产闭环路线 | `docs/superpowers/plans/2026-08-08-production-ai-creation-real-validation.md` |
+| P0-G Production 加固规格 | `docs/superpowers/specs/2026-08-08-p0-g-production-hardening-design.md` |
+| P0-H 真实 AI 执行规格 | `docs/superpowers/specs/2026-08-09-p0-h-real-ai-execution-design.md`，已批准、实施待开始 |
+| legacy 接口索引 | `docs/RUNTIME-API-CALLS.md` |
+| 目标 `/api/v1` 接口文档 | `docs/api/v1/`，由 P0-B 开始逐资源建立 |
 
-`.claude/plan/` 目录下的 M05-M15 文档保留为历史模块蓝图，不单独代表当前实现状态。后续判断状态时，以代码、测试、`docs/superpowers/`、`CHANGELOG.md` 和本文为准。
+发生冲突时按 `PRD -> UI-DESIGN-PRD -> ARCHITECTURE-BOOTSTRAP -> AGENTS` 裁决。旧 V2、M05–M15、Stitch、Graphify 和原型文档只能作为迁移或视觉参考。
 
-## 2. 当前阶段
+## 2. 产品目标
 
-当前工程版本以根 `package.json#version` 为准，桌面壳与 Python Runtime 镜像版本通过 `npm run version:sync` 脚本维护；发布节奏见 `CHANGELOG.md`。
+TK-OPS 的目标形态是 Windows 10/11、本地优先、一机一码授权、TikTok 优先的“账号定位驱动的 AI 短视频策划、批量生产与媒体工作台”。
 
-当前阶段可概括为：
+账号是工作区与数据隔离边界，目标主链为：
 
-- **UI 主链基线 + Precision Sculpting 全站收口**：16 个正式页面的像素级精修、物理动效、AI 流光反馈均已并入 `main`。
-- **Runtime 路由面完整**：`apps/py-runtime/src/app/factory.py` 已注册 23 个业务 Router（accounts / ai-capabilities / ai-providers / assets / automation / bootstrap / dashboard / device-workspaces / license / prompt-templates / publishing / renders / review / search / scripts / settings / storyboards / subtitles / tasks / video-deconstruction / voice / workspace / ws），覆盖 16 页所需的基础面；M05 已新增 `workspace.timeline.assemble` 汇入口。
-- **AI Provider 适配层雏形**：`apps/py-runtime/src/ai/providers/` 下已落地 `openai_chat` / `openai_responses` / `anthropic_messages` / `gemini_generate` / `cohere_chat` / `tts_openai` / `tts_volcengine` 适配器与基类，文本生成服务与火山豆包 TTS2 配音链路已接通。
-- **任务总线 + WebSocket**：`services/task_manager.py` 与 `services/ws_manager.py` 已承载视频导入等长任务进度分发，前端通过 TaskBus 与 AI 流光条消费状态。
-- **测试网**：`tests/runtime/` 单元测试与 `tests/contracts/` 契约测试覆盖 license、bootstrap、scripts、storyboards、workspace、video-deconstruction、voice、subtitles、accounts、devices、automation、publishing、renders、review、tasks、settings-config、ai-capabilities 等主链；`test_runtime_contract_inventory.py` 已校验 HTTP 文档路由与 FastAPI 注册路由一致。
-- **开发态体验**：`npm run app:dev` 已支持复用现有 Runtime / 前端开发服务器，避免 8000 / 1420 端口误报。
-- **页面布局分型**：壳层已按 `pageType` 下发宽度策略：`editor / workspace / queue / management` 页面铺满内容宿主，`dashboard` 和 `settings` 放宽到 1680px；账号与设备已改为管理页栅格，M05 已迁移为独立全宽全高工作台根容器。
-- **知识图谱**：`graphify-out/` 已刷新到 2400 节点 / 5870 边 / 182 社区的最终状态，可作为架构快速导航。
+```text
+Account
+→ ContentPlan
+→ ContentItem
+→ Script
+→ Storyboard
+→ ProductionBatch
+→ ContentVariant
+→ CompositionSpec
+→ RenderTask
+→ PublishTask
+```
 
-## 3. 16 页状态表
+正常账号工作区只有十个主入口：
 
-状态说明：
+1. 工作台
+2. 定位与知识
+3. 脚本与选题
+4. 分镜规划
+5. 视频拆解
+6. 批量生产
+7. 内容库
+8. 媒体工具箱
+9. 发布
+10. 复盘
 
-- **UI 已落地**：页面壳、动效、状态反馈、空/错误态齐备，至少一条主流程可走通（可能接真实 Runtime 或占位数据）。
-- **Runtime 已接线**：有对应 Runtime routes，且前端 `runtime-client.ts` 与 Pinia store 已消费。
-- **契约已登记**：`docs/RUNTIME-API-CALLS.md` 已收录全部接口并保持与代码一致。
-- **V2 进度**：对应 V2 文档包中本页需求的验收状态，取值 `未启动 / 进行中 / 已验收 / 已回流`（已回流表示验收结论已写回 PRD / UI-DESIGN-PRD / RUNTIME-API-CALLS，本页 V2 条款可在下一轮归档）。
-- **深度功能待打通**：真实 AI / FFmpeg / TTS / 设备执行等端到端链路需后续深化。
+账号管理和 AI 与系统设置是系统级页面。产品不提供 AI 剪辑工作台、手动多轨时间线、团队后台、经营系统、高风险设备伪装或平台保护绕过。
 
-| 序号 | Route ID | 页面 | UI | Runtime | 契约 | V2 | 说明 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | `setup_license_wizard` | 首启与许可证向导 | 已落地 | 已接线 | 已登记 | 未启动 | 离线授权、向导动效、粒子反馈、机器码/激活码已走真实链路。 |
-| 2 | `creator_dashboard` | 创作总览 | 已落地 | 已接线 | 部分登记 | 进行中 | F-01 项目软删除贯通仪表盘/项目仓库/Runtime；sparkline / quick-jump 字段仍在 D2。 |
-| 3 | `script_topic_center` | 脚本与选题中心 | 已落地 | 已接线 | 部分登记 | 进行中 | V2 状态栏 + 3 栏布局已落地；变体 / 段级改写 / 历史版本持久化仍待扩展。 |
-| 4 | `storyboard_planning_center` | 分镜规划中心 | 已落地 | 已接线 | 部分登记 | 未启动 | 镜头卡片瀑布流、脚本段落联动齐备；Shot CRUD / 模板仍待补齐。 |
-| 5 | `ai_editing_workspace` | AI 剪辑工作台 | 已落地 | 已接线 | 已登记 | 进行中 | 已迁移为独立全宽工作台布局，不再受普通内容页最大宽度限制；预览区画幅已提升为工作台状态，默认 9:16 且可切换 16:9，结构预览可拖动播放头，紧凑窗口保留最小播放控制；脚本、分镜、配音、字幕可汇入三条等长受管轨道并保留手动轨道；clip 移动 / 裁剪 / 替换 / 插入 / 分割 / 删除、M05 到 M14 的 `timeline_id` 交接、选中资产片段真实媒体预览、媒体播放器 currentTime 与时间线播放头双向同步已落地；删除片段前有桌面确认，删除后可通过时间线工具栏撤销；智能粗剪已从“生成后直接修改时间线”改为“生成建议草稿、右侧基础属性面板审阅、用户确认后原子应用”，支持 selected/all apply、忽略、过期 token 拒绝、失败回滚和 `failed_parse` 可见反馈；完整时间线合成渲染、更多 AI 生成动作和真人视觉 E2E 仍待深化。 |
-| 6 | `video_deconstruction_center` | 视频拆解中心 | 已落地 | 已接线 | 已登记 | 进行中 | F-08 FFprobe 降级提示 + 真实 `router.push` 跳诊断已落地；阶段 / 转写 / 切段 / 回流还在 D2/D4。 |
-| 7 | `voice_studio` | 配音中心 | 已落地 | 已接线 | 已登记 | 进行中 | 火山豆包 TTS2 音色同步、真实音频生成、整段 / 当前段落预览、生成中状态和音色列表滚动已接通；分段重生拼接、字幕联动和更细停顿策略仍待深化。 |
-| 8 | `subtitle_alignment_center` | 字幕对齐中心 | 已落地 | 已接线 | 已登记 | 未启动 | 扫描脉冲、字幕段水平流转、统计指标齐备；手动对齐 / 模板 / 导出 / 源波形仍在 D4。 |
-| 9 | `asset_library` | 资产中心 | 已落地 | 已接线 | 已登记 | 未启动 | 预览引擎修复、资产墙无缝平移、原生 Dialog 异步加载齐备；缩略图 / 批量 / 分组 / refs 子接口待文档对齐。 |
-| 10 | `account_management` | 账号管理 | 已落地 | 已接线 | 已登记 | 进行中 | F-03 校验态与能力绑定已接通；`/api/accounts` 14 条 HTTP 路由已写入 `RUNTIME-API-CALLS.md`，后续继续深化状态广播、脱敏与异常样例。 |
-| 11 | `device_workspace_management` | 设备与工作区管理 | 已落地 | 已接线 | 已登记 | 进行中 | F-02 浏览器实例 CRUD + B-02 迁移/路由已接通；`/api/devices` 24 条路由已登记，剩余为前端兼容类型口径与更细日志/绑定体验收口。 |
-| 12 | `automation_console` | 自动化执行中心 | 已落地 | 已接线 | 已登记 | 未启动 | `/api/automation/tasks` 9 条路由已登记，pause / resume / trigger / runs 已落地；运行取消、实时日志流与更完整失败恢复仍待深化。 |
-| 13 | `publishing_center` | 发布中心 | 已落地 | 已接线 | 已登记 | 未启动 | `/api/publishing` 11 条路由已登记，precheck / submit / cancel / calendar / receipt 已落地；前端 `PublishReceiptDto`、日历类型仍需对齐后端聚合 schema。 |
-| 14 | `render_export_center` | 渲染与导出中心 | 已落地 | 已接线 | 已登记 | 未启动 | `/api/renders` 11 条路由已登记，profiles / templates / resource-usage / retry / cancel 与 `ExportProfile` ORM 已落地；前端模板/资源类型与真实渲染进度链路仍待深化。 |
-| 15 | `review_optimization_center` | 复盘与优化中心 | 已落地 | 已接线 | 已登记 | 未启动 | V2 后端服务扩展已合入；建议列表 / 回流能力仍待接通前端。 |
-| 16 | `ai_system_settings` | AI 与系统设置 | 已落地 | 已接线 | 已登记 | 进行中 | F-04 日志目录 + F-05/06/07 就绪徽章/能力画像/重复模型拦截 + B-03/B-04/B-05 提供商健康/Secret/能力绑定已接通。 |
+## 3. 当前实现事实
 
-**契约登记状态（2026-07-04 复核）**：`docs/RUNTIME-API-CALLS.md` 当前记录 190 条 HTTP 路由，FastAPI 实际注册 190 条，文档与代码一致，已实现未文档化路由为 0。`docs/BACKEND-REQUIREMENTS-2026-04-17.md` 中 96/34/62 的统计是 4 月 17 日历史快照，不再代表当前 M10-M14 路由登记状态。
+### 3.1 已完成
 
-## 4. 已知待收口问题（工程债，与 V2 需求收口并行推进）
+- Tauri 2 + Vue 3 桌面壳、FastAPI Runtime、离线许可证、配置总线、SQLite 和现有业务适配器可作为迁移基础。
+- 本地账号工作区交互原型已经验证十入口、左下账号切换、账号管理、AI 配置、创作链、拆解表格、批次流水线、内容库、媒体工具和中性空态。
+- P0 计划与详细规格已经批准。
+- P0-A 数据库接管生产实现已经落地：
+  - 统一数据库路径与迁移配置。
+  - 已知 legacy 匿名结构指纹与未知结构只读拒绝。
+  - 跨进程迁移锁。
+  - SQLite DB / WAL / SHM 备份、校验与失败恢复。
+  - Alembic `0015_p0_expand -> 0016_p0_backfill -> 0017_p0_enforce_and_cutover`。
+  - 列、索引、唯一约束、外键、CHECK 与触发器目标契约。
+  - Runtime 在创建 Engine、Repository 和 Service 前完成迁移。
+- P0-B Runtime v1 内核已经通过阶段验收：
+  - 13 个 `/api/v1` HTTP 接口与 1 个账号范围 WebSocket。
+  - Runtime Session、Host / Origin 和许可证统一门禁。
+  - 统一信封、大写错误码、`log_id`、请求上下文与脱敏结构化日志。
+  - SQLite 持久任务、快照 v2、幂等、超时、取消、重试、重启恢复和有界停机。
+  - 账号 Topic、sequence、outbox、断线重放和 HTTP 最终状态补拉。
+  - Bootstrap、系统设置和任务 legacy 薄适配器。
+  - Alembic `0018_p0_runtime_kernel` 与跨 revision 降级失败原子性保护。
+- P0-C 账号纵向链已经通过阶段验收：
+  - Alembic `0019_p0_account_vertical_chain` 接管五状态、账号配置、知识快照标签和普通写幂等表；迁移只保守补齐空知识库与发布默认值，不伪造来源、快照、连接或 ready。
+  - 账号创建、详情、工作区上下文、六步向导、白名单配置复制、归档、恢复和真实健康检查服务。
+  - `Account -> DeviceWorkspace -> BrowserInstance -> ExecutionBinding` 同账号真实连接约束。
+  - 定位版本、知识规则与六类来源、真实 text / 公共 HTTPS 索引任务、不可变快照、BrandKit 和发布默认值；file 来源在受控文件桥前明确失败封闭，该桥转入 P1。
+  - 普通账号写操作持久幂等、账号聚合修订、分页配置、账号 Topic、outbox、缓存失效与安全日志。
+  - 新增 31 个账号范围 v1 HTTP；P0-C 验收时总库存为 44 个 HTTP + 1 个 WebSocket。
+  - 新增 `account.health_check`、`account.restore_health_check`、`account.connection_check` 与 `knowledge.index` 四个账号任务类型。
+  - `docs/api/v1/` 已按真实路由同步接口、错误、任务、事件与配置键；P0-C 的 44 个 HTTP + 1 个 WebSocket 库存和 UTF-8 静态门禁已通过。
+- P0-D Desktop 账号上下文已经通过阶段验收：
+  - Runtime Client / Types 已按 Bootstrap、账号、定位知识、系统配置、任务和事件拆分；P0-D 新模块不再导入旧单文件客户端，组件不直接请求 Runtime。
+  - 账号 DTO 新增定位摘要与最近使用时间；新增工作区激活和真实连接候选 2 个 HTTP，账号范围现为 33 个 HTTP，当前总库存为 46 个 HTTP + 1 个 WebSocket。
+  - Account Context 已覆盖最近账号恢复、prepare / commit 切换、迟到响应隔离、可逆资源、未保存守卫、配置总线页面记忆和账号事件重订阅。
+  - 受控 P0 Route Manifest、新 Bootstrap Gate、十入口账号壳、左下账号切换器、状态栏、宽屏与紧凑 PC 布局已经落地；小于 960px 明确提示仅支持 PC 工作区。
+  - 账号管理、六步向导、复制、归档恢复、真实连接候选与健康任务，以及定位、知识规则、来源、索引、快照和 BrandKit 页面均接入 v1 真实数据。
+  - 无账号、加载、空、筛选空、依赖阻断、离线、失败与重试状态已经覆盖；当前账号归档会原子清空账号上下文，不保留旧账号快照。
+- P0-E AI 配置纵向链已经通过阶段验收：
+  - Alembic `0020_p0e_ai_vertical_chain` 补齐 Prompt 聚合修订与账号 AI Recipe 内容摘要，并在 SQLite DDL 前预校验 legacy Recipe JSON。
+  - Provider、Model、Capability、Capability Route、Prompt Profile、Composition Template 与 Account AI Recipe 已进入统一 v1 服务、仓储、配置修订、幂等和事件边界。
+  - Provider 凭据只进入系统安全存储，读取只返回 `credentialSummary`；Prompt 正文、凭据、本地路径和任务快照均有负向安全契约。
+  - `provider.health_check`、`provider.model_discovery` 与 `model.capability_check` 三类持久任务覆盖超时、取消、失败、日志和最终补拉。
+  - Provider 就绪、模型能力契约、Prompt / Template 不可变版本与系统 AI 修订共同约束 Capability Route 和账号 Recipe 的验证与激活。
+  - Desktop AI 与系统设置、Provider 五步向导、模型与路由、Prompt / 合成模板版本及账号 AI Recipe 已接入真实 Runtime，覆盖首次使用、依赖阻断、长任务、错误、重试和未保存状态。
+  - AI v1 新增 35 个 HTTP；当前总库存为 81 个 HTTP + 1 个 WebSocket。
+- P0-F 路由切换与 Windows 桌面交付已经通过最终验收：
+  - 正式 Route Manifest 固定十三个页面容器与十个账号级入口；旧 Project / Timeline 和独立流程 URL 只做单次重定向，旧业务页面不可达。
+  - Runtime sidecar、Tauri Supervisor、单实例、动态 loopback 端口、内存会话、生产数据目录、90 秒冷启动、有限重启、优雅退出与进程树清理已落地。
+  - 迁移写门、durable cutover journal、写门前恢复、写门后禁止覆盖当前数据库和前向兼容回退 Runtime 制品已形成可验证证据。
+  - 正式全局 `vue-tsc --noEmit` 已通过，P0-D / P0-E 登记的 79 个 legacy 类型错误已随正式路由收口清零。
+  - Windows NSIS 安装包无需系统 Python 即可离线启动，安装、单实例、生产数据落点、Supervisor ready 与卸载后进程树清理 smoke 已通过。
+- P0-G 账号工作区与 Production 加固已形成 0.4.11 测试候选：
+  - 真实受控工作目录、执行环境、进程所有权、账号绑定、监督登录、任务恢复、归档清理和 Runtime generation 恢复已经闭环。
+  - 机器身份、许可证、Sidecar ABI、原生窗口、单实例、优雅退出、安装包与发布证据链已加固。
+  - Runtime、Desktop、Rust、账号兼容 E2E、安装包与许可证实包 smoke 继续进入全量门禁；首启证据扩为 5 项，GUI 冷启动门禁扩为 9 项。
+  - release manifest v2 为 `channel=test`、`dirty=true`，包含 10 份证据与 4 个当前制品；未提升 production 指针。
 
-> 以下条款聚焦"代码 / 文档 / 结构"层面的工程债，与第 6 章 V2 文档包的"用户体验 / 契约状态"收口是两条并行轨道：V2 负责把页面从"能看"收口到"能继续完成任务"，本节负责把代码库从"能跑"收口到"可维护"。两套清单不可互相替代。
+### 3.2 尚未完成
 
+- 本地 file 知识来源的 Tauri 受控选择、复制、校验与索引桥尚未实现；当前继续失败封闭并保留重试，属于 P1。
+- ContentItem、单条生产、完整批量生产、拆解回流、内容库和分级媒体工具属于 P1。
+- 真实发布、回执、恢复与复盘证据回流属于 P2。
+- P0-H 详细规格已覆盖 H1-H5、模型/API/状态/文件地图/验收/rollback，并已批准；生产代码实施待开始。P0-I 创作生产链仍未实施，八个业务页面不得以 pending 壳冒充完成。
 
-1. **页面文件硬限已清零**：16 个正式页面已拆到 600 行以内，当前最高为 `AISystemSettingsPage.vue` 596 行；页面样式已迁出到 scoped CSS 文件，后续新增页面仍需遵守 `page / composable / helpers / types / styles` 分层边界，避免超大 SFC 回流。
-2. **RUNTIME-API-CALLS 路由登记缺口已清零，V2 类型漂移已收口**：M10-M14 不再存在“已实现路由未登记”问题；Prompt 模板、M08 字幕、M11 设备、M13 发布、M14 渲染与 TaskBus 的前端类型 / wrapper 漂移已按当前后端 schema 修复。M11 旧库迁移已补齐 `device_workspaces / execution_bindings` 的阻断列修复。剩余接口债主要是 M02/M03/M04/M06/M09 的字段级 D2 收口、更多异常样例和端到端联调说明。
-3. **深度功能分阶段打通**：M05 已接通创作链路汇入、受管轨道装配、基础 clip 原子操作、选中片段真实媒体预览、智能粗剪审阅门禁与 M14 来源时间线交接；M07 配音中心已接通火山豆包 TTS2 真实合成与音频预览；M06 / M08 的 FFmpeg 深度解析、字幕对齐与时间线回流仍需继续逐段落地。
-4. **导航分组漂移**：`apps/desktop/src/app/router/route-manifest.ts` 使用"全局管理 / 核心管线"等实现口径，与 `docs/UI-DESIGN-PRD.md` 五组导航口径存在差异，调整前必须先同步文档。
-5. **历史蓝图未标注**：`.claude/plan/tkops-frontend-modules.md` 仍沿用"待开发"口径，需在顶部显式标注为历史蓝图，避免后续代理误判。
-6. **Stitch 参考稿混入旧后台口径**：`docs/stitch_text_document/` 同时包含当前可参考的创作工具稿和旧 CRM/经营系统稿，UI 实现只能参考视觉节奏，不得让旧产品范围回流。
-7. **编码约束**：中文文档在 PowerShell 中读取时必须显式使用 UTF-8，避免乱码污染文档与测试输出；`tests/contracts/test_text_encoding_contract.py` 需保持常绿。
+## 4. 阶段状态
 
-## 5. 下一步建议（工程债轨道，V2 需求轨道见第 6 章）
+| 批次 | 当前状态 | 已有成果 | 退出条件 |
+| --- | --- | --- | --- |
+| P0-A 安全基线与数据库接管 | 阶段验收通过 | 生产实现、兼容矩阵、文档和阶段验证已完成 | 已退出 |
+| P0-B Runtime v1 内核 | 阶段验收通过 | `/api/v1`、安全门、信封、日志、持久任务、账号事件与 legacy 薄转发已完成 | 已退出 |
+| P0-C 账号纵向链 | 阶段验收通过 | 0019、账号服务、31 个 HTTP、四个账号任务、定位知识品牌对象、v1 文档与隔离验证均已完成 | 已退出 |
+| P0-D Desktop 账号上下文 | 阶段验收通过 | 领域 Runtime Client、Account Context、受控新壳、账号管理、定位知识、真实状态矩阵和真实 Runtime E2E 已通过 | 已退出 |
+| P0-E AI 配置纵向链 | 阶段验收通过 | 0020、35 个 HTTP、系统 AI 对象、安全凭据、三类任务、版本、路由、账号 Recipe 与 Desktop 工作面均已完成 | 已退出 |
+| P0-F 路由切换与桌面交付 | 历史阶段已退出 | 旧证据保留；当前可交付性改由 P0-G 0.4.11 manifest 证明 | 已退出 |
+| P0-G 账号执行与 Production 加固 | 测试候选通过 | 真实账号/工作区/执行环境、监督登录、恢复、GUI、安装包与许可证实包证据已通过 | 目标机器 TikTok 证据与干净提交后提升 Production |
+| P0-H AI 真执行 | 规格已批准，实施待开始 | H1-H5 实现级规格、精确文件地图、两层证据与 rollback 已形成 | 按 H1 → H5 实施；真实 Provider 调用、受控知识文件、任务/日志/成本与失败恢复通过 |
+| P0-I 创作与批量生产 | 未开始 | 产品与交互规格已确认 | 单条创作、拆解、批量、内容库和分级媒体工具逐阶段通过 |
+| P2 发布与复盘 | 未开始 | 旧实现仅作为迁移参考 | 真实绑定、预检、回执、恢复和证据回流通过 |
 
-按优先级：
+## 5. 阶段验证证据
 
-1. **立即**：完成本轮 V2 收尾验收，保留前端类型漂移回归测试常绿，并补齐 Browser Use 真人流验收记录。
-2. **本迭代**：保持 600 行硬限常绿，继续把未达到原计划精修目标的页面下沉 composable / helpers，不再把页面状态、服务调用和样式堆回 SFC。
-3. **本迭代**：开启 M05-M08 深度功能阶段，优先打通 Script 真实 AI 生成与 Voice TTS 端到端；以 AI Provider 适配层为收口点，保证统一重试 / 超时 / 结构化错误码。
-4. **下迭代**：补齐 M02 dashboard 的 sparkline / quick-jump、M06 视频拆解的阶段与转写字段，覆盖 D2 字段级差口。
-5. **持续**：在所有重大改动提交前运行 `graphify update .` 保持 `graphify-out/` 作为架构快速导航的最新快照；同时巩固 `tests/runtime` 与 `tests/contracts` 双网覆盖。
-6. **文档治理**：在 `.claude/plan/` 顶部标注历史蓝图口径，在 `docs/stitch_text_document/` 目录顶部区分"当前可参考"与"旧后台仅供视觉参考"。
+P0-A 阶段验收记录（2026-07-26）：
 
+- 严格遵守单次阶段测试节奏，没有重复运行 pytest。
+- 命令：`venv\Scripts\python.exe -m pytest -p no:cacheprovider --basetemp <isolated> --tb=short -q <P0-A 14 个定向测试文件>`；固定文件清单见兼容矩阵第 8 节。
+- 结果：`94 passed in 52.95s`，退出码 0。
+- 覆盖：数据库路径、迁移配置、legacy 指纹、迁移锁、DB/WAL/SHM 备份恢复、`0015–0017`、目标 Schema 契约、启动顺序、日志与 UTF-8 主链。
+- 环境：独立临时 Runtime 数据目录、数据库、pytest basetemp 和 pycache；未把开发数据库或种子数据作为通过证据。
+- 静态证据：Runtime 与 Alembic `compileall` 退出码 0；`git diff --check`、UTF-8 无 BOM 和真源术语检查通过。
 
-## 6. V2 文档状态
+P0-B 阶段验收记录（2026-07-26）：
 
-- 当前仓库已建立 V2 文档包：产品总文档、前端需求文档、后端需求文档。
-- 下一阶段需求收口应优先以 V2 文档包作为入口，再分别同步到 PRD、UI 真源和 API 真源。
-- 当前状态应理解为“已有实现 + V2 文档已建档 + 待按 V2 收口”，而不是继续以零散评审意见推动开发。
+- 最终命令：`venv\Scripts\python.exe -m pytest -p no:cacheprovider --basetemp <isolated> --tb=short -q <P0-B 41 个定向测试文件>`。
+- 最终结果：`239 passed, 1 skipped in 171.75s`，退出码 0。
+- 覆盖：v1 Bootstrap / 配置 / 诊断 / 任务 / WS、Runtime 安全、日志脱敏、持久任务与事件、legacy 薄适配、0018 迁移、数据库接管与许可证主链。
+- 验收前收口运行结果为 `235 passed, 1 skipped, 4 failed`；失败仅集中在迁移降级夹具与跨 revision 失败原子性，修复并完成独立静态审查后才执行最终验收。
+- 静态证据：391 个 Python 文件编译、16 个核心模块导入、18 个 Alembic revision、13 个 HTTP + 1 个 WebSocket 文档库存、`git diff --check` 和 UTF-8 无 BOM 门禁通过。
+- 环境：最终运行使用独立 pytest basetemp，不读取或覆盖开发数据库。
 
-### V2 文档入口
+P0-C 阶段验收记录（2026-07-26）：
 
-1. `docs/V2-PRODUCT-REQUIREMENTS-2026-04-20.md`
-2. `docs/V2-FRONTEND-REQUIREMENTS-2026-04-20.md`
-3. `docs/V2-BACKEND-REQUIREMENTS-2026-04-20.md`
+- 阶段范围覆盖 23 个定向测试文件，共 175 个契约、迁移、账号生命周期、连接、知识、任务、隔离与 P0-B 主链回归用例。
+- 最后一次完整阶段运行结果为 `169 passed, 6 failed in 123.31s`；6 项均为同一个幂等重放测试断言错误，生产响应已经正确返回 `idempotentReplay=true`。
+- 修正断言后只复验该参数化用例，结果为 `6 passed in 23.52s`。修正未改生产代码，因此阶段范围内 175 项均已取得通过证据。
+- 验收过程中真实发现并修复 SQLite batch 重建表时的跨表触发器顺序、Windows IANA `tzdata` 依赖、测试 Runtime Session、工作区与浏览器落库顺序，以及同步 yield 依赖的 ContextVar 跨上下文复位问题。
+- 静态证据：Runtime / Alembic / 测试 Python 编译、关键模块导入、44 个 HTTP + 1 个 WebSocket 文档库存、`git diff --check`、494 个 Python / Markdown 文件 UTF-8 无 BOM 门禁通过。
+- 所有运行均使用独立 pytest basetemp、Runtime 数据目录和数据库，未读取或覆盖开发数据库。
 
-### V2 与真源的回流闭环
+P0-D 阶段验收记录（2026-07-26）：
 
-1. **进入**：任何新需求或体验问题，先以 V2 文档包作为收口入口，按"产品问题 → 前端需求 → 后端需求"三件套补齐。
-2. **推进**：单页验收按 V2 三件套的验收标准执行；第 3 章 16 页状态表的 **V2 列** 从 `未启动 → 进行中 → 已验收` 逐步迁移。
-3. **回流**：某页 V2 验收通过后，立即把验收结论同步写回 `docs/PRD.md`（范围/页面）、`docs/UI-DESIGN-PRD.md`（视觉/交互）、`docs/RUNTIME-API-CALLS.md`（接口契约），并在 V2 对应章节顶部标注"已回流"。V2 列标记为 `已回流`。
-4. **退役**：当 16 页全部进入 `已回流` 状态后，V2 文档包整体移入 `docs/archive/`，PROJECT-STATUS.md 第 6 章同步压缩为一行归档记录。
-5. **变更**：V2 文档包在回流前如需迭代，统一在文件名加版本后缀（如 `V2.1-FRONTEND-REQUIREMENTS-YYYY-MM-DD.md`），禁止无版本覆盖，避免历史需求被悄悄改写。
-6. **冲突裁决**：V2 与 PRD / UI-DESIGN-PRD / RUNTIME-API-CALLS 发生冲突时，未回流前以 V2 为准；回流后以主真源为准。
+- Runtime 阶段范围为 6 个定向文件、38 项。首次运行 `37 passed, 1 failed in 36.33s`，唯一失败是测试误读不存在的 `RuntimeEvent.id`；更正为真实字段 `event_id` 后只复验该项，结果 `1 passed in 4.25s`。生产代码未因该断言修改，38 项均已取得通过证据。
+- Desktop 阶段范围为 14 个 P0 Vitest 文件、50 项。首次运行 `49 passed, 1 failed in 13.44s`，失败真实暴露知识 Store 异步写入原始缓存对象后页面停留加载态；修复生产 Pinia 响应性后只复验该文件，结果 `7 passed`，50 项均已取得通过证据。
+- `vue-tsc --noEmit` 的 P0-D 新路径过滤结果为 0 个错误；全仓仍报告 79 个冻结 legacy 路径错误，已登记为 P0-F 切换前债务，不表述为全量类型检查通过。
+- 受控 P0 构建 `npm --prefix apps/desktop run build:p0` 通过，处理 468 个模块，耗时 `5.14s`。
+- 真实 Runtime E2E 使用独立临时数据库与工作区，完成许可证激活、目录初始化、无账号空态、双账号创建与切换、各账号最近工作面恢复、账号 A 定位与知识对账号 B 不可见、归档当前账号后原子清空上下文；1180×760 无页面级横向溢出，900px 宽度显示 PC 窗口下限提示，浏览器 Console 为 0 错误、0 警告。
+- E2E 首次启动发现开发编排器未向 Runtime 安全中间件传递预期 Host；已改为从受控 Runtime URL 注入 `TK_OPS_RUNTIME_EXPECTED_HOST`，随后真实启动链通过。
+- 静态证据：当前库存为 46 个 HTTP + 1 个 WebSocket，`git diff --check` 与 P0-D UTF-8 无 BOM 门禁通过。
 
-### V2 用户实测反馈（2026-04-20，已分发）
+P0-E 阶段验收记录（2026-07-26）：
 
-本轮真实使用中发现的 8 条体验与功能缺口已按前后端切分，分发至 V2 前后端文档，并在两边建立交叉索引：
+- Runtime 阶段范围为 6 个定向文件、71 项。首次运行 `65 passed, 6 failed in 225.35s`；失败集中在 Provider 摘要字段、能力路由错误优先级与安全幂等快照、以及 SQLite 迁移失败原子性。修复后只复验 6 个失败点并全部通过；迁移正常回填另补 1 项回归证据。
+- Desktop 阶段范围为 6 个 P0 Vitest 文件、41 项。首次运行 `38 passed, 3 failed`；修复本地 JSON 错误映射和测试隔离后只复验 2 个失败文件，结果 `17 passed`，因此 41 项均取得通过证据。
+- Provider 响应统一改为 `credentialSummary`，Capability Route 补齐稳定 `id` 后，额外执行相关 2 个 Desktop 文件 `14 passed`；两项 Provider 敏感数据 / DTO Runtime 定向用例 `2 passed in 10.95s`。
+- `vue-tsc --noEmit` 的 P0-E 新路径过滤结果为 0 个错误；全仓仍报告原有 79 个冻结 legacy 路径错误，继续登记为 P0-F 切换债务，不表述为全量类型检查通过。
+- 受控 P0 构建通过，处理 530 个模块，耗时 `12.86s`。当前 v1 库存为 81 个 HTTP + 1 个 WebSocket。
+- 静态证据：`git diff --check` 通过；113 个 P0-E 相关 Python、TypeScript、Vue、CSS、Markdown 文件通过 UTF-8、无 BOM 与单文件不超过 500 行门禁。
 
-- **前端缺陷清单**：见 `docs/V2-FRONTEND-REQUIREMENTS-2026-04-20.md` 第 5 章 "实测缺陷索引（2026-04-20）"，编号 F-01 ~ F-08。
-- **后端缺陷清单**：见 `docs/V2-BACKEND-REQUIREMENTS-2026-04-20.md` 第 7 章 "实测缺陷索引（2026-04-20）"，编号 B-01 ~ B-06。
+P0-F 最终验收记录（2026-08-01）：
 
-修复档位速览：
+> 历史证据说明：本节数字和哈希在 2026-08-01 对应构建中当时有效；2026-08-02 当前源码、测试与制品已发生漂移，不得作为当前发布证据，也不会被覆盖或改写。
 
-- **L 档（直接开工）**：F-01 / F-03 / F-04 / F-07 + B-01 / B-05。
-- **M 档（单页 plan 推进）**：F-05 / F-06 / F-08 + B-03 / B-04 / B-06。
-- **S 档（需立计划）**：F-02 + B-02（浏览器实例对象模型）。
+- Runtime / Contract 按 P0 阶段矩阵完成全量收口；最终发现的 21 项 legacy 契约不一致已修正并仅定向复验受影响范围。收口后机器码、迁移启动与写门恢复定向测试 `11 passed in 11.20s`。
+- Desktop P0 测试覆盖 23 个文件、`107 passed`；全局 `vue-tsc --noEmit` 通过，Vite 生产构建处理 239 个模块并通过。
+- 真实 Runtime 浏览器 E2E `7 passed`：覆盖许可证、目录、两账号隔离、设备 / 工作区 / 执行绑定、Provider / 模型 / 路由 / Prompt / Recipe、WebSocket、归档恢复、十三 Route 和三组视觉基线。
+- Rust `cargo fmt --check`、`cargo check` 通过，单元测试 `17 passed`；新增重启顺序契约保证旧进程完成清理后才进入退避和新世代。
+- 受限 `PATH` Sidecar smoke 通过，build ID 为 `0.4.7-x86_64-pc-windows-msvc-d7538489342f`；证明生产链不依赖系统 Python 或 `PATH` 中的 PowerShell。
+- NSIS 安装包 smoke 通过 Supervisor ready、生产数据落点、离线启动、单实例和进程树清理。制品 `TK-OPS_0.4.7_x64-setup.exe` 为 `30,984,341` 字节，SHA-256 为 `E75501CA8BBA51A610ED411CEFD1B09844FF3A9EACCA8824AEA09F41EF688F75`。
+- Light `1440×900`、Dark `1440×900`、Dark `1180×760` 视觉验收通过；账号切换器、状态栏和工作面在两档 PC 窗口无手机化或页面级错位。
 
-PROJECT-STATUS.md 只保留本索引入口，不复述具体修复方案，避免与 V2 真源漂移。
+## 6. 已知过渡项
 
-### V2 落地进度（2026-04-22）
-
-| 档位 | 项 | 落地证据 |
+| 过渡项 | 当前状态 | 退出阶段 |
 | --- | --- | --- |
-| L | F-01 项目软删除 | `stores/project.ts:deleteProject` + `CreatorDashboardPage.vue` 删除确认链路 |
-| L | F-03 账号校验态 | `AccountManagementPage.vue` 对齐 V2 能力绑定与校验态 |
-| L | F-04 日志目录 | `SettingsSystemFormPanel.vue` + `ai-system-settings-page-helpers.ts:openDirectoryPath` |
-| L | F-07 提供商重复模型拦截 | `ProviderConfigDrawer.vue` 重复校验 + `provider.model.*` 错误码 |
-| L | B-01 软删除持久化 | `persistence/engine.py:_repair_legacy_project_schema` + `projects.deleted_at` |
-| L | B-05 Secret 写入 | `services/settings_service.py` Secret 合并策略 |
-| M | F-05 就绪徽章 / F-06 能力画像 | `ProviderCard.vue` + `ProviderConfigDrawer.vue` V2 视觉与数据绑定 |
-| M | F-08 FFprobe 降级提示 | `VideoDeconstructionCenterPage.vue` alert bar + `router.push('/settings/ai-system')` |
-| M | B-03 提供商健康检查 | `services/ai_capability_service.py` + Runtime 事件 `ai-capability.changed` |
-| M | B-04 能力绑定契约 | `schemas/ai_capabilities.py` + 新增契约测试 |
-| M | B-06 FFprobe 诊断 | `services/ffprobe.py:get_ffprobe_availability` + `failed_degraded` + `media.ffprobe_unavailable` |
-| S | F-02 浏览器实例 UI | `DeviceWorkspaceManagementPage.vue` 实例创建/列表/删除 |
-| S | B-02 浏览器实例对象模型 | 迁移 `0007` + `api/routes/device_workspaces.py` 6 路由 |
-| — | Modules A-H 运行时事件层 | `config-bus` / `ai-capability` / `task-bus` / `video-import` / `subtitle-alignment` 等 store 接入 revision 同步 |
+| `accounts.status='active'` | 0019 与新写入已切换五状态；迁移、约束和 legacy 兼容证据已通过 P0-C 验收 | 已退出 |
+| 工作区、浏览器实例和执行绑定的部分账号外键可空 | 旧数据无法可靠推断时不伪造；v1 只接受真实完整绑定，物理收紧须另立数据库迁移计划 | 后续独立计划 |
+| legacy 账号读取与 AI API | 正式 Desktop 已退出 legacy 调用；非生产兼容读取冻结保留，不再承载新增能力 | 正式路径已退出 |
+| 新 AI 配置表为禁用或未验证回填 | P0-E 始终按 unknown / incomplete 读取，并强制健康、能力与版本验证；未伪装为 ready | 已退出 |
+| 旧 Project/Timeline 和独立页面仍在代码中 | 正式路由已解除，只允许作为迁移源；物理删除须另立计划 | 正式路径已退出 |
+| 生产写门与回退 Runtime 制品 | P0-G 0.4.11 test manifest 继续受目标机器证据与干净提交门禁约束 | Production 提升 |
+| 本地 file 知识来源桥 | 当前失败封闭，不读取任意本地路径；rootRef 授权、账号 Asset 与索引链已写入 P0-H 规格 | P0-H |
 
-尚待收口：
-1. V2 新增路由登记与已知前端类型漂移已回流到 `docs/RUNTIME-API-CALLS.md`；后续重点是补齐异常样例、Browser Use 验收记录与端到端契约。
-2. 继续把后续新增功能限制在既有 `page/composable/helpers/types/styles` 分层内，避免已清零的超 600 行硬限问题回流。
+## 7. 当前下一步
+
+1. 在目标测试机器上使用当前 0.4.11 制品完成一次真实 TikTok 可见浏览器监督登录，生成绑定 Desktop、Runtime 与安装包哈希的证据。
+2. 整理当前脏工作树为干净提交后重新构建 production 通道；在两项门禁满足前不提升 `current.json`。
+3. 审批 P0-H 详细规格；批准前不修改生产实现，批准后严格按 H1→H5 接通 AI 配置、受控知识文件与真实 AI Execution Gateway，并以真实 Provider 调用验收。
+4. P0-H 通过后进入 P0-I，按账号内容主链逐步开放八个 pending 页面，不一次性伪开放。
+
+## 8. 交付纪律
+
+- 不把未提交原型、演示数据或旧页面测试当作生产完成证据。
+- 每个阶段同步 plan/spec、项目状态、接口文档、错误码和调用说明。
+- 每个阶段保持独立文件边界、代码审查和回退点。
+- 没有真实 Runtime 数据时只显示中性空态或受限状态。
+- 所有长任务必须有超时、取消、失败、重试、日志和最终状态补拉。
