@@ -7,3 +7,4 @@ export type * from "./system-config";
 export type * from "./events";
 export * from "./ai-system";
 export type * from "./account-ai-recipe";
+export type * from "./ai-executions";

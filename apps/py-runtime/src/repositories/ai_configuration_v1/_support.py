@@ -64,6 +64,9 @@ _SQLITE_WRITE_LOCKS = {
     "account_ai_recipes": text(
         "UPDATE account_ai_recipes SET revision = revision WHERE 0"
     ),
+    "capability_routes": text(
+        "UPDATE capability_routes SET revision = revision WHERE 0"
+    ),
 }
 
 

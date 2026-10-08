@@ -31,6 +31,7 @@ REVISION_0018 = "0018_p0_runtime_kernel"
 REVISION_0019 = "0019_p0_account_vertical_chain"
 REVISION_0020 = "0020_p0e_ai_vertical_chain"
 REVISION_0021 = "0021_p0g_execution_environment_closure"
+REVISION_0023 = "0023_p0h_real_ai_execution"
 INVALID_LEGACY_ACCOUNT_IDS = (
     "legacy:account",
     "legacy/account",
@@ -140,10 +141,10 @@ def test_0019_maps_active_accounts_and_backfills_source_modes(
         "source_url",
     } <= _columns(database_path, "knowledge_sources")
     assert "runtime_mutation_idempotency" in _tables(database_path)
-    command.upgrade(config, REVISION_0021)
+    command.upgrade(config, REVISION_0023)
     validate_target_schema_contract(
         database_path,
-        target_revision=REVISION_0021,
+        target_revision=REVISION_0023,
     )
 
 

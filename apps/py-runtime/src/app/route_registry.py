@@ -42,6 +42,9 @@ from api.routes.v1.account_knowledge import (
 from api.routes.v1.account_ai_recipe import (
     router as account_ai_recipe_v1_router,
 )
+from api.routes.v1.account_ai_executions import (
+    router as account_ai_executions_v1_router,
+)
 from api.routes.v1.accounts import router as accounts_v1_router
 from api.routes.v1.execution_environments import (
     router as execution_environments_v1_router,
@@ -53,6 +56,9 @@ from api.routes.v1.bootstrap import router as bootstrap_v1_router
 from api.routes.v1.system_config import router as system_config_v1_router
 from api.routes.v1.system_capability_routes import (
     router as system_capability_routes_v1_router,
+)
+from api.routes.v1.system_ai_dependencies import (
+    router as system_ai_dependencies_v1_router,
 )
 from api.routes.v1.system_composition_templates import (
     router as system_composition_templates_v1_router,
@@ -119,12 +125,14 @@ V1_HTTP_ROUTERS = (
     account_configuration_v1_router,
     account_knowledge_v1_router,
     account_ai_recipe_v1_router,
+    account_ai_executions_v1_router,
     execution_environments_v1_router,
     account_login_sessions_v1_router,
     system_providers_v1_router,
     system_models_v1_router,
     system_model_capabilities_v1_router,
     system_capability_routes_v1_router,
+    system_ai_dependencies_v1_router,
     system_prompt_profiles_v1_router,
     system_composition_templates_v1_router,
     system_config_v1_router,

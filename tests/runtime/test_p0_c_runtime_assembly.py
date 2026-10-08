@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy.orm import sessionmaker
 
 import services.accounts.assembly as assembly_module
+import services.accounts.assembly_reconciliation as reconciliation_module
 from app.runtime_kernel import _RuntimeRecoveryService
 from app.secret_store import FileSecretStore
 from repositories.account_configuration_v1_repository import (
@@ -219,8 +220,8 @@ def test_invalid_active_snapshot_blocks_startup_reconciliation(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setattr(
-        assembly_module,
-        "_list_account_ids",
+        reconciliation_module,
+        "list_account_ids",
         lambda _unit_of_work: ("acc_a",),
     )
     record = SimpleNamespace(
@@ -238,7 +239,10 @@ def test_invalid_active_snapshot_blocks_startup_reconciliation(
     reconciler = Mock()
     content_store = Mock()
 
-    with caplog.at_level(logging.ERROR, logger=assembly_module.log.name):
+    with caplog.at_level(
+        logging.ERROR,
+        logger=reconciliation_module.log.name,
+    ):
         with pytest.raises(
             RuntimeError,
             match="已停止启动对账",

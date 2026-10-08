@@ -156,16 +156,27 @@ def test_composition_template_versions_preserve_source_content(
         != second_read.json()["data"]["contentHash"]
     )
 
+    validation = licensed_runtime_client.post(
+        "/api/v1/system/composition-templates/"
+        "template-versioned/versions/1/validate",
+        headers={"Idempotency-Key": "idem-template-validate-old"},
+    )
+    assert validation.status_code == 200, validation.text
+    validated_revision = int(validation.json()["meta"]["revision"])
+
     activated = licensed_runtime_client.post(
         "/api/v1/system/composition-templates/"
         "template-versioned/versions/1/activate",
         headers={
-            "If-Match": "2",
+            "If-Match": str(validated_revision),
             "Idempotency-Key": "idem-template-reactivate-old",
         },
     )
     assert activated.status_code == 200, activated.text
-    assert activated.json()["data"]["revision"] == 3
+    assert (
+        activated.json()["data"]["revision"]
+        == validated_revision + 1
+    )
 
     stale = licensed_runtime_client.post(
         "/api/v1/system/composition-templates/"
@@ -279,8 +290,8 @@ def test_system_ai_revision_drift_blocks_recipe_activation(
             "Idempotency-Key": "idem-recipe-drift-activate",
         },
     )
-    assert activation.status_code == 422
-    assert activation.json()["error_code"] == "AI_RECIPE_INVALID"
+    assert activation.status_code == 409
+    assert activation.json()["error_code"] == "AI_DEPENDENCY_INVALID"
     with session(licensed_runtime_client) as database:
         recipe = database.scalar(
             select(AccountAIRecipe).where(

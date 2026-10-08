@@ -2,7 +2,7 @@
   <section class="ai-matrix">
     <header>
       <div>
-        <span class="ai-eyebrow">能力契约</span>
+        <span class="ai-eyebrow">能力契约 · 真实验证</span>
         <h3>{{ model.displayName }}</h3>
         <p>{{ model.modelId }} · {{ providerName }}</p>
       </div>
@@ -12,7 +12,7 @@
         :disabled="busy"
         @click="$emit('check')"
       >
-        重新验证
+        运行真实小调用
       </button>
     </header>
     <table class="ai-data-table is-compact">
@@ -21,7 +21,7 @@
           <th>产品能力</th>
           <th>Provider 声明</th>
           <th>适配器接入</th>
-          <th>契约验证</th>
+          <th>真实小调用</th>
           <th>可用性</th>
         </tr>
       </thead>
@@ -38,7 +38,7 @@
           </td>
         </tr>
         <tr v-if="capabilities.length === 0">
-          <td colspan="5">尚未取得能力声明，请提交契约验证任务。</td>
+          <td colspan="5">尚未取得真实能力证据，请运行真实小调用。</td>
         </tr>
       </tbody>
     </table>

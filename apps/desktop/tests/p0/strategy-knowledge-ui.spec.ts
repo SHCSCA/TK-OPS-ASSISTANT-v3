@@ -65,7 +65,7 @@ describe("P0 定位与知识页面", () => {
     expect(runtime.getAccountPositioning).not.toHaveBeenCalled();
   });
 
-  it("首次使用只展示真实空态，并明确阻断本地文件路径", async () => {
+  it("首次使用展示真实空态，并明确只接受受控文件引用", async () => {
     const wrapper = mount(AccountStrategyKnowledgePage, {
       global: { plugins: [createPinia()] },
       props: { accountId: "account-1" }
@@ -78,9 +78,10 @@ describe("P0 定位与知识页面", () => {
     expect(wrapper.get('[data-testid="brand-kit-panel"]').text()).toContain(
       "不会猜测品牌颜色"
     );
-    expect(wrapper.get('[data-state="dependency_blocked"]').text()).toContain(
-      "P0-F"
+    expect(wrapper.get('[data-state="controlled_file_ready"]').text()).toContain(
+      "只接收 fileRef"
     );
+    expect(wrapper.text()).not.toContain("C:\\");
     expect(wrapper.text()).not.toContain("1,234");
   });
 

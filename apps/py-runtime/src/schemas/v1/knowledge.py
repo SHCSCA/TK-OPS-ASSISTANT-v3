@@ -33,6 +33,13 @@ KnowledgeSourceStatus = Literal[
 KNOWLEDGE_SOURCE_STATUSES = frozenset(
     {"pending", "indexing", "ready", "failed", "stale", "removed"}
 )
+KnowledgeAssetStatus = Literal[
+    "pending",
+    "ready",
+    "metadata_only",
+    "failed",
+    "stale",
+]
 
 
 class KnowledgeRulesPatchInput(AccountV1Model):
@@ -88,6 +95,17 @@ class KnowledgeDto(AccountV1Model):
     revision: PositiveRevision
 
 
+class KnowledgeAssetEvidenceDto(AccountV1Model):
+    id: StableId
+    status: KnowledgeAssetStatus
+    displayName: str
+    kind: KnowledgeKind
+    mediaType: str
+    byteSize: Annotated[int, Field(ge=0)]
+    rootRef: StableId
+    revision: PositiveRevision
+
+
 class KnowledgeSourceDto(AccountV1Model):
     id: StableId
     accountId: StableId
@@ -103,6 +121,7 @@ class KnowledgeSourceDto(AccountV1Model):
     errorCode: str | None
     logId: StableId | None
     revision: PositiveRevision
+    asset: KnowledgeAssetEvidenceDto | None = None
 
 
 class KnowledgeSourcePageDto(AccountV1Model):

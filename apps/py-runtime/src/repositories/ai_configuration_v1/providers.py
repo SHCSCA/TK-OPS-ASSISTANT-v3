@@ -26,6 +26,8 @@ _PROVIDER_UPDATE_FIELDS = frozenset(
         "last_checked_at",
         "last_error_code",
         "last_error_log_id",
+        "extra_params_json",
+        "cost_policy_json",
     }
 )
 
@@ -100,6 +102,40 @@ class ProviderProfileRepository:
                 updated_at=updated_at,
                 revision=ProviderProfile.revision + 1,
             )
+            .returning(ProviderProfile)
+            .execution_options(
+                synchronize_session=False,
+                populate_existing=True,
+            )
+        )
+        return session.scalars(statement).one_or_none()
+
+    @log_repository_errors("更新 Provider 健康状态")
+    def update_health(
+        self,
+        session: Session,
+        provider_id: str,
+        *,
+        expected_revision: int,
+        changes: Mapping[str, object],
+        updated_at: str,
+    ) -> ProviderProfile | None:
+        allowed = frozenset(
+            {
+                "health_status",
+                "last_checked_at",
+                "last_error_code",
+                "last_error_log_id",
+            }
+        )
+        values = validated_changes(changes, allowed)
+        statement = (
+            update(ProviderProfile)
+            .where(
+                ProviderProfile.id == provider_id,
+                ProviderProfile.revision == expected_revision,
+            )
+            .values(**values, updated_at=updated_at)
             .returning(ProviderProfile)
             .execution_options(
                 synchronize_session=False,

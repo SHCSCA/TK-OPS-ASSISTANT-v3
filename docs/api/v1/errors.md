@@ -139,7 +139,9 @@
 | `COMPOSITION_TEMPLATE_INVALID` | 422 | 模板定义、受控引用或必需能力无效 | 修正定义并重新验证新版本 | `composition.template.invalid` |
 | `COMPOSITION_TEMPLATE_NOT_FOUND` | 404 | 合成模板 Profile 不存在 | 刷新模板列表 | `composition.template.not.found` |
 | `COMPOSITION_TEMPLATE_VERSION_NOT_FOUND` | 404 | 指定模板版本不存在 | 刷新模板版本 | `composition.template.version.not.found` |
-| `AI_RECIPE_INVALID` | 422 或 readiness 数据码 | 账号 Recipe 不完整、引用失效或系统 AI 修订已变化 | 创建或重新验证 Recipe 版本 | `ai.recipe.invalid` |
+| `AI_DEPENDENCY_INVALID` | 409 | 配置未生成有效依赖快照，或已冻结依赖与当前修订不一致 | 创建新版本并重新校验依赖 | `ai.dependency.invalid` |
+| `AI_RECIPE_INVALID` | 422 或 readiness 数据码 | 账号 Recipe 不完整、引用失效或校验结果无效 | 创建或重新验证 Recipe 版本 | `ai.recipe.invalid` |
+| `AI_RECIPE_STALE` | 409 | 执行预检发现 Recipe 与活动 AI 配置修订不一致 | 创建并激活 Recipe 新版本 | `ai.recipe.stale` |
 
 ## 任务 HTTP 与任务终态错误
 

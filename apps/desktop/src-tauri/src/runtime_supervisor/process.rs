@@ -35,6 +35,10 @@ impl ManagedProcess {
                 "TK_OPS_WORKSPACE_ROOT_REGISTRY_PATH",
                 &paths.workspace_root_registry,
             )
+            .env(
+                "TK_OPS_CONTROLLED_FILE_REGISTRY_PATH",
+                &paths.controlled_file_registry,
+            )
             .env("TK_OPS_RESOURCE_DIR", &paths.resource_dir)
             .env("TK_OPS_RUNTIME_MANAGED_SIDECAR", "1")
             .env("TK_OPS_RUNTIME_VERSION", env!("CARGO_PKG_VERSION"))

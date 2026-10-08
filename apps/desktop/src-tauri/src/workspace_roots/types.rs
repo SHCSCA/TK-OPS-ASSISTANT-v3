@@ -98,3 +98,9 @@ pub(super) struct ValidatedWorkspaceRoot {
     pub canonical_path: PathBuf,
     pub display_name: String,
 }
+
+#[derive(Debug)]
+pub(crate) struct ResolvedWorkspaceRoot {
+    pub canonical_path: PathBuf,
+    pub revision: u64,
+}

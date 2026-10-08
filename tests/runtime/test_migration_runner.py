@@ -22,7 +22,7 @@ from persistence.migration import (
 import persistence.migration.runner as migration_runner
 
 REVISION_0014 = "0014_magic_cut_suggestion_drafts"
-REVISION_0022 = "0022_p0g_production_hardening"
+REVISION_0023 = "0023_p0h_real_ai_execution"
 
 
 def test_empty_database_is_initialized_and_second_run_is_read_only(
@@ -36,12 +36,12 @@ def test_empty_database_is_initialized_and_second_run_is_read_only(
     second_report = run_startup_migrations(database_path, config)
 
     assert first_report.previous_revision is None
-    assert first_report.target_revision == REVISION_0022
+    assert first_report.target_revision == REVISION_0023
     assert first_report.changed is True
     assert first_report.backup_database_id is None
     assert second_report.changed is False
     assert _sha256(database_path) == first_hash
-    assert inspect_database_schema(database_path).revision == REVISION_0022
+    assert inspect_database_schema(database_path).revision == REVISION_0023
 
 
 def test_read_only_head_validation_releases_database_handle(tmp_path: Path) -> None:
@@ -113,9 +113,9 @@ def test_known_schema_v3_copy_is_stamped_backed_up_and_upgraded(
 
     assert report.schema_kind == DatabaseSchemaKind.LEGACY_SCHEMA_V3.value
     assert report.previous_revision == "3"
-    assert report.target_revision == REVISION_0022
+    assert report.target_revision == REVISION_0023
     assert report.backup_database_id
-    assert inspect_database_schema(database_path).revision == REVISION_0022
+    assert inspect_database_schema(database_path).revision == REVISION_0023
 
 
 def test_old_factory_fresh_database_is_stamped_and_upgraded(tmp_path: Path) -> None:
@@ -132,7 +132,7 @@ def test_old_factory_fresh_database_is_stamped_and_upgraded(tmp_path: Path) -> N
 
     assert report.schema_kind == DatabaseSchemaKind.LEGACY_FRESH_RUNTIME.value
     assert report.backup_database_id
-    assert inspect_database_schema(database_path).revision == REVISION_0022
+    assert inspect_database_schema(database_path).revision == REVISION_0023
 
 
 @pytest.mark.parametrize(

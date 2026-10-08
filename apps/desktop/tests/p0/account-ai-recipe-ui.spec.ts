@@ -82,7 +82,14 @@ describe("P0-E 账号 AI Recipe UI 接入", () => {
     const pinia = createPinia();
     setActivePinia(pinia);
     const wrapper = mount(AccountDetailPanel, {
-      global: { plugins: [pinia] },
+      global: {
+        plugins: [pinia],
+        stubs: {
+          AIExecutionLauncher: {
+            template: '<section class="ai-execution-workspace"><h3>真实调用验证</h3></section>'
+          }
+        }
+      },
       props: {
         account: accountFixture(),
         activeTab: "ai_recipe",
@@ -94,6 +101,7 @@ describe("P0-E 账号 AI Recipe UI 接入", () => {
     expect(wrapper.get('.recipe-panel[data-account-id="account-1"]')).toBeTruthy();
     expect(wrapper.text()).toContain("AI Recipe");
     expect(wrapper.text()).toContain("默认混合媒体模板 · v1");
+    expect(wrapper.text()).toContain("真实调用验证");
     expect(wrapper.text()).not.toContain("等待 P0-E AI 配方");
   });
 

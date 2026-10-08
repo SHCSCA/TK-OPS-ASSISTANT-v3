@@ -97,6 +97,12 @@ class KnowledgeSource(Base):
             "source_mode",
             "updated_at",
         ),
+        Index(
+            "uq_knowledge_sources_account_id",
+            "account_id",
+            "id",
+            unique=True,
+        ),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -140,6 +146,12 @@ class KnowledgeSnapshot(Base):
             "ix_knowledge_snapshots_account_created",
             "account_id",
             "created_at",
+        ),
+        Index(
+            "uq_knowledge_snapshots_account_id",
+            "account_id",
+            "id",
+            unique=True,
         ),
     )
 

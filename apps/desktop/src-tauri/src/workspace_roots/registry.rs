@@ -7,16 +7,17 @@ use std::{
 
 use chrono::Utc;
 use rand::{rngs::OsRng, RngCore};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use super::{
     logging::record_failure,
     types::{
-        WorkspaceRootCommandError, WorkspaceRootDto, WorkspaceRootError, WorkspaceRootRecord,
-        WorkspaceRootRegistryFile,
+        ResolvedWorkspaceRoot, WorkspaceRootCommandError, WorkspaceRootDto, WorkspaceRootError,
+        WorkspaceRootRecord, WorkspaceRootRegistryFile,
     },
     validation::{system_restricted_roots, validate_account_id, validate_selected_root},
 };
+use crate::app_paths::resolve_app_data_dir;
 
 const MAX_REGISTRY_BYTES: u64 = 1024 * 1024;
 
@@ -29,7 +30,7 @@ pub struct WorkspaceRootRegistry {
 
 impl WorkspaceRootRegistry {
     pub fn initialize(app: &AppHandle) -> Result<Self, WorkspaceRootCommandError> {
-        let app_data_root = app.path().app_local_data_dir().map_err(|_| {
+        let app_data_root = resolve_app_data_dir(app).map_err(|_| {
             command_error(
                 "WORKSPACE_ROOT_REGISTRY_PATH_UNAVAILABLE",
                 "无法解析工作目录注册表，请重新启动应用。",
@@ -129,6 +130,36 @@ impl WorkspaceRootRegistry {
             ));
         }
         Ok(record.to_dto())
+    }
+
+    pub(crate) fn resolve_owned_active(
+        &self,
+        account_id: &str,
+        root_ref: &str,
+    ) -> Result<ResolvedWorkspaceRoot, WorkspaceRootError> {
+        validate_account_id(account_id)?;
+        let _guard = self.guard()?;
+        let registry = self.load_registry()?;
+        let record = find_owned_root(&registry, account_id, root_ref)?;
+        if record.status != "active" {
+            return Err(WorkspaceRootError::new(
+                "WORKSPACE_ROOT_REVOKED",
+                "工作目录授权已撤销，请重新授权。",
+            ));
+        }
+        let canonical_path = fs::canonicalize(&record.canonical_path).map_err(|_| {
+            WorkspaceRootError::new("WORKSPACE_ROOT_EXPIRED", "工作目录已失效，请重新授权。")
+        })?;
+        if !canonical_path.is_dir() {
+            return Err(WorkspaceRootError::new(
+                "WORKSPACE_ROOT_EXPIRED",
+                "工作目录已失效，请重新授权。",
+            ));
+        }
+        Ok(ResolvedWorkspaceRoot {
+            canonical_path,
+            revision: record.revision,
+        })
     }
 
     pub fn reauthorize(

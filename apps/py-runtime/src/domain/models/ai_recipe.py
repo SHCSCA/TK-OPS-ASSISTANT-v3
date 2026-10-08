@@ -53,6 +53,12 @@ class AccountAIRecipe(Base):
             unique=True,
             sqlite_where=text("status = 'active'"),
         ),
+        Index(
+            "uq_account_ai_recipes_account_id",
+            "account_id",
+            "id",
+            unique=True,
+        ),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -74,6 +80,11 @@ class AccountAIRecipe(Base):
     )
     cost_policy_json: Mapped[str] = mapped_column(Text, nullable=False)
     fallback_policy_json: Mapped[str] = mapped_column(Text, nullable=False)
+    dependency_snapshot_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey("ai_dependency_snapshots.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     source_ai_config_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     validation_status: Mapped[str] = mapped_column(String, nullable=False)
     validation_issues_json: Mapped[str] = mapped_column(Text, nullable=False)

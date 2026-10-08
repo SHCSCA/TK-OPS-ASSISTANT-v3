@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { statePath } from "./e2e-paths.mjs";
 
 export type E2eRuntimeState = {
+  controlledFileRegistryPath: string;
   dataDirectory: string;
   frontendBaseUrl: string;
   licenseKey: string;

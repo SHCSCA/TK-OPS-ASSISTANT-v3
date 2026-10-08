@@ -215,7 +215,7 @@ export const useModelRouteConfigStore = defineStore("p0-ai-model-route", {
       return this.runMutation(`capability-check:${model.id}`, async () => {
         const result = await startModelCapabilityCheck(
           model.id,
-          { capabilityKeys, force: true },
+          { capabilityKeys, force: true, mode: "real_small_call" },
           {
             idempotencyKey: createAIOperationKey(
               "capability-check",
@@ -224,7 +224,7 @@ export const useModelRouteConfigStore = defineStore("p0-ai-model-route", {
           }
         );
         this.task = result.data;
-        this.feedback = "能力契约验证任务已提交。";
+        this.feedback = "能力真实小调用已提交；usage 缺失时不会标记为可用。";
         this.recomputeState();
       });
     },

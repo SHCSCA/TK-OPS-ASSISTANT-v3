@@ -78,8 +78,8 @@ export type ProviderCredentialInput = {
 };
 
 export type CredentialSummaryDto = {
-  credentialRef: string;
   configured: true;
+  credentialReferenceChanged: true;
   maskedValue: string;
   updatedAt: string;
   providerRevision: number;
@@ -168,6 +168,7 @@ export type ModelCapabilityListQuery = {
 export type CapabilityCheckInput = {
   capabilityKeys?: AICapabilityKey[];
   force?: boolean;
+  mode?: "contract_only" | "real_small_call";
 };
 
 export type CapabilityRouteValidationStatus =

@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
@@ -70,6 +71,15 @@ class CapabilityRoute(Base):
 
     __tablename__ = "capability_routes"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["id", "active_revision_id"],
+            [
+                "capability_route_revisions.capability_route_id",
+                "capability_route_revisions.id",
+            ],
+            ondelete="RESTRICT",
+            name="fk_capability_routes_active_revision_owner",
+        ),
         CheckConstraint(
             "validation_status IN ('valid','incomplete','invalid')",
             name="ck_capability_routes_validation",
@@ -104,6 +114,7 @@ class CapabilityRoute(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
     validation_status: Mapped[str] = mapped_column(String, nullable=False)
     validation_issues_json: Mapped[str] = mapped_column(Text, nullable=False)
+    active_revision_id: Mapped[str | None] = mapped_column(String, nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[str] = mapped_column(Text, nullable=False)

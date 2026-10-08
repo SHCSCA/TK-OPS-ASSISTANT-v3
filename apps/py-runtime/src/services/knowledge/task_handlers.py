@@ -8,6 +8,8 @@ from services.knowledge.index_executor import KnowledgeIndexExecutor
 from services.knowledge.index_policy import (
     knowledge_policy_from_snapshot,
 )
+from services.knowledge.file_extractors import EXTRACTOR_VERSION
+from services.knowledge.task_snapshot import parse_source_manifests
 from services.tasks.errors import task_snapshot_invalid
 from services.tasks.types import (
     JsonValue,
@@ -28,25 +30,28 @@ def build_knowledge_index_handler(
     ) -> TaskExecutionResult:
         account_id = _require_account_id(context)
         source_ids = _parse_source_ids(payload)
+        manifests = parse_source_manifests(payload.get("sourceManifests"))
+        if tuple(item.source_id for item in manifests) != source_ids:
+            raise task_snapshot_invalid(
+                "知识索引任务来源清单与冻结快照不一致"
+            )
+        if payload.get("extractorVersion") != EXTRACTOR_VERSION:
+            raise task_snapshot_invalid("知识索引抽取器版本无效")
         policy = knowledge_policy_from_snapshot(payload.get("policy"))
-        plan = await asyncio.to_thread(
-            executor.plan,
-            account_id,
-            source_ids,
-        )
         failures: list[DomainError] = []
-        total = len(plan.source_ids)
-        for index, source_id in enumerate(plan.source_ids):
+        total = len(manifests)
+        for index, manifest in enumerate(manifests):
             context.raise_if_cancelled()
             await context.report_progress(index / total)
             try:
                 await asyncio.to_thread(
                     executor.index_source,
                     account_id,
-                    source_id,
+                    manifest.source_id,
                     task_id=context.task_id,
                     cancel_check=context.raise_if_cancelled,
                     policy=policy,
+                    manifest=manifest,
                 )
             except DomainError as exc:
                 failures.append(exc)
@@ -56,10 +61,14 @@ def build_knowledge_index_handler(
             first = failures[0]
             raise DomainError(
                 first.error_code,
-                "部分知识来源索引失败，请查看来源状态和诊断日志",
+                (
+                    first.message
+                    if len(failures) == 1
+                    else "部分知识来源索引失败，请查看来源状态和诊断日志"
+                ),
                 status_code=first.status_code,
                 loggable=True,
-                meta={"failedCount": len(failures)},
+                meta={**first.meta, "failedCount": len(failures)},
             )
         return TaskExecutionResult(
             result_ref=(

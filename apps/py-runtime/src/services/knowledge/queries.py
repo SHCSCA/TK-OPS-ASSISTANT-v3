@@ -76,9 +76,17 @@ class KnowledgeQueryService:
                 kind=kind,
                 status=status,
             )
+            assets = transaction.knowledge_assets.list_assets_for_sources(
+                account_id,
+                transaction.session,
+                source_ids=tuple(item.id for item in page.items),
+            )
             return (
                 KnowledgeSourcePageDto(
-                    items=[source_to_dto(item) for item in page.items],
+                    items=[
+                        source_to_dto(item, asset=assets.get(item.id))
+                        for item in page.items
+                    ],
                     totalKnown=page.total_known,
                 ),
                 page.next_position,

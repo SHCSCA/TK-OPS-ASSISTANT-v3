@@ -9,6 +9,11 @@ from domain.models.account_configuration import (
 )
 from domain.models.account_connection import AccountConnection
 from domain.models.account_login_session import AccountLoginSession
+from domain.models.account_asset import (
+    AccountAsset,
+    KnowledgeIndexChunk,
+    KnowledgeSourceAsset,
+)
 from domain.models.ai_capability import (
     AICapabilityConfig,
     AIProviderHealth,
@@ -18,11 +23,26 @@ from domain.models.ai_capability import (
 from domain.models.ai_configuration_v1 import (
     AccountAIRecipe,
     CapabilityRoute,
+    CapabilityRouteRevision,
     CompositionTemplateProfile,
     ModelCapability,
     ModelProfile,
+    ModelProfileRevision,
     PromptProfile,
     ProviderProfile,
+    ProviderProfileRevision,
+)
+from domain.models.ai_execution import AIExecution, AIExecutionJob
+from domain.models.ai_execution_evidence import (
+    AIErrorEvidence,
+    AIExecutionOutput,
+    AIProviderValidationRun,
+    AIUsageRecord,
+)
+from domain.models.ai_execution_snapshot import (
+    AIDependencySnapshot,
+    AIExecutionCandidate,
+    AIExecutionSnapshot,
 )
 from domain.models.ai_job import AIJobRecord
 from domain.models.asset import Asset, AssetGroup, AssetReference
@@ -66,14 +86,24 @@ __all__ = [
     'AccountGroup',
     'AccountGroupMember',
     'AccountAIRecipe',
+    'AccountAsset',
     'AccountKnowledgeBase',
     'AccountLoginSession',
     'AccountPublishDefaults',
     'AICapabilityConfig',
+    'AIDependencySnapshot',
+    'AIErrorEvidence',
+    'AIExecution',
+    'AIExecutionCandidate',
+    'AIExecutionJob',
+    'AIExecutionOutput',
+    'AIExecutionSnapshot',
     'AIProviderHealth',
     'AIProviderModel',
+    'AIProviderValidationRun',
     'AIJobRecord',
     'AIProviderSetting',
+    'AIUsageRecord',
     'Asset',
     'AssetGroup',
     'AssetReference',
@@ -83,6 +113,7 @@ __all__ = [
     'BrandKit',
     'BrowserInstance',
     'CapabilityRoute',
+    'CapabilityRouteRevision',
     'CompositionTemplateProfile',
     'DeviceWorkspace',
     'DeviceWorkspaceLog',
@@ -93,13 +124,17 @@ __all__ = [
     'MagicCutSuggestionDraft',
     'ModelCapability',
     'ModelProfile',
+    'ModelProfileRevision',
+    'KnowledgeIndexChunk',
     'KnowledgeSnapshot',
     'KnowledgeSource',
+    'KnowledgeSourceAsset',
     'PositioningProfile',
     'Project',
     'PromptTemplate',
     'PromptProfile',
     'ProviderProfile',
+    'ProviderProfileRevision',
     'PublishPlan',
     'PublishReceipt',
     'RenderTask',

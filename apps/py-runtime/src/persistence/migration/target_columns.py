@@ -2,7 +2,7 @@ from __future__ import annotations
 
 ColumnContract = tuple[str, str, bool, int]
 
-# P0 新表的字段顺序、SQLite 类型、非空性与主键位置以 0021 head 为唯一契约。
+# P0 新表的字段顺序、SQLite 类型、非空性与主键位置以当前 head 为唯一契约。
 P0_TABLE_COLUMN_CONTRACTS: dict[str, tuple[ColumnContract, ...]] = {
     "account_login_sessions": (
         ("id", "VARCHAR", True, 1),
@@ -310,3 +310,13 @@ P0_TABLE_COLUMN_CONTRACTS: dict[str, tuple[ColumnContract, ...]] = {
         ("handler_version", "INTEGER", True, 0),
     ),
 }
+
+# 延迟导入避免 P0-H 扩展模块反向读取 ColumnContract 时形成初始化循环。
+from persistence.migration.target_columns_p0h import (  # noqa: E402
+    P0H_EXISTING_TABLE_COLUMN_EXTENSIONS,
+    P0H_NEW_TABLE_COLUMN_CONTRACTS,
+)
+
+for _table_name, _extensions in P0H_EXISTING_TABLE_COLUMN_EXTENSIONS.items():
+    P0_TABLE_COLUMN_CONTRACTS[_table_name] += _extensions
+P0_TABLE_COLUMN_CONTRACTS.update(P0H_NEW_TABLE_COLUMN_CONTRACTS)

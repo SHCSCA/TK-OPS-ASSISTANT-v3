@@ -7,6 +7,13 @@ from sqlalchemy.orm import Session
 from domain.models.ai_configuration_v1 import AccountAIRecipe
 from errors import DomainError, ErrorCode
 from repositories.ai_configuration_v1 import AIConfigurationV1Repository
+from services.ai_execution_v1.config_readiness import (
+    model_dependency_issue,
+    model_dependency_issue_for_repository,
+)
+from services.ai_execution_v1.dependency_graph import (
+    active_route_dependency_issue,
+)
 
 from .json_codec import content_hash, load_object
 from .route_validation import route_issues
@@ -91,11 +98,11 @@ def validate_recipe(
         label="账号 AI 路由覆盖",
     )
     required = {
-        "script_generation",
-        "storyboard_generation",
-        "text_to_video",
-        *overrides.keys(),
+        route.capability_key
+        for route in transaction.ai.routes.list(transaction.session)
+        if route.enabled and route.active_revision_id is not None
     }
+    required.update(overrides)
     issues: list[dict[str, object]] = []
     resolved: dict[str, dict[str, object]] = {}
     for key in sorted(required):
@@ -164,6 +171,8 @@ def _resolve_route(
             or not route.enabled
             or route.validation_status != "valid"
             or route.primary_model_profile_id is None
+            or active_route_dependency_issue(transaction, capability_key)
+            is not None
             or route_issues(
                 transaction,
                 capability_key=capability_key,
@@ -228,9 +237,8 @@ def _resolve_route(
             },
             None,
         )
-    dependency_issue = _model_dependency_issue(
-        repository,
-        transaction.session,
+    dependency_issue = model_dependency_issue(
+        transaction,
         model_id=model_id,
         capability_key=capability_key,
     )
@@ -240,14 +248,16 @@ def _resolve_route(
                 "code": dependency_issue,
                 "field": f"routeOverrides.{capability_key}",
                 "message": (
-                    "账号覆盖模型的 Provider 尚未健康就绪"
-                    if dependency_issue == "PROVIDER_UNAVAILABLE"
-                    else "账号覆盖模型尚未通过能力验证"
+                    "账号覆盖模型或 Provider 尚未启用"
+                    if dependency_issue
+                    in {"AI_PROVIDER_DISABLED", "AI_MODEL_DISABLED"}
+                    else "账号覆盖模型当前修订尚未完成真实能力验证"
                 ),
                 "suggestedAction": (
-                    "启用 Provider 并完成健康检查"
-                    if dependency_issue == "PROVIDER_UNAVAILABLE"
-                    else "运行模型能力检查"
+                    "启用 Provider 与模型"
+                    if dependency_issue
+                    in {"AI_PROVIDER_DISABLED", "AI_MODEL_DISABLED"}
+                    else "运行当前模型修订的真实能力检查"
                 ),
             },
             None,
@@ -299,7 +309,7 @@ def resolved_route_issue(
             and route.enabled
             and route.validation_status == "valid"
             and route.primary_model_profile_id is not None
-            and _model_dependency_issue(
+            and model_dependency_issue_for_repository(
                 repository,
                 session,
                 model_id=route.primary_model_profile_id,
@@ -320,7 +330,7 @@ def resolved_route_issue(
     model_id = override.get("primaryModelProfileId")
     if not isinstance(model_id, str):
         return {"code": "AI_RECIPE_INVALID"}
-    dependency_issue = _model_dependency_issue(
+    dependency_issue = model_dependency_issue_for_repository(
         repository,
         session,
         model_id=model_id,
@@ -337,41 +347,6 @@ def resolved_route_issue(
     return {
         "code": dependency_issue or "PROMPT_PROFILE_INVALID"
     }
-
-
-def _model_dependency_issue(
-    repository: AIConfigurationV1Repository,
-    session: Session,
-    *,
-    model_id: str,
-    capability_key: str,
-) -> str | None:
-    model = repository.models.get(session, model_id)
-    if model is None or not model.enabled:
-        return "MODEL_CAPABILITY_UNVERIFIED"
-    provider = repository.providers.get(
-        session,
-        model.provider_profile_id,
-    )
-    if (
-        provider is None
-        or not provider.enabled
-        or provider.health_status != "ready"
-    ):
-        return "PROVIDER_UNAVAILABLE"
-    capability = repository.capabilities.get(
-        session,
-        model_profile_id=model_id,
-        capability_key=capability_key,
-    )
-    if (
-        capability is None
-        or not capability.declared_supported
-        or not capability.adapter_supported
-        or not capability.contract_verified
-    ):
-        return "MODEL_CAPABILITY_UNVERIFIED"
-    return None
 
 
 def _prompt_dependency_valid(

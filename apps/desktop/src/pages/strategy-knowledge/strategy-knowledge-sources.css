@@ -10,6 +10,10 @@
   font-size: 19px;
 }
 
+.sk-blocked-note[data-state="controlled_file_ready"] .material-symbols-outlined {
+  color: var(--brand-primary);
+}
+
 .sk-segmented {
   display: inline-flex;
   padding: 3px;
@@ -29,6 +33,42 @@
   background: var(--surface-secondary);
   box-shadow: var(--shadow-sm);
   color: var(--text-primary);
+}
+
+.sk-controlled-file {
+  align-items: center;
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+}
+
+.sk-controlled-file > div {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.sk-controlled-file > div > span:last-child {
+  display: grid;
+  min-width: 0;
+}
+
+.sk-controlled-file strong,
+.sk-controlled-file small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sk-controlled-file small {
+  color: var(--text-tertiary);
+  font: var(--font-caption);
 }
 
 .sk-source-toolbar {

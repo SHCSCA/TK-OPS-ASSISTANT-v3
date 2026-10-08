@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from errors import DomainError, ErrorCode
+from services.ai_execution_v1.config_readiness import model_dependency_issue
 
 from .unit_of_work import AIConfigurationTransaction
 
@@ -40,53 +41,17 @@ def route_issues(
                 }
             )
             continue
-        model = transaction.ai.models.get(
-            transaction.session,
-            model_id,
-        )
-        capability = transaction.ai.capabilities.get(
-            transaction.session,
-            model_profile_id=model_id,
+        dependency_issue = model_dependency_issue(
+            transaction,
+            model_id=model_id,
             capability_key=capability_key,
         )
-        if model is None or not model.enabled:
+        if dependency_issue is not None:
             issues.append(
                 {
-                    "code": "MODEL_NOT_FOUND",
+                    "code": dependency_issue,
                     "field": field,
-                    "message": "所选模型不存在或未启用",
-                }
-            )
-            continue
-        if (
-            (
-                provider := transaction.ai.providers.get(
-                    transaction.session,
-                    model.provider_profile_id,
-                )
-            )
-            is None
-            or not provider.enabled
-            or provider.health_status != "ready"
-        ):
-            issues.append(
-                {
-                    "code": "PROVIDER_UNAVAILABLE",
-                    "field": field,
-                    "message": "所选模型的 Provider 未启用或尚未健康就绪",
-                }
-            )
-        if (
-            capability is None
-            or not capability.declared_supported
-            or not capability.adapter_supported
-            or not capability.contract_verified
-        ):
-            issues.append(
-                {
-                    "code": "MODEL_CAPABILITY_UNVERIFIED",
-                    "field": field,
-                    "message": "所选模型尚未通过该能力契约验证",
+                    "message": _dependency_message(dependency_issue),
                 }
             )
     if (
@@ -138,11 +103,27 @@ def route_invalid(issues: list[dict[str, object]]) -> DomainError:
     error_code = (
         ErrorCode.MODEL_CAPABILITY_UNVERIFIED
         if any(
-            issue["code"] == "MODEL_CAPABILITY_UNVERIFIED"
+            issue["code"]
+            in {
+                "AI_MODEL_CAPABILITY_UNVERIFIED",
+                "AI_PROVIDER_REAL_VALIDATION_REQUIRED",
+            }
             for issue in issues
         )
         else ErrorCode.CAPABILITY_ROUTE_INVALID
     )
+
+
+def _dependency_message(code: str) -> str:
+    messages = {
+        "AI_MODEL_DISABLED": "所选模型不存在、未启用或没有活动修订",
+        "AI_PROVIDER_DISABLED": "所选模型的 Provider 尚未启用",
+        "AI_MODEL_CAPABILITY_UNVERIFIED": "所选模型尚未通过能力契约验证",
+        "AI_PROVIDER_REAL_VALIDATION_REQUIRED": (
+            "所选模型的当前修订尚未通过真实小调用验证"
+        ),
+    }
+    return messages.get(code, "所选模型依赖尚未就绪")
     return DomainError(
         error_code,
         "能力路由校验失败",

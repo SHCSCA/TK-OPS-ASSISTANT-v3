@@ -215,3 +215,97 @@ P0_CHECK_CONTRACTS: dict[str, dict[str, str]] = {
         ),
     },
 }
+
+P0_CHECK_CONTRACTS.update(
+    {
+        "ai_dependency_snapshots": {
+            "ck_ai_dependency_snapshots_owner": (
+                "owner_type IN ('route','recipe','composition_template',"
+                "'execution_preflight')"
+            ),
+            "ck_ai_dependency_snapshots_status": "status IN ('valid','invalid')",
+        },
+        "provider_profile_revisions": {
+            "ck_provider_revisions_revision": "revision >= 1",
+        },
+        "model_profile_revisions": {
+            "ck_model_revisions_revision": "revision >= 1",
+        },
+        "capability_route_revisions": {
+            "ck_route_revisions_status": "status IN ('draft','active','archived')",
+            "ck_route_revisions_limits": (
+                "revision >= 1 AND timeout_ms > 0 AND max_retries >= 0 "
+                "AND max_concurrency > 0 AND max_cost_micros >= 0"
+            ),
+        },
+        "ai_provider_validation_runs": {
+            "ck_ai_provider_validation_stage": (
+                "stage IN ('network','authentication','model_discovery',"
+                "'real_small_call')"
+            ),
+            "ck_ai_provider_validation_status": (
+                "status IN ('queued','running','verified','partial','failed',"
+                "'cancelled')"
+            ),
+        },
+        "account_assets": {
+            "ck_account_assets_source_kind": "source_kind IN ('controlled_file')",
+            "ck_account_assets_status": (
+                "status IN ('pending','ready','metadata_only','failed','stale')"
+            ),
+            "ck_account_assets_limits": "byte_size >= 0 AND revision >= 1",
+        },
+        "knowledge_index_chunks": {
+            "ck_knowledge_index_chunks_limits": (
+                "source_revision >= 1 AND ordinal >= 0 AND token_count >= 0"
+            ),
+        },
+        "ai_execution_candidates": {
+            "ck_ai_execution_candidates_ordinal": "ordinal >= 0",
+        },
+        "ai_executions": {
+            "ck_ai_executions_status": (
+                "status IN ('queued','running','cancelling','failed','completed')"
+            ),
+            "ck_ai_executions_completion": (
+                "completion_kind IS NULL OR completion_kind IN "
+                "('succeeded','cancelled')"
+            ),
+            "ck_ai_executions_failure": (
+                "failure_kind IS NULL OR failure_kind IN "
+                "('error','timed_out','restart_interrupted','result_unknown')"
+            ),
+            "ck_ai_executions_cost_status": (
+                "cost_status IN ('reported','estimated','unavailable')"
+            ),
+            "ck_ai_executions_limits": (
+                "budget_limit_micros >= 0 AND output_count >= 0 AND revision >= 1"
+            ),
+        },
+        "ai_execution_jobs": {
+            "ck_ai_execution_jobs_status": (
+                "status IN ('queued','running','cancelling','failed','completed')"
+            ),
+            "ck_ai_execution_jobs_completion": (
+                "completion_kind IS NULL OR completion_kind IN "
+                "('succeeded','cancelled')"
+            ),
+            "ck_ai_execution_jobs_failure": (
+                "failure_kind IS NULL OR failure_kind IN "
+                "('error','timed_out','restart_interrupted','result_unknown')"
+            ),
+            "ck_ai_execution_jobs_attempt": (
+                "attempt >= 1 AND fallback_index >= 0 AND retry_index >= 0 "
+                "AND revision >= 1"
+            ),
+        },
+        "ai_usage_records": {
+            "ck_ai_usage_cost_source": (
+                "cost_source IN ('reported','estimated','unavailable')"
+            ),
+        },
+        "ai_execution_outputs": {
+            "ck_ai_outputs_byte_size": "byte_size >= 0",
+        },
+    }
+)

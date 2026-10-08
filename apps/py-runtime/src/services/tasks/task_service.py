@@ -4,6 +4,8 @@ import logging
 import math
 from datetime import datetime
 
+from sqlalchemy.orm import Session
+
 from errors import DomainError
 from repositories.runtime_task_repository import RuntimeTaskRepository
 from services.tasks.errors import (
@@ -79,6 +81,26 @@ class TaskService:
         except Exception:
             log.exception(
                 "创建持久任务失败",
+                extra={
+                    "task_type": command.task_type,
+                    "account_id": command.account_id,
+                },
+            )
+            raise
+
+    def create_task_in_session(
+        self,
+        session: Session,
+        command: CreateTaskCommand,
+    ) -> RuntimeTaskRecord:
+        """把任务创建纳入调用方持有的业务事务。"""
+        try:
+            return self._creation.create_in_session(session, command)
+        except DomainError:
+            raise
+        except Exception:
+            log.exception(
+                "在业务事务内创建持久任务失败",
                 extra={
                     "task_type": command.task_type,
                     "account_id": command.account_id,

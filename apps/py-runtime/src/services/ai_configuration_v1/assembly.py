@@ -18,12 +18,14 @@ from services.accounts.ports import (
     AccountAIReadinessPort,
     AIRecipeCopyPort,
 )
+from services.ai_execution_v1.provider_registry import AIProviderPortRegistry
 from services.config import ConfigBusService
 from services.events import RuntimeEventService
 from services.tasks.coordinator import TaskCoordinator
 from services.tasks.handler_registry import TaskHandlerRegistry
 
 from .models import ModelProfileService
+from .dependency_preview import AIDependencyPreviewService
 from .mutation import AIConfigurationMutationExecutor
 from .prompts import PromptProfileService
 from .provider_adapters import ProviderAdapterRegistry
@@ -34,6 +36,7 @@ from .recipes import (
     AIRecipeCopyAdapter,
 )
 from .routes import CapabilityRouteService
+from .route_revisions import CapabilityRouteRevisionService
 from .task_registration import register_ai_configuration_task_handlers
 from .templates import CompositionTemplateService
 from .unit_of_work import AIConfigurationUnitOfWork
@@ -47,6 +50,8 @@ class AIConfigurationV1Services:
     providers: ProviderProfileService
     models: ModelProfileService
     routes: CapabilityRouteService
+    route_revisions: CapabilityRouteRevisionService
+    dependencies: AIDependencyPreviewService
     prompts: PromptProfileService
     templates: CompositionTemplateService
     recipes: AccountAIRecipeService
@@ -66,6 +71,7 @@ def build_ai_configuration_v1_services(
     account_repository: AccountWorkspaceV1Repository | None = None,
     idempotency_repository: MutationIdempotencyRepository | None = None,
     adapter_registry: ProviderAdapterRegistry | None = None,
+    provider_port_registry: AIProviderPortRegistry | None = None,
 ) -> AIConfigurationV1Services:
     try:
         unit_of_work = AIConfigurationUnitOfWork(
@@ -84,11 +90,26 @@ def build_ai_configuration_v1_services(
             idempotency_service,
         )
         adapters = adapter_registry or ProviderAdapterRegistry()
+        ports = provider_port_registry or AIProviderPortRegistry(
+            response_max_bytes=_positive_config_int(
+                config_bus_service,
+                "ai.execution.outputMaxBytes",
+            )
+        )
         register_ai_configuration_task_handlers(
             task_handler_registry,
             unit_of_work=unit_of_work,
             secret_store=secret_store,
             adapter_registry=adapters,
+            provider_port_registry=ports,
+            validation_max_output_units=_positive_config_int(
+                config_bus_service,
+                "ai.providerValidation.maxOutputUnits",
+            ),
+        )
+        route_revisions = CapabilityRouteRevisionService(
+            unit_of_work,
+            mutations,
         )
         return AIConfigurationV1Services(
             providers=ProviderProfileService(
@@ -102,7 +123,12 @@ def build_ai_configuration_v1_services(
                 mutations,
                 task_coordinator=task_coordinator,
             ),
-            routes=CapabilityRouteService(unit_of_work, mutations),
+            routes=CapabilityRouteService(
+                unit_of_work,
+                route_revisions,
+            ),
+            route_revisions=route_revisions,
+            dependencies=AIDependencyPreviewService(unit_of_work),
             prompts=PromptProfileService(unit_of_work, mutations),
             templates=CompositionTemplateService(unit_of_work, mutations),
             recipes=AccountAIRecipeService(unit_of_work, mutations),
@@ -124,3 +150,12 @@ def _mutation_ttl(config_bus_service: ConfigBusService) -> int:
         raise ValueError("AI 配置幂等保留时间配置无效")
     return value
 
+
+def _positive_config_int(
+    config_bus_service: ConfigBusService,
+    key: str,
+) -> int:
+    value = config_bus_service.get().values.get(key)
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise ValueError(f"AI 配置总线键 {key} 无效")
+    return value

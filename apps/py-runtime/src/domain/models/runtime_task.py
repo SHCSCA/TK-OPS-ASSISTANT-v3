@@ -83,6 +83,12 @@ class RuntimeTask(Base):
         Index("ix_runtime_tasks_account_updated", "account_id", "updated_at"),
         Index("ix_runtime_tasks_status_updated", "status", "updated_at"),
         Index(
+            "uq_runtime_tasks_account_id",
+            "account_id",
+            "id",
+            unique=True,
+        ),
+        Index(
             "uq_runtime_tasks_system_idempotency",
             "task_type",
             "idempotency_key_hash",

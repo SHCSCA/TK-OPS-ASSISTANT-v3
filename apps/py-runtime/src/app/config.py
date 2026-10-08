@@ -61,6 +61,7 @@ class RuntimeConfig:
     expected_host: str = ""
     managed_sidecar: bool = False
     workspace_root_registry_path: Path | None = None
+    controlled_file_registry_path: Path | None = None
 
 
 def load_runtime_bootstrap_config() -> RuntimeBootstrapConfig:
@@ -96,6 +97,9 @@ def load_runtime_config(
         expected_host=_load_expected_host(runtime_mode),
         managed_sidecar=_load_managed_sidecar(),
         workspace_root_registry_path=_load_workspace_root_registry_path(data_dir),
+        controlled_file_registry_path=_load_controlled_file_registry_path(
+            data_dir
+        ),
     )
 
 
@@ -104,6 +108,32 @@ def _load_workspace_root_registry_path(data_dir: Path) -> Path:
     if configured:
         return Path(configured).expanduser().resolve()
     return (data_dir.parent / "workspace-roots.v1.json").resolve()
+
+
+def _load_controlled_file_registry_path(data_dir: Path) -> Path:
+    app_data_root = (
+        data_dir.parent
+        if data_dir.name.lower() == "runtime"
+        else data_dir
+    ).resolve()
+    expected = (app_data_root / "controlled-files.v1.json").resolve()
+    configured = os.getenv(
+        "TK_OPS_CONTROLLED_FILE_REGISTRY_PATH",
+        "",
+    ).strip()
+    candidate = (
+        Path(configured).expanduser().resolve()
+        if configured
+        else expected
+    )
+    if (
+        os.path.normcase(str(candidate))
+        != os.path.normcase(str(expected))
+    ):
+        _raise_invalid_security_config(
+            "受控文件注册表必须位于 Runtime 应用数据目录"
+        )
+    return candidate
 
 
 def _resolve_repo_root() -> Path:

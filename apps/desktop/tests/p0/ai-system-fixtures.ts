@@ -194,6 +194,7 @@ export function recipeFixture(
   return {
     accountId: "account-1",
     activeVersion: 1,
+    activeVersionId: "recipe-version-1",
     versions: [{
       version: 1,
       status: "active",

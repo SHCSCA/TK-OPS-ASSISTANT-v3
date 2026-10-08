@@ -28,6 +28,9 @@
       "tests/p0/p0-g-action-router.spec.ts",
       "tests/p0/p0-g-supervisor-recovery.spec.ts",
       "tests/p0/p0-g-task-recovery.spec.ts",
+      "tests/p0/p0-h-ai-execution.spec.ts",
+      "tests/p0/p0-h-controlled-file.spec.ts",
+      "tests/p0/p0-h-provider-validation.spec.ts",
       "tests/p0/p0-router-bootstrap.spec.ts",
       "tests/p0/p0-setup-license-ui.spec.ts",
       "tests/p0/release-manifest.spec.ts",
@@ -112,7 +115,8 @@
     "playwright": {
       "active": [
         "tests/e2e/first-run.e2e.ts",
-        "tests/e2e/p0-g-recovery.e2e.ts"
+        "tests/e2e/p0-g-recovery.e2e.ts",
+        "tests/e2e/p0-h-ai-execution.e2e.ts"
       ],
     "compatibility": [
       "tests/e2e/account-workspace.e2e.ts"

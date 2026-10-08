@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### P0-H 真实 AI 执行（0.5.0 候选开发中）
+
+- 新增 `0023_p0h_real_ai_execution`、不可变 AI 依赖快照、Provider 真实小调用验证、版本化 Route / Template / Recipe 生命周期和账号隔离约束。
+- 新增 Tauri `rootRef` 受控文件注册、Runtime 账号 Asset 与知识 v2 文本块链；页面不能直传任意绝对路径。
+- 新增统一 AI Execution Gateway 与账号级 Desktop 真实调用工作面，覆盖预检、执行、取消、同快照重试、输出、用量、费用、超时、fallback、恢复与脱敏证据。
+- 新增 H5 严格 allowlist 证据生成、四制品 SHA-256 绑定、两阶段证据附加与 Production 发布门禁；受控 Provider 明确禁止冒充外部真实 Provider。
+- 修复 P0-H Playwright WebServer 结束后可能残留 Runtime、Provider、Vite、状态文件和临时凭据目录的问题；`globalTeardown` 现在通过显式关闭请求等待完整回收，清理失败会使 E2E 失败。
+- 当前自动化结果：Runtime `977 passed, 1 skipped`；Desktop 36 个文件、162 项；Rust/Tauri 24 项；TypeScript、P0-H Playwright 1 项和 H5 发布证据 10 项通过。
+- 源码版本暂保持 `0.4.11`；目标机器真实 OpenAI-compatible Provider 证据、真实 TikTok 证据、干净 Production 构建及 P0-I 完成前，不发布或宣称 `0.5.0` Production。
+
 ### 0.4.11 P0-G 验收补齐与冷启动加固
 
 - 新增两条独立真实 Runtime Playwright 场景：执行环境首次创建失败后保留原对象和任务上下文重试；监督登录 `preparing` 阶段取消后，会话与后台任务真实进入取消终态。

@@ -17,6 +17,13 @@ _SAFE_PROVIDER_ERROR_CODES = frozenset(
         ErrorCode.PROVIDER_ADAPTER_UNSUPPORTED.value,
         ErrorCode.PROVIDER_CONNECTION_FAILED.value,
         ErrorCode.PROVIDER_SECRET_UNAVAILABLE.value,
+        ErrorCode.REQUEST_VALIDATION_FAILED.value,
+        ErrorCode.AI_PROVIDER_AUTH_FAILED.value,
+        ErrorCode.AI_PROVIDER_RATE_LIMITED.value,
+        ErrorCode.AI_PROVIDER_TIMEOUT.value,
+        ErrorCode.AI_PROVIDER_RESULT_UNKNOWN.value,
+        ErrorCode.AI_PROVIDER_RESPONSE_INVALID.value,
+        ErrorCode.AI_CONTENT_REJECTED.value,
     }
 )
 
@@ -148,6 +155,44 @@ def safe_provider_error(error: Exception) -> DomainError:
             error_code,
             "Provider 适配器尚未接入",
             status_code=422,
+            loggable=True,
+        )
+    details = {
+        ErrorCode.REQUEST_VALIDATION_FAILED.value: (
+            "Provider 配置或调用参数无效",
+            422,
+        ),
+        ErrorCode.AI_PROVIDER_AUTH_FAILED.value: (
+            "Provider 鉴权失败，请轮换凭据后重试",
+            502,
+        ),
+        ErrorCode.AI_PROVIDER_RATE_LIMITED.value: (
+            "Provider 暂时限流，请稍后重试",
+            429,
+        ),
+        ErrorCode.AI_PROVIDER_TIMEOUT.value: (
+            "Provider 调用超时",
+            504,
+        ),
+        ErrorCode.AI_PROVIDER_RESULT_UNKNOWN.value: (
+            "Provider 调用超时，远端结果可能未知",
+            502,
+        ),
+        ErrorCode.AI_PROVIDER_RESPONSE_INVALID.value: (
+            "Provider 返回了无法识别的响应",
+            502,
+        ),
+        ErrorCode.AI_CONTENT_REJECTED.value: (
+            "Provider 拒绝了本次内容",
+            422,
+        ),
+    }
+    detail = details.get(error_code)
+    if detail is not None:
+        return DomainError(
+            error_code,
+            detail[0],
+            status_code=detail[1],
             loggable=True,
         )
     return DomainError(

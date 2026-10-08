@@ -126,6 +126,7 @@ class AccountAIRecipeRepository:
         version: int,
         validation_status: str,
         validation_issues_json: str,
+        dependency_snapshot_id: str,
         expected_revision: int | None = None,
     ) -> AccountAIRecipe | None:
         if validation_status not in _RECIPE_VALIDATION_STATUSES:
@@ -142,6 +143,7 @@ class AccountAIRecipeRepository:
             .values(
                 validation_status=validation_status,
                 validation_issues_json=validation_issues_json,
+                dependency_snapshot_id=dependency_snapshot_id,
                 revision=AccountAIRecipe.revision + 1,
             )
             .returning(AccountAIRecipe)

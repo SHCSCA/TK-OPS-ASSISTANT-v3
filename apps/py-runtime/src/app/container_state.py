@@ -36,6 +36,7 @@ def attach_container_state(
         "ai_configuration_v1_repository": (
             container.repositories.ai_configuration_v1
         ),
+        "ai_execution_v1_repository": container.repositories.ai_execution_v1,
         "ai_job_repository": container.repositories.ai_job,
         "script_repository": container.repositories.script,
         "storyboard_repository": container.repositories.storyboard,
@@ -84,6 +85,8 @@ def attach_container_state(
         "ai_configuration_v1_service": (
             container.services.ai_configuration
         ),
+        "ai_execution_v1_service": container.services.ai_execution,
+        "ai_execution_gateway": container.services.ai_execution.gateway,
         "ai_text_generation_service": container.services.ai_text_generation,
         "video_transcription_service": (
             container.services.video_transcription

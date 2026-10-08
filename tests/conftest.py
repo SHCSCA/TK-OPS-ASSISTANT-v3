@@ -27,6 +27,14 @@ def runtime_data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         TEST_RUNTIME_SESSION_TOKEN,
     )
     monkeypatch.setenv("TK_OPS_RUNTIME_EXPECTED_HOST", TEST_RUNTIME_HOST)
+    monkeypatch.setenv(
+        "TK_OPS_WORKSPACE_ROOT_REGISTRY_PATH",
+        str(tmp_path / "workspace-roots.v1.json"),
+    )
+    monkeypatch.setenv(
+        "TK_OPS_CONTROLLED_FILE_REGISTRY_PATH",
+        str(tmp_path / "controlled-files.v1.json"),
+    )
     monkeypatch.delenv("TK_OPS_RUNTIME_ALLOWED_ORIGINS", raising=False)
     monkeypatch.delenv("TK_OPS_ALLOWED_ORIGINS", raising=False)
     monkeypatch.delenv("TK_OPS_MIGRATION_BACKUP_DIR", raising=False)

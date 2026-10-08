@@ -31,6 +31,11 @@ from services.ai_configuration_v1 import (
     AIConfigurationV1Services,
     build_ai_configuration_v1_services,
 )
+from services.ai_execution_v1.assembly import (
+    AIExecutionV1Services,
+    build_ai_execution_v1_services,
+)
+from services.ai_execution_v1.provider_registry import AIProviderPortRegistry
 from services.ai_text_generation_service import AITextGenerationService
 from services.asset_service import AssetService
 from services.automation_service import AutomationService
@@ -117,6 +122,7 @@ class RuntimeServices:
     dashboard: DashboardService
     ai_capability: AICapabilityService
     ai_configuration: AIConfigurationV1Services
+    ai_execution: AIExecutionV1Services
     ai_text_generation: AITextGenerationService
     video_transcription: VideoTranscriptionService
     video_multimodal_analysis: VideoMultimodalAnalysisService
@@ -297,6 +303,12 @@ def _build_services(
         kernel.event_service,
         migration_report,
     )
+    provider_port_registry = AIProviderPortRegistry(
+        response_max_bytes=_config_int(
+            config_bus_service,
+            "ai.execution.outputMaxBytes",
+        )
+    )
     ai_configuration_services = build_ai_configuration_v1_services(
         session_factory=session_factory,
         repository=repositories.ai_configuration_v1,
@@ -307,6 +319,7 @@ def _build_services(
         config_bus_service=config_bus_service,
         account_repository=repositories.account_workspace_v1,
         idempotency_repository=repositories.mutation_idempotency,
+        provider_port_registry=provider_port_registry,
     )
     account_v1_services = build_account_v1_services(
         session_factory=session_factory,
@@ -322,8 +335,16 @@ def _build_services(
         connection_repository=repositories.account_connection_v1,
         configuration_repository=repositories.account_configuration_v1,
         knowledge_repository=repositories.knowledge_v1,
+        knowledge_asset_repository=repositories.knowledge_asset_v1,
         idempotency_repository=repositories.mutation_idempotency,
         task_repository=repositories.runtime_task,
+        controlled_file_registry_path=(
+            runtime_config.controlled_file_registry_path
+        ),
+        workspace_root_registry_path=(
+            runtime_config.workspace_root_registry_path
+            or runtime_config.data_dir.parent / "workspace-roots.v1.json"
+        ),
         ai_readiness_port=ai_configuration_services.readiness_port,
         ai_recipe_copy_port=ai_configuration_services.recipe_copy_port,
         login_browser_runtime=(
@@ -336,6 +357,26 @@ def _build_services(
             if dependency_overrides is not None
             else None
         ),
+    )
+    ai_execution_services = build_ai_execution_v1_services(
+        session_factory=session_factory,
+        account_repository=repositories.account_workspace_v1,
+        configuration_repository=repositories.account_configuration_v1,
+        ai_repository=repositories.ai_configuration_v1,
+        execution_repository=repositories.ai_execution_v1,
+        knowledge_repository=repositories.knowledge_v1,
+        knowledge_asset_repository=repositories.knowledge_asset_v1,
+        task_repository=repositories.runtime_task,
+        event_service=kernel.event_service,
+        task_coordinator=kernel.task_coordinator,
+        task_handler_registry=kernel.task_handler_registry,
+        config_bus_service=config_bus_service,
+        secret_store=secret_store,
+        provider_port_registry=provider_port_registry,
+        account_content_root=runtime_config.data_dir / "accounts",
+    )
+    kernel.register_startup_reconciler(
+        ai_execution_services.recovery.reconcile
     )
     execution_environment_service = build_execution_environment_service(
         session_factory=session_factory,
@@ -479,6 +520,7 @@ def _build_services(
             dashboard=dashboard_service,
             ai_capability=ai_capability_service,
             ai_configuration=ai_configuration_services,
+            ai_execution=ai_execution_services,
             ai_text_generation=ai_text_generation_service,
             video_transcription=video_transcription_service,
             video_multimodal_analysis=video_multimodal_analysis_service,

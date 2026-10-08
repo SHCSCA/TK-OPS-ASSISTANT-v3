@@ -20,6 +20,7 @@ from tests.runtime.p0c_migration_test_support import (
 REVISION_0020 = "0020_p0e_ai_vertical_chain"
 REVISION_0021 = "0021_p0g_execution_environment_closure"
 REVISION_0022 = "0022_p0g_production_hardening"
+REVISION_0023 = "0023_p0h_real_ai_execution"
 
 
 def test_0021_backfills_legacy_objects_as_untrusted_and_inactive(
@@ -65,7 +66,7 @@ def test_0021_backfills_legacy_objects_as_untrusted_and_inactive(
     assert "account_login_sessions" in _table_names(database_path)
 
 
-def test_fresh_0022_database_matches_runtime_target_contract(
+def test_fresh_head_database_matches_runtime_target_contract(
     tmp_path: Path,
 ) -> None:
     database_path = tmp_path / "p0g-head.db"
@@ -73,10 +74,10 @@ def test_fresh_0022_database_matches_runtime_target_contract(
 
     inspection = validate_target_schema_contract(
         database_path,
-        target_revision=REVISION_0022,
+        target_revision=REVISION_0023,
     )
 
-    assert inspection.revision == REVISION_0022
+    assert inspection.revision == REVISION_0023
     assert {
         "last_task_id",
         "last_retry_of_task_id",

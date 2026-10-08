@@ -57,6 +57,11 @@ class CompositionTemplateProfile(Base):
     composition_spec_template_json: Mapped[str] = mapped_column(Text, nullable=False)
     compatible_capabilities_json: Mapped[str] = mapped_column(Text, nullable=False)
     preview_asset_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    dependency_snapshot_id: Mapped[str | None] = mapped_column(
+        String,
+        ForeignKey("ai_dependency_snapshots.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     content_hash: Mapped[str] = mapped_column(String, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     created_from_id: Mapped[str | None] = mapped_column(

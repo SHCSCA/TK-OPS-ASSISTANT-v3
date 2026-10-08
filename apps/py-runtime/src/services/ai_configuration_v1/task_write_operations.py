@@ -34,9 +34,14 @@ from .task_execution_context import (
     require_provider,
     require_revision,
 )
+from .revision_snapshots import create_model_revision
 from .unit_of_work import (
     AIConfigurationTransaction,
     AIConfigurationUnitOfWork,
+)
+from .validation_writer import (
+    ValidationEvidenceEntry,
+    save_validation_entries,
 )
 
 _CAPABILITY_CONTRACT_REVISION = 1
@@ -55,6 +60,8 @@ class AIConfigurationTaskWriter:
         task_id: str,
         commit_coordinator: TaskCommitCoordinator,
         invalidations: tuple[str, ...],
+        health_status: str = "ready",
+        validation_entries: tuple[ValidationEvidenceEntry, ...] = (),
     ) -> int:
         with self._unit_of_work.write(
             commit_coordinator=commit_coordinator
@@ -62,9 +69,16 @@ class AIConfigurationTaskWriter:
             updated = _update_provider_health(
                 transaction,
                 provider,
-                status="ready",
+                status=health_status,
                 error_code=None,
                 error_log_id=None,
+            )
+            save_validation_entries(
+                transaction,
+                provider=provider,
+                model=None,
+                task_id=task_id,
+                entries=validation_entries,
             )
             ai_revision = transaction.ai.revisions.get(
                 transaction.session
@@ -77,7 +91,7 @@ class AIConfigurationTaskWriter:
                 task_id=task_id,
                 revision=ai_revision,
                 invalidations=invalidations,
-                values={"healthStatus": "ready"},
+                values={"healthStatus": health_status},
             )
             return ai_revision
 
@@ -88,6 +102,7 @@ class AIConfigurationTaskWriter:
         *,
         task_id: str,
         commit_coordinator: TaskCommitCoordinator,
+        validation_entries: tuple[ValidationEvidenceEntry, ...] = (),
     ) -> int:
         with self._unit_of_work.write(
             commit_coordinator=commit_coordinator
@@ -103,6 +118,13 @@ class AIConfigurationTaskWriter:
                 transaction,
                 provider_id=provider.id,
                 discovered=discovered,
+            )
+            save_validation_entries(
+                transaction,
+                provider=provider,
+                model=None,
+                task_id=task_id,
+                entries=validation_entries,
             )
             ai_revision = (
                 transaction.ai.revisions.increment(transaction.session)
@@ -151,6 +173,7 @@ class AIConfigurationTaskWriter:
         *,
         task_id: str,
         commit_coordinator: TaskCommitCoordinator,
+        validation_entries: tuple[ValidationEvidenceEntry, ...] = (),
     ) -> int:
         now = _utc_now()
         with self._unit_of_work.write(
@@ -183,6 +206,13 @@ class AIConfigurationTaskWriter:
                     verified_at=now,
                 )
                 for capability in capabilities
+            )
+            save_validation_entries(
+                transaction,
+                provider=model.provider,
+                model=model,
+                task_id=task_id,
+                entries=validation_entries,
             )
             saved = tuple(item[0] for item in saved_with_changes)
             capability_changed = any(
@@ -243,6 +273,7 @@ class AIConfigurationTaskWriter:
         task_id: str,
         commit_coordinator: TaskCommitCoordinator,
         model: ModelExecutionConfig | None = None,
+        validation_entries: tuple[ValidationEvidenceEntry, ...] = (),
     ) -> NoReturn:
         safe_error = safe_provider_error(error)
         log_id = f"log_{uuid4().hex}"
@@ -271,6 +302,13 @@ class AIConfigurationTaskWriter:
                 status="failed",
                 error_code=safe_error.error_code,
                 error_log_id=log_id,
+            )
+            save_validation_entries(
+                transaction,
+                provider=provider,
+                model=model,
+                task_id=task_id,
+                entries=validation_entries,
             )
             ai_revision = transaction.ai.revisions.get(
                 transaction.session
@@ -312,7 +350,7 @@ def _update_provider_health(
         invalidations=PROVIDER_INVALIDATIONS,
     )
     now = _utc_now()
-    updated = transaction.ai.providers.update(
+    updated = transaction.ai.providers.update_health(
         transaction.session,
         provider.id,
         expected_revision=provider.revision,
@@ -362,12 +400,14 @@ def _upsert_discovered_models(
                         discovery_source="discovered",
                         context_window=item.context_window,
                         base_limits_json=dump_json({}),
+                        active_revision_id=None,
                         revision=1,
                         created_at=now,
                         updated_at=now,
                     ),
                 )
             )
+            create_model_revision(transaction, changed[-1])
             continue
         if current.discovery_source != "discovered":
             continue
@@ -392,6 +432,7 @@ def _upsert_discovered_models(
                 status_code=412,
                 meta={"invalidations": list(MODEL_INVALIDATIONS)},
             )
+        create_model_revision(transaction, updated)
         changed.append(updated)
     return tuple(changed)
 

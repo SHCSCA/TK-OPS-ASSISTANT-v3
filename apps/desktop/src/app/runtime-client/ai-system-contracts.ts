@@ -70,7 +70,11 @@ export function validateProvider(data: ProviderDto): void {
 }
 
 export function validateCredentialSummary(data: CredentialSummaryDto): void {
-  if (!data.configured || !data.credentialRef || !data.maskedValue) {
+  if (
+    !data.configured
+    || data.credentialReferenceChanged !== true
+    || !data.maskedValue
+  ) {
     throw invalidResponse("Runtime 返回的凭据引用摘要无效。");
   }
   assertPositiveInteger(data.providerRevision, "providerRevision");

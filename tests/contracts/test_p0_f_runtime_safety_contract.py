@@ -12,7 +12,7 @@ from persistence.migration.compatibility import (
 )
 from persistence.migration.runner import MigrationReport
 
-TARGET_REVISION = "0022_p0g_production_hardening"
+TARGET_REVISION = "0023_p0h_real_ai_execution"
 
 
 def test_compatibility_evidence_declares_real_p0_read_range(

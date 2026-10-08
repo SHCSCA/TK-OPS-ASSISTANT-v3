@@ -1,9 +1,11 @@
 import { defineStore } from "pinia";
 
 import {
+  listModelCapabilities,
   listModelProfiles,
   listProviderProfiles,
   patchProviderProfile,
+  startModelCapabilityCheck,
   startProviderCheck,
   startProviderModelDiscovery
 } from "@/app/runtime-client/ai-system";
@@ -11,6 +13,7 @@ import { isRuntimeRequestAborted } from "@/app/runtime-client/core";
 import { cancelSystemTask, getSystemTask } from "@/app/runtime-client/tasks";
 import type {
   ModelProfileDto,
+  ModelCapabilityListItemDto,
   ProviderDto,
   ProviderHealthStatus,
   ProviderPatchInput
@@ -27,9 +30,16 @@ import type { AIConfigUiError, AIPageState } from "./ai-config-types";
 
 type ProviderTask = TaskAcceptedDto | RuntimeTaskDto;
 
+export type ProviderValidationStage = {
+  key: "network" | "authentication" | "model_discovery" | "real_small_call";
+  label: string;
+  status: "pending" | "checking" | "verified" | "failed";
+};
+
 type ProviderConfigState = {
   providers: ProviderDto[];
   models: ModelProfileDto[];
+  capabilities: ModelCapabilityListItemDto[];
   totalKnown: number | null;
   search: string;
   healthFilter: ProviderHealthStatus | "";
@@ -39,6 +49,8 @@ type ProviderConfigState = {
   feedback: string | null;
   task: ProviderTask | null;
   taskOwnerId: string | null;
+  validationOperation: "health" | "model_discovery" | "real_small_call" | null;
+  selectedValidationModelId: string | null;
   busyKey: string | null;
 };
 
@@ -49,6 +61,7 @@ export const useProviderConfigStore = defineStore("p0-ai-provider-config", {
   state: (): ProviderConfigState => ({
     providers: [],
     models: [],
+    capabilities: [],
     totalKnown: null,
     search: "",
     healthFilter: "",
@@ -58,6 +71,8 @@ export const useProviderConfigStore = defineStore("p0-ai-provider-config", {
     feedback: null,
     task: null,
     taskOwnerId: null,
+    validationOperation: null,
+    selectedValidationModelId: null,
     busyKey: null
   }),
   getters: {
@@ -90,13 +105,15 @@ export const useProviderConfigStore = defineStore("p0-ai-provider-config", {
       this.error = null;
       try {
         const options = { signal: loadController.signal };
-        const [providers, models] = await Promise.all([
+        const [providers, models, capabilities] = await Promise.all([
           listProviderProfiles({ limit: 200 }, options),
-          listModelProfiles({ limit: 200 }, options)
+          listModelProfiles({ limit: 200 }, options),
+          listModelCapabilities({ limit: 200 }, options)
         ]);
         if (sequence !== loadSequence) return;
         this.providers = providers.data.items;
         this.models = models.data.items;
+        this.capabilities = capabilities.data.items;
         this.totalKnown = providers.data.totalKnown;
         if (
           this.selectedProviderId
@@ -104,6 +121,7 @@ export const useProviderConfigStore = defineStore("p0-ai-provider-config", {
         ) {
           this.selectedProviderId = null;
         }
+        this.ensureValidationModel();
         this.recomputeState();
       } catch (error) {
         if (isRuntimeRequestAborted(error) || sequence !== loadSequence) return;
@@ -138,6 +156,15 @@ export const useProviderConfigStore = defineStore("p0-ai-provider-config", {
 
     selectProvider(providerId: string | null): void {
       this.selectedProviderId = providerId;
+      this.ensureValidationModel();
+    },
+
+    selectValidationModel(modelId: string): void {
+      if (this.modelsForProvider(this.selectedProviderId ?? "").some(
+        (model) => model.id === modelId
+      )) {
+        this.selectedValidationModelId = modelId;
+      }
     },
 
     clearFilters(): void {
@@ -168,7 +195,8 @@ export const useProviderConfigStore = defineStore("p0-ai-provider-config", {
         );
         this.task = result.data;
         this.taskOwnerId = provider.id;
-        this.feedback = "Provider 连接检查已提交。";
+        this.validationOperation = "health";
+        this.feedback = "网络与鉴权真实验证已提交。";
         this.recomputeState();
       });
     },
@@ -182,9 +210,94 @@ export const useProviderConfigStore = defineStore("p0-ai-provider-config", {
         );
         this.task = result.data;
         this.taskOwnerId = provider.id;
-        this.feedback = "模型发现任务已提交，现有模型不会被静默删除。";
+        this.validationOperation = "model_discovery";
+        this.feedback = "模型发现真实验证已提交，现有模型不会被静默删除。";
         this.recomputeState();
       });
+    },
+
+    async runRealSmallCall(provider: ProviderDto): Promise<boolean> {
+      const model = this.modelsForProvider(provider.id).find(
+        (item) => item.id === this.selectedValidationModelId
+      );
+      return this.runMutation(`real-small-call:${provider.id}`, async () => {
+        if (!model) {
+          throw new Error("请先发现或手动添加模型，再运行真实小调用。");
+        }
+        const result = await startModelCapabilityCheck(
+          model.id,
+          {
+            capabilityKeys: ["script_generation"],
+            force: true,
+            mode: "real_small_call"
+          },
+          {
+            idempotencyKey: createAIOperationKey(
+              "provider-real-small-call",
+              model.id
+            )
+          }
+        );
+        this.task = result.data;
+        this.taskOwnerId = model.id;
+        this.validationOperation = "real_small_call";
+        this.feedback = "脚本生成真实小调用已提交；只有返回有效 usage 才会标记通过。";
+        this.recomputeState();
+      });
+    },
+
+    validationStages(providerId: string): ProviderValidationStage[] {
+      const provider = this.providers.find((item) => item.id === providerId);
+      const models = this.modelsForProvider(providerId);
+      const modelIds = new Set(models.map((item) => item.id));
+      const hasRealValidation = this.capabilities.some(
+        (item) => modelIds.has(item.modelProfileId) && item.contractVerified
+      );
+      return [
+        this.stageState("network", "网络", Boolean(
+          provider && ["ready", "degraded"].includes(provider.healthStatus)
+        )),
+        this.stageState(
+          "authentication",
+          "鉴权",
+          provider?.healthStatus === "ready"
+        ),
+        this.stageState("model_discovery", "模型发现", models.length > 0),
+        this.stageState("real_small_call", "真实小调用", hasRealValidation)
+      ];
+    },
+
+    stageState(
+      key: ProviderValidationStage["key"],
+      label: string,
+      verified: boolean
+    ): ProviderValidationStage {
+      const operationMatches = (
+        this.validationOperation === "health"
+          ? key === "network" || key === "authentication"
+          : this.validationOperation === key
+      );
+      const active = this.task
+        && ["queued", "running", "cancelling"].includes(this.task.status);
+      const failed = this.task?.status === "failed";
+      return {
+        key,
+        label,
+        status: verified
+          ? "verified"
+          : operationMatches && active
+            ? "checking"
+            : operationMatches && failed
+              ? "failed"
+              : "pending"
+      };
+    },
+
+    ensureValidationModel(): void {
+      const models = this.modelsForProvider(this.selectedProviderId ?? "");
+      if (!models.some((item) => item.id === this.selectedValidationModelId)) {
+        this.selectedValidationModelId = models[0]?.id ?? null;
+      }
     },
 
     async refreshTask(): Promise<void> {

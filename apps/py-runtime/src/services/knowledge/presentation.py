@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from domain.models.account_asset import AccountAsset
 from domain.models.knowledge import (
     AccountKnowledgeBase,
     KnowledgeSnapshot,
@@ -7,6 +8,7 @@ from domain.models.knowledge import (
 )
 from errors import DomainError, ErrorCode
 from schemas.v1.knowledge import (
+    KnowledgeAssetEvidenceDto,
     KnowledgeDto,
     KnowledgeRulesPatchInput,
     KnowledgeSnapshotDto,
@@ -43,7 +45,11 @@ def knowledge_to_dto(
     )
 
 
-def source_to_dto(source: KnowledgeSource) -> KnowledgeSourceDto:
+def source_to_dto(
+    source: KnowledgeSource,
+    *,
+    asset: AccountAsset | None = None,
+) -> KnowledgeSourceDto:
     removed = source.deleted_at is not None
     return KnowledgeSourceDto(
         id=source.id,
@@ -72,6 +78,20 @@ def source_to_dto(source: KnowledgeSource) -> KnowledgeSourceDto:
         errorCode=source.error_code,
         logId=source.error_log_id,
         revision=int(source.revision),
+        asset=(
+            None
+            if asset is None
+            else KnowledgeAssetEvidenceDto(
+                id=asset.id,
+                status=asset.status,
+                displayName=asset.display_name,
+                kind=asset.kind,
+                mediaType=asset.media_type,
+                byteSize=int(asset.byte_size),
+                rootRef=asset.root_ref,
+                revision=int(asset.revision),
+            )
+        ),
     )
 
 

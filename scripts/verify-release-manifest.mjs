@@ -15,6 +15,10 @@ import {
   productionArtifactKinds,
   productionTestIds
 } from "./release-evidence-policy.mjs";
+import {
+  p0hRealProviderEvidenceId,
+  validateP0HManifestEvidence
+} from "./p0-h-real-provider-evidence.mjs";
 import { collectSourceSnapshot } from "./release-source-snapshot.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -36,6 +40,7 @@ try {
   validateTests(manifest);
   validateArtifacts(manifest);
   validateArtifactBindings(manifest);
+  validateProductionRequirements(manifest);
   if (options.promote) promote(manifest, manifestPath);
   console.log(
     `[release-manifest] 校验通过：${normalize(path.relative(repoRoot, manifestPath))} `
@@ -150,21 +155,33 @@ function validateArtifactBindings(manifest) {
       }
     }
   }
+  const p0hEvidence = evidenceById.get(p0hRealProviderEvidenceId);
+  if (p0hEvidence) {
+    validateP0HManifestEvidence(
+      manifest,
+      readJson(resolveRepoFile(p0hEvidence.evidencePath)),
+      repoRoot
+    );
+  }
 }
 
-function promote(manifest, manifestPath) {
-  if (manifest.channel !== "production" || manifest.git.dirty) {
-    throw new Error("只有干净工作树生成的 production manifest 可以提升 current。");
-  }
+function validateProductionRequirements(manifest) {
+  if (manifest.channel !== "production") return;
   const artifactKinds = new Set(manifest.artifacts.map((item) => item.kind));
   const testIds = new Set(manifest.tests.map((item) => item.id));
   const missingArtifacts = productionArtifactKinds.filter((item) => !artifactKinds.has(item));
   const missingTests = productionTestIds.filter((item) => !testIds.has(item));
   if (missingArtifacts.length > 0 || missingTests.length > 0) {
     throw new Error(
-      `RELEASE_REQUIRED_EVIDENCE_MISSING: 提升证据不完整；缺制品=${missingArtifacts.join(",") || "无"}；`
+      `RELEASE_REQUIRED_EVIDENCE_MISSING: Production 证据不完整；缺制品=${missingArtifacts.join(",") || "无"}；`
       + `缺测试=${missingTests.join(",") || "无"}`
     );
+  }
+}
+
+function promote(manifest, manifestPath) {
+  if (manifest.channel !== "production" || manifest.git.dirty) {
+    throw new Error("只有干净工作树生成的 production manifest 可以提升 current。");
   }
   const pointerPath = resolveRepoFile("dist/releases/current.json");
   mkdirSync(path.dirname(pointerPath), { recursive: true });

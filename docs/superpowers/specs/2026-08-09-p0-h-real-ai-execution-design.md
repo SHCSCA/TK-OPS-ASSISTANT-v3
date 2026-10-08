@@ -726,6 +726,8 @@ P0-H 不新增主导航 Route。系统级操作进入现有“AI 与系统设置
 | `tests/manual/p0-h-real-provider-evidence.ps1` | 导出并校验人工真实证据，不读取 Key |
 | `tests/packaging/test_release_manifest_v2.py` | AI 人工证据和制品哈希绑定策略 |
 | `scripts/release-evidence-policy.mjs` | production 需要 P0-H 人工证据 |
+| `scripts/p0-h-real-provider-evidence.mjs` | 严格 allowlist、Runtime evidence 转换、四制品绑定与 release 包装；拆分以保持发布脚本不超过 500 行 |
+| `scripts/attach-p0-h-release-evidence.mjs` | 在不重建、不改变已验收制品的前提下，把 H5 人工证据原子附加到现有 Manifest |
 | `scripts/build-windows-release.mjs` | 接收 `--target-ai-evidence`，不自动外呼 |
 | `docs/api/v1/ai-executions.md` | Runtime API 与 Desktop 调用的唯一真源 |
 | `docs/api/v1/README.md` | 仅登记索引与库存 |

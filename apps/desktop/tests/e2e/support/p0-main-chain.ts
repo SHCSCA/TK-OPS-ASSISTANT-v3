@@ -56,7 +56,6 @@ export type P0MainChainContext = {
   betaAccountId: string;
   promptProfileKey: string;
   textModelId: string;
-  videoModelId: string;
 };
 
 export async function prepareP0MainChain(
@@ -179,8 +178,7 @@ export async function prepareP0MainChain(
   expect(validation.data.validationStatus).toBe("valid");
   for (const capability of [
     "script_generation",
-    "storyboard_generation",
-    "text_to_video"
+    "storyboard_generation"
   ]) {
     expect(validation.data.resolvedRouteSummary[capability]?.source)
       .toBe("system");
@@ -210,79 +208,62 @@ export async function prepareP0MainChain(
     alphaAccountId: alpha.id,
     betaAccountId: beta.id,
     promptProfileKey: ai.promptProfileKey,
-    textModelId: ai.textModelId,
-    videoModelId: ai.videoModelId
+    textModelId: ai.textModelId
   };
 }
 
 async function configureAI(request: APIRequestContext): Promise<{
   promptProfileKey: string;
   textModelId: string;
-  videoModelId: string;
 }> {
-  const state = readE2eRuntimeState();
-  const textProvider = await createReadyProvider(
-    request,
-    "E2E 本地文本 Provider",
-    "openai_compatible",
-    `${state.providerBaseUrl}/v1`,
-    "text"
-  );
-  const videoProvider = await createReadyProvider(
-    request,
-    "E2E 本地视频 Provider",
-    "comfyui",
-    state.providerBaseUrl,
-    "video"
-  );
-  const textModel = await createVerifiedModel(
-    request,
-    textProvider.id,
-    "tk-e2e-text-1",
-    "E2E 文本能力模型",
-    ["script_generation", "storyboard_generation"],
-    "text"
-  );
-  const videoModel = await createVerifiedModel(
-    request,
-    videoProvider.id,
-    "tk-e2e-video-1",
-    "E2E 视频能力模型",
-    ["text_to_video"],
-    "video"
-  );
-  const prompt = await createActivePrompt(request);
-  await putRoute(
+  const textProvider = await createReadyProvider(request);
+  const textModel = await discoverAndValidateModel(request, textProvider.id);
+  const prompt = await createActivePrompt(request, {
+    capabilityKey: "script_generation",
+    name: "E2E 脚本生成 Prompt",
+    outputSchema: {
+      properties: { script: { type: "string" } },
+      required: ["script"],
+      type: "object"
+    },
+    profileKey: "e2e-script-generation",
+    systemPrompt: "你是账号定位驱动的短视频脚本规划助手。",
+    taskTemplate: "根据账号知识与选题生成可进入分镜的脚本：{{topic}}"
+  });
+  const storyboardPrompt = await createActivePrompt(request, {
+    capabilityKey: "storyboard_generation",
+    name: "E2E 分镜生成 Prompt",
+    outputSchema: {
+      properties: {
+        shots: { items: { type: "object" }, type: "array" }
+      },
+      required: ["shots"],
+      type: "object"
+    },
+    profileKey: "e2e-storyboard-generation",
+    systemPrompt: "你是短视频分镜规划助手。",
+    taskTemplate: "根据主题生成可进入批量生产的镜头清单：{{topic}}"
+  });
+  await createActiveRoute(
     request,
     "script_generation",
     textModel.id,
     prompt.activeVersionId
   );
-  await putRoute(
+  await createActiveRoute(
     request,
     "storyboard_generation",
     textModel.id,
-    null
-  );
-  await putRoute(
-    request,
-    "text_to_video",
-    videoModel.id,
-    null
+    storyboardPrompt.activeVersionId
   );
   return {
     promptProfileKey: prompt.profileKey,
-    textModelId: textModel.id,
-    videoModelId: videoModel.id
+    textModelId: textModel.id
   };
 }
 
 async function createReadyProvider(
-  request: APIRequestContext,
-  name: string,
-  adapterType: "openai_compatible" | "comfyui",
-  baseUrl: string,
-  key: string
+  request: APIRequestContext
 ): Promise<Provider> {
   const state = readE2eRuntimeState();
   const created = await callRuntime<Provider>(
@@ -290,21 +271,27 @@ async function createReadyProvider(
     "/api/v1/system/providers",
     {
       data: {
-        adapterType,
-        baseUrl,
+        adapterType: "openai_compatible",
+        baseUrl: `${state.providerBaseUrl}/v1`,
+        costPolicy: {
+          inputMicrosPerMillionUnits: 1_000_000,
+          outputMicrosPerMillionUnits: 2_000_000,
+          pricingRevision: 1
+        },
         enabled: true,
+        extraParams: { protocolVariant: "chat_completions" },
         maxConcurrency: 1,
-        name,
+        name: "E2E 本地文本 Provider",
         region: null,
         timeoutMs: 5_000
       },
-      idempotencyKey: `e2e-provider-${key}`,
+      idempotencyKey: "e2e-provider-text-real",
       method: "POST"
     }
   );
   const credential = await callRuntime<{
     configured: true;
-    credentialRef: string;
+    credentialReferenceChanged: true;
     maskedValue: string;
     providerRevision: number;
   }>(request, `/api/v1/system/providers/${created.data.id}/credential`, {
@@ -313,8 +300,8 @@ async function createReadyProvider(
     method: "PUT"
   });
   expect(credential.data.configured).toBe(true);
-  expect(credential.data.credentialRef)
-    .toMatch(/^secret:\/\/providers\//);
+  expect(credential.data.credentialReferenceChanged).toBe(true);
+  expect(credential.data).not.toHaveProperty("credentialRef");
   expect(credential.data.maskedValue).not.toBe(state.providerCredential);
   expect(JSON.stringify(credential)).not.toContain(state.providerCredential);
 
@@ -322,8 +309,11 @@ async function createReadyProvider(
     request,
     `/api/v1/system/providers/${created.data.id}/checks`,
     {
-      data: { force: true },
-      idempotencyKey: `e2e-provider-check-${key}`,
+      data: {
+        force: true,
+        stages: ["network", "authentication"]
+      },
+      idempotencyKey: "e2e-provider-check-text-real",
       method: "POST"
     }
   );
@@ -341,42 +331,55 @@ async function createReadyProvider(
   return ready.data;
 }
 
-async function createVerifiedModel(
+async function discoverAndValidateModel(
   request: APIRequestContext,
-  providerId: string,
-  modelId: string,
-  displayName: string,
-  capabilityKeys: string[],
-  key: string
+  providerId: string
 ): Promise<Model> {
-  const created = await callRuntime<Model>(
+  const discovery = await callRuntime<TaskAccepted>(
     request,
-    "/api/v1/system/models",
+    `/api/v1/system/providers/${providerId}/model-discovery`,
     {
-      data: {
-        baseLimits: {},
-        displayName,
-        enabled: true,
-        modelId,
-        providerProfileId: providerId
-      },
-      idempotencyKey: `e2e-model-${key}`,
+      data: { replaceMissing: false },
+      idempotencyKey: "e2e-provider-model-discovery-text-real",
       method: "POST"
     }
   );
+  await waitForRuntimeTask(request, discovery.data.taskId);
+  const models = await callRuntime<{ items: Model[] }>(
+    request,
+    `/api/v1/system/models?providerId=${encodeURIComponent(providerId)}&limit=100`
+  );
+  const discovered = models.data.items.find(
+    (item) => item.modelId === "tk-e2e-text-1"
+  );
+  if (!discovered) throw new Error("真实模型发现未返回 E2E 文本模型。");
+  const enabled = await callRuntime<Model>(
+    request,
+    `/api/v1/system/models/${discovered.id}`,
+    {
+      data: { enabled: true },
+      expectedRevision: discovered.revision,
+      method: "PATCH"
+    }
+  );
+  const capabilityKeys = ["script_generation", "storyboard_generation"];
   const accepted = await callRuntime<TaskAccepted>(
     request,
-    `/api/v1/system/models/${created.data.id}/capability-checks`,
+    `/api/v1/system/models/${enabled.data.id}/capability-checks`,
     {
-      data: { capabilityKeys, force: true },
-      idempotencyKey: `e2e-model-capabilities-${key}`,
+      data: {
+        capabilityKeys,
+        force: true,
+        mode: "real_small_call"
+      },
+      idempotencyKey: "e2e-model-capabilities-text-real",
       method: "POST"
     }
   );
   await waitForRuntimeTask(request, accepted.data.taskId);
   const verified = await callRuntime<Model>(
     request,
-    `/api/v1/system/models/${created.data.id}`
+    `/api/v1/system/models/${enabled.data.id}`
   );
   for (const capabilityKey of capabilityKeys) {
     expect(verified.data.capabilities).toContainEqual(
@@ -391,21 +394,28 @@ async function createVerifiedModel(
 }
 
 async function createActivePrompt(
-  request: APIRequestContext
+  request: APIRequestContext,
+  input: {
+    capabilityKey: string;
+    name: string;
+    outputSchema: Record<string, unknown>;
+    profileKey: string;
+    systemPrompt: string;
+    taskTemplate: string;
+  }
 ): Promise<PromptProfile> {
-  const profileKey = "e2e-script-generation";
   const created = await callRuntime<PromptProfile>(
     request,
     "/api/v1/system/prompt-profiles",
     {
       data: {
-        capabilityKey: "script_generation",
-        name: "E2E 脚本生成 Prompt",
-        outputSchema: { type: "object" },
-        profileKey,
+        capabilityKey: input.capabilityKey,
+        name: input.name,
+        outputSchema: input.outputSchema,
+        profileKey: input.profileKey,
         safetyConstraints: {},
-        systemPrompt: "你是账号定位驱动的短视频脚本规划助手。",
-        taskTemplate: "根据账号知识与选题生成可进入分镜的脚本：{{topic}}",
+        systemPrompt: input.systemPrompt,
+        taskTemplate: input.taskTemplate,
         variablesSchema: {
           properties: { topic: { type: "string" } },
           required: ["topic"],
@@ -413,16 +423,16 @@ async function createActivePrompt(
         },
         visualStylePrefix: ""
       },
-      idempotencyKey: "e2e-prompt-script-generation",
+      idempotencyKey: `e2e-prompt-${input.capabilityKey}`,
       method: "POST"
     }
   );
   const activated = await callRuntime<PromptProfile>(
     request,
-    `/api/v1/system/prompt-profiles/${profileKey}/versions/1/activate`,
+    `/api/v1/system/prompt-profiles/${input.profileKey}/versions/1/activate`,
     {
       expectedRevision: created.data.revision,
-      idempotencyKey: "e2e-prompt-script-generation-activate",
+      idempotencyKey: `e2e-prompt-${input.capabilityKey}-activate`,
       method: "POST"
     }
   );
@@ -431,32 +441,70 @@ async function createActivePrompt(
   return activated.data;
 }
 
-async function putRoute(
+async function createActiveRoute(
   request: APIRequestContext,
   capabilityKey: string,
   modelProfileId: string,
   promptProfileId: string | null
 ): Promise<void> {
-  const route = await callRuntime<{
-    capabilityKey: string;
+  const created = await callRuntime<{
+    revision: number;
+    status: string;
+  }>(
+    request,
+    `/api/v1/system/capability-routes/${capabilityKey}/revisions`,
+    {
+      data: {
+        candidates: [{ modelProfileId }],
+        currency: "USD",
+        enabled: true,
+        maxConcurrency: 1,
+        maxCostMicros: 50_000,
+        maxRetries: 1,
+        promptProfileId,
+        retryPolicy: {
+          knowledgeMaxInputUnits: 512,
+          maxOutputUnits: 64,
+          requireReportedUsage: true,
+          temperature: 0
+        },
+        timeoutMs: 5_000
+      },
+      expectedRevision: 0,
+      idempotencyKey: `e2e-route-${capabilityKey}-revision-1`,
+      method: "POST"
+    }
+  );
+  expect(created.data).toMatchObject({
+    revision: 1,
+    status: "draft"
+  });
+  const validated = await callRuntime<{
+    routeRevision: number;
+    status: string;
+  }>(
+    request,
+    `/api/v1/system/capability-routes/${capabilityKey}/revisions/1/validate`,
+    {
+      idempotencyKey: `e2e-route-${capabilityKey}-validate`,
+      method: "POST"
+    }
+  );
+  expect(validated.data.status).toBe("valid");
+  const active = await callRuntime<{
+    activeRevisionId: string | null;
     validationStatus: string;
   }>(
     request,
-    `/api/v1/system/capability-routes/${capabilityKey}`,
+    `/api/v1/system/capability-routes/${capabilityKey}/revisions/1/activate`,
     {
-      data: {
-        enabled: true,
-        fallbackModelProfileId: null,
-        primaryModelProfileId: modelProfileId,
-        promptProfileId
-      },
-      expectedRevision: 0,
-      idempotencyKey: `e2e-route-${capabilityKey}`,
-      method: "PUT"
+      expectedRevision: requireRevision(validated.meta.revision),
+      idempotencyKey: `e2e-route-${capabilityKey}-activate`,
+      method: "POST"
     }
   );
-  expect(route.data).toMatchObject({
-    capabilityKey,
+  expect(active.data).toMatchObject({
+    activeRevisionId: expect.any(String),
     validationStatus: "valid"
   });
 }
@@ -471,12 +519,21 @@ async function assertProviderBoundaryEvidence(
   expect(response.ok()).toBe(true);
   const evidence = await response.json() as {
     authorizedRequests: number;
+    chatCompletionRequests: number;
+    evidenceKind: string;
     modelsRequests: number;
-    systemStatsRequests: number;
+    providerEvidenceKind: string;
+    reportedUsageResponses: number;
   };
+  expect(evidence).toMatchObject({
+    evidenceKind: "p0h_controlled_contract",
+    providerEvidenceKind: "controlled_contract"
+  });
   expect(evidence.authorizedRequests).toBeGreaterThanOrEqual(4);
   expect(evidence.modelsRequests).toBeGreaterThanOrEqual(2);
-  expect(evidence.systemStatsRequests).toBeGreaterThanOrEqual(2);
+  expect(evidence.chatCompletionRequests).toBeGreaterThanOrEqual(2);
+  expect(evidence.reportedUsageResponses).toBeGreaterThanOrEqual(2);
+  expect(JSON.stringify(evidence)).not.toContain(state.providerCredential);
 }
 
 export async function findAccount(

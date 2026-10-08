@@ -31,9 +31,19 @@ def provider_to_dto(
             "maskedValue": masked_value,
         },
         "region": row.region,
+        "proxyRef": row.proxy_ref,
         "timeoutMs": int(row.timeout_ms),
         "maxConcurrency": int(row.max_concurrency),
         "enabled": bool(row.enabled),
+        "extraParams": load_object(
+            row.extra_params_json,
+            label="Provider 扩展参数",
+        ),
+        "costPolicy": load_object(
+            row.cost_policy_json,
+            label="Provider 成本策略",
+        ),
+        "activeRevisionId": row.active_revision_id,
         "healthStatus": row.health_status,
         "lastCheckedAt": row.last_checked_at,
         "lastErrorCode": row.last_error_code,
@@ -99,6 +109,7 @@ def model_to_dto(
             capability_to_dto(capability)
             for capability in capabilities
         ],
+        "activeRevisionId": row.active_revision_id,
         "revision": int(row.revision),
     }
 
@@ -116,6 +127,7 @@ def route_to_dto(row: CapabilityRoute) -> dict[str, object]:
             row.validation_issues_json,
             label="能力路由校验问题",
         ),
+        "activeRevisionId": row.active_revision_id,
         "revision": int(row.revision),
     }
 
@@ -324,6 +336,7 @@ def recipe_summary_to_dto(
     return {
         "accountId": account_id,
         "activeVersion": active.version if active is not None else None,
+        "activeVersionId": active.id if active is not None else None,
         "versions": [
             {
                 "version": int(item.version),

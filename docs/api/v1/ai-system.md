@@ -194,7 +194,7 @@ Prompt 版本输入：
 | `GET /system/composition-templates/{template_key}/versions/{version}` | Path | `200 CompositionTemplateVersionDto` | `COMPOSITION_TEMPLATE_VERSION_NOT_FOUND` |
 | `POST /system/composition-templates/{template_key}/versions` | `rev`、`idem`；`CompositionTemplateVersionInput` | `201 CompositionTemplateVersionDto` | `COMPOSITION_TEMPLATE_INVALID`、`REVISION_CONFLICT` |
 | `POST /system/composition-templates/{template_key}/versions/{version}/validate` | `idem`；无 Body | `200 CompositionTemplateValidationDto` | `COMPOSITION_TEMPLATE_INVALID`、`MODEL_CAPABILITY_UNVERIFIED` |
-| `POST /system/composition-templates/{template_key}/versions/{version}/activate` | `rev`、`idem`；无 Body | `200 CompositionTemplateDto` | `COMPOSITION_TEMPLATE_INVALID`、`REVISION_CONFLICT` |
+| `POST /system/composition-templates/{template_key}/versions/{version}/activate` | `rev`、`idem`；无 Body | `200 CompositionTemplateDto` | `COMPOSITION_TEMPLATE_INVALID`、`AI_DEPENDENCY_INVALID`、`REVISION_CONFLICT` |
 
 模板定义是不可变版本对象，保存的是受控 `CompositionSpec` 模板，不引入多轨
 时间线。摘要同时返回 `activeVersion` 与 `activeVersionId`；Recipe 的
@@ -210,7 +210,9 @@ Prompt 版本输入：
 | `GET /accounts/{account_id}/ai-recipe/versions` | Query `cursor?`、`limit?` | `200 AIRecipeVersionPageDto` | `ACCOUNT_NOT_FOUND` |
 | `POST /accounts/{account_id}/ai-recipe/versions` | `rev`、`idem`；`AccountAIRecipeVersionInput` | `201 AIRecipeVersionDto` | `AI_RECIPE_INVALID`、`REVISION_CONFLICT` |
 | `POST /accounts/{account_id}/ai-recipe/versions/{version}/validate` | `idem`；无 Body | `200 AIRecipeValidationDto` | `AI_RECIPE_INVALID`、`MODEL_CAPABILITY_UNVERIFIED` |
-| `POST /accounts/{account_id}/ai-recipe/versions/{version}/activate` | `rev`、`idem`；无 Body | `200 AIRecipeDto` | `AI_RECIPE_INVALID`、`REVISION_CONFLICT` |
+| `POST /accounts/{account_id}/ai-recipe/versions/{version}/activate` | `rev`、`idem`；无 Body | `200 AIRecipeDto` | `AI_RECIPE_INVALID`、`AI_DEPENDENCY_INVALID`、`REVISION_CONFLICT` |
+
+模板、能力路由和账号 Recipe 的激活都要求先生成有效的不可变依赖快照；未校验、快照缺失或依赖修订漂移统一返回 `409 AI_DEPENDENCY_INVALID`，调用方必须创建新版本并重新校验，不能绕过该冲突继续激活。
 
 版本输入：
 
@@ -303,9 +305,19 @@ P0-E 支持显式适配器类型：
 
 ### GET `/api/v1/system/capability-routes`
 
+### GET `/api/v1/system/capability-routes/{capability_key}/revisions`
+
+### POST `/api/v1/system/capability-routes/{capability_key}/revisions`
+
+### POST `/api/v1/system/capability-routes/{capability_key}/revisions/{route_revision}/validate`
+
+### POST `/api/v1/system/capability-routes/{capability_key}/revisions/{route_revision}/activate`
+
 ### PUT `/api/v1/system/capability-routes/{capability_key}`
 
 ### POST `/api/v1/system/capability-routes/{capability_key}/validate`
+
+### GET `/api/v1/system/ai-dependencies`
 
 ### GET `/api/v1/system/prompt-profiles`
 
@@ -342,3 +354,10 @@ P0-E 支持显式适配器类型：
 ### POST `/api/v1/accounts/{account_id}/ai-recipe/versions/{version}/validate`
 
 ### POST `/api/v1/accounts/{account_id}/ai-recipe/versions/{version}/activate`
+
+## P0-H 真实验证与执行差异
+
+- Provider / Model 当前修订只有完成 `network`、`authentication`、`model_discovery` 与 `real_small_call` 的真实证据，才可进入账号 AIExecution 候选；静态 `contract_only` 不等于真实可用。
+- CapabilityRoute 已扩展为不可变 revision 的 create、list、validate、activate 链，并冻结 timeout、retry、fallback、并发、成本与 dependency snapshot。
+- `GET /api/v1/system/ai-dependencies/preview` 只返回安全依赖摘要与修复动作，不返回 Credential、Base URL、Prompt 或知识正文。
+- 账号执行的完整地址、DTO、错误、取消、同快照重试及 Desktop 调用映射见 [ai-executions.md](ai-executions.md)。本文件不重复定义执行契约。

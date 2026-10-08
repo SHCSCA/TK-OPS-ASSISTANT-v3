@@ -5,6 +5,10 @@ from datetime import UTC, datetime
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
+from domain.models.ai_configuration_v1 import (
+    ModelProfileRevision,
+    ProviderProfileRevision,
+)
 from domain.models.system_config import SystemConfig
 from repositories.ai_configuration_v1._support import log_repository_errors
 
@@ -51,6 +55,46 @@ class AIConfigRevisionRepository:
 
     def increment_ai_config_revision(self, session: Session) -> int:
         return self.increment(session)
+
+
+class ImmutableAIConfigurationRevisionRepository:
+    """读写 Provider 与 Model 的不可变执行修订。"""
+
+    @log_repository_errors("新增 Provider 不可变修订")
+    def add_provider(
+        self,
+        session: Session,
+        revision_row: ProviderProfileRevision,
+    ) -> ProviderProfileRevision:
+        session.add(revision_row)
+        session.flush([revision_row])
+        return revision_row
+
+    @log_repository_errors("读取 Provider 不可变修订")
+    def get_provider(
+        self,
+        session: Session,
+        revision_id: str,
+    ) -> ProviderProfileRevision | None:
+        return session.get(ProviderProfileRevision, revision_id)
+
+    @log_repository_errors("新增模型不可变修订")
+    def add_model(
+        self,
+        session: Session,
+        revision_row: ModelProfileRevision,
+    ) -> ModelProfileRevision:
+        session.add(revision_row)
+        session.flush([revision_row])
+        return revision_row
+
+    @log_repository_errors("读取模型不可变修订")
+    def get_model(
+        self,
+        session: Session,
+        revision_id: str,
+    ) -> ModelProfileRevision | None:
+        return session.get(ModelProfileRevision, revision_id)
 
 
 def _utc_now() -> str:

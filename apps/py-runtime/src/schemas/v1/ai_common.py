@@ -43,6 +43,7 @@ class ResponseMetaDto(AIConfigurationDto):
     revision: PositiveRevision | None = None
     invalidations: list[str] | None = None
     nextCursor: str | None = None
+    compatibilityAdapter: bool | None = None
 
 
 class AISuccessEnvelope(BaseModel, Generic[DataT]):

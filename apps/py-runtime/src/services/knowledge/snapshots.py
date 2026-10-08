@@ -16,6 +16,9 @@ from services.accounts.unit_of_work import (
     MutationWorkResult,
 )
 from services.knowledge.presentation import snapshot_to_dto
+from services.knowledge.snapshot_manifest import (
+    build_snapshot_manifest_v2,
+)
 from services.knowledge.support import (
     bump_account,
     knowledge_base_missing,
@@ -90,14 +93,11 @@ class KnowledgeSnapshotService:
             raise _snapshot_invalid(
                 "知识快照只能引用当前账号已索引成功的来源"
             )
-        manifest = [
-            {
-                "sourceId": source.id,
-                "contentHash": source.content_hash,
-                "indexedRevision": int(source.revision),
-            }
-            for source in sources
-        ]
+        manifest = build_snapshot_manifest_v2(
+            transaction,
+            account_id=account_id,
+            sources=tuple(sources),
+        )
         positioning = transaction.configuration.get_active_positioning(
             account_id,
             transaction.session,

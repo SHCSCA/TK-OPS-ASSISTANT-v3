@@ -35,6 +35,7 @@ from .query_helpers import (
     require_model as _require_model,
     require_provider as _require_provider,
 )
+from .revision_snapshots import create_model_revision
 from .replay_helpers import load_model_replay as _load_model_replay
 from .unit_of_work import (
     AIConfigurationTransaction,
@@ -162,6 +163,7 @@ class ModelProfileService:
             )
             if updated is None:
                 raise _revision_conflict(current.revision, ("models",))
+            create_model_revision(transaction, updated)
             ai_revision = transaction.ai.revisions.increment(
                 transaction.session
             )
@@ -281,6 +283,7 @@ class ModelProfileService:
                 "modelRevision": int(model.revision),
                 "providerRevision": int(provider.revision),
                 "capabilityKeys": list(keys),
+                "mode": str(payload.get("mode", "contract_only")),
                 "force": bool(payload.get("force", False)),
             },
             idempotency_key=idempotency_key,
@@ -319,11 +322,13 @@ class ModelProfileService:
                 discovery_source="manual",
                 context_window=None,
                 base_limits_json=dump_json(payload["baseLimits"]),
+                active_revision_id=None,
                 revision=1,
                 created_at=now,
                 updated_at=now,
             ),
         )
+        create_model_revision(transaction, row)
         ai_revision = transaction.ai.revisions.increment(
             transaction.session
         )

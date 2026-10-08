@@ -109,6 +109,16 @@ export type KnowledgeSourceDto = {
   errorCode: string | null;
   logId: string | null;
   revision: number;
+  asset?: {
+    id: string;
+    status: "pending" | "ready" | "metadata_only" | "failed" | "stale";
+    displayName: string;
+    kind: KnowledgeKind;
+    mediaType: string;
+    byteSize: number;
+    rootRef: string;
+    revision: number;
+  } | null;
 };
 
 export type KnowledgeSourcePageDto = {

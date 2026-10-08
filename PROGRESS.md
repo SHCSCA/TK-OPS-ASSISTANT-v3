@@ -255,3 +255,15 @@
 1. 用户于 2026-08-09 明确批准 P0-H 真实 AI 执行详细规格。
 2. 规格状态统一更新为“已批准，实施待开始”；P0-I 创作生产链仍不在本阶段范围内。
 3. 下一步严格按 H1 → H2 → H3 → H4 → H5 顺序实施，并在每个阶段完成后集中执行阶段测试与一条主链回归。
+
+## 0.5.0 P0-H H1-H4 实施与 H5 门禁工具
+
+1. H1 已完成：新增 `0023_p0h_real_ai_execution`、AIExecution / AIJob / Usage / Output / Snapshot / Dependency Snapshot 模型、仓储、目标 Schema 契约和加法迁移。
+2. H2 已完成：Provider 真实小调用验证、不可变依赖快照、Route / Template / Recipe draft→validate→activate 生命周期、修订漂移阻断和配置总线执行策略已接通。
+3. H3 已完成：Tauri `rootRef` 受控文件注册、Runtime 账号 Asset、知识 v2 文本块、索引与快照链落地；任意路径、越权账号、篡改哈希和超限文件均失败封闭。
+4. H4 已完成：统一 AI Execution Gateway 与 Desktop 账号级真实调用工作面覆盖预检、创建、查询、取消、same-snapshot retry、输出、用量、费用、超时、fallback、重启恢复、事件与脱敏日志。
+5. H5 工具已完成：最终 evidence 严格 allowlist、四制品 SHA-256 绑定、reported usage / 成本门禁、两阶段附加和 Production manifest 验证已通过；真实外部 Provider 证据仍待目标机器人工执行。
+6. 修复 Playwright WebServer 强制结束后可能残留 Runtime、Provider、Vite、状态文件与临时凭据目录的问题；新增 `globalTeardown → shutdown.request → 环境优雅回收` 握手，最终复验残留进程 0、状态文件和临时目录均清理。
+7. 最终自动化证据：Runtime `977 passed, 1 skipped`；Desktop 36 个文件、`162 passed`；Rust/Tauri `24 passed`；TypeScript typecheck 通过；P0-H Playwright `1 passed`；H5 发布证据 `10 passed`。
+8. `npm run version:check` 与 `git diff --check` 均退出 0；新增 H5 脚本和 E2E 支持文件均小于 500 行。
+9. 版本继续保持 `0.4.11`，H5 真实外部 Provider、真实 TikTok 目标机证据与干净 Production 构建完成前不宣称 `0.5.0`；P0-I 仍未开始，八个正式业务路由继续 pending。

@@ -14,7 +14,10 @@ from repositories.knowledge_v1_repository import KnowledgeV1Repository
 from schemas.v1.knowledge import KnowledgeIndexInput
 from services.knowledge.content_store import KnowledgeContentStore
 from services.knowledge.index_policy import KnowledgeIndexPolicy
-from services.knowledge.index_types import KnowledgeIndexPlan
+from services.knowledge.index_types import (
+    KnowledgeIndexPlan,
+    KnowledgeIndexSourceManifest,
+)
 from services.knowledge.reconciliation import KnowledgeIndexReconciler
 from services.knowledge.source_validation import normalize_public_https_url
 from services.knowledge.task_handlers import KNOWLEDGE_INDEX_TASK_TYPE
@@ -125,7 +128,12 @@ def test_knowledge_index_handler_is_resumable_and_account_singleton() -> None:
 
     definition = registry.require(KNOWLEDGE_INDEX_TASK_TYPE)
     assert definition.allowed_snapshot_fields == frozenset(
-        {"sourceIds", "policy"}
+        {
+            "sourceIds",
+            "sourceManifests",
+            "policy",
+            "extractorVersion",
+        }
     )
     assert definition.resume_policy is TaskResumePolicy.RESUME
     assert definition.cancellable is True
@@ -154,12 +162,25 @@ def test_submission_freezes_exact_sources_and_safe_policy() -> None:
     assert accepted.accountId == "acc_a"
     assert coordinator.payload == {
         "sourceIds": ["ksrc_1", "ksrc_2"],
+        "sourceManifests": [
+            {
+                "sourceId": "ksrc_1",
+                "sourceRevision": 1,
+                "sourceMode": "text",
+            },
+            {
+                "sourceId": "ksrc_2",
+                "sourceRevision": 1,
+                "sourceMode": "text",
+            },
+        ],
         "policy": {
             "maxSourceBytes": 1024 * 1024,
             "urlTimeoutSeconds": 5,
             "maxRedirects": 2,
             "configRevision": 7,
         },
+        "extractorVersion": 1,
     }
     serialized = repr(coordinator.payload)
     assert "正文" not in serialized
@@ -243,10 +264,13 @@ def test_source_commands_update_knowledge_base_in_same_module() -> None:
 
 def test_index_state_changes_synchronize_account_lifecycle() -> None:
     from services.knowledge.index_state import KnowledgeIndexStateStore
+    from services.knowledge.index_state_support import update_account
 
     source = inspect.getsource(KnowledgeIndexStateStore)
-    assert "self._lifecycle.update" in source
-    assert "知识索引生命周期同步器尚未装配" in source
+    support = inspect.getsource(update_account)
+    assert "_update_account" in source
+    assert "lifecycle.update" in support
+    assert "知识索引生命周期同步器尚未装配" in support
 
 
 def test_active_source_subset_does_not_hide_same_account_orphan() -> None:
@@ -299,6 +323,14 @@ class _PlanState:
         return KnowledgeIndexPlan(
             account_id=account_id,
             source_ids=source_ids,
+            source_manifests=tuple(
+                KnowledgeIndexSourceManifest(
+                    source_id=source_id,
+                    source_revision=1,
+                    source_mode="text",
+                )
+                for source_id in source_ids
+            ),
         )
 
 

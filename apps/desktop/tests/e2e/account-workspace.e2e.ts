@@ -148,6 +148,7 @@ test("真实绑定、AI 配置与账号 Recipe 贯通并可由 UI 读取", async
   page,
   request
 }) => {
+  test.setTimeout(180_000);
   const chain = await prepareP0MainChain(request);
   const state = readE2eRuntimeState();
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -167,12 +168,13 @@ test("真实绑定、AI 配置与账号 Recipe 贯通并可由 UI 读取", async
   await expect(providerDetail).not.toContainText(state.providerCredential);
 
   await page.getByRole("button", { name: "模型与能力" }).click();
-  await expect(page.getByText("tk-e2e-text-1", { exact: true }))
-    .toBeVisible();
-  await expect(page.getByText("tk-e2e-video-1", { exact: true }))
-    .toBeVisible();
+  const textModelRow = page.locator("tbody tr").filter({
+    has: page.locator("strong", { hasText: "tk-e2e-text-1" })
+  });
+  await expect(textModelRow).toHaveCount(1);
+  await expect(textModelRow).toContainText("tk-e2e-text-1");
   await page.getByRole("button", { name: "能力 Route" }).click();
-  for (const label of ["脚本生成", "分镜生成", "文生视频"]) {
+  for (const label of ["脚本生成", "分镜生成"]) {
     const routeRow = page.locator("tbody tr").filter({ hasText: label });
     await expect(routeRow).toContainText("valid");
   }

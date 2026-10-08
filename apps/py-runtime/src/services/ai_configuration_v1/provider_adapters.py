@@ -162,9 +162,7 @@ class OpenAICompatibleProviderAdapter(GenericHTTPProviderAdapter):
         return tuple(
             _generic_probe(
                 capability_key,
-                verified=(
-                    capability_key in self._SUPPORTED_CAPABILITIES
-                ),
+                verified=False,
                 adapter_supported=(
                     capability_key in self._SUPPORTED_CAPABILITIES
                 ),
@@ -204,9 +202,7 @@ class ComfyUIProviderAdapter(GenericHTTPProviderAdapter):
         return tuple(
             _generic_probe(
                 capability_key,
-                verified=(
-                    capability_key in self._SUPPORTED_CAPABILITIES
-                ),
+                verified=False,
                 adapter_supported=(
                     capability_key in self._SUPPORTED_CAPABILITIES
                 ),
@@ -334,4 +330,3 @@ def _generic_probe(
         parameter_schema={},
         known_limits={},
     )
-

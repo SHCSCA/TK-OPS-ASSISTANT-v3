@@ -27,11 +27,14 @@ from .mutation_helpers import (
     provider_revision_conflict as _revision_conflict,
     utc_now as _utc_now,
 )
+from .json_codec import dump_json
 from .pagination_helpers import provider_page as _provider_page
 from .profile_normalization import (
     normalize_provider_create as _normalize_create_payload,
     normalize_provider_patch as _normalize_patch_payload,
+    require_openai_protocol_params,
 )
+from .revision_snapshots import create_provider_revision
 from .query_helpers import (
     provider_dto as _provider_dto,
     require_provider as _require_provider,
@@ -134,6 +137,13 @@ class ProviderProfileService:
         now = _utc_now()
         with self._unit_of_work.write() as transaction:
             current = _require_provider(transaction, provider_id)
+            if (
+                current.adapter_type == "openai_compatible"
+                and "extra_params_json" in changes
+            ):
+                changes["extra_params_json"] = require_openai_protocol_params(
+                    str(changes["extra_params_json"])
+                )
             updated = transaction.ai.providers.update(
                 transaction.session,
                 provider_id,
@@ -146,6 +156,7 @@ class ProviderProfileService:
                     current.revision,
                     invalidations=("providers",),
                 )
+            create_provider_revision(transaction, updated)
             ai_revision = _increment_ai_revision(transaction)
             invalidations = ("providers", "models", "routes", "recipes")
             append_system_ai_event(
@@ -201,11 +212,9 @@ class ProviderProfileService:
                 loggable=True,
             ) from exc
 
-        old_reference: str | None = None
         try:
             with self._unit_of_work.write() as transaction:
                 current = _require_provider(transaction, provider_id)
-                old_reference = current.credential_ref
                 now = _utc_now()
                 updated = transaction.ai.providers.update(
                     transaction.session,
@@ -224,6 +233,7 @@ class ProviderProfileService:
                         current.revision,
                         invalidations=("providers",),
                     )
+                create_provider_revision(transaction, updated)
                 ai_revision = _increment_ai_revision(transaction)
                 append_system_ai_event(
                     transaction,
@@ -238,14 +248,13 @@ class ProviderProfileService:
             _delete_secret_safely(self._secret_store, new_reference)
             raise
 
-        if old_reference and old_reference != new_reference:
-            _delete_secret_safely(self._secret_store, old_reference)
+        # 旧引用可能仍被非终态执行快照引用，按配置总线保留期清理。
         return {
-            "credentialRef": new_reference,
             "configured": True,
             "maskedValue": f"••••{credential[-4:]}",
             "updatedAt": _utc_now(),
             "providerRevision": provider_revision,
+            "credentialReferenceChanged": True,
         }
 
     async def submit_provider_check(
@@ -263,6 +272,12 @@ class ProviderProfileService:
             payload={
                 "providerId": provider.id,
                 "providerRevision": int(provider.revision),
+                "stages": list(
+                    payload.get(
+                        "stages",
+                        ("network", "authentication"),
+                    )
+                ),
                 "force": bool(payload.get("force", False)),
             },
             idempotency_key=idempotency_key,
@@ -342,7 +357,14 @@ class ProviderProfileService:
                     if payload.get("region") is not None
                     else None
                 ),
-                proxy_ref=None,
+                proxy_ref=(
+                    str(payload["proxyRef"])
+                    if payload.get("proxyRef") is not None
+                    else None
+                ),
+                extra_params_json=dump_json(payload["extraParams"]),
+                cost_policy_json=dump_json(payload["costPolicy"]),
+                active_revision_id=None,
                 timeout_ms=int(payload["timeoutMs"]),
                 max_concurrency=int(payload["maxConcurrency"]),
                 enabled=bool(payload["enabled"]),
@@ -355,6 +377,7 @@ class ProviderProfileService:
                 updated_at=now,
             ),
         )
+        create_provider_revision(transaction, row)
         ai_revision = _increment_ai_revision(transaction)
         invalidations = ("providers", "ai-summary")
         append_system_ai_event(

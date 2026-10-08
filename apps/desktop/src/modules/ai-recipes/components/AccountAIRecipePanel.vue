@@ -168,6 +168,15 @@
           创建新版本
         </button>
       </template>
+
+      <AIExecutionLauncher
+        v-if="mode !== 'wizard' && activeRecipeVersion && !cache.editorOpen"
+        :account-id="accountId"
+        :account-revision="cache.recipe?.revision ?? 0"
+        :recipe-version-id="activeRecipeVersion.id"
+        :restricted="restricted"
+        @open-log="$emit('openLog', $event)"
+      />
     </template>
 
     <AIUnsavedDialog
@@ -186,6 +195,7 @@ import { computed, onMounted, ref, watch } from "vue";
 
 import AIConfigStatePanel from "@/modules/system/ai-config/components/AIConfigStatePanel.vue";
 import AIUnsavedDialog from "@/modules/system/ai-config/components/AIUnsavedDialog.vue";
+import AIExecutionLauncher from "@/modules/ai-executions/components/AIExecutionLauncher.vue";
 
 import { useAccountAIRecipeStore } from "../account-ai-recipe-store";
 import type {
@@ -221,6 +231,11 @@ const selectedVersion = computed(
     )
     ?? cache.value.versions.at(-1)
     ?? null
+);
+const activeRecipeVersion = computed(
+  () => cache.value.versions.find(
+    (version) => version.version === cache.value.recipe?.activeVersion
+  ) ?? null
 );
 const effectiveState = computed(
   () => props.restricted ? "restricted" : cache.value.state

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 from uuid import uuid4
 
 from domain.models.knowledge import KnowledgeSource
@@ -17,11 +16,9 @@ from services.accounts.unit_of_work import (
     MutationExecution,
     MutationWorkResult,
 )
-from services.knowledge.content_store import KnowledgeContentStore
 from services.knowledge.presentation import source_to_dto
-from services.knowledge.source_validation import (
-    normalize_public_https_url,
-    require_controlled_file_ref,
+from services.knowledge.source_material import (
+    KnowledgeSourceMaterialPreparer,
 )
 from services.knowledge.support import (
     knowledge_base_missing,
@@ -36,11 +33,11 @@ class KnowledgeSourceService:
         self,
         mutation_executor: AccountMutationExecutor,
         *,
-        content_store: KnowledgeContentStore,
+        material_preparer: KnowledgeSourceMaterialPreparer,
         lifecycle_synchronizer: AccountLifecycleSynchronizer,
     ) -> None:
         self._mutations = mutation_executor
-        self._content_store = content_store
+        self._materials = material_preparer
         self._lifecycle = lifecycle_synchronizer
 
     def create(
@@ -124,7 +121,7 @@ class KnowledgeSourceService:
         if knowledge_base is None:
             raise knowledge_base_missing()
         source_id = f"ksrc_{uuid4().hex}"
-        source_ref, source_url, metadata = self._prepare_source(
+        prepared = self._materials.prepare(
             account_id,
             source_id,
             payload,
@@ -140,10 +137,10 @@ class KnowledgeSourceService:
                 knowledge_base_id=knowledge_base.id,
                 kind=payload.kind,
                 name=payload.title.strip(),
-                source_ref=source_ref,
+                source_ref=prepared.source_ref,
                 status="pending",
                 content_hash=None,
-                metadata_json=dump_json(metadata),
+                metadata_json=dump_json(prepared.metadata),
                 error_code=None,
                 error_log_id=None,
                 revision=1,
@@ -151,8 +148,15 @@ class KnowledgeSourceService:
                 updated_at=now,
                 deleted_at=None,
                 source_mode=payload.sourceMode,
-                source_url=source_url,
+                source_url=prepared.source_url,
             ),
+        )
+        asset = self._materials.persist_controlled_asset(
+            transaction,
+            account_id=account_id,
+            source_id=source.id,
+            prepared=prepared,
+            now=now,
         )
         updated_base = transaction.knowledge.set_base_index_state(
             account_id,
@@ -171,7 +175,7 @@ class KnowledgeSourceService:
             account,
             updated_at=now,
         )
-        dto = source_to_dto(source)
+        dto = source_to_dto(source, asset=asset)
         invalidations = knowledge_invalidations(account_id)
         append_account_event(
             transaction,
@@ -187,6 +191,7 @@ class KnowledgeSourceService:
                 "sourceMode": source.source_mode,
                 "status": source.status,
                 "knowledgeStatus": updated_base.status,
+                "assetId": None if asset is None else asset.id,
             },
             topic_resource="knowledge",
         )
@@ -231,10 +236,18 @@ class KnowledgeSourceService:
                 "知识来源不存在",
                 status_code=404,
             )
+        asset = transaction.knowledge_assets.get_asset_for_source(
+            account_id,
+            transaction.session,
+            source_id=source_id,
+        )
         if source.deleted_at is not None:
             return MutationWorkResult(
                 response={
-                    "data": source_to_dto(source).model_dump(mode="json"),
+                    "data": source_to_dto(
+                        source,
+                        asset=asset,
+                    ).model_dump(mode="json"),
                     "meta": {
                         "revision": int(account.revision),
                         "invalidations": [],
@@ -320,7 +333,10 @@ class KnowledgeSourceService:
         )
         return MutationWorkResult(
             response={
-                "data": source_to_dto(source).model_dump(mode="json"),
+                "data": source_to_dto(
+                    source,
+                    asset=asset,
+                ).model_dump(mode="json"),
                 "meta": {
                     "revision": int(updated.revision),
                     "invalidations": invalidations,
@@ -330,43 +346,9 @@ class KnowledgeSourceService:
             resource_id=source.id,
         )
 
-    def _prepare_source(
-        self,
-        account_id: str,
-        source_id: str,
-        payload: KnowledgeSourceInput,
-        *,
-        stored_refs: list[str],
-    ) -> tuple[str, str | None, dict[str, object]]:
-        if payload.sourceMode == "file":
-            reference = require_controlled_file_ref(
-                payload.controlledFileRef or ""
-            )
-            return reference, None, {"sourceMode": "file"}
-        if payload.sourceMode == "url":
-            url = normalize_public_https_url(payload.url or "")
-            digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
-            return f"url-ref:{digest}", url, {"sourceMode": "url"}
-        stored = self._content_store.store_text(
-            account_id,
-            source_id,
-            payload.text or "",
-        )
-        stored_refs.append(stored.reference)
-        return (
-            stored.reference,
-            None,
-            {
-                "sourceMode": "text",
-                "byteSize": stored.byte_size,
-                "expectedContentHash": stored.content_hash,
-            },
-        )
-
     def _cleanup_stored_refs(
         self,
         account_id: str,
         references: list[str],
     ) -> None:
-        for reference in references:
-            self._content_store.remove(account_id, reference)
+        self._materials.cleanup(account_id, references)

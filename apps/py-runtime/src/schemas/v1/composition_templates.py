@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
+from schemas.v1.ai_dependencies import DependencySnapshotDto
 from schemas.v1.ai_common import (
     AIConfigurationDto,
     AIConfigurationInput,
@@ -94,6 +95,7 @@ class CompositionTemplateValidationDto(AIConfigurationDto):
     validationIssues: list[ValidationIssueDto]
     verifiedCapabilities: list[BoundedKey]
     checkedAt: str
+    dependencySnapshot: DependencySnapshotDto
 
 
 __all__ = [

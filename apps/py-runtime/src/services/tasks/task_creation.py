@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import timedelta
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from domain.models.runtime_task import RuntimeTask
 from repositories.runtime_task_repository import RuntimeTaskRepository
@@ -24,6 +26,13 @@ from services.tasks.types import (
 )
 
 
+@dataclass(frozen=True, slots=True)
+class _PreparedTask:
+    definition: TaskHandlerDefinition
+    snapshot: FrozenTaskSnapshot
+    task: RuntimeTask
+
+
 class TaskCreationOperations:
     """封装任务创建、活动态约束和持久幂等判断。"""
 
@@ -43,6 +52,39 @@ class TaskCreationOperations:
         self._support = support
 
     def create(self, command: CreateTaskCommand) -> RuntimeTaskRecord:
+        prepared = self._prepare(command)
+        task_id = prepared.task.id
+        try:
+            with self._repository.transaction() as session:
+                return self._create_prepared_in_session(
+                    session,
+                    command=command,
+                    prepared=prepared,
+                )
+        except IntegrityError as exc:
+            return self._resolve_create_race(
+                task_id,
+                command=command,
+                snapshot=prepared.snapshot,
+                active_conflict_error_code=(
+                    prepared.definition.active_conflict_error_code
+                ),
+                integrity_error=exc,
+            )
+
+    def create_in_session(
+        self,
+        session: Session,
+        command: CreateTaskCommand,
+    ) -> RuntimeTaskRecord:
+        """在调用方事务中创建任务，供业务聚合执行原子提交。"""
+        return self._create_prepared_in_session(
+            session,
+            command=command,
+            prepared=self._prepare(command),
+        )
+
+    def _prepare(self, command: CreateTaskCommand) -> _PreparedTask:
         definition = self._handler_registry.require(command.task_type)
         task_type = definition.task_type.strip()
         self._support.validate_scope(command.scope, command.account_id)
@@ -76,72 +118,73 @@ class TaskCreationOperations:
         timeout_at = to_utc_text(
             now + timedelta(seconds=timeout_seconds)
         )
-        task = RuntimeTask(
-            id=task_id,
-            scope=command.scope.value,
-            account_id=command.account_id,
-            task_type=task_type,
-            status=TaskStatus.QUEUED.value,
-            completion_kind=None,
-            failure_kind=None,
-            progress=0.0,
-            cancellable=definition.cancellable,
-            timeout_at=timeout_at,
-            attempt=command.attempt,
-            retry_of_task_id=command.retry_of_task_id,
-            config_snapshot_json=snapshot.serialized,
-            result_ref=None,
-            error_code=None,
-            error_log_id=None,
-            revision=1,
-            created_at=now_text,
-            started_at=None,
-            completed_at=None,
-            updated_at=now_text,
-            idempotency_key_hash=snapshot.key_hash,
-            request_hash=snapshot.request_hash,
-            handler_version=snapshot.handler_version,
+        return _PreparedTask(
+            definition=definition,
+            snapshot=snapshot,
+            task=RuntimeTask(
+                id=task_id,
+                scope=command.scope.value,
+                account_id=command.account_id,
+                task_type=task_type,
+                status=TaskStatus.QUEUED.value,
+                completion_kind=None,
+                failure_kind=None,
+                progress=0.0,
+                cancellable=definition.cancellable,
+                timeout_at=timeout_at,
+                attempt=command.attempt,
+                retry_of_task_id=command.retry_of_task_id,
+                config_snapshot_json=snapshot.serialized,
+                result_ref=None,
+                error_code=None,
+                error_log_id=None,
+                revision=1,
+                created_at=now_text,
+                started_at=None,
+                completed_at=None,
+                updated_at=now_text,
+                idempotency_key_hash=snapshot.key_hash,
+                request_hash=snapshot.request_hash,
+                handler_version=snapshot.handler_version,
+            ),
         )
 
-        try:
-            with self._repository.transaction() as session:
-                if definition.single_active_per_scope:
-                    self._repository.acquire_write_lock(session)
-                existing = self._repository.get_any(session, task_id)
-                if existing is not None:
-                    return self._resolve_idempotent_replay(
-                        self._repository.to_record(existing),
-                        command=command,
-                        snapshot=snapshot,
-                        active_conflict_error_code=(
-                            definition.active_conflict_error_code
-                        ),
-                    )
-                if definition.single_active_per_scope:
-                    active = self._repository.find_active(
-                        session,
-                        scope=command.scope,
-                        account_id=command.account_id,
-                        task_type=task_type,
-                    )
-                    if active is not None:
-                        raise task_already_running(
-                            active.id,
-                            error_code=definition.active_conflict_error_code,
-                        )
-                record = self._repository.add(session, task)
-                self._support.append_event(session, record, "task.queued")
-                return record
-        except IntegrityError as exc:
-            return self._resolve_create_race(
-                task_id,
+    def _create_prepared_in_session(
+        self,
+        session: Session,
+        *,
+        command: CreateTaskCommand,
+        prepared: _PreparedTask,
+    ) -> RuntimeTaskRecord:
+        definition = prepared.definition
+        task = prepared.task
+        if definition.single_active_per_scope:
+            self._repository.acquire_write_lock(session)
+        existing = self._repository.get_any(session, task.id)
+        if existing is not None:
+            return self._resolve_idempotent_replay(
+                self._repository.to_record(existing),
                 command=command,
-                snapshot=snapshot,
+                snapshot=prepared.snapshot,
                 active_conflict_error_code=(
                     definition.active_conflict_error_code
                 ),
-                integrity_error=exc,
             )
+        if definition.single_active_per_scope:
+            active = self._repository.find_active(
+                session,
+                scope=command.scope,
+                account_id=command.account_id,
+                task_type=definition.task_type,
+            )
+            if active is not None:
+                raise task_already_running(
+                    active.id,
+                    error_code=definition.active_conflict_error_code,
+                )
+        record = self._repository.add(session, task)
+        self._support.append_event(session, record, "task.queued")
+        return record
 
     def _resolve_create_race(
         self,

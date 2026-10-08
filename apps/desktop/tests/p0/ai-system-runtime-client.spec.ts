@@ -5,6 +5,7 @@ import {
   listCompositionTemplates,
   listPromptProfiles,
   listProviderProfiles,
+  updateProviderCredential,
   updateCapabilityRoute
 } from "@/app/runtime-client/ai-system";
 import {
@@ -92,6 +93,31 @@ describe("P0-E AI Runtime 客户端", () => {
       modelId: "qwen-plus",
       displayName: "Qwen Plus",
       enabled: true
+    });
+  });
+
+  it("凭据轮换只接受安全摘要，不要求 Runtime 回传 secret reference", async () => {
+    configureConnection();
+    const fetchMock = vi.fn().mockResolvedValue(response({
+      configured: true,
+      credentialReferenceChanged: true,
+      maskedValue: "sk-***-safe",
+      providerRevision: 2,
+      updatedAt: "2026-08-11T10:00:00Z"
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await updateProviderCredential(
+      "provider-1",
+      { credential: "temporary-secret" },
+      { expectedRevision: 1 }
+    );
+
+    expect(result.data).not.toHaveProperty("credentialRef");
+    expect(result.data.credentialReferenceChanged).toBe(true);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      credential: "temporary-secret"
     });
   });
 

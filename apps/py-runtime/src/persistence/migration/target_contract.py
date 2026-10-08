@@ -153,6 +153,47 @@ _P0_REQUIRED_NAMED_CONSTRAINTS = {
     },
 }
 
+_P0_REQUIRED_NAMED_CONSTRAINTS.update(
+    {
+        "ai_dependency_snapshots": {
+            "ck_ai_dependency_snapshots_owner",
+            "ck_ai_dependency_snapshots_status",
+        },
+        "provider_profile_revisions": {"ck_provider_revisions_revision"},
+        "model_profile_revisions": {"ck_model_revisions_revision"},
+        "capability_route_revisions": {
+            "ck_route_revisions_status",
+            "ck_route_revisions_limits",
+        },
+        "ai_provider_validation_runs": {
+            "ck_ai_provider_validation_stage",
+            "ck_ai_provider_validation_status",
+        },
+        "account_assets": {
+            "ck_account_assets_source_kind",
+            "ck_account_assets_status",
+            "ck_account_assets_limits",
+        },
+        "knowledge_index_chunks": {"ck_knowledge_index_chunks_limits"},
+        "ai_execution_candidates": {"ck_ai_execution_candidates_ordinal"},
+        "ai_executions": {
+            "ck_ai_executions_status",
+            "ck_ai_executions_completion",
+            "ck_ai_executions_failure",
+            "ck_ai_executions_cost_status",
+            "ck_ai_executions_limits",
+        },
+        "ai_execution_jobs": {
+            "ck_ai_execution_jobs_status",
+            "ck_ai_execution_jobs_completion",
+            "ck_ai_execution_jobs_failure",
+            "ck_ai_execution_jobs_attempt",
+        },
+        "ai_usage_records": {"ck_ai_usage_cost_source"},
+        "ai_execution_outputs": {"ck_ai_outputs_byte_size"},
+    }
+)
+
 
 class TargetSchemaContractError(RuntimeError):
     """数据库没有满足当前 Alembic head 的运行契约。"""

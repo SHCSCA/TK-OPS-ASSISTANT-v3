@@ -253,3 +253,10 @@
 - 取消中的来源转为 `stale`；Runtime 启动先完成持久任务恢复决策，再读取恢复决策后的非终态 `knowledge.index` 任务快照并只保护其中冻结的 `sourceIds`。同一账号内未被这些活动任务承接的孤立 `indexing` 来源仍会调和为可恢复的 `stale` 并写受控事件。该对账完成前 Runtime 不进入就绪态。
 - 响应、任务快照和事件不包含正文、文件路径、任意 Header、Provider 凭据或 traceback。URL 响应正文也不会写入事件。
 - 本文件所有 legacy 对应项均为“无映射”。开发/测试模式中的旧资产、脚本、项目和设置接口不构成账号知识契约，生产模式不会据此开放能力。
+
+## P0-H 受控文件与 AI 执行引用
+
+- `sourceMode=file` 只接收 Tauri 文件桥产生的 `fileRef`；Runtime 通过私有注册表解析 `rootRef`、身份和 fingerprint，不接收 Desktop 传入的绝对路径。
+- 文本、Markdown 与 JSON 文件索引生成账号隔离的派生 chunk；原文件不复制进账号目录。文件变化、授权撤销、逃逸、缺失和格式超限均失败封闭并提供重新授权恢复动作。
+- KnowledgeSnapshot v2 冻结 source revision 与 chunk hash。AIExecution 只引用 snapshot / manifest hash，正文读取和再次校验由 Runtime 完成。
+- AIExecution 如何冻结、校验并使用知识快照见 [ai-executions.md](ai-executions.md)。

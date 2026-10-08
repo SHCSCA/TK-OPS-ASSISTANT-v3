@@ -30,9 +30,9 @@
       </div>
     </header>
 
-    <div class="sk-blocked-note" data-state="dependency_blocked">
-      <span class="material-symbols-outlined" aria-hidden="true">folder_off</span>
-      <p>本地文件将在 P0-F 通过受控文件桥接入；当前仅接受文本与公共 HTTPS 网址，不接收本地路径。</p>
+    <div class="sk-blocked-note" data-state="controlled_file_ready">
+      <span class="material-symbols-outlined" aria-hidden="true">folder_managed</span>
+      <p>本地文件通过当前账号工作目录授权；页面和 Runtime 只接收 fileRef，不接收或回显绝对路径。</p>
     </div>
 
     <form
@@ -50,9 +50,6 @@
           @click="$emit('update-draft', 'mode', mode.value)"
         >
           {{ mode.label }}
-        </button>
-        <button type="button" disabled title="等待 P0-F 受控文件桥">
-          本地文件
         </button>
       </div>
       <div class="sk-field-grid">
@@ -84,6 +81,26 @@
           @input="updateText('text', $event)"
         />
       </label>
+      <div v-if="cache.sourceDraft.mode === 'file'" class="sk-controlled-file">
+        <div>
+          <span class="material-symbols-outlined" aria-hidden="true">description</span>
+          <span>
+            <strong>{{ cache.sourceDraft.controlledFileName || "尚未选择文件" }}</strong>
+            <small v-if="cache.sourceDraft.controlledFileSize !== null">
+              {{ formatFileSize(cache.sourceDraft.controlledFileSize) }} · 受控引用已就绪
+            </small>
+            <small v-else>只能选择当前账号工作目录内的受支持文件。</small>
+          </span>
+        </div>
+        <button
+          class="sk-button sk-button--secondary"
+          type="button"
+          :disabled="selectingFile || Boolean(cache.busyKey)"
+          @click="$emit('select-file')"
+        >
+          {{ selectingFile ? "选择中…" : "选择文件" }}
+        </button>
+      </div>
       <div class="sk-actions">
         <button
           class="sk-button sk-button--ghost"
@@ -95,7 +112,7 @@
         <button
           class="sk-button sk-button--primary"
           type="submit"
-          :disabled="Boolean(cache.busyKey)"
+          :disabled="Boolean(cache.busyKey) || selectingFile"
         >
           {{ cache.busyKey === "source-add" ? "添加中…" : "添加来源" }}
         </button>
@@ -156,7 +173,7 @@
       class="sk-list-state"
       data-state="empty"
     >
-      暂无来源。添加文本或网址后再提交索引。
+      暂无来源。添加文本、网址或受控文件后再提交索引。
     </div>
     <div v-else class="sk-source-table-wrap">
       <table class="sk-source-table">
@@ -174,6 +191,9 @@
             <td>
               <strong>{{ source.title }}</strong>
               <small v-if="source.sourceUrl">{{ source.sourceUrl }}</small>
+              <small v-if="source.asset">
+                {{ source.asset.displayName }} · {{ formatFileSize(source.asset.byteSize) }}
+              </small>
               <small v-if="source.errorCode" class="sk-error-code">
                 {{ source.errorCode }}
                 <template v-if="source.logId"> · 日志 {{ source.logId }}</template>
@@ -188,6 +208,15 @@
             <td>{{ formatKnowledgeDate(source.indexedAt) }}</td>
             <td>
               <div class="sk-row-actions">
+                <button
+                  v-if="source.sourceMode === 'file' && ['failed', 'stale'].includes(source.status)"
+                  class="sk-button sk-button--text"
+                  type="button"
+                  :disabled="Boolean(cache.busyKey) || selectingFile"
+                  @click="$emit('recover-file', source)"
+                >
+                  重新选择
+                </button>
                 <button
                   v-if="!['removed', 'indexing'].includes(source.status)"
                   class="sk-button sk-button--text"
@@ -234,6 +263,7 @@
 import { computed } from "vue";
 import type {
   KnowledgeKind,
+  KnowledgeSourceDto,
   KnowledgeSourceStatus
 } from "@/types/runtime/account-knowledge";
 import type {
@@ -247,7 +277,12 @@ import {
   sourceStatusLabels
 } from "./knowledge-view-helpers";
 
-const props = defineProps<{ cache: AccountKnowledgeCache }>();
+const props = withDefaults(defineProps<{
+  cache: AccountKnowledgeCache;
+  selectingFile?: boolean;
+}>(), {
+  selectingFile: false
+});
 const emit = defineEmits<{
   "open-editor": [];
   "cancel-editor": [];
@@ -255,17 +290,20 @@ const emit = defineEmits<{
   "start-index": [];
   "index-source": [sourceId: string];
   "remove-source": [sourceId: string];
+  "recover-file": [source: KnowledgeSourceDto];
+  "select-file": [];
   refresh: [];
   filter: [filters: KnowledgeSourceFilters];
   "update-draft": [
-    field: keyof KnowledgeSourceDraft,
-    value: KnowledgeSourceDraft[keyof KnowledgeSourceDraft]
+    field: "mode" | "title" | "url" | "text",
+    value: KnowledgeSourceDraft["mode"] | string
   ];
 }>();
 
 const availableModes = [
   { value: "text" as const, label: "文本" },
-  { value: "url" as const, label: "网址" }
+  { value: "url" as const, label: "网址" },
+  { value: "file" as const, label: "本地文件" }
 ];
 const hasIndexableSources = computed(() => {
   const counts = props.cache.knowledge?.sourceCounts ?? {};
@@ -294,5 +332,11 @@ function changeFilter(field: "kind" | "status", event: Event): void {
     ...props.cache.sourceFilters,
     status: value as KnowledgeSourceStatus | ""
   });
+}
+
+function formatFileSize(size: number): string {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 </script>

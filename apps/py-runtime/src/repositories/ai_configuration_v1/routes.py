@@ -20,6 +20,7 @@ _ROUTE_UPDATE_FIELDS = frozenset(
         "enabled",
         "validation_status",
         "validation_issues_json",
+        "active_revision_id",
     }
 )
 
@@ -94,6 +95,33 @@ class CapabilityRouteRepository:
             )
             .values(
                 **values,
+                updated_at=updated_at,
+                revision=CapabilityRoute.revision + 1,
+            )
+            .returning(CapabilityRoute)
+            .execution_options(
+                synchronize_session=False,
+                populate_existing=True,
+            )
+        )
+        return session.scalars(statement).one_or_none()
+
+    @log_repository_errors("递增能力路由聚合修订")
+    def bump_revision(
+        self,
+        session: Session,
+        capability_key: str,
+        *,
+        expected_revision: int,
+        updated_at: str,
+    ) -> CapabilityRoute | None:
+        statement = (
+            update(CapabilityRoute)
+            .where(
+                CapabilityRoute.capability_key == capability_key,
+                CapabilityRoute.revision == expected_revision,
+            )
+            .values(
                 updated_at=updated_at,
                 revision=CapabilityRoute.revision + 1,
             )

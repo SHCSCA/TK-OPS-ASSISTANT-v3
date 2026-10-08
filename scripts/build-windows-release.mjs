@@ -13,6 +13,7 @@ import {
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { attachP0HReleaseEvidence } from "./attach-p0-h-release-evidence.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const rootPackage = JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8"));
@@ -32,6 +33,12 @@ try {
   assertReleaseRoot(releaseRoot);
   mkdirSync(evidenceRoot, { recursive: true });
   mkdirSync(artifactRoot, { recursive: true });
+  if (options.targetAiEvidence) {
+    attachP0HReleaseEvidence({ channel: options.channel, evidencePath: options.targetAiEvidence, evidenceRoot, manifestPath, repoRoot, version: rootPackage.version });
+    runNode("verify-manifest", ["scripts/verify-release-manifest.mjs", "--manifest", normalize(path.relative(repoRoot, manifestPath)), ...(options.promote ? ["--promote"] : [])]);
+    console.log(`[windows-release] H5 证据已附加：manifest=${normalize(path.relative(repoRoot, manifestPath))}`);
+    process.exit(0);
+  }
 
   runCommand("version-check", "npm", ["run", "version:check"]);
   const evidence = [
@@ -174,11 +181,14 @@ function parseArgs(args) {
   const guiSmokeEvidence = evidenceIndex >= 0 ? args[evidenceIndex + 1] : "";
   const targetIndex = args.indexOf("--target-tiktok-evidence");
   const targetTikTokEvidence = targetIndex >= 0 ? args[targetIndex + 1] : "";
+  const aiIndex = args.indexOf("--target-ai-evidence");
+  const targetAiEvidence = aiIndex >= 0 ? args[aiIndex + 1] : "";
+  if (aiIndex >= 0 && (!targetAiEvidence || targetAiEvidence.startsWith("--"))) throw new Error("--target-ai-evidence 缺少值。");
   const promote = args.includes("--promote");
-  if (promote && (channel !== "production" || !targetTikTokEvidence)) {
-    throw new Error("提升 current 必须使用 production 和目标机器 TikTok 登录证据。" );
+  if (promote && (channel !== "production" || !targetAiEvidence)) {
+    throw new Error("提升 current 必须使用 production、TikTok 登录与 P0-H 真实 Provider 证据。" );
   }
-  return { channel, guiSmokeEvidence, targetTikTokEvidence, promote };
+  return { channel, guiSmokeEvidence, targetTikTokEvidence, targetAiEvidence, promote };
 }
 
 function runCommand(

@@ -28,6 +28,7 @@ class ModelCreateInput(AIConfigurationInput):
 class ModelPatchInput(AIConfigurationInput):
     displayName: BoundedName | None = None
     enabled: bool | None = None
+    contextWindow: Annotated[int, Field(ge=1)] | None = None
     baseLimits: JsonObject | None = None
 
     @model_validator(mode="after")
@@ -48,6 +49,7 @@ class CapabilityCheckInput(AIConfigurationInput):
         Field(max_length=100),
     ] | None = None
     force: bool = False
+    mode: Literal["contract_only", "real_small_call"] = "contract_only"
 
     @model_validator(mode="after")
     def reject_duplicate_capabilities(self) -> CapabilityCheckInput:
@@ -87,6 +89,7 @@ class ModelProfileDto(AIConfigurationDto):
     contextWindow: Annotated[int, Field(ge=1)] | None = None
     baseLimits: JsonObject = Field(default_factory=dict)
     capabilities: list[ModelCapabilityDto]
+    activeRevisionId: StableId | None = None
     revision: PositiveRevision
 
 

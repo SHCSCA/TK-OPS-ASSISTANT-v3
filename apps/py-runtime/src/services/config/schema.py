@@ -8,6 +8,12 @@ from config.migration import (
     is_valid_migration_backup_retention,
 )
 from errors import FieldError
+from services.config.schema_ai_execution import (
+    AI_EXECUTION_DEFAULTS,
+    AI_EXECUTION_RESTART_KEYS,
+    AI_EXECUTION_RULE_SPECS,
+    validate_ai_execution_relationships,
+)
 
 
 API_PAGINATION_LIMIT_MINIMUM = 1
@@ -304,6 +310,12 @@ WRITABLE_RULES: dict[str, ConfigRule] = {
         "紧凑窗口配置必须为布尔值",
     ),
 }
+WRITABLE_RULES.update(
+    {
+        key: ConfigRule(validator, message)
+        for key, (validator, message) in AI_EXECUTION_RULE_SPECS.items()
+    }
+)
 
 DEFAULT_VALUES: dict[str, object] = {
     "logging.level": "INFO",
@@ -356,6 +368,7 @@ DEFAULT_VALUES: dict[str, object] = {
     "ui.recentPages": {},
     "ui.compactWindow": False,
 }
+DEFAULT_VALUES.update(AI_EXECUTION_DEFAULTS)
 
 RESTART_REQUIRED_KEYS: tuple[str, ...] = (
     "browser.executablePath",
@@ -378,6 +391,7 @@ RESTART_REQUIRED_KEYS: tuple[str, ...] = (
     "websocket.sendTimeoutSeconds",
     "websocket.subscribeTimeoutSeconds",
 )
+RESTART_REQUIRED_KEYS += AI_EXECUTION_RESTART_KEYS
 
 LEGACY_READ_PATHS: tuple[str, ...] = (
     "runtime.mode",
@@ -425,6 +439,13 @@ def validate_config_relationships(
                 message="API 最大分页条数不得小于默认分页条数",
             )
         )
+
+    errors.extend(
+        validate_ai_execution_relationships(
+            values,
+            task_maximum_timeout=maximum_timeout,
+        )
+    )
     return errors
 
 

@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from typing import TypeVar
 
 from errors import DomainError, ErrorCode
+from services.ai_execution_v1.types import CancellationToken
 from services.tasks.errors import (
     TaskCancellationRequested,
     task_snapshot_invalid,
@@ -40,13 +41,16 @@ def build_provider_health_handler(
             "providerRevision",
         )
         force = _require_bool(payload, "force")
+        stages = _require_stages(payload)
         return await _run_coordinated(
             context,
             resource_id=provider_id,
-            operation=lambda coordinator: executor.check_provider_health(
+            operation=lambda coordinator, token: executor.check_provider_health(
                 provider_id,
                 expected_revision=provider_revision,
                 force=force,
+                stages=stages,
+                cancel_token=token,
                 task_id=context.task_id,
                 commit_coordinator=coordinator,
             ),
@@ -77,11 +81,12 @@ def build_provider_model_discovery_handler(
         return await _run_coordinated(
             context,
             resource_id=provider_id,
-            operation=lambda coordinator: (
+            operation=lambda coordinator, token: (
                 executor.discover_provider_models(
                     provider_id,
                     expected_revision=provider_revision,
                     replace_missing=replace_missing,
+                    cancel_token=token,
                     task_id=context.task_id,
                     commit_coordinator=coordinator,
                 )
@@ -107,16 +112,19 @@ def build_model_capability_handler(
         )
         capability_keys = _require_capability_keys(payload)
         force = _require_bool(payload, "force")
+        mode = _require_mode(payload)
         return await _run_coordinated(
             context,
             resource_id=model_id,
-            operation=lambda coordinator: (
+            operation=lambda coordinator, token: (
                 executor.check_model_capabilities(
                     model_id,
                     expected_model_revision=model_revision,
                     expected_provider_revision=provider_revision,
                     capability_keys=capability_keys,
                     force=force,
+                    mode=mode,
+                    cancel_token=token,
                     task_id=context.task_id,
                     commit_coordinator=coordinator,
                 )
@@ -130,17 +138,21 @@ async def _run_coordinated(
     context: TaskExecutionContext,
     *,
     resource_id: str,
-    operation: Callable[[TaskCommitCoordinator], str],
+    operation: Callable[[TaskCommitCoordinator, CancellationToken], str],
 ) -> TaskExecutionResult:
     coordinator = context.enable_commit_coordination()
+    cancel_token = CancellationToken()
     context.raise_if_cancelled()
     await context.report_progress(0.1)
-    worker = asyncio.create_task(asyncio.to_thread(operation, coordinator))
+    worker = asyncio.create_task(
+        asyncio.to_thread(operation, coordinator, cancel_token)
+    )
     try:
         result_ref = await asyncio.shield(worker)
         context.raise_if_cancelled()
         await context.report_progress(1.0)
     except (asyncio.CancelledError, TaskCancellationRequested):
+        cancel_token.cancel()
         decision = await _request_termination(coordinator)
         if decision is TaskCommitDecision.TERMINATION_WON:
             worker.add_done_callback(_consume_terminated_worker)
@@ -274,6 +286,40 @@ def _require_capability_keys(
             stored_snapshot=True,
         )
     return keys
+
+
+def _require_stages(
+    payload: Mapping[str, JsonValue],
+) -> tuple[str, ...]:
+    value = payload.get("stages")
+    allowed = {"network", "authentication"}
+    if not isinstance(value, list) or not value or len(value) > len(allowed):
+        raise task_snapshot_invalid(
+            "Provider 检查阶段快照无效",
+            stored_snapshot=True,
+        )
+    stages = tuple(item for item in value if isinstance(item, str))
+    if len(stages) != len(value) or len(set(stages)) != len(stages):
+        raise task_snapshot_invalid(
+            "Provider 检查阶段快照包含重复或无效值",
+            stored_snapshot=True,
+        )
+    if any(stage not in allowed for stage in stages):
+        raise task_snapshot_invalid(
+            "Provider 检查阶段快照包含未知值",
+            stored_snapshot=True,
+        )
+    return stages
+
+
+def _require_mode(payload: Mapping[str, JsonValue]) -> str:
+    value = payload.get("mode")
+    if value not in {"contract_only", "real_small_call"}:
+        raise task_snapshot_invalid(
+            "模型能力检查模式快照无效",
+            stored_snapshot=True,
+        )
+    return str(value)
 
 
 def _safe_error_code(error: BaseException) -> str:

@@ -9,6 +9,7 @@ from domain.models.ai_configuration_v1 import CompositionTemplateProfile
 from errors import DomainError, ErrorCode
 
 from .dto import template_summary_to_dto, template_version_to_dto
+from .dependency_snapshots import dependency_snapshot_to_dto
 from .events import append_system_ai_event
 from .template_validation import _template_validation
 from .unit_of_work import AIConfigurationTransaction
@@ -159,7 +160,26 @@ def _load_template_validation_replay(
             "合成模板校验版本已不存在",
             status_code=404,
         )
-    return _template_validation(transaction, row)
+    if row.dependency_snapshot_id is None:
+        raise _bad_template_replay()
+    snapshot = transaction.ai.dependency_snapshots.get(
+        transaction.session,
+        row.dependency_snapshot_id,
+    )
+    if snapshot is None:
+        raise _bad_template_replay()
+    validation = _template_validation(transaction, row)
+    validation["dependencySnapshot"] = dependency_snapshot_to_dto(snapshot)
+    return validation
+
+
+def _bad_template_replay() -> DomainError:
+    return DomainError(
+        ErrorCode.INTERNAL_ERROR,
+        "合成模板校验幂等记录异常",
+        status_code=500,
+        loggable=True,
+    )
 
 
 def _append_template_event(

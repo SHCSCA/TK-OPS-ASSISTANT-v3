@@ -137,6 +137,7 @@
         />
         <KnowledgeSourcesPanel
           :cache="cache"
+          :selecting-file="controlledSource.selecting.value"
           @open-editor="store.openSourceEditor(activeAccountId)"
           @cancel-editor="store.closeSourceEditor(activeAccountId)"
           @update-draft="updateSourceDraft"
@@ -144,6 +145,8 @@
           @start-index="store.startIndex(activeAccountId)"
           @index-source="store.startIndex(activeAccountId, [$event])"
           @remove-source="removeSource"
+          @recover-file="recoverControlledFile"
+          @select-file="selectControlledFile"
           @filter="store.applyFilters(activeAccountId, $event)"
           @refresh="reload"
         />
@@ -166,6 +169,7 @@ import { routeLocationKey, routerKey } from "vue-router";
 
 import { requestDesktopConfirm } from "@/composables/useDesktopConfirm";
 import type { AccountWorkspaceContextDto } from "@/types/runtime/accounts";
+import type { KnowledgeSourceDto } from "@/types/runtime/account-knowledge";
 import BrandKitPanel from "@/modules/knowledge/BrandKitPanel.vue";
 import KnowledgeRulesPanel from "@/modules/knowledge/KnowledgeRulesPanel.vue";
 import KnowledgeSourcesPanel from "@/modules/knowledge/KnowledgeSourcesPanel.vue";
@@ -179,6 +183,7 @@ import {
   type AccountUnsavedGuardRegister,
   type KnowledgeSourceDraft
 } from "@/modules/knowledge";
+import { useControlledKnowledgeSource } from "./use-controlled-knowledge-source";
 
 const props = withDefaults(defineProps<{
   accountId?: string | null;
@@ -191,6 +196,14 @@ const props = withDefaults(defineProps<{
 });
 
 const store = useAccountKnowledgeStore();
+const controlledSource = useControlledKnowledgeSource({
+  onError(accountId, error) {
+    store.setError(accountId, error, "受控知识文件选择失败，请根据提示重试。");
+  },
+  onSelected(accountId, file) {
+    store.applyControlledFileSelection(accountId, file);
+  }
+});
 const injectedGuardRegistrar = inject(accountUnsavedGuardRegistrarKey, null);
 const route = inject(routeLocationKey, null);
 const router = inject(routerKey, null);
@@ -212,6 +225,7 @@ let unregisterGuard: (() => void) | null = null;
 watch(
   () => props.accountId,
   (accountId) => {
+    controlledSource.stop();
     if (accountId) void store.load(accountId);
   },
   { immediate: true }
@@ -249,7 +263,10 @@ watch(
   { immediate: true }
 );
 
-onBeforeUnmount(releaseUnsavedGuard);
+onBeforeUnmount(() => {
+  controlledSource.stop();
+  releaseUnsavedGuard();
+});
 
 function reload(): void {
   if (props.accountId) void store.load(props.accountId);
@@ -289,8 +306,8 @@ function updateRulesDraft(
 }
 
 function updateSourceDraft(
-  field: keyof KnowledgeSourceDraft,
-  value: KnowledgeSourceDraft[keyof KnowledgeSourceDraft]
+  field: "mode" | "title" | "url" | "text",
+  value: KnowledgeSourceDraft["mode"] | string
 ): void {
   if (!props.accountId) return;
   if (field === "mode") {
@@ -299,9 +316,19 @@ function updateSourceDraft(
   }
   store.updateSourceDraft(
     props.accountId,
-    field as Exclude<keyof KnowledgeSourceDraft, "mode">,
+    field,
     value as string
   );
+}
+
+function selectControlledFile(): void {
+  if (props.accountId) void controlledSource.select(props.accountId);
+}
+
+function recoverControlledFile(source: KnowledgeSourceDto): void {
+  if (!props.accountId) return;
+  store.prepareControlledFileRecovery(props.accountId, source);
+  void controlledSource.select(props.accountId);
 }
 
 async function removeSource(sourceId: string): Promise<void> {

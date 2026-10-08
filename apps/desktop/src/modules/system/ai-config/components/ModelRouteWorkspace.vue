@@ -4,7 +4,7 @@
       <div>
         <span class="ai-eyebrow">真实模型与产品路由</span>
         <h2 id="model-heading">模型与能力</h2>
-        <p>能力只有声明、适配器接入和契约验证同时通过后才可选。</p>
+        <p>能力只有声明、适配器接入和真实小调用同时通过后才可选。</p>
       </div>
       <div class="ai-toolbar">
         <button
@@ -68,7 +68,7 @@
 
     <AISystemTaskBanner
       :task="store.task"
-      task-label="模型能力契约验证"
+      task-label="模型能力真实小调用"
       @cancel="store.cancelTask"
       @open-log="$emit('openLog', $event)"
       @refresh="store.refreshTask"
@@ -125,7 +125,7 @@
               <th>Provider</th>
               <th>启用</th>
               <th>已接入能力</th>
-              <th>契约验证</th>
+              <th>真实验证</th>
               <th><span class="sr-only">动作</span></th>
             </tr>
           </thead>

@@ -408,6 +408,68 @@
   margin-right: auto;
 }
 
+.ai-provider-validation {
+  background: var(--surface-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.ai-provider-validation > header > div,
+.ai-provider-validation label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.ai-provider-validation small,
+.ai-provider-validation label > span {
+  color: var(--text-tertiary);
+  font: var(--font-caption);
+}
+
+.ai-provider-validation ol {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ai-provider-validation li {
+  align-items: center;
+  background: var(--surface-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+}
+
+.ai-provider-validation li > span:last-child {
+  display: grid;
+  min-width: 0;
+}
+
+.ai-provider-validation li.is-verified {
+  color: var(--status-success);
+}
+
+.ai-provider-validation li.is-checking {
+  color: var(--brand-primary);
+}
+
+.ai-provider-validation li.is-failed {
+  color: var(--status-error);
+}
+
+.ai-provider-validation select {
+  width: 100%;
+}
+
 .ai-state-panel {
   align-items: center;
   background: var(--surface-primary);

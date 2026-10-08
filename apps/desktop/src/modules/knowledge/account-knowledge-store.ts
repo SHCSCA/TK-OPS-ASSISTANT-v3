@@ -11,8 +11,10 @@ import { isRuntimeRequestAborted } from "@/app/runtime-client/core";
 import { getAccountTask } from "@/app/runtime-client/tasks";
 import type {
   KnowledgeSourceInput,
+  KnowledgeSourceDto,
   PositioningVersionDto
 } from "@/types/runtime/account-knowledge";
+import type { AccountControlledFile } from "@/app/controlled-files/types";
 
 import {
   logKnowledgeError,
@@ -37,6 +39,7 @@ import {
 } from "./account-knowledge-operations";
 import {
   emptyPositioningDraft,
+  emptyKnowledgeSourceDraft,
   type AccountKnowledgeCache,
   type KnowledgeRulesDraft,
   type KnowledgeSourceDraft,
@@ -311,8 +314,41 @@ export const useAccountKnowledgeStore = defineStore("p0-account-knowledge", {
     closeSourceEditor(accountId: string): void {
       const cache = this.cache(accountId);
       cache.sourceEditorOpen = false;
-      cache.sourceDraft = { mode: "text", title: "", text: "", url: "" };
+      cache.sourceDraft = emptyKnowledgeSourceDraft();
       cache.sourceDirty = false;
+    },
+
+    applyControlledFileSelection(
+      accountId: string,
+      file: AccountControlledFile
+    ): void {
+      const cache = this.cache(accountId);
+      cache.sourceEditorOpen = true;
+      cache.sourceDraft.mode = "file";
+      cache.sourceDraft.controlledFileRef = file.fileRef;
+      cache.sourceDraft.controlledFileName = file.displayName;
+      cache.sourceDraft.controlledFileKind = file.kind;
+      cache.sourceDraft.controlledFileSize = file.size;
+      if (!cache.sourceDraft.title.trim()) {
+        cache.sourceDraft.title = file.displayName;
+      }
+      cache.sourceDirty = true;
+      cache.error = null;
+    },
+
+    prepareControlledFileRecovery(
+      accountId: string,
+      source: KnowledgeSourceDto
+    ): void {
+      const cache = this.cache(accountId);
+      cache.sourceEditorOpen = true;
+      cache.sourceDraft = {
+        ...emptyKnowledgeSourceDraft(),
+        mode: "file",
+        title: source.title
+      };
+      cache.sourceDirty = true;
+      cache.feedback = "请重新选择授权文件；旧来源和历史快照会保留。";
     },
     async createPositioning(accountId: string): Promise<boolean> {
       const cache = this.cache(accountId);

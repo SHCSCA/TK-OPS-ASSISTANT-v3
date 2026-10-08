@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     String,
     Text,
@@ -19,6 +20,15 @@ class ProviderProfile(Base):
 
     __tablename__ = "provider_profiles"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["id", "active_revision_id"],
+            [
+                "provider_profile_revisions.provider_profile_id",
+                "provider_profile_revisions.id",
+            ],
+            ondelete="RESTRICT",
+            name="fk_provider_profiles_active_revision_owner",
+        ),
         CheckConstraint(
             "adapter_type IN "
             "('direct_api','openai_compatible','comfyui','runninghub')",
@@ -41,6 +51,9 @@ class ProviderProfile(Base):
     credential_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
     region: Mapped[str | None] = mapped_column(String, nullable=True)
     proxy_ref: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extra_params_json: Mapped[str] = mapped_column(Text, nullable=False)
+    cost_policy_json: Mapped[str] = mapped_column(Text, nullable=False)
+    active_revision_id: Mapped[str | None] = mapped_column(String, nullable=True)
     timeout_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     max_concurrency: Mapped[int] = mapped_column(Integer, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
@@ -58,6 +71,15 @@ class ModelProfile(Base):
 
     __tablename__ = "model_profiles"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["id", "active_revision_id"],
+            [
+                "model_profile_revisions.model_profile_id",
+                "model_profile_revisions.id",
+            ],
+            ondelete="RESTRICT",
+            name="fk_model_profiles_active_revision_owner",
+        ),
         CheckConstraint(
             "discovery_source IN ('discovered','manual','migrated')",
             name="ck_model_profiles_discovery",
@@ -85,6 +107,7 @@ class ModelProfile(Base):
     discovery_source: Mapped[str] = mapped_column(String, nullable=False)
     context_window: Mapped[int | None] = mapped_column(Integer, nullable=True)
     base_limits_json: Mapped[str] = mapped_column(Text, nullable=False)
+    active_revision_id: Mapped[str | None] = mapped_column(String, nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[str] = mapped_column(Text, nullable=False)

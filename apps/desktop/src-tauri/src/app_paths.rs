@@ -9,6 +9,7 @@ use crate::runtime_supervisor::SupervisorError;
 
 pub struct AppPaths {
     pub bootstrap_config: PathBuf,
+    pub controlled_file_registry: PathBuf,
     pub ffprobe_binary: PathBuf,
     pub resource_dir: PathBuf,
     pub runtime_data_dir: PathBuf,
@@ -20,7 +21,7 @@ pub struct AppPaths {
 
 impl AppPaths {
     pub fn resolve(app: &AppHandle) -> Result<Self, SupervisorError> {
-        let data_dir = resolve_data_dir(app)?;
+        let data_dir = resolve_app_data_dir(app)?;
         let runtime_data_dir = data_dir.join("runtime");
         let log_dir = data_dir.join("logs");
         create_directory(&runtime_data_dir)?;
@@ -82,6 +83,7 @@ impl AppPaths {
             })?;
         Ok(Self {
             bootstrap_config,
+            controlled_file_registry: data_dir.join("controlled-files.v1.json"),
             ffprobe_binary,
             resource_dir,
             runtime_data_dir,
@@ -93,7 +95,7 @@ impl AppPaths {
     }
 }
 
-fn resolve_data_dir(app: &AppHandle) -> Result<PathBuf, SupervisorError> {
+pub(crate) fn resolve_app_data_dir(app: &AppHandle) -> Result<PathBuf, SupervisorError> {
     if env::var("TK_OPS_INSTALLER_SMOKE").ok().as_deref() == Some("1") {
         return resolve_smoke_data_dir();
     }

@@ -4,6 +4,8 @@ import asyncio
 import logging
 from collections.abc import Mapping
 
+from sqlalchemy.orm import Session
+
 from services.tasks.errors import idempotency_key_required
 from services.tasks.recovery import TaskRecoveryService
 from services.tasks.task_runner import TaskRunner
@@ -81,6 +83,19 @@ class TaskCoordinator:
                 timeout_seconds=timeout_seconds,
             )
         )
+
+    def create_task_in_session(
+        self,
+        session: Session,
+        command: CreateTaskCommand,
+    ) -> RuntimeTaskRecord:
+        """在业务事务内创建任务；调用方提交后再调度。"""
+        self._require_idempotency_key(command.idempotency_key)
+        return self._task_service.create_task_in_session(session, command)
+
+    def schedule_created_task(self, record: RuntimeTaskRecord) -> None:
+        """仅调度已经随业务事务成功提交的任务。"""
+        self._schedule_if_queued(record)
 
     async def get_system_task(self, task_id: str) -> RuntimeTaskRecord:
         return await asyncio.to_thread(

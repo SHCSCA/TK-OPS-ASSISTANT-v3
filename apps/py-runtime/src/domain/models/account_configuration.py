@@ -45,6 +45,12 @@ class PositioningProfile(Base):
             unique=True,
             sqlite_where=text("status = 'active'"),
         ),
+        Index(
+            "uq_positioning_profiles_account_id",
+            "account_id",
+            "id",
+            unique=True,
+        ),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)

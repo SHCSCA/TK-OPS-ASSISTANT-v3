@@ -146,6 +146,48 @@
             <dd>{{ store.selectedProvider.revision }}</dd>
           </div>
         </dl>
+        <section
+          class="ai-provider-validation"
+          data-testid="provider-real-validation"
+        >
+          <header>
+            <div>
+              <strong>四阶段真实验证</strong>
+              <small>每个阶段都由 Runtime 外呼并保存脱敏证据。</small>
+            </div>
+          </header>
+          <ol>
+            <li
+              v-for="stage in store.validationStages(store.selectedProvider.id)"
+              :key="stage.key"
+              :class="`is-${stage.status}`"
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">
+                {{ stage.status === "verified" ? "check_circle" : "pending" }}
+              </span>
+              <span>
+                <strong>{{ stage.label }}</strong>
+                <small>{{ validationStageLabel(stage.status) }}</small>
+              </span>
+            </li>
+          </ol>
+          <label v-if="store.modelsForProvider(store.selectedProvider.id).length">
+            <span>真实小调用模型</span>
+            <select
+              :value="store.selectedValidationModelId ?? ''"
+              :disabled="Boolean(store.busyKey)"
+              @change="selectValidationModel"
+            >
+              <option
+                v-for="model in store.modelsForProvider(store.selectedProvider.id)"
+                :key="model.id"
+                :value="model.id"
+              >
+                {{ model.displayName }} · {{ model.modelId }}
+              </option>
+            </select>
+          </label>
+        </section>
         <label class="ai-toggle-row">
           <span>
             <strong>允许 Route 使用</strong>
@@ -173,15 +215,23 @@
             :disabled="Boolean(store.busyKey)"
             @click="store.discoverModels(store.selectedProvider)"
           >
-            发现模型
+            验证模型发现
           </button>
           <button
-            class="ai-button is-primary"
+            class="ai-button is-secondary"
             type="button"
             :disabled="Boolean(store.busyKey)"
             @click="store.runCheck(store.selectedProvider)"
           >
-            连接测试
+            验证网络与鉴权
+          </button>
+          <button
+            class="ai-button is-primary"
+            type="button"
+            :disabled="Boolean(store.busyKey) || !store.selectedValidationModelId"
+            @click="store.runRealSmallCall(store.selectedProvider)"
+          >
+            验证真实小调用
           </button>
         </div>
       </aside>
@@ -221,6 +271,7 @@ import {
   providerHealthLabel
 } from "../ai-config-helpers";
 import { useProviderConfigStore } from "../provider-config-store";
+import type { ProviderValidationStage } from "../provider-config-store";
 import { useModelRouteConfigStore } from "../model-route-config-store";
 import AIConfigStatePanel from "./AIConfigStatePanel.vue";
 import AISystemTaskBanner from "./AISystemTaskBanner.vue";
@@ -270,6 +321,21 @@ async function handleSaved(_provider: ProviderDto): Promise<void> {
 function openManualModel(): void {
   modelStore.clearFeedback();
   manualModelOpen.value = true;
+}
+
+function selectValidationModel(event: Event): void {
+  store.selectValidationModel((event.target as HTMLSelectElement).value);
+}
+
+function validationStageLabel(
+  status: ProviderValidationStage["status"]
+): string {
+  return {
+    pending: "待验证",
+    checking: "验证中",
+    verified: "已通过",
+    failed: "需处理"
+  }[status];
 }
 
 async function handleManualModel(input: ModelCreateInput): Promise<void> {

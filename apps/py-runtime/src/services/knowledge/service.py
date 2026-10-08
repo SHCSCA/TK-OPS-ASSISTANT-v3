@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from common.pagination import CursorPosition
 from schemas.v1.knowledge import (
     KnowledgeDto,
@@ -18,10 +20,14 @@ from services.accounts.unit_of_work import (
     MutationExecution,
 )
 from services.knowledge.content_store import KnowledgeContentStore
+from services.knowledge.ports import ControlledFileResolver
 from services.knowledge.queries import KnowledgeQueryService
 from services.knowledge.rules import KnowledgeRulesService
 from services.knowledge.snapshots import KnowledgeSnapshotService
 from services.knowledge.sources import KnowledgeSourceService
+from services.knowledge.source_material import (
+    KnowledgeSourceMaterialPreparer,
+)
 
 
 class AccountKnowledgeService:
@@ -33,13 +39,19 @@ class AccountKnowledgeService:
         mutation_executor: AccountMutationExecutor,
         *,
         content_store: KnowledgeContentStore,
+        controlled_file_resolver: ControlledFileResolver,
+        controlled_file_max_bytes: Callable[[], int],
         lifecycle_synchronizer: AccountLifecycleSynchronizer,
     ) -> None:
         self._queries = KnowledgeQueryService(unit_of_work)
         self._rules = KnowledgeRulesService(unit_of_work)
         self._sources = KnowledgeSourceService(
             mutation_executor,
-            content_store=content_store,
+            material_preparer=KnowledgeSourceMaterialPreparer(
+                content_store=content_store,
+                controlled_files=controlled_file_resolver,
+                max_controlled_file_bytes=controlled_file_max_bytes,
+            ),
             lifecycle_synchronizer=lifecycle_synchronizer,
         )
         self._snapshots = KnowledgeSnapshotService(mutation_executor)

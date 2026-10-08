@@ -69,9 +69,6 @@ export async function addSourceOperation(
   accountId: string,
   input: KnowledgeSourceInput
 ): Promise<void> {
-  if (input.sourceMode === "file") {
-    throw new Error("受控文件桥将在 P0-F 接入，当前不能提交本地路径。");
-  }
   await createAccountKnowledgeSource(accountId, input, {
     idempotencyKey: createKnowledgeOperationKey("knowledge-source", accountId)
   });
@@ -124,5 +121,13 @@ export function sourceInputFromCache(
       url: draft.url.trim()
     };
   }
-  throw new Error("受控文件桥将在 P0-F 接入，当前不能提交本地路径。");
+  if (!draft.controlledFileRef) {
+    throw new Error("请先从当前账号工作目录选择受控文件。");
+  }
+  return {
+    kind: draft.controlledFileKind,
+    sourceMode: "file",
+    title: draft.title.trim(),
+    controlledFileRef: draft.controlledFileRef
+  };
 }

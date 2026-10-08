@@ -4,9 +4,9 @@
 
 Python Runtime 启动前可用的 Tauri 状态、连接、重启与脱机诊断命令见 [Desktop Runtime Supervisor 契约](../desktop-runtime-supervisor.md)。
 
-最后静态核对日期：2026-08-09。
+最后静态核对日期：2026-08-11。
 
-P0-B 至 P0-F 均已通过阶段与最终验收。P0-G 已补齐持久任务列表、执行环境动作、失败恢复与真实归档清理接口，当前静态库存为 97 个 HTTP 与 1 个 WebSocket。
+P0-B 至 P0-F 均已通过阶段与最终验收。P0-G 已补齐持久任务列表、执行环境动作、失败恢复与真实归档清理接口；P0-H 已注册真实 AI 依赖与账号执行 Gateway，当前静态库存为 110 个 HTTP 与 1 个 WebSocket。H4 自动门禁已通过；P0-H 的 Production 完成仍以 H5 目标机器真实 Provider 证据为准。
 
 ## 当前接口库存
 
@@ -19,9 +19,10 @@ P0-B 至 P0-F 均已通过阶段与最终验收。P0-G 已补齐持久任务列�
 | 账号、生命周期、真实连接与监督登录 | 22 个 HTTP | [accounts.md](accounts.md) |
 | 执行环境 | 8 个 HTTP | [execution-environments.md](execution-environments.md) |
 | 定位、知识、品牌与发布默认值 | 17 个 HTTP | [account-knowledge.md](account-knowledge.md) |
-| AI 系统 v1 | 35 个 HTTP | [ai-system.md](ai-system.md) |
+| AI 系统与账号 Recipe v1 | 40 个 HTTP | [ai-system.md](ai-system.md) |
+| 账号 AI 执行 v1 | 8 个 HTTP | [ai-executions.md](ai-executions.md) |
 
-HTTP 合计：`5 + 4 + 6 + 22 + 8 + 17 + 35 = 97`。路由库存只统计 `V1_HTTP_ROUTERS` 中实际注册的装饰器端点，不统计 legacy 路由或 WebSocket。
+HTTP 合计：`5 + 4 + 6 + 22 + 8 + 17 + 40 + 8 = 110`。路由库存只统计 `V1_HTTP_ROUTERS` 中实际注册的装饰器端点，不统计 legacy 路由或 WebSocket。
 
 错误信封、状态码、恢复动作和 legacy 错误映射见 [errors.md](errors.md)。
 

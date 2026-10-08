@@ -3,6 +3,89 @@ from __future__ import annotations
 IndexContract = tuple[str, tuple[str, ...], bool, bool]
 
 P0_REQUIRED_INDEXES: dict[str, IndexContract] = {
+    "uq_runtime_tasks_account_id": (
+        "runtime_tasks",
+        ("account_id", "id"),
+        True,
+        False,
+    ),
+    "uq_positioning_profiles_account_id": (
+        "positioning_profiles",
+        ("account_id", "id"),
+        True,
+        False,
+    ),
+    "uq_knowledge_sources_account_id": (
+        "knowledge_sources",
+        ("account_id", "id"),
+        True,
+        False,
+    ),
+    "uq_knowledge_snapshots_account_id": (
+        "knowledge_snapshots",
+        ("account_id", "id"),
+        True,
+        False,
+    ),
+    "uq_account_ai_recipes_account_id": (
+        "account_ai_recipes",
+        ("account_id", "id"),
+        True,
+        False,
+    ),
+    "uq_route_revisions_one_active": (
+        "capability_route_revisions",
+        ("capability_route_id",),
+        True,
+        True,
+    ),
+    "ix_ai_provider_validation_revision": (
+        "ai_provider_validation_runs",
+        (
+            "provider_profile_id",
+            "provider_revision",
+            "model_profile_id",
+            "model_revision",
+        ),
+        False,
+        False,
+    ),
+    "ix_account_assets_account_updated": (
+        "account_assets",
+        ("account_id", "updated_at"),
+        False,
+        False,
+    ),
+    "ix_knowledge_chunks_account_source": (
+        "knowledge_index_chunks",
+        ("account_id", "knowledge_source_id"),
+        False,
+        False,
+    ),
+    "ix_ai_executions_account_updated": (
+        "ai_executions",
+        ("account_id", "updated_at"),
+        False,
+        False,
+    ),
+    "ix_ai_executions_account_status": (
+        "ai_executions",
+        ("account_id", "status"),
+        False,
+        False,
+    ),
+    "ix_ai_execution_jobs_account_execution": (
+        "ai_execution_jobs",
+        ("account_id", "execution_id"),
+        False,
+        False,
+    ),
+    "ix_ai_outputs_account_execution": (
+        "ai_execution_outputs",
+        ("account_id", "execution_id"),
+        False,
+        False,
+    ),
     "uq_device_workspaces_root_ref": (
         "device_workspaces",
         ("root_ref",),
@@ -204,6 +287,7 @@ P0_REQUIRED_INDEXES: dict[str, IndexContract] = {
 }
 
 P0_REQUIRED_INDEX_PREDICATES = {
+    "uq_route_revisions_one_active": "where status = 'active'",
     "uq_device_workspaces_root_ref": "where root_ref is not null",
     "uq_execution_bindings_active_account": "where status = 'active'",
     "uq_account_login_sessions_active": (

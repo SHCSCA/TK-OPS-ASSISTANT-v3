@@ -74,6 +74,10 @@
   .ai-system-page { padding: var(--space-4); }
   .ai-primary-tabs { overflow-x: auto; }
 
+  .ai-provider-validation ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .ai-config-editor-layout {
     grid-template-columns: 200px minmax(0, 1fr);
   }

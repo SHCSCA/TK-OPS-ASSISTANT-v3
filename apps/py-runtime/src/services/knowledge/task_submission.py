@@ -14,6 +14,7 @@ from services.knowledge.index_policy import (
 )
 from services.knowledge.index_state import KnowledgeIndexStateStore
 from services.knowledge.task_handlers import KNOWLEDGE_INDEX_TASK_TYPE
+from services.knowledge.file_extractors import EXTRACTOR_VERSION
 from services.tasks.coordinator import TaskCoordinator
 
 log = logging.getLogger(__name__)
@@ -55,7 +56,12 @@ class KnowledgeIndexSubmissionService:
             task_type=KNOWLEDGE_INDEX_TASK_TYPE,
             payload={
                 "sourceIds": list(plan.source_ids),
+                "sourceManifests": [
+                    item.to_snapshot()
+                    for item in plan.source_manifests
+                ],
                 "policy": knowledge_policy_snapshot(policy),
+                "extractorVersion": EXTRACTOR_VERSION,
             },
             idempotency_key=idempotency_key,
             request_id=request_id,

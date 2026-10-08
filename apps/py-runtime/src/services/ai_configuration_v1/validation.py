@@ -49,6 +49,7 @@ def require_provider_url(value: object) -> str:
         or not parsed.hostname
         or parsed.username is not None
         or parsed.password is not None
+        or parsed.query
         or parsed.fragment
     ):
         raise _provider_url_error()
@@ -215,4 +216,3 @@ def _is_loopback(hostname: str) -> bool:
         return ipaddress.ip_address(normalized).is_loopback
     except ValueError:
         return False
-

@@ -18,6 +18,7 @@ import {
   providerBaseUrl,
   repoRoot,
   runtimeBaseUrl,
+  shutdownRequestName,
   statePath
 } from "./e2e-paths.mjs";
 
@@ -36,6 +37,14 @@ const workspaceRootRegistryPath = path.join(
   dataDirectory,
   "workspace-roots.v1.json"
 );
+const controlledFileRegistryPath = path.join(
+  dataDirectory,
+  "controlled-files.v1.json"
+);
+const shutdownRequestPath = path.join(
+  dataDirectory,
+  shutdownRequestName
+);
 
 let runtimeProcess = null;
 let frontendProcess = null;
@@ -53,6 +62,11 @@ try {
   await writeFile(
     workspaceRootRegistryPath,
     JSON.stringify({ revision: 0, roots: [], schemaVersion: 1 }, null, 2),
+    { encoding: "utf8", mode: 0o600 }
+  );
+  await writeFile(
+    controlledFileRegistryPath,
+    JSON.stringify({ files: [], revision: 0, schemaVersion: 1 }, null, 2),
     { encoding: "utf8", mode: 0o600 }
   );
   const pythonCommand = await resolvePythonCommand();
@@ -90,6 +104,7 @@ try {
     statePath,
     JSON.stringify({
       dataDirectory,
+      controlledFileRegistryPath,
       frontendBaseUrl,
       licenseKey,
       machineCode,
@@ -114,6 +129,7 @@ try {
     ),
     TK_OPS_LICENSE_PUBLIC_KEY_PATH: publicKeyPath,
     TK_OPS_MACHINE_CODE_OVERRIDE: machineCode,
+    TK_OPS_CONTROLLED_FILE_REGISTRY_PATH: controlledFileRegistryPath,
     TK_OPS_RUNTIME_ALLOWED_ORIGINS: frontendBaseUrl,
     TK_OPS_RUNTIME_DATA_DIR: dataDirectory,
     TK_OPS_RUNTIME_EXPECTED_HOST: new URL(runtimeBaseUrl).host,
@@ -126,14 +142,14 @@ try {
   };
 
   providerProcess = spawn(
-    process.execPath,
+    pythonCommand,
     [
       path.join(
         desktopRoot,
         "tests",
         "e2e",
         "support",
-        "deterministic-provider.mjs"
+        "p0-h-provider-server.py"
       )
     ],
     {
@@ -146,11 +162,11 @@ try {
       windowsHide: true
     }
   );
-  attachProcess(providerProcess, "本地测试 Provider");
+  attachProcess(providerProcess, "P0-H 受控 Provider");
   await waitForReady(
     `${providerBaseUrl}/__e2e__/health`,
     {},
-    "本地测试 Provider"
+    "P0-H 受控 Provider"
   );
 
   runtimeProcess = spawn(
@@ -195,7 +211,7 @@ try {
   );
   attachProcess(frontendProcess, "Desktop 前端");
   await waitForReady(frontendBaseUrl, {}, "Desktop 前端");
-  await new Promise(() => undefined);
+  await waitForShutdownRequest();
 } catch (error) {
   console.error(
     `[e2e-environment] ${
@@ -288,6 +304,19 @@ async function waitForReady(url, init, label) {
     await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
   }
   throw new Error(`${label}未在限定时间内就绪。`);
+}
+
+async function waitForShutdownRequest() {
+  while (!shuttingDown) {
+    try {
+      await access(shutdownRequestPath);
+      await shutdown(0);
+      return;
+    } catch (error) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+  }
 }
 
 async function shutdown(exitCode) {

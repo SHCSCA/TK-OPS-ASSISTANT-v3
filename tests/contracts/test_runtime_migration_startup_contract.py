@@ -20,7 +20,7 @@ from persistence.migration import (
 )
 
 
-TARGET_REVISION = "0022_p0g_production_hardening"
+TARGET_REVISION = "0023_p0h_real_ai_execution"
 
 
 def test_runtime_factory_finishes_alembic_before_building_container(runtime_app) -> None:

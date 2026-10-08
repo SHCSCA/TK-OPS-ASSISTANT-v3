@@ -45,12 +45,12 @@ def _function_sources() -> dict[str, str]:
     return sources
 
 
-def test_p0_e_ai_route_inventory_is_frozen_to_35_operations(
+def test_p0_e_ai_route_inventory_is_frozen_to_40_operations(
     runtime_app: object,
 ) -> None:
-    assert len(AI_ROUTE_CONTRACTS) == 35
+    assert len(AI_ROUTE_CONTRACTS) == 40
     expected = {(item.method, item.path) for item in AI_ROUTE_CONTRACTS}
-    assert len(expected) == 35
+    assert len(expected) == 40
     module_names = {
         f"api.routes.v1.{filename.removesuffix('.py')}"
         for filename in AI_ROUTE_MODULES

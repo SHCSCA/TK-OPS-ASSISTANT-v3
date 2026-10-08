@@ -128,6 +128,34 @@ class CompositionTemplateProfileRepository:
         session.flush([template])
         return template
 
+    @log_repository_errors("绑定合成模板依赖快照")
+    def attach_dependency_snapshot(
+        self,
+        session: Session,
+        *,
+        template_id: str,
+        dependency_snapshot_id: str,
+        expected_revision: int,
+    ) -> CompositionTemplateProfile | None:
+        statement = (
+            update(CompositionTemplateProfile)
+            .where(
+                CompositionTemplateProfile.id == template_id,
+                CompositionTemplateProfile.revision == expected_revision,
+                CompositionTemplateProfile.dependency_snapshot_id.is_(None),
+            )
+            .values(
+                dependency_snapshot_id=dependency_snapshot_id,
+                revision=CompositionTemplateProfile.revision + 1,
+            )
+            .returning(CompositionTemplateProfile)
+            .execution_options(
+                synchronize_session=False,
+                populate_existing=True,
+            )
+        )
+        return session.scalars(statement).one_or_none()
+
     @log_repository_errors("激活合成模板版本")
     def activate(
         self,

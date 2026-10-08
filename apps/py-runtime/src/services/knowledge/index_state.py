@@ -1,21 +1,20 @@
 from __future__ import annotations
 
-from domain.models.account import Account
-from domain.models.knowledge import (
-    AccountKnowledgeBase,
-    KnowledgeSource,
-)
+from uuid import uuid4
+
+from domain.models.account_asset import KnowledgeIndexChunk
 from errors import DomainError, ErrorCode
-from services.accounts.guards import require_account
 from services.accounts.lifecycle_sync import AccountLifecycleSynchronizer
-from services.accounts.unit_of_work import (
-    AccountTransaction,
-    AccountUnitOfWork,
+from services.accounts.unit_of_work import AccountUnitOfWork
+from services.knowledge.index_types import KnowledgeIndexChunkWrite, KnowledgeIndexPlan, KnowledgeIndexSource
+from services.knowledge.index_state_support import (
+    base_error_evidence as _base_error_evidence,
+    locked_resources as _locked_resources,
+    require_source as _require_source,
+    source_invalid as _source_invalid,
+    update_account as _update_account,
 )
-from services.knowledge.index_types import (
-    KnowledgeIndexPlan,
-    KnowledgeIndexSource,
-)
+from services.knowledge.index_planning import KnowledgeIndexPlanner
 from services.knowledge.index_events import append_knowledge_index_event
 from services.knowledge.support import (
     knowledge_base_missing,
@@ -33,66 +32,21 @@ class KnowledgeIndexStateStore:
     ) -> None:
         self._unit_of_work = unit_of_work
         self._lifecycle = lifecycle_synchronizer
+        self._planner = KnowledgeIndexPlanner(unit_of_work)
 
     def plan(
         self,
         account_id: str,
         source_ids: tuple[str, ...] | None,
     ) -> KnowledgeIndexPlan:
-        if source_ids is not None and (
-            not source_ids or len(set(source_ids)) != len(source_ids)
-        ):
-            raise _source_invalid(
-                "知识索引必须选择不重复的来源"
-            )
-        with self._unit_of_work.read() as transaction:
-            require_account(
-                account_id,
-                transaction.session,
-                transaction.accounts,
-            )
-            sources = transaction.knowledge.list_sources_for_index(
-                account_id,
-                transaction.session,
-                source_ids=source_ids,
-            )
-            if not sources or (
-                source_ids is not None and len(sources) != len(source_ids)
-            ):
-                raise _source_invalid(
-                    "知识索引来源不存在、已移除或不属于当前账号"
-                )
-            return KnowledgeIndexPlan(
-                account_id=account_id,
-                source_ids=tuple(source.id for source in sources),
-            )
+        return self._planner.plan(account_id, source_ids)
 
     def source(
         self,
         account_id: str,
         source_id: str,
     ) -> KnowledgeIndexSource:
-        with self._unit_of_work.read() as transaction:
-            require_account(
-                account_id,
-                transaction.session,
-                transaction.accounts,
-            )
-            source = transaction.knowledge.get_source(
-                account_id,
-                transaction.session,
-                source_id=source_id,
-            )
-            if source is None or source.deleted_at is not None:
-                raise _source_invalid(
-                    "知识索引来源不存在、已移除或不属于当前账号"
-                )
-            return KnowledgeIndexSource(
-                id=source.id,
-                source_mode=source.source_mode,
-                source_ref=source.source_ref,
-                source_url=source.source_url,
-            )
+        return self._planner.source(account_id, source_id)
 
     def mark_indexing(
         self,
@@ -121,6 +75,8 @@ class KnowledgeIndexStateStore:
         source_id: str,
         *,
         content_hash: str,
+        asset_status: str,
+        chunks: tuple[KnowledgeIndexChunkWrite, ...],
         task_id: str,
         config_revision: int,
     ) -> int:
@@ -154,6 +110,44 @@ class KnowledgeIndexStateStore:
             )
             if updated_source is None:
                 raise _source_invalid("知识来源已在索引期间移除")
+            transaction.knowledge_assets.add_chunks(
+                account_id,
+                transaction.session,
+                (
+                    KnowledgeIndexChunk(
+                        id=f"kchunk_{uuid4().hex}",
+                        account_id=account_id,
+                        knowledge_source_id=source_id,
+                        source_revision=int(updated_source.revision),
+                        ordinal=chunk.ordinal,
+                        content_ref=chunk.content_ref,
+                        content_hash=chunk.content_hash,
+                        token_count=chunk.token_count,
+                        extractor_version=chunk.extractor_version,
+                        created_at=now,
+                    )
+                    for chunk in chunks
+                ),
+            )
+            updated_asset = (
+                transaction.knowledge_assets.set_asset_state_for_source(
+                    account_id,
+                    transaction.session,
+                    source_id=source_id,
+                    status=asset_status,
+                    content_hash=content_hash,
+                    error_code=None,
+                    error_log_id=None,
+                    updated_at=now,
+                )
+            )
+            if current.source_mode == "file" and updated_asset is None:
+                raise DomainError(
+                    ErrorCode.INTERNAL_ERROR,
+                    "受控文件来源缺少账号资产关联",
+                    status_code=500,
+                    loggable=True,
+                )
             counts = transaction.knowledge.source_state_counts(
                 account_id,
                 transaction.session,
@@ -176,9 +170,10 @@ class KnowledgeIndexStateStore:
             )
             if updated_base is None:
                 raise knowledge_base_missing()
-            updated_account = self._update_account(
+            updated_account = _update_account(
                 transaction,
                 account,
+                lifecycle=self._lifecycle,
                 updated_at=now,
             )
             append_knowledge_index_event(
@@ -228,15 +223,36 @@ class KnowledgeIndexStateStore:
         task_id: str,
         config_revision: int,
     ) -> int | None:
+        return self.mark_stale(
+            account_id,
+            source_id,
+            error_code=None,
+            error_log_id=None,
+            task_id=task_id,
+            config_revision=config_revision,
+            base_status=None,
+        )
+
+    def mark_stale(
+        self,
+        account_id: str,
+        source_id: str,
+        *,
+        error_code: str | None,
+        error_log_id: str | None,
+        task_id: str | None,
+        config_revision: int,
+        base_status: str | None = "stale",
+    ) -> int | None:
         return self._write_source_state(
             account_id,
             source_id,
             source_status="stale",
             content_hash=None,
-            base_status=None,
+            base_status=base_status,
             increment_index_revision=False,
-            error_code=None,
-            error_log_id=None,
+            error_code=error_code,
+            error_log_id=error_log_id,
             task_id=task_id,
             config_revision=config_revision,
             allow_archived=True,
@@ -250,19 +266,14 @@ class KnowledgeIndexStateStore:
         *,
         config_revision: int,
     ) -> int | None:
-        return self._write_source_state(
+        return self.mark_stale(
             account_id,
             source_id,
-            source_status="stale",
-            content_hash=None,
-            base_status=None,
-            increment_index_revision=False,
             error_code=ErrorCode.TASK_STATE_CONFLICT.value,
             error_log_id=None,
             task_id=None,
             config_revision=config_revision,
-            allow_archived=True,
-            missing_ok=True,
+            base_status=None,
         )
 
     def _write_source_state(
@@ -318,6 +329,22 @@ class KnowledgeIndexStateStore:
                 if missing_ok:
                     return None
                 raise _source_invalid("知识来源已在索引期间移除")
+            asset_status = {
+                "indexing": "pending",
+                "failed": "failed",
+                "stale": "stale",
+            }.get(source_status)
+            if asset_status is not None:
+                transaction.knowledge_assets.set_asset_state_for_source(
+                    account_id,
+                    transaction.session,
+                    source_id=source_id,
+                    status=asset_status,
+                    content_hash=content_hash,
+                    error_code=error_code,
+                    error_log_id=error_log_id,
+                    updated_at=now,
+                )
             resolved_base_status = (
                 base_status
                 or knowledge_status_from_source_counts(
@@ -351,9 +378,10 @@ class KnowledgeIndexStateStore:
             )
             if updated_base is None:
                 raise knowledge_base_missing()
-            updated_account = self._update_account(
+            updated_account = _update_account(
                 transaction,
                 account,
+                lifecycle=self._lifecycle,
                 updated_at=now,
             )
             append_knowledge_index_event(
@@ -369,90 +397,3 @@ class KnowledgeIndexStateStore:
                 error_log_id=error_log_id,
             )
             return int(updated_account.revision)
-
-    def _update_account(
-        self,
-        transaction: AccountTransaction,
-        account: Account,
-        *,
-        updated_at: str,
-    ) -> Account:
-        if self._lifecycle is None:
-            raise DomainError(
-                ErrorCode.INTERNAL_ERROR,
-                "知识索引生命周期同步器尚未装配",
-                status_code=500,
-                loggable=True,
-            )
-        return self._lifecycle.update(
-            transaction,
-            account,
-            updated_at=updated_at,
-        )
-
-
-def _locked_resources(
-    transaction: AccountTransaction,
-    *,
-    account_id: str,
-    allow_archived: bool,
-) -> tuple[Account, AccountKnowledgeBase]:
-    transaction.accounts.acquire_write_lock(
-        transaction.session,
-        account_id=account_id,
-    )
-    account = require_account(
-        account_id,
-        transaction.session,
-        transaction.accounts,
-        allow_archived=allow_archived,
-    )
-    knowledge_base = transaction.knowledge.get_base(
-        account_id,
-        transaction.session,
-    )
-    if knowledge_base is None:
-        raise knowledge_base_missing()
-    return account, knowledge_base
-
-
-def _require_source(
-    transaction: AccountTransaction,
-    *,
-    account_id: str,
-    source_id: str,
-) -> KnowledgeSource:
-    source = transaction.knowledge.get_source(
-        account_id,
-        transaction.session,
-        source_id=source_id,
-    )
-    if source is None or source.deleted_at is not None:
-        raise _source_invalid(
-            "知识索引来源不存在、已移除或不属于当前账号"
-        )
-    return source
-
-
-def _base_error_evidence(
-    transaction: AccountTransaction,
-    *,
-    account_id: str,
-    base_status: str,
-) -> tuple[str | None, str | None]:
-    if base_status != "attention":
-        return None, None
-    failed = transaction.knowledge.first_source_with_status(
-        account_id,
-        transaction.session,
-        status="failed",
-    )
-    if failed is None:
-        return ErrorCode.KNOWLEDGE_INDEX_FAILED.value, None
-    return failed.error_code, failed.error_log_id
-def _source_invalid(message: str) -> DomainError:
-    return DomainError(
-        ErrorCode.KNOWLEDGE_SOURCE_INVALID,
-        message,
-        status_code=422,
-    )

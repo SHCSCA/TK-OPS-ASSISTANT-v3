@@ -1,12 +1,20 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app_paths;
+mod controlled_files;
 mod native_window;
 mod runtime_supervisor;
 mod workspace_roots;
 
 use std::sync::Arc;
 
+use controlled_files::{
+    commands::{
+        describe_account_controlled_file, pick_account_controlled_file,
+        revoke_account_controlled_file,
+    },
+    ControlledFileRegistry,
+};
 use runtime_supervisor::{
     commands::{
         export_runtime_supervisor_diagnostics, get_runtime_connection,
@@ -55,7 +63,10 @@ fn main() {
             pick_account_workspace_root,
             describe_account_workspace_root,
             reauthorize_account_workspace_root,
-            revoke_account_workspace_root
+            revoke_account_workspace_root,
+            pick_account_controlled_file,
+            describe_account_controlled_file,
+            revoke_account_controlled_file
         ])
         .setup(|app| {
             #[cfg(windows)]
@@ -64,6 +75,8 @@ fn main() {
             }
             let workspace_roots = WorkspaceRootRegistry::initialize(app.handle())?;
             app.manage(workspace_roots);
+            let controlled_files = ControlledFileRegistry::initialize(app.handle())?;
+            app.manage(controlled_files);
             let supervisor = Arc::new(RuntimeSupervisor::from_app(app.handle()));
             supervisor.record_startup_event("info", "desktop.setup_ready", None);
             app.manage(supervisor.clone());

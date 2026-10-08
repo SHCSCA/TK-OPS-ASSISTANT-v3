@@ -19,6 +19,9 @@ from repositories.account_workspace_v1_repository import (
     AccountWorkspaceV1Repository,
 )
 from repositories.knowledge_v1_repository import KnowledgeV1Repository
+from repositories.knowledge_asset_v1_repository import (
+    KnowledgeAssetV1Repository,
+)
 from repositories.mutation_idempotency_repository import (
     MutationIdempotencyRepository,
 )
@@ -40,6 +43,7 @@ class AccountTransaction:
     connections: AccountConnectionV1Repository
     configuration: AccountConfigurationV1Repository
     knowledge: KnowledgeV1Repository
+    knowledge_assets: KnowledgeAssetV1Repository
     idempotency: MutationIdempotencyRepository
     events: RuntimeEventService
 
@@ -69,6 +73,7 @@ class AccountUnitOfWork:
         connection_repository: AccountConnectionV1Repository | None = None,
         configuration_repository: AccountConfigurationV1Repository | None = None,
         knowledge_repository: KnowledgeV1Repository | None = None,
+        knowledge_asset_repository: KnowledgeAssetV1Repository | None = None,
         idempotency_repository: MutationIdempotencyRepository | None = None,
     ) -> None:
         self._session_factory = session_factory
@@ -81,6 +86,9 @@ class AccountUnitOfWork:
             configuration_repository or AccountConfigurationV1Repository()
         )
         self._knowledge = knowledge_repository or KnowledgeV1Repository()
+        self._knowledge_assets = (
+            knowledge_asset_repository or KnowledgeAssetV1Repository()
+        )
         self._idempotency = (
             idempotency_repository or MutationIdempotencyRepository()
         )
@@ -161,6 +169,7 @@ class AccountUnitOfWork:
             connections=self._connections,
             configuration=self._configuration,
             knowledge=self._knowledge,
+            knowledge_assets=self._knowledge_assets,
             idempotency=self._idempotency,
             events=self._events,
         )

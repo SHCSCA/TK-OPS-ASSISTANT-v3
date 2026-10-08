@@ -1,10 +1,20 @@
 import { RuntimeError } from "@/app/runtime-client/core";
+import { ControlledFileBridgeError } from "@/app/controlled-files/types";
 import type { KnowledgeUiError } from "./account-knowledge-types";
 
 export function toKnowledgeUiError(
   error: unknown,
   fallback: string
 ): KnowledgeUiError {
+  if (error instanceof ControlledFileBridgeError) {
+    return {
+      message: error.message || fallback,
+      errorCode: error.errorCode,
+      logId: error.logId,
+      requestId: null,
+      retryable: true
+    };
+  }
   if (error instanceof RuntimeError) {
     return {
       message: error.message || fallback,

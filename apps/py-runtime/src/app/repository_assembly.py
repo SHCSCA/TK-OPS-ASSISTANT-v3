@@ -16,6 +16,7 @@ from repositories.account_workspace_v1_repository import (
 )
 from repositories.ai_capability_repository import AICapabilityRepository
 from repositories.ai_configuration_v1 import AIConfigurationV1Repository
+from repositories.ai_execution_v1 import AIExecutionV1Repository
 from repositories.ai_job_repository import AIJobRepository
 from repositories.asset_repository import AssetRepository
 from repositories.automation_repository import AutomationRepository
@@ -23,6 +24,9 @@ from repositories.dashboard_repository import DashboardRepository
 from repositories.device_workspace_repository import DeviceWorkspaceRepository
 from repositories.imported_video_repository import ImportedVideoRepository
 from repositories.knowledge_v1_repository import KnowledgeV1Repository
+from repositories.knowledge_asset_v1_repository import (
+    KnowledgeAssetV1Repository,
+)
 from repositories.license_repository import LicenseRepository
 from repositories.mutation_idempotency_repository import (
     MutationIdempotencyRepository,
@@ -55,6 +59,7 @@ class RuntimeRepositories:
     dashboard: DashboardRepository
     ai_capability: AICapabilityRepository
     ai_configuration_v1: AIConfigurationV1Repository
+    ai_execution_v1: AIExecutionV1Repository
     ai_job: AIJobRepository
     script: ScriptRepository
     storyboard: StoryboardRepository
@@ -64,6 +69,7 @@ class RuntimeRepositories:
     account_connection_v1: AccountConnectionV1Repository
     account_configuration_v1: AccountConfigurationV1Repository
     knowledge_v1: KnowledgeV1Repository
+    knowledge_asset_v1: KnowledgeAssetV1Repository
     mutation_idempotency: MutationIdempotencyRepository
     device_workspace: DeviceWorkspaceRepository
     automation: AutomationRepository
@@ -98,6 +104,7 @@ def build_runtime_repositories(
             session_factory=session_factory
         ),
         ai_configuration_v1=AIConfigurationV1Repository(),
+        ai_execution_v1=AIExecutionV1Repository(),
         ai_job=AIJobRepository(session_factory=session_factory),
         script=ScriptRepository(session_factory=session_factory),
         storyboard=StoryboardRepository(session_factory=session_factory),
@@ -107,6 +114,7 @@ def build_runtime_repositories(
         account_connection_v1=AccountConnectionV1Repository(),
         account_configuration_v1=AccountConfigurationV1Repository(),
         knowledge_v1=KnowledgeV1Repository(),
+        knowledge_asset_v1=KnowledgeAssetV1Repository(),
         mutation_idempotency=MutationIdempotencyRepository(),
         device_workspace=DeviceWorkspaceRepository(
             session_factory=session_factory

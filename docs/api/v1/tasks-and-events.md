@@ -554,8 +554,16 @@ Runtime 先发送订阅确认：
 | `account:{account_id}:connection` | 健康探测产生的 `account.connection.updated` | 连接状态证据、账号修订与事件同事务 |
 | `account:{account_id}:knowledge` | `knowledge.rules.updated`、`knowledge.source.created`、`knowledge.source.removed`、`knowledge.index.updated`、`knowledge.snapshot.created` | 知识记录、账号聚合修订与事件同事务 |
 | `account:{account_id}:ai-recipe` | `ai.recipe.updated` | Recipe 版本、账号修订与事件同事务；系统 AI 修订漂移会使就绪态失效 |
+| `account:{account_id}:ai-executions` | `ai.execution.queued`、`started`、`job_started`、`job_failed`、`fallback_started`、`cancelling`、`completed`、`failed` | AIExecution / AIJob / usage / output / error 与 outbox 在受控事务边界提交；事件只含 ID、状态、revision、progress、错误码与 hash |
 
 `system:health` 仍是已授权但尚无 canonical 生产者的系统 Topic；`system:ai` 已由 P0-E AI 配置链接管。
+
+### P0-H `ai.execution` 任务
+
+- scope 固定为 `account`，handler version 为 1，resume policy 为 `interrupt`，支持取消。
+- 任务快照只允许 `executionId` 与 `snapshotHash`；输入、Prompt、Credential、Provider 请求、知识正文和路径禁止进入快照。
+- Runtime 重启不自动重放外部调用：无活动 Job 的执行进入 `restart_interrupted`；已有活动 Job 的执行进入 `result_unknown`，并标记费用不可确认。
+- 任务、执行、取消、同快照重试与错误映射的完整契约见 [ai-executions.md](ai-executions.md)。
 
 ### 敏感边界
 

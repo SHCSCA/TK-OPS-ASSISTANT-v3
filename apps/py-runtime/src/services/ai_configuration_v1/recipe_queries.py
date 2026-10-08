@@ -14,6 +14,7 @@ from services.accounts.types import (
 )
 
 from .dto import recipe_summary_to_dto, recipe_version_to_dto
+from .dependency_snapshots import dependency_snapshot_to_dto
 from .recipe_validation import validate_recipe
 from .unit_of_work import AIConfigurationTransaction
 
@@ -72,7 +73,17 @@ def load_recipe_validation_replay(
     )
     if row is None:
         raise _bad_recipe_replay()
-    return validate_recipe(transaction, row)
+    if row.dependency_snapshot_id is None:
+        raise _bad_recipe_replay()
+    snapshot = transaction.ai.dependency_snapshots.get(
+        transaction.session,
+        row.dependency_snapshot_id,
+    )
+    if snapshot is None:
+        raise _bad_recipe_replay()
+    validation = validate_recipe(transaction, row)
+    validation["dependencySnapshot"] = dependency_snapshot_to_dto(snapshot)
+    return validation
 
 
 def load_recipe_summary_replay(

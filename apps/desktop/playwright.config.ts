@@ -13,6 +13,7 @@ export default defineConfig({
     timeout: 15_000
   },
   globalSetup: "./tests/e2e/support/global-setup.ts",
+  globalTeardown: "./tests/e2e/support/global-teardown.ts",
   outputDir: "./test-results/e2e",
   reporter: [["list"], ["html", {
     open: "never",

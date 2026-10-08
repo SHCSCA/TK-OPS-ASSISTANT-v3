@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field
 
+from schemas.v1.ai_dependencies import DependencySnapshotDto
 from schemas.v1.ai_common import (
     AIConfigurationDto,
     AIConfigurationInput,
@@ -43,6 +44,7 @@ class AIRecipeVersionSummaryDto(AIConfigurationDto):
 class AIRecipeDto(AIConfigurationDto):
     accountId: StableId
     activeVersion: PositiveRevision | None
+    activeVersionId: StableId | None
     versions: list[AIRecipeVersionSummaryDto]
     resolvedSummary: JsonObject | None
     revision: PositiveRevision
@@ -91,6 +93,7 @@ class AIRecipeValidationDto(AIConfigurationDto):
     validationIssues: list[AIRecipeValidationIssueDto]
     resolvedRouteSummary: dict[str, ResolvedRecipeRouteDto]
     sourceAiConfigRevision: NonNegativeRevision
+    dependencySnapshot: DependencySnapshotDto
 
 
 __all__ = [

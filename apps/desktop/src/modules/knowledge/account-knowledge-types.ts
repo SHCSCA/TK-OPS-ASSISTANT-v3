@@ -69,6 +69,10 @@ export type KnowledgeSourceDraft = {
   title: string;
   text: string;
   url: string;
+  controlledFileRef: string;
+  controlledFileName: string;
+  controlledFileKind: Exclude<KnowledgeKind, "reference">;
+  controlledFileSize: number | null;
 };
 
 export type AccountKnowledgeCache = {
@@ -118,7 +122,11 @@ export function emptyKnowledgeSourceDraft(): KnowledgeSourceDraft {
     mode: "text",
     title: "",
     text: "",
-    url: ""
+    url: "",
+    controlledFileRef: "",
+    controlledFileName: "",
+    controlledFileKind: "document",
+    controlledFileSize: null
   };
 }
 

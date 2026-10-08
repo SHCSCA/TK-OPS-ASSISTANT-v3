@@ -9,6 +9,11 @@ from errors import DomainError, ErrorCode
 from services.accounts.guards import require_account
 
 from .dto import recipe_summary_to_dto, recipe_version_to_dto
+from .dependency_snapshots import (
+    dependency_snapshot_to_dto,
+    persist_dependency_snapshot,
+    require_unchanged_dependency_snapshot,
+)
 from .events import append_account_ai_event
 from .json_codec import dump_json
 from .mutation import AIResourceMutation
@@ -16,6 +21,7 @@ from .recipe_queries import (
     account_revision_conflict,
     require_recipe_version,
 )
+from .recipe_dependencies import resolve_recipe_dependencies
 from .recipe_validation import recipe_payload_hash, validate_recipe
 from .unit_of_work import AIConfigurationTransaction
 
@@ -82,6 +88,7 @@ def create_recipe_version(
             ),
             cost_policy_json=dump_json(payload["costPolicy"]),
             fallback_policy_json=dump_json(payload["fallbackPolicy"]),
+            dependency_snapshot_id=None,
             source_ai_config_revision=ai_revision,
             validation_status="incomplete",
             validation_issues_json="[]",
@@ -143,6 +150,19 @@ def validate_recipe_version(
     )
     row = require_recipe_version(transaction, account_id, version)
     validation = validate_recipe(transaction, row)
+    resolution = resolve_recipe_dependencies(
+        transaction,
+        row,
+        validation=validation,
+    )
+    snapshot = persist_dependency_snapshot(
+        transaction,
+        owner_type="recipe",
+        owner_id=row.id,
+        owner_revision=int(row.version),
+        resolution=resolution,
+    )
+    validation["dependencySnapshot"] = dependency_snapshot_to_dto(snapshot)
     updated = transaction.ai.recipes.update_validation(
         transaction.session,
         account_id,
@@ -153,6 +173,7 @@ def validate_recipe_version(
             else "invalid"
         ),
         validation_issues_json=dump_json(validation["validationIssues"]),
+        dependency_snapshot_id=snapshot.id,
         expected_revision=int(row.revision),
     )
     if updated is None:
@@ -215,6 +236,12 @@ def activate_recipe_version(
     if int(account.revision) != expected_revision:
         raise account_revision_conflict(int(account.revision))
     target = require_recipe_version(transaction, account_id, version)
+    current_resolution = resolve_recipe_dependencies(transaction, target)
+    require_unchanged_dependency_snapshot(
+        transaction,
+        snapshot_id=target.dependency_snapshot_id,
+        current=current_resolution,
+    )
     current_ai_revision = transaction.ai.revisions.get(
         transaction.session
     )

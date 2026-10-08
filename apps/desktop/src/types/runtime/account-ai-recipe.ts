@@ -12,6 +12,7 @@ export type AccountAIRecipeVersionSummaryDto = {
 export type AccountAIRecipeDto = {
   accountId: string;
   activeVersion: number | null;
+  activeVersionId: string | null;
   versions: AccountAIRecipeVersionSummaryDto[];
   resolvedSummary: Record<string, unknown> | null;
   revision: number;

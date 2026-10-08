@@ -1,10 +1,11 @@
 # TK-OPS 项目状态总览
 
-> 更新日期：2026-08-09
-> 当前阶段：P0-H 规格已批准，实施待开始；P0-G 0.4.11 仍为自动化测试候选
+> 更新日期：2026-08-11
+> 当前阶段：P0-H H1-H4 已实现并通过自动化验收，H5 目标机器真实 Provider 证据待完成；源码版本仍为 0.4.11
 
 > 2026-08-02 复核结论：以下 P0-A 至 P0-F 记录保留为当时阶段证据，不再证明当前工作树或当前制品可交付。当前真实首启 E2E 与门禁外 Tauri 权限测试曾失败，且账号执行环境、监督登录、AI 真执行和八个 pending 页面尚未形成完整生产闭环。当前状态以 P0-G 阶段证据和 release manifest 为准。
 > 2026-08-09 更新：0.4.11 补齐环境失败恢复与登录准备取消 E2E，并改为从 portable ZIP 全新解压目录执行 GUI 冷启动门禁；P0-H 实现级规格已批准、实施待开始，真实 TikTok 目标机器证据与 P0-I 创作生产链仍未完成。
+> 2026-08-11 更新：P0-H 已完成 0023、AI 配置依赖版本、受控知识文件、统一 AI Execution Gateway、Desktop 真实执行工作面及 H5 证据工具；Runtime 977/1、Desktop 162、Rust 24、P0-H E2E 与发布证据门禁通过。H5 真实外部 Provider、TikTok 目标机证据、干净 Production 构建和 P0-I 仍未完成。
 > 本文记录当前实现与目标架构的差异，不替代产品、UI、架构或工程真源。
 
 ## 1. 文档真源
@@ -19,7 +20,7 @@
 | P0 数据、接口、状态和验收契约 | `docs/superpowers/specs/2026-07-19-prototype-to-production-p0-account-foundation-design.md` |
 | 当前生产闭环路线 | `docs/superpowers/plans/2026-08-08-production-ai-creation-real-validation.md` |
 | P0-G Production 加固规格 | `docs/superpowers/specs/2026-08-08-p0-g-production-hardening-design.md` |
-| P0-H 真实 AI 执行规格 | `docs/superpowers/specs/2026-08-09-p0-h-real-ai-execution-design.md`，已批准、实施待开始 |
+| P0-H 真实 AI 执行规格 | `docs/superpowers/specs/2026-08-09-p0-h-real-ai-execution-design.md`，已批准；H1-H4 已实现，H5 目标机证据待完成 |
 | legacy 接口索引 | `docs/RUNTIME-API-CALLS.md` |
 | 目标 `/api/v1` 接口文档 | `docs/api/v1/`，由 P0-B 开始逐资源建立 |
 
@@ -105,7 +106,7 @@ Account
   - `provider.health_check`、`provider.model_discovery` 与 `model.capability_check` 三类持久任务覆盖超时、取消、失败、日志和最终补拉。
   - Provider 就绪、模型能力契约、Prompt / Template 不可变版本与系统 AI 修订共同约束 Capability Route 和账号 Recipe 的验证与激活。
   - Desktop AI 与系统设置、Provider 五步向导、模型与路由、Prompt / 合成模板版本及账号 AI Recipe 已接入真实 Runtime，覆盖首次使用、依赖阻断、长任务、错误、重试和未保存状态。
-  - AI v1 新增 35 个 HTTP；当前总库存为 81 个 HTTP + 1 个 WebSocket。
+  - P0-E 原始 AI 配置链已扩展为 40 个 HTTP；P0-H 另新增 8 个账号 AI 执行 HTTP，当前 v1 总库存为 110 个 HTTP + 1 个 WebSocket。
 - P0-F 路由切换与 Windows 桌面交付已经通过最终验收：
   - 正式 Route Manifest 固定十三个页面容器与十个账号级入口；旧 Project / Timeline 和独立流程 URL 只做单次重定向，旧业务页面不可达。
   - Runtime sidecar、Tauri Supervisor、单实例、动态 loopback 端口、内存会话、生产数据目录、90 秒冷启动、有限重启、优雅退出与进程树清理已落地。
@@ -117,13 +118,19 @@ Account
   - 机器身份、许可证、Sidecar ABI、原生窗口、单实例、优雅退出、安装包与发布证据链已加固。
   - Runtime、Desktop、Rust、账号兼容 E2E、安装包与许可证实包 smoke 继续进入全量门禁；首启证据扩为 5 项，GUI 冷启动门禁扩为 9 项。
   - release manifest v2 为 `channel=test`、`dirty=true`，包含 10 份证据与 4 个当前制品；未提升 production 指针。
+- P0-H H1-H4 真实 AI 执行链已完成自动化验收：
+  - Alembic `0023_p0h_real_ai_execution`、不可变依赖快照、Provider 真实小调用验证、Route / Template / Recipe 生命周期和账号隔离约束已落地。
+  - Tauri `rootRef` 受控文件注册、Runtime 账号 Asset、知识 v2 文本块、索引与快照链已实现，不接受页面直传任意绝对路径。
+  - 统一 AI Execution Gateway 已覆盖预检、创建、状态、取消、同快照重试、输出正文、证据、用量、费用、超时、fallback、重启恢复和脱敏日志。
+  - Desktop 已接入账号级真实调用验证工作面；自动化受控 Provider 只验证协议与状态机，不冒充外部真实 Provider。
+  - H5 最终证据生成、严格 allowlist、四制品 SHA-256 绑定、两阶段附加与 Production 发布门禁工具已实现并通过 10 项测试。
 
 ### 3.2 尚未完成
 
-- 本地 file 知识来源的 Tauri 受控选择、复制、校验与索引桥尚未实现；当前继续失败封闭并保留重试，属于 P1。
 - ContentItem、单条生产、完整批量生产、拆解回流、内容库和分级媒体工具属于 P1。
 - 真实发布、回执、恢复与复盘证据回流属于 P2。
-- P0-H 详细规格已覆盖 H1-H5、模型/API/状态/文件地图/验收/rollback，并已批准；生产代码实施待开始。P0-I 创作生产链仍未实施，八个业务页面不得以 pending 壳冒充完成。
+- P0-H H5 尚缺目标机器真实 OpenAI-compatible Provider 调用和绑定当前 `0.5.0` 候选四制品的最终脱敏证据；在此之前源码保持 `0.4.11`，不得提升 Production。
+- P0-I 创作生产链仍未实施，八个业务页面不得以 pending 壳冒充完成。
 
 ## 4. 阶段状态
 
@@ -136,7 +143,7 @@ Account
 | P0-E AI 配置纵向链 | 阶段验收通过 | 0020、35 个 HTTP、系统 AI 对象、安全凭据、三类任务、版本、路由、账号 Recipe 与 Desktop 工作面均已完成 | 已退出 |
 | P0-F 路由切换与桌面交付 | 历史阶段已退出 | 旧证据保留；当前可交付性改由 P0-G 0.4.11 manifest 证明 | 已退出 |
 | P0-G 账号执行与 Production 加固 | 测试候选通过 | 真实账号/工作区/执行环境、监督登录、恢复、GUI、安装包与许可证实包证据已通过 | 目标机器 TikTok 证据与干净提交后提升 Production |
-| P0-H AI 真执行 | 规格已批准，实施待开始 | H1-H5 实现级规格、精确文件地图、两层证据与 rollback 已形成 | 按 H1 → H5 实施；真实 Provider 调用、受控知识文件、任务/日志/成本与失败恢复通过 |
+| P0-H AI 真执行 | H1-H4 自动化验收通过，H5 待目标机证据 | 0023、依赖版本、受控文件、Execution Gateway、Desktop 工作面、恢复与 H5 工具已完成 | 真实外部 Provider 调用、reported usage、成本与四制品证据绑定通过后退出 |
 | P0-I 创作与批量生产 | 未开始 | 产品与交互规格已确认 | 单条创作、拆解、批量、内容库和分级媒体工具逐阶段通过 |
 | P2 发布与复盘 | 未开始 | 旧实现仅作为迁移参考 | 真实绑定、预检、回执、恢复和证据回流通过 |
 
@@ -210,14 +217,14 @@ P0-F 最终验收记录（2026-08-01）：
 | 新 AI 配置表为禁用或未验证回填 | P0-E 始终按 unknown / incomplete 读取，并强制健康、能力与版本验证；未伪装为 ready | 已退出 |
 | 旧 Project/Timeline 和独立页面仍在代码中 | 正式路由已解除，只允许作为迁移源；物理删除须另立计划 | 正式路径已退出 |
 | 生产写门与回退 Runtime 制品 | P0-G 0.4.11 test manifest 继续受目标机器证据与干净提交门禁约束 | Production 提升 |
-| 本地 file 知识来源桥 | 当前失败封闭，不读取任意本地路径；rootRef 授权、账号 Asset 与索引链已写入 P0-H 规格 | P0-H |
+| 本地 file 知识来源桥 | Tauri `rootRef` 注册、Runtime 账号 Asset、知识文本块、索引与快照链已通过 P0-H 自动化验收 | 已退出 |
 
 ## 7. 当前下一步
 
-1. 在目标测试机器上使用当前 0.4.11 制品完成一次真实 TikTok 可见浏览器监督登录，生成绑定 Desktop、Runtime 与安装包哈希的证据。
-2. 整理当前脏工作树为干净提交后重新构建 production 通道；在两项门禁满足前不提升 `current.json`。
-3. 审批 P0-H 详细规格；批准前不修改生产实现，批准后严格按 H1→H5 接通 AI 配置、受控知识文件与真实 AI Execution Gateway，并以真实 Provider 调用验收。
-4. P0-H 通过后进入 P0-I，按账号内容主链逐步开放八个 pending 页面，不一次性伪开放。
+1. 在目标机器人工配置真实 OpenAI-compatible Provider，生成 `0.5.0` 测试候选四制品，完成一次 `script_generation` 成功调用并附加严格脱敏 H5 证据；任何 API Key 均不得写入命令、日志或 evidence。
+2. 在目标测试机器上完成一次真实 TikTok 可见浏览器监督登录，生成绑定同一批 Desktop、Runtime、portable 与安装包哈希的证据。
+3. 整理当前脏工作树为干净提交后重新构建 Production 通道；全部证据满足前不提升 `current.json`。
+4. P0-H H5 通过后进入 P0-I，按账号内容主链逐步开放八个 pending 页面，不一次性伪开放。
 
 ## 8. 交付纪律
 

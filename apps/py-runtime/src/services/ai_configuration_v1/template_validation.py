@@ -7,6 +7,9 @@ from uuid import uuid4
 
 from domain.models.ai_configuration_v1 import CompositionTemplateProfile
 from errors import DomainError, ErrorCode
+from services.ai_execution_v1.dependency_graph import (
+    active_route_dependency_issue,
+)
 
 from .json_codec import content_hash, dump_json, load_object
 from .unit_of_work import AIConfigurationTransaction
@@ -170,6 +173,7 @@ def _build_template_row(
             if payload.get("previewAssetRef") is not None
             else None
         ),
+        dependency_snapshot_id=None,
         content_hash=_template_payload_hash(payload),
         revision=revision,
         created_from_id=created_from_id,
@@ -212,15 +216,11 @@ def _template_validation(
     issues: list[dict[str, object]] = []
     verified: list[str] = []
     for key in required:
-        route = transaction.ai.routes.get(transaction.session, key)
-        if (
-            route is None
-            or not route.enabled
-            or route.validation_status != "valid"
-        ):
+        issue_code = active_route_dependency_issue(transaction, key)
+        if issue_code is not None:
             issues.append(
                 {
-                    "code": "CAPABILITY_ROUTE_UNAVAILABLE",
+                    "code": issue_code,
                     "field": "compatibleCapabilities.required",
                     "message": f"能力 {key} 尚无可用系统路由",
                 }

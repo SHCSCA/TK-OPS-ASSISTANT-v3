@@ -16,6 +16,7 @@ export const productionTestIds = [
   "windows-gui-smoke",
   "windows-installer-smoke",
   "packaged-license-activation",
+  "p0-h-real-provider-execution",
   "target-tiktok-supervised-login"
 ];
 
@@ -23,5 +24,11 @@ export const artifactBoundEvidence = {
   "windows-gui-smoke": ["desktop", "portable"],
   "windows-installer-smoke": ["installer"],
   "packaged-license-activation": ["desktop", "sidecar"],
+  "p0-h-real-provider-execution": [
+    "desktop",
+    "sidecar",
+    "installer",
+    "portable"
+  ],
   "target-tiktok-supervised-login": ["desktop", "sidecar", "installer"]
 };

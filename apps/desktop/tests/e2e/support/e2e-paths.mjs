@@ -12,6 +12,7 @@ export const statePath = path.join(
   "e2e",
   ".runtime-state.json"
 );
+export const shutdownRequestName = "shutdown.request";
 export const runtimeBaseUrl = "http://127.0.0.1:18120";
 export const frontendBaseUrl = "http://127.0.0.1:14173";
 export const providerBaseUrl = "http://127.0.0.1:18121";

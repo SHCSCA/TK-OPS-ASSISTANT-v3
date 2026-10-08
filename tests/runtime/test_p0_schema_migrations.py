@@ -19,7 +19,7 @@ REVISION_0017 = "0017_p0_enforce_and_cutover"
 REVISION_0018 = "0018_p0_runtime_kernel"
 REVISION_0020 = "0020_p0e_ai_vertical_chain"
 REVISION_0021 = "0021_p0g_execution_environment_closure"
-REVISION_0022 = "0022_p0g_production_hardening"
+REVISION_0023 = "0023_p0h_real_ai_execution"
 
 
 def test_empty_database_upgrades_downgrades_and_reupgrades(tmp_path: Path) -> None:
@@ -28,7 +28,7 @@ def test_empty_database_upgrades_downgrades_and_reupgrades(tmp_path: Path) -> No
 
     command.upgrade(config, "head")
 
-    assert _version(database_path) == REVISION_0022
+    assert _version(database_path) == REVISION_0023
     assert {
         "asset_groups",
         "device_workspace_logs",
@@ -74,7 +74,7 @@ def test_empty_database_upgrades_downgrades_and_reupgrades(tmp_path: Path) -> No
     assert _version(database_path) == REVISION_0014
     assert "runtime_events" not in _tables(database_path)
     command.upgrade(config, "head")
-    assert _version(database_path) == REVISION_0022
+    assert _version(database_path) == REVISION_0023
 
 
 def test_standard_0014_reconciles_orm_only_tables_and_columns(tmp_path: Path) -> None:
@@ -93,7 +93,7 @@ def test_standard_0014_reconciles_orm_only_tables_and_columns(tmp_path: Path) ->
 
     command.upgrade(config, "head")
 
-    assert _version(database_path) == REVISION_0022
+    assert _version(database_path) == REVISION_0023
     assert {
         "asset_groups",
         "device_workspace_logs",
@@ -135,7 +135,7 @@ def test_recognized_fresh_runtime_cohort_explicitly_stamps_and_round_trips(
     command.stamp(config, REVISION_0014)
     command.upgrade(config, "head")
 
-    assert _version(database_path) == REVISION_0022
+    assert _version(database_path) == REVISION_0023
     assert _foreign_key_target(database_path, "assets", "group_id") == "asset_groups"
     assert (
         _foreign_key_target(database_path, "execution_bindings", "browser_instance_id")
@@ -148,7 +148,7 @@ def test_recognized_fresh_runtime_cohort_explicitly_stamps_and_round_trips(
     assert "group_id" not in _columns(database_path, "assets")
     assert _foreign_key_target(database_path, "assets", "group_id") is None
     command.upgrade(config, "head")
-    assert _version(database_path) == REVISION_0022
+    assert _version(database_path) == REVISION_0023
 
 
 def test_revision_boundaries_and_conservative_backfill(tmp_path: Path) -> None:
@@ -316,7 +316,7 @@ def test_0017_rejects_duplicate_active_versions(tmp_path: Path) -> None:
 def test_data_bearing_p0_schema_refuses_lossy_downgrade(tmp_path: Path) -> None:
     database_path = tmp_path / "downgrade-refusal.db"
     config = _config(database_path)
-    command.upgrade(config, "head")
+    command.upgrade(config, REVISION_0020)
     with sqlite3.connect(database_path) as connection:
         connection.execute(
             """

@@ -22,7 +22,14 @@ def register_knowledge_index_handler(
         TaskHandlerDefinition(
             task_type=KNOWLEDGE_INDEX_TASK_TYPE,
             handler=build_knowledge_index_handler(executor),
-            allowed_snapshot_fields=frozenset({"sourceIds", "policy"}),
+            allowed_snapshot_fields=frozenset(
+                {
+                    "sourceIds",
+                    "sourceManifests",
+                    "policy",
+                    "extractorVersion",
+                }
+            ),
             resume_policy=TaskResumePolicy.RESUME,
             cancellable=True,
             handler_version=1,
